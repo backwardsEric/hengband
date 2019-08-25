@@ -30,6 +30,11 @@
 # must be greater than 0, if double high tiles are used, and refer to the
 # bottom half of the double row.
 
+# For Hengband, only the files with the tiles are stored in the directories
+# configured here and those directories are relative to ANGBAND_DIR_XTRA +
+# PATH_SEP + "graf".  The preference files are in ANGBAND_DIR_PREF since the
+# main-* source files other than main-cocoa.m haven't been modified to use
+# this configuration file.
 
 name:1:Original Tiles
 directory:old
