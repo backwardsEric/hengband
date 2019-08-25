@@ -15,6 +15,7 @@
  *    and not for profit purposes provided that this copyright and statement
  *    are included in all such copies.  Other copyrights may also apply.
  */
+/* Imported from Angband 4.2 to support main-cocoa.m in Hengband. */
 #ifndef INCLUDED_GRAFMODE_H
 #define INCLUDED_GRAFMODE_H
 
