@@ -56,6 +56,11 @@ typedef struct _graphics_mode {
 	char pref[32];
 	char file[32];
 	char menuname[32];
+        /*
+	 * This is a hack for Hengband:  ANGBAND_GRAF set to this rather
+	 * then the pref field above.
+	 */
+        char graf[32];
 } graphics_mode;
 
 extern graphics_mode *graphics_modes;
