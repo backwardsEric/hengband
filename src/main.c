@@ -17,7 +17,7 @@
  */
 
 
-#if !defined(MACINTOSH) && !defined(WINDOWS) && !defined(ACORN)
+#if !defined(MACINTOSH) && !defined(WINDOWS) && !defined(ACORN) && !defined(MACH_O_CARBON) && !defined(MACH_O_COCOA)
 
 
 /*
