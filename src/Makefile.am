@@ -95,6 +95,9 @@ EXTRA_hengband_SOURCES = \
 	makefile.bcc makefile.std makefile.dos makefile.ibm \
 	readdib.c wall.bmp
 
+EXTRA_DIST = \
+	gcc-wrap
+
 COMPILE = ./gcc-wrap $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
