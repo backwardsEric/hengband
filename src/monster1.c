@@ -1549,7 +1549,7 @@ static void roff_aux(MONRACE_IDX r_idx, BIT_FLAGS mode)
 			hook_c_roff(TERM_YELLOW, format("%s", r_name+r_info[r_ptr->next_r_idx].name));
 			hooked_roff(format(
 				_(("に進化する。"), 
-				  (" when %s gets enugh experience.  ", wd_he[msex]))));
+				  (" when %s gets enough experience.  ", wd_he[msex]))));
 		}
 		else if (!(r_ptr->flags1 & RF1_UNIQUE))
 		{
