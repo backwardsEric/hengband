@@ -23,8 +23,10 @@
 
 /**
  * Default graphic modes
+ *
+ * For Hengband, this preprocessor macro is in defines.h.
  */
-#define GRAPHICS_NONE           0
+/* #define GRAPHICS_NONE           0 */
 
 
 /**
