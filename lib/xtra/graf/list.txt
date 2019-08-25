@@ -43,20 +43,24 @@ size:16:16:16x16.png
 pref:graf-new.prf
 extra:0:0:0
 
-name:3:David Gervais' tiles
-directory:gervais
-size:32:32:32x32.png
-pref:graf-dvg.prf
-extra:0:0:0
+# These have no graf-*.prf files for Hengband.  There is a lib/graf-ne2.prf
+# for a 32 x 32 tile set.  It expects ANGBAND_GRAF to be set to ne2.
 
-name:4:Nomad's tiles
-directory:nomad
-size:16:16:8x16.png
-pref:graf-nmd.prf
-extra:0:0:0
+#name:3:David Gervais' tiles
+#directory:gervais
+#size:32:32:32x32.png
+#pref:graf-dvg.prf
+#extra:0:0:0
 
-name:5:Shockbolt's tiles
-directory:shockbolt
-size:64:64:64x64.png
-pref:graf-shb.prf
-extra:1:29:31
+#name:4:Nomad's tiles
+#directory:nomad
+#size:16:16:8x16.png
+#pref:graf-nmd.prf
+#extra:0:0:0
+
+#name:5:Shockbolt's tiles
+#directory:shockbolt
+#size:64:64:64x64.png
+#pref:graf-shb.prf
+#extra:1:29:31
+
