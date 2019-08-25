@@ -55,7 +55,7 @@ void do_cmd_inven(void)
 #else
 	sprintf(out_val, "Inventory: carrying %d.%d pounds (%ld%% of capacity). Command: ",
 		(int)(p_ptr->total_weight / 10), (int)(p_ptr->total_weight % 10),
-		(p_ptr->total_weight * 100) / weight_limit());
+		(long int)((p_ptr->total_weight * 100) / weight_limit()));
 #endif
 
 	prt(out_val, 0, 0);
