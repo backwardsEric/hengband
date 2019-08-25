@@ -44,9 +44,6 @@ static void quit_hook(concptr s)
 }
 
 
-/*
- * Set the stack size and overlay buffer (see main-286.c")
- */
 #ifdef PRIVATE_USER_PATH
 
 /*
