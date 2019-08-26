@@ -40,6 +40,8 @@ static NSString * const AngbandTerminalsDefaultsKey = @"Terminals";
 static NSString * const AngbandTerminalRowsDefaultsKey = @"Rows";
 static NSString * const AngbandTerminalColumnsDefaultsKey = @"Columns";
 static NSString * const AngbandTerminalVisibleDefaultsKey = @"Visible";
+static NSString * const AngbandGraphicsDefaultsKey = @"GraphicsID";
+static NSString * const AngbandFrameRateDefaultsKey = @"FramesPerSecond";
 static NSString * const AngbandSoundDefaultsKey = @"AllowSound";
 static NSInteger const AngbandWindowMenuItemTagBase = 1000;
 static NSInteger const AngbandCommandMenuItemTagBase = 2000;
@@ -2426,9 +2428,9 @@ static void load_prefs()
     NSDictionary *defaults = [[NSDictionary alloc] initWithObjectsAndKeys:
                               @"Menlo", @"FontName",
                               [NSNumber numberWithFloat:13.f], @"FontSize",
-                              [NSNumber numberWithInt:60], @"FramesPerSecond",
+                              [NSNumber numberWithInt:60], AngbandFrameRateDefaultsKey,
                               [NSNumber numberWithBool:YES], AngbandSoundDefaultsKey,
-                              [NSNumber numberWithInt:GRAPHICS_NONE], @"GraphicsID",
+                              [NSNumber numberWithInt:GRAPHICS_NONE], AngbandGraphicsDefaultsKey,
                               defaultTerms, AngbandTerminalsDefaultsKey,
                               nil];
     [defs registerDefaults:defaults];
@@ -2436,13 +2438,13 @@ static void load_prefs()
     [defaultTerms release];
     
     /* Preferred graphics mode */
-    graf_mode_req = [defs integerForKey:@"GraphicsID"];
+    graf_mode_req = [defs integerForKey:AngbandGraphicsDefaultsKey];
     
     /* Use sounds; set the Angband global */
     use_sound = ([defs boolForKey:AngbandSoundDefaultsKey] == YES) ? TRUE : FALSE;
     
     /* fps */
-    frames_per_second = [defs integerForKey:@"FramesPerSecond"];
+    frames_per_second = [defs integerForKey:AngbandFrameRateDefaultsKey];
     
     /* Font */
     default_font = [[NSFont fontWithName:[defs valueForKey:@"FontName-0"] size:[defs floatForKey:@"FontSize-0"]] retain];
@@ -3234,13 +3236,13 @@ static void hook_quit(const char * str)
     }
     else if (sel == @selector(setRefreshRate:) && [superitem(menuItem) tag] == 150)
     {
-        NSInteger fps = [[NSUserDefaults standardUserDefaults] integerForKey: @"FramesPerSecond"];
+        NSInteger fps = [[NSUserDefaults standardUserDefaults] integerForKey:AngbandFrameRateDefaultsKey];
         [menuItem setState: ([menuItem tag] == fps)];
         return YES;
     }
     else if( sel == @selector(setGraphicsMode:) )
     {
-        NSInteger requestedGraphicsMode = [[NSUserDefaults standardUserDefaults] integerForKey: @"GraphicsID"];
+        NSInteger requestedGraphicsMode = [[NSUserDefaults standardUserDefaults] integerForKey:AngbandGraphicsDefaultsKey];
         [menuItem setState: (tag == requestedGraphicsMode)];
         return YES;
     }
@@ -3264,7 +3266,7 @@ static void hook_quit(const char * str)
 - (IBAction)setRefreshRate:(NSMenuItem *)menuItem
 {
     frames_per_second = [menuItem tag];
-    [[NSUserDefaults angbandDefaults] setInteger:frames_per_second forKey:@"FramesPerSecond"];
+    [[NSUserDefaults angbandDefaults] setInteger:frames_per_second forKey:AngbandFrameRateDefaultsKey];
 }
 
 - (IBAction)selectWindow: (id)sender
@@ -3307,7 +3309,7 @@ static void hook_quit(const char * str)
     graf_mode_req = [sender tag];
 
     /* Stash it in UserDefaults */
-    [[NSUserDefaults angbandDefaults] setInteger:graf_mode_req forKey:@"GraphicsID"];
+    [[NSUserDefaults angbandDefaults] setInteger:graf_mode_req forKey:AngbandGraphicsDefaultsKey];
     [[NSUserDefaults angbandDefaults] synchronize];
     
     if (game_in_progress)
