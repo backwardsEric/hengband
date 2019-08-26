@@ -109,6 +109,12 @@ cocoa_en_nib_files = \
 cocoa_en_strings_files = \
 	cocoa/en.lproj/CommandMenu.strings \
 	cocoa/en.lproj/GraphicsMenu.strings
+cocoa_ja_nib_files = \
+	cocoa/ja.lproj/MainMenu.nib/designable.nib \
+	cocoa/ja.lproj/MainMenu.nib/keyedobjects.nib
+cocoa_ja_strings_files = \
+	cocoa/ja.lproj/CommandMenu.strings \
+	cocoa/ja.lproj/GraphicsMenu.strings
 
 EXTRA_DIST = \
 	gcc-wrap \
@@ -116,7 +122,9 @@ EXTRA_DIST = \
 	$(cocoa_plist_template) \
 	$(cocoa_plist_files) \
 	$(cocoa_en_nib_files) \
-	$(cocoa_en_strings_files)
+	$(cocoa_en_strings_files) \
+	$(cocoa_ja_nib_files) \
+	$(cocoa_ja_strings_files)
 
 if COCOA
 hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
@@ -146,6 +154,10 @@ appennib_DATA = $(cocoa_en_nib_files)
 appennibdir = $(APPRES)/en.lproj/MainMenu.nib
 appen_DATA = $(cocoa_en_strings_files)
 appendir = $(APPRES)/en.lproj
+appjanib_DATA = $(cocoa_ja_nib_files)
+appjanibdir = $(APPRES)/ja.lproj/MainMenu.nib
+appja_DATA = $(cocoa_ja_strings_files)
+appjadir = $(APPRES)/ja.lproj
 else
 EXTRA_hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
 hengband_LINK = $(LINK)
