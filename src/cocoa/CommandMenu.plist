@@ -16,30 +16,6 @@
 	</dict>
 	<dict>
 		<key>Title</key>
-		<string>List Monsters</string>
-		<key>KeyEquivalent</key>
-		<string>l</string>
-		<key>ShiftModifier</key>
-		<false/>
-		<key>OptionModifier</key>
-		<false/>
-		<key>AngbandCommand</key>
-		<string>[</string>
-	</dict>
-	<dict>
-		<key>Title</key>
-		<string>List Items</string>
-		<key>KeyEquivalent</key>
-		<string>l</string>
-		<key>ShiftModifier</key>
-		<true/>
-		<key>OptionModifier</key>
-		<false/>
-		<key>AngbandCommand</key>
-		<string>]</string>
-	</dict>
-	<dict>
-		<key>Title</key>
 		<string>Inscribe</string>
 		<key>KeyEquivalent</key>
 		<string>i</string>
