@@ -3052,10 +3052,12 @@ static void hook_quit(const char * str)
 
 @interface AngbandAppDelegate : NSObject {
     IBOutlet NSMenu *terminalsMenu;
+    NSMenu *_graphicsMenu;
     NSMenu *_commandMenu;
     NSDictionary *_commandMenuTagMap;
 }
 
+@property (nonatomic, retain) IBOutlet NSMenu *graphicsMenu;
 @property (nonatomic, retain) IBOutlet NSMenu *commandMenu;
 @property (nonatomic, retain) NSDictionary *commandMenuTagMap;
 
@@ -3073,6 +3075,7 @@ static void hook_quit(const char * str)
 
 @implementation AngbandAppDelegate
 
+@synthesize graphicsMenu=_graphicsMenu;
 @synthesize commandMenu=_commandMenu;
 @synthesize commandMenuTagMap=_commandMenuTagMap;
 
@@ -3461,7 +3464,7 @@ static void hook_quit(const char * str)
 - (void)menuNeedsUpdate:(NSMenu *)menu {
     
     /* Only the graphics menu is dynamic */
-    if (! [[menu title] isEqualToString:@"Graphics"])
+    if (! [menu isEqual:self.graphicsMenu])
         return;
     
     /* If it's non-empty, then we've already built it. Currently graphics modes
