@@ -3519,6 +3519,7 @@ static void hook_quit(const char * str)
 		return NO;
     
     game_in_progress = TRUE;
+    new_game = FALSE;
 
     /* Wake us up in case this arrives while we're sitting at the Welcome
 	 * screen! */
