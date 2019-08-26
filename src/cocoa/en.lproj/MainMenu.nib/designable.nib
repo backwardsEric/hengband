@@ -92,7 +92,7 @@
                         <items>
                             <menuItem title="Choose Font…" keyEquivalent="t" id="275">
                                 <connections>
-                                    <action selector="editFont:" target="-1" id="278"/>
+                                    <action selector="editFont:" target="265" id="278"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Graphics" id="256">
@@ -197,6 +197,7 @@
         <customObject id="265" userLabel="AngbandAppDelegate" customClass="AngbandAppDelegate">
             <connections>
                 <outlet property="commandMenu" destination="347" id="351"/>
+                <outlet property="graphicsMenu" destination="257" id="klu-Ak-Lzg"/>
             </connections>
         </customObject>
     </objects>
