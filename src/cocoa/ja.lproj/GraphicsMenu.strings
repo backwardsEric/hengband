@@ -1,0 +1,8 @@
+/* Entry in lib/xtra/graf/list.txt for listing available graphics modes */
+"Classic ASCII" = "色付きの文字";
+
+/* Entry in lib/xtra/graf/list.txt for listing available graphics modes */
+"Original Tiles" = "元のグラフィックビットマップ";
+
+/* Entry in lib/xtra/graf/list.txt for listing available graphics modes */
+"Adam Bolt's tiles" = "Adam Boltのグラフィックビットマップ";
