@@ -22,7 +22,7 @@ if test "$GAMEGROUP" != ""; then
   MY_EXPAND_DIR(game_datadir, "$datadir/games/$PACKAGE/lib/")
 else
   MY_EXPAND_DIR(game_datadir, "./lib/")
-  bindir=".."
+  bindir="`pwd`"
 fi
 
 dnl overwrite the path with an user-specified value
