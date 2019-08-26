@@ -3382,6 +3382,7 @@ static void hook_quit(const char * str)
     NSString *commandMenuPath = [[NSBundle mainBundle] pathForResource: @"CommandMenu" ofType: @"plist"];
     NSArray *commandMenuItems = [[NSArray alloc] initWithContentsOfFile: commandMenuPath];
     NSMutableDictionary *angbandCommands = [[NSMutableDictionary alloc] init];
+    NSString *tblname = @"CommandMenu";
     NSInteger tagOffset = 0;
 
     for( NSDictionary *item in commandMenuItems )
@@ -3392,7 +3393,9 @@ static void hook_quit(const char * str)
         keyModifiers |= (useShiftModifier) ? NSShiftKeyMask : 0;
         keyModifiers |= (useOptionModifier) ? NSAlternateKeyMask : 0;
 
-        NSString *title = [item valueForKey: @"Title"];
+        NSString *lookup = [item valueForKey: @"Title"];
+	NSString *title = NSLocalizedStringWithDefaultValue(
+	    lookup, tblname, [NSBundle mainBundle], lookup, @"");
         NSString *key = [item valueForKey: @"KeyEquivalent"];
         NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle: title action: @selector(sendAngbandCommand:) keyEquivalent: key];
         [menuItem setTarget: self];
@@ -3478,7 +3481,11 @@ static void hook_quit(const char * str)
     SEL action = @selector(setGraphicsMode:);
     
     /* Add an initial Classic ASCII menu item */
-    NSMenuItem *classicItem = [menu addItemWithTitle:@"Classic ASCII" action:action keyEquivalent:@""];
+    NSString *tblname = @"GraphicsMenu";
+    NSString *key = @"Classic ASCII";
+    NSString *title = NSLocalizedStringWithDefaultValue(
+	key, tblname, [NSBundle mainBundle], key, @"");
+    NSMenuItem *classicItem = [menu addItemWithTitle:title action:action keyEquivalent:@""];
     [classicItem setTag:GRAPHICS_NONE];
     
     /* Walk through the list of graphics modes */
@@ -3494,12 +3501,13 @@ static void hook_quit(const char * str)
 	    }
 	    /* Make the title. NSMenuItem throws on a nil title, so ensure it's
 	           * not nil. */
-	    NSString *title =
-		[[NSString alloc] initWithUTF8String:graf->menuname];
-	    if (! title) title = [@"(Unknown)" copy];
+	    key = [[NSString alloc] initWithUTF8String:graf->menuname];
+	    title = NSLocalizedStringWithDefaultValue(
+		key, tblname, [NSBundle mainBundle], key, @"");
         
 	    /* Make the item */
 	    NSMenuItem *item = [menu addItemWithTitle:title action:action keyEquivalent:@""];
+	    [key release];
 	    [item setTag:graf->grafID];
 	}
     }

@@ -106,13 +106,17 @@ cocoa_plist_files = \
 cocoa_en_nib_files = \
 	cocoa/en.lproj/MainMenu.nib/designable.nib \
 	cocoa/en.lproj/MainMenu.nib/keyedobjects.nib
+cocoa_en_strings_files = \
+	cocoa/en.lproj/CommandMenu.strings \
+	cocoa/en.lproj/GraphicsMenu.strings
 
 EXTRA_DIST = \
 	gcc-wrap \
 	$(cocoa_icon_files) \
 	$(cocoa_plist_template) \
 	$(cocoa_plist_files) \
-	$(cocoa_en_nib_files)
+	$(cocoa_en_nib_files) \
+	$(cocoa_en_strings_files)
 
 if COCOA
 hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
@@ -140,6 +144,8 @@ appplist_DATA = $(cocoa_plist_files)
 appplistdir = $(APPRES)
 appennib_DATA = $(cocoa_en_nib_files)
 appennibdir = $(APPRES)/en.lproj/MainMenu.nib
+appen_DATA = $(cocoa_en_strings_files)
+appendir = $(APPRES)/en.lproj
 else
 EXTRA_hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
 hengband_LINK = $(LINK)
