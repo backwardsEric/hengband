@@ -58,7 +58,21 @@ or makefile.dos before MAKE with these.
 Download the binary archive for Macintosh.
 Unpack it, and click hengband to play.
 
+For Mac OS X with XCode installed, the Unix instructions can work to build a
+version usable from a terminal.  If XQuartz, https://www.xquartz.org ,  is
+installed, X11 will be used for display.
 
+For Mac OS X 7 or later with XCode installed, a native version can be built by
+downloading the source archive and running
+
+tar -zxvf hengband-x.x.x.tar.gz
+cd hengband-x.x.x
+./configure --disable-japanese --enable-cocoa --without-x
+make install
+
+from a terminal where you substitute x.x.x with the version number you
+downloaded.  That will build hengband.app in the hengband-x.x.x directory;
+you can then move hengband.app to where you want it to be.
 
 -----  Basic for Playing  ------
 

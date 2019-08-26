@@ -48,6 +48,13 @@ AC_ARG_ENABLE(worldscore,
 [  --disable-worldscore    disable worldscore support], ,AC_DEFINE(WORLD_SCORE, 1, [Allow the game to send scores to the score server]))
 AC_ARG_ENABLE(chuukei,
 [  --enable-chuukei        enable internet chuukei support], AC_DEFINE(CHUUKEI, 1, [Chuukei mode]))
+AC_ARG_ENABLE([cocoa],
+[  --enable-cocoa          enable a Cocoa user interface (OS X only)],
+AC_DEFINE([MACH_O_COCOA], [1], [Use a Cocoa interface (OS X only)]), [])
+AM_CONDITIONAL([COCOA], [test x$enable_cocoa = xyes])
+if test x"$enable_cocoa" = yes; then
+AC_LANG_OBJC
+fi
 
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:

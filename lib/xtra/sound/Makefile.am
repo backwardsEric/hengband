@@ -20,3 +20,17 @@ EXTRA_DIST = \
 	sound.cfg \
 	$(sound_files) \
 	se_maoudamashii_voice_monster01.wav
+
+if COCOA
+# APPNAME to APPRES duplicate what's in src/Makefile.am.  It would be nice to
+# avoid that, but until then, they should match.
+APPNAME = $(PACKAGE_NAME)
+APPDIR = $(APPNAME).app
+APPBNDL = $(bindir)/$(APPDIR)
+APPCONT = $(APPBNDL)/Contents
+APPRES = $(APPCONT)/Resources
+
+appsounddir = $(APPRES)/lib/xtra/sound
+appsound_DATA = \
+	sound.cfg $(sound_files)
+endif
