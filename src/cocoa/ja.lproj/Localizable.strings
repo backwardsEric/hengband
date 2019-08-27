@@ -5,7 +5,7 @@
 "Error.MissingResources" = "不足しているリソース";
 
 /* Alert informative message for missing Angband lib/ folder */
-"Error.MissingAngbandLib" = "Hengband は必要なリソースを見つけることができなかったため、終了する必要があります。 バグを https://osdn.net/projects/hengband/ticket/ に報告してください。";
+"Error.MissingAngbandLib" = "Hengband は必要なリソースを見つけることができなかったため、終了する必要があります。 バグレポートを「hengband-dev@lists.sourceforge.jp」に送信してください。";
 
 /* Quit */
 "Label.Quit" = "を終了";
