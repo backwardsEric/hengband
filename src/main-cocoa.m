@@ -36,6 +36,7 @@ static NSSize const AngbandScaleIdentity = {1.0, 1.0};
 static NSString * const AngbandDirectoryNameLib = @"lib";
 static NSString * const AngbandDirectoryNameBase = @"Hengband";
 
+static NSString * const AngbandMessageCatalog = @"Localizable";
 static NSString * const AngbandTerminalsDefaultsKey = @"Terminals";
 static NSString * const AngbandTerminalRowsDefaultsKey = @"Rows";
 static NSString * const AngbandTerminalColumnsDefaultsKey = @"Columns";
@@ -920,7 +921,34 @@ static int compare_advances(const void *ap, const void *bp)
     if( !libExists || !isDirectory )
     {
         NSLog( @"[%@ %@]: can't find %@/ in bundle: isDirectory: %d libExists: %d", NSStringFromClass( [self class] ), NSStringFromSelector( _cmd ), AngbandDirectoryNameLib, isDirectory, libExists );
-        NSRunAlertPanel( @"Missing Resources", @"Hengband was unable to find required resources and must quit. Please report a bug on the Angband forums.", @"Quit", nil, nil );
+
+	NSString *msg = NSLocalizedStringWithDefaultValue(
+	    @"Error.MissingResources",
+	    AngbandMessageCatalog,
+	    [NSBundle mainBundle],
+	    @"Missing Resources",
+	    @"Alert text for missing resources");
+	NSString *info = NSLocalizedStringWithDefaultValue(
+	    @"Error.MissingAngbandLib",
+	    AngbandMessageCatalog,
+	    [NSBundle mainBundle],
+	    @"Hengband was unable to find required resources and must quit. Please report a bug on the Angband forums.",
+	    @"Alert informative message for missing Angband lib/ folder");
+	NSString *quit_label = NSLocalizedStringWithDefaultValue(
+	    @"Label.Quit", AngbandMessageCatalog, [NSBundle mainBundle],
+	    @"Quit", @"Quit");
+	NSAlert *alert = [[NSAlert alloc] init];
+
+	/*
+	 * Note that NSCriticalAlertStyle was deprecated in 10.10.  The
+	 * replacement is NSAlertStyleCritical.
+	 */
+	alert.alertStyle = NSCriticalAlertStyle;
+	alert.messageText = msg;
+	alert.informativeText = info;
+	[alert addButtonWithTitle:quit_label];
+	NSModalResponse result = [alert runModal];
+	[alert release];
         exit( 0 );
     }
 
@@ -3093,8 +3121,22 @@ static void hook_plog(const char * str)
 {
     if (str)
     {
-        NSString *string = [NSString stringWithCString:str encoding:NSMacOSRomanStringEncoding];
-        NSRunAlertPanel(@"Danger Will Robinson", @"%@", @"OK", nil, nil, string);
+	NSString *msg = NSLocalizedStringWithDefaultValue(
+	    @"Warning", AngbandMessageCatalog, [NSBundle mainBundle],
+	    @"Warning", @"Alert text for generic warning");
+        NSString *info = [NSString stringWithCString:str
+#ifdef JP
+				   encoding:NSJapaneseEUCStringEncoding
+#else
+				   encoding:NSMacOSRomanStringEncoding
+#endif
+	];
+	NSAlert *alert = [[NSAlert alloc] init];
+
+	alert.messageText = msg;
+	alert.informativeText = info;
+	NSModalResponse result = [alert runModal];
+	[alert release];
     }
 }
 
