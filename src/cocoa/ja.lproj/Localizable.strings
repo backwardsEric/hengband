@@ -1,0 +1,11 @@
+/* Alert text for generic warning */
+"Warning" = "警告";
+
+/* Alert text for missing resources */
+"Error.MissingResources" = "不足しているリソース";
+
+/* Alert informative message for missing Angband lib/ folder */
+"Error.MissingAngbandLib" = "Hengband は必要なリソースを見つけることができなかったため、終了する必要があります。 バグを https://osdn.net/projects/hengband/ticket/ に報告してください。";
+
+/* Quit */
+"Label.Quit" = "を終了";

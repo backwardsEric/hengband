@@ -1,0 +1,11 @@
+/* Alert text for generic warning */
+"Warning" = "Warning";
+
+/* Alert text for missing resources */
+"Error.MissingResources" = "Missing Resources";
+
+/* Alert informative message for missing Angband lib/ folder */
+"Error.MissingAngbandLib" = "Hengband was unable to find required resources and must quit. Please report a bug at https://osdn.net/projects/hengband/ticket/ .";
+
+/* Quit */
+"Label.Quit" = "Quit";

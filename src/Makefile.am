@@ -107,12 +107,14 @@ cocoa_en_nib_files = \
 	cocoa/en.lproj/MainMenu.nib/designable.nib \
 	cocoa/en.lproj/MainMenu.nib/keyedobjects.nib
 cocoa_en_strings_files = \
+	cocoa/en.lproj/Localizable.strings \
 	cocoa/en.lproj/CommandMenu.strings \
 	cocoa/en.lproj/GraphicsMenu.strings
 cocoa_ja_nib_files = \
 	cocoa/ja.lproj/MainMenu.nib/designable.nib \
 	cocoa/ja.lproj/MainMenu.nib/keyedobjects.nib
 cocoa_ja_strings_files = \
+	cocoa/ja.lproj/Localizable.strings \
 	cocoa/ja.lproj/CommandMenu.strings \
 	cocoa/ja.lproj/GraphicsMenu.strings
 
