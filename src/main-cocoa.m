@@ -2347,7 +2347,9 @@ static errr Term_text_cocoa(int x, int y, int n, byte_hack a, concptr cp)
 	}
 #else
         [angbandContext drawWChar:cp[i] inRect:rectToDraw];
+	++i;
         rectToDraw.origin.x += tileWidth;
+#endif
     }
 
     [angbandContext unlockFocus];    
