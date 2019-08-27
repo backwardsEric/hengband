@@ -94,7 +94,12 @@ static NSFont *default_font;
 
 @class AngbandView;
 
-/* The max number of glyphs we support */
+/* The max number of glyphs we support.  Currently this only affects
+ * updateGlyphInfo() for the calculation of the tile size (the glyphArray and
+ * glyphWidths members of AngbandContext are only used in updateGlyphInfo()).
+ * The rendering in drawWChar will work for glyphs not in updateGlyphInfo()'s
+ * set, and that is used for rendering Japanese characters.
+ */
 #define GLYPH_COUNT 256
 
 /* An AngbandContext represents a logical Term (i.e. what Angband thinks is
@@ -427,6 +432,9 @@ static void play_sound(int event);
 static BOOL check_events(int wait);
 static BOOL send_event(NSEvent *event);
 static void record_current_savefile(void);
+#ifdef JP
+static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp);
+#endif
 
 /**
  * Available values for 'wait'
@@ -1563,6 +1571,24 @@ static void record_current_savefile(void)
 }
 
 
+#ifdef JP
+/**
+ * Convert a two-byte EUC-JP encoded character (both *cp and (*cp + 1) are in
+ * the range, 0xA1-0xFE, or *cp is 0x8E) to a utf16 value in the native byte
+ * ordering.
+ */
+static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp)
+{
+    NSString* str = [[NSString alloc] initWithBytes:cp length:2
+				      encoding:NSJapaneseEUCStringEncoding];
+    wchar_t result = [str characterAtIndex:0];
+
+    [str release];
+    return result;
+}
+#endif /* JP */
+
+
 /**
  * ------------------------------------------------------------------------
  * Support for the "z-term.c" package
@@ -2287,8 +2313,24 @@ static errr Term_text_cocoa(int x, int y, int n, byte_hack a, concptr cp)
     
     /* Draw each */
     NSRect rectToDraw = charRect;
-    int i;
-    for (i=0; i < n; i++) {
+    int i = 0;
+    while (i < n) {
+#ifdef JP
+	if (iskanji(cp[i])) {
+	    CGFloat w = rectToDraw.size.width;
+	    wchar_t uv = convert_two_byte_eucjp_to_utf16_native(cp + i);
+
+	    rectToDraw.size.width *= 2.0;
+	    [angbandContext drawWChar:uv inRect:rectToDraw];
+	    rectToDraw.origin.x += tileWidth + tileWidth;
+	    rectToDraw.size.width = w;
+	    i += 2;
+	} else {
+	    [angbandContext drawWChar:cp[i] inRect:rectToDraw];
+	    rectToDraw.origin.x += tileWidth;
+	    ++i;
+	}
+#else
         [angbandContext drawWChar:cp[i] inRect:rectToDraw];
         rectToDraw.origin.x += tileWidth;
     }
@@ -2426,7 +2468,11 @@ static void load_prefs()
     }
 
     NSDictionary *defaults = [[NSDictionary alloc] initWithObjectsAndKeys:
+#ifdef JP
+                              @"Osaka", @"FontName",
+#else
                               @"Menlo", @"FontName",
+#endif
                               [NSNumber numberWithFloat:13.f], @"FontSize",
                               [NSNumber numberWithInt:60], AngbandFrameRateDefaultsKey,
                               [NSNumber numberWithBool:YES], AngbandSoundDefaultsKey,
