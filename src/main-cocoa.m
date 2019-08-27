@@ -1113,8 +1113,15 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     /* Prompt the user. */
     int message_row = (Term->hgt - 23) / 5 + 23;
     Term_erase(0, message_row, 255);
-    put_str("[Choose 'New' or 'Open' from the 'File' menu]",
-            message_row, (Term->wid - 45) / 2);
+    put_str(
+#ifdef JP
+	"['ファイル' メニューから '新' または '開く' を選択します]",
+	message_row, (Term->wid - 57) / 2
+#else
+	"[Choose 'New' or 'Open' from the 'File' menu]",
+	message_row, (Term->wid - 45) / 2
+#endif
+    );
     Term_fresh();
 
     /*
