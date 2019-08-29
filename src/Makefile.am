@@ -177,13 +177,12 @@ if SET_GID
 endif
 
 if COCOA
-# Create lib/info and lib/xtra within the application bundle since not
-# currently installing anything to them.  Other relevant lib directories
-# should be created from the Makefiles in the lib directory.
+# Create lib/info within the application bundle since not currently
+# installing anything to it.  Other relevant lib directories should
+# be created from the Makefiles in the lib directory.
 install-data-local:
 	@mkdir -p $(APPCONT)
 	@mkdir -p $(APPRES)/lib/info
-	@mkdir -p $(APPRES)/lib/xtra
 	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
 		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT)/' \
 		-e 's/\$$NAME\$$/$(APPNAME)/' \
