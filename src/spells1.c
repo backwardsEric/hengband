@@ -2010,7 +2010,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 				}
 				if (MON_MONFEAR(m_ptr))
 				{
-					if (seen_msg) msg_format(_("%^sは勇気を取り戻した。", "%^s recovers %s courage."), m_name);
+				        if (seen_msg) msg_format(_("%^sは勇気を取り戻した。", "%^s recovers %s courage."), m_name, m_poss);
 					(void)set_monster_monfear(g_ptr->m_idx, 0);
 				}
 
