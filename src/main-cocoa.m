@@ -140,8 +140,8 @@ static NSFont *default_font;
     /* The size of one tile */
     NSSize tileSize;
     
-    /* Font's descender */
-    CGFloat fontDescender;
+    /* Font's ascender and descender */
+    CGFloat fontAscender, fontDescender;
     
     /* Whether we are currently in live resize, which affects how big we render
 	 * our image */
@@ -575,14 +575,38 @@ static int compare_advances(const void *ap, const void *bp)
         medianAdvance = advances[(startIdx + GLYPH_COUNT)/2].width;
     }
     
-    /* Record the descender */
+    /*
+     * Some fonts, for instance DIN Condensed and Rockwell in 10.14, the ascent
+     * on '@' exceeds that reported by [screenFont ascender] and both of those
+     * fonts have clearing artifacts along the tops of drawn glyphs.  Get
+     * the overall bounding box for the glyphs, and use that instead of
+     * the ascender and descender values if the bounding box result extends
+     * farther from the baseline.
+     */
+    CGRect bounds = CTFontGetBoundingRectsForGlyphs((CTFontRef)screenFont, kCTFontHorizontalOrientation, glyphArray, NULL, GLYPH_COUNT);
+
+    /* Record the ascender and descender */
+    fontAscender = [screenFont ascender];
+    if (fontAscender < bounds.origin.y + bounds.size.height) {
+	NSLog(@"adjusted ascender for %@: %.2f to %.2f",
+	      CTFontCopyFamilyName((CTFontRef) screenFont),
+	      (double) fontAscender,
+	      (double) (bounds.origin.y + bounds.size.height));
+	fontAscender = bounds.origin.y + bounds.size.height;
+    }
     fontDescender = [screenFont descender];
-    
+    if (fontDescender > bounds.origin.y) {
+	NSLog(@"adjusted descender for %@: %.2f to %.2f",
+	      CTFontCopyFamilyName((CTFontRef) screenFont),
+	      (double) fontDescender, (double) bounds.origin.y);
+	fontDescender = bounds.origin.y;
+    }
+
     /* Record the tile size. Note that these are typically fractional values -
 	 * which seems sketchy, but we end up scaling the heck out of our view
 	 * anyways, so it seems to not matter. */
     tileSize.width = medianAdvance;
-    tileSize.height = [screenFont ascender] - [screenFont descender];
+    tileSize.height = fontAscender - fontDescender;
 }
 
 - (void)updateImage
@@ -719,7 +743,7 @@ static int compare_advances(const void *ap, const void *bp)
 - (void)drawWChar:(wchar_t)wchar inRect:(NSRect)tile
 {
     CGContextRef ctx = [[NSGraphicsContext currentContext] graphicsPort];
-    CGFloat tileOffsetY = CTFontGetAscent( (CTFontRef)[angbandViewFont screenFont] );
+    CGFloat tileOffsetY = fontAscender;
     CGFloat tileOffsetX = 0.0;
     NSFont *screenFont = [angbandViewFont screenFont];
     UniChar unicharString[2] = {(UniChar)wchar, 0};
