@@ -321,7 +321,7 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		if (startdbl > 255 || enddbl > 255) {
 		    pgps->result = 1;
 		    msg_format("overdrawMax or overdrawRow is greater than"
-			       " 255 for tiles set, %s, at line %d of %s",
+			       " 255 for tile set, %s, at line %d of %s",
 			       pgps->list->menuname, pgps->line_no,
 			       pgps->file_name);
 		} else if (enddbl < startdbl) {
