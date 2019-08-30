@@ -568,8 +568,8 @@ errr process_pref_file_command(char *buf)
 			}
 			break;
 
-		/* Process "X:<str>" -- current_world_ptr->game_turn option off */
-		/* Process "Y:<str>" -- current_world_ptr->game_turn option on */
+		/* Process "X:<str>" -- turn option off */
+		/* Process "Y:<str>" -- turn option on */
 		case 'X':
 		case 'Y':
 			for (i = 0; option_info[i].o_desc; i++)

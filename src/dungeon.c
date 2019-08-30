@@ -2790,7 +2790,7 @@ static void process_world_aux_recharge(void)
 	/*
 	 * Recharge rods.  Rods now use timeout to control charging status,
 	 * and each charging rod in a stack decreases the stack's timeout by
-	 * one per current_world_ptr->game_turn. -LM-
+	 * one per turn. -LM-
 	 */
 	for (changed = FALSE, i = 0; i < INVEN_PACK; i++)
 	{
@@ -4570,7 +4570,7 @@ static void process_upkeep_with_speed(void)
 		p_ptr->enchant_energy_need -= SPEED_TO_ENERGY(p_ptr->pspeed);
 	}
 	
-	/* No current_world_ptr->game_turn yet */
+	/* No turn yet */
 	if (p_ptr->enchant_energy_need > 0) return;
 	
 	while (p_ptr->enchant_energy_need <= 0)
@@ -4636,7 +4636,7 @@ static void process_player(void)
 		p_ptr->energy_need -= SPEED_TO_ENERGY(p_ptr->pspeed);
 	}
 
-	/* No current_world_ptr->game_turn yet */
+	/* No turn yet */
 	if (p_ptr->energy_need > 0) return;
 	if (!command_rep) prt_time();
 
@@ -4857,7 +4857,7 @@ static void process_player(void)
 		/* Hack -- cancel "lurking browse mode" */
 		if (!command_new) command_see = FALSE;
 
-		/* Assume free current_world_ptr->game_turn */
+		/* Assume free turn */
 		free_turn(p_ptr);
 
 		if (p_ptr->inside_battle)
@@ -5635,7 +5635,7 @@ void play_game(bool new_game)
 		}
 	}
 
-	/* Hack -- current_world_ptr->game_turn off the cursor */
+	/* Hack -- turn off the cursor */
 	(void)Term_set_cursor(0);
 
 

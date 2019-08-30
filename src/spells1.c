@@ -1573,7 +1573,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 					dam /= 3;
 
 					/*
-					 * Powerful demons & undead can current_world_ptr->game_turn a mindcrafter's
+					 * Powerful demons & undead can turn a mindcrafter's
 					 * attacks back on them
 					 */
 					if ((r_ptr->flags3 & (RF3_UNDEAD | RF3_DEMON)) &&
@@ -1664,7 +1664,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 					dam /= 3;
 
 					/*
-					 * Powerful demons & undead can current_world_ptr->game_turn a mindcrafter's
+					 * Powerful demons & undead can turn a mindcrafter's
 					 * attacks back on them
 					 */
 					if ((r_ptr->flags3 & (RF3_UNDEAD | RF3_DEMON)) &&
@@ -1772,7 +1772,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 					do_conf = 0;
 
 					/*
-					 * Powerful demons & undead can current_world_ptr->game_turn a mindcrafter's
+					 * Powerful demons & undead can turn a mindcrafter's
 					 * attacks back on them
 					 */
 					if ((r_ptr->flags3 & (RF3_UNDEAD | RF3_DEMON)) &&

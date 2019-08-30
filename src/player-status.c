@@ -314,11 +314,11 @@ void calc_bonuses(void)
 	/* Start with "normal" speed */
 	new_speed = 110;
 
-	/* Start with a single blow per current_world_ptr->game_turn */
+	/* Start with a single blow per turn */
 	p_ptr->num_blow[0] = 1;
 	p_ptr->num_blow[1] = 1;
 
-	/* Start with a single shot per current_world_ptr->game_turn */
+	/* Start with a single shot per turn */
 	p_ptr->num_fire = 100;
 
 	/* Reset the "xtra" tval */
