@@ -1840,7 +1840,17 @@ void spell_RF6_HEAL(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 		(void)set_monster_monfear(m_idx, 0);
 
 		if (see_monster(m_idx))
-			msg_format(_("%^sは勇気を取り戻した。", "%^s recovers %s courage."), m_name);
+		{
+#ifndef JP
+		    char m_poss[80];
+
+		    monster_desc(
+			m_poss, m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE);
+		    msg_format("%^s recovers %s courage.", m_name, m_poss);
+#else
+		    msg_format("%^sは勇気を取り戻した。", m_name);
+#endif
+		}
 	}
 }
 
