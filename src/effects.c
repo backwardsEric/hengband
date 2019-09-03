@@ -3492,7 +3492,7 @@ bool do_res_stat(int stat)
 	/* Attempt to increase */
 	if (res_stat(stat))
 	{
-		msg_format(_("元通りに%sなった気がする。", "You feel less %s."), desc_stat_pos[stat]);
+		msg_format(_("元通りに%sなった気がする。", "You feel more %s."), desc_stat_pos[stat]);
 
 		return (TRUE);
 	}
@@ -3536,7 +3536,7 @@ bool do_inc_stat(int stat)
 	/* Restoration worked */
 	if (res)
 	{
-		msg_format(_("元通りに%sなった気がする。", "You feel less %s."), desc_stat_pos[stat]);
+		msg_format(_("元通りに%sなった気がする。", "You feel more %s."), desc_stat_pos[stat]);
 
 		return (TRUE);
 	}
