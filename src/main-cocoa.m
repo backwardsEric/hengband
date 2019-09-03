@@ -332,57 +332,6 @@ static void AngbandUpdateWindowVisibility(void)
 }
 
 /**
- * Here is some support for rounding to pixels in a scaled context
- */
-static double push_pixel(double pixel, double scale, BOOL increase)
-{
-    double scaledPixel = pixel * scale;
-    /* Have some tolerance! */
-    double roundedPixel = round(scaledPixel);
-    if (fabs(roundedPixel - scaledPixel) <= .0001)
-    {
-        scaledPixel = roundedPixel;
-    }
-    else
-    {
-        scaledPixel = (increase ? ceil : floor)(scaledPixel);
-    }
-    return scaledPixel / scale;
-}
-
-/* Descriptions of how to "push pixels" in a given rect to integralize.
- * For example, PUSH_LEFT means that we round expand the left edge if set,
- * otherwise we shrink it. */
-enum
-{
-    PUSH_LEFT = 0x1,
-    PUSH_RIGHT = 0x2,
-    PUSH_BOTTOM = 0x4,
-    PUSH_TOP = 0x8
-};
-
-/**
- * Return a rect whose border is in the "cracks" between tiles
- */
-static NSRect crack_rect(NSRect rect, NSSize scale, unsigned pushOptions)
-{
-    double rightPixel = push_pixel(NSMaxX(rect), scale.width, !! (pushOptions & PUSH_RIGHT));
-    double topPixel = push_pixel(NSMaxY(rect), scale.height, !! (pushOptions & PUSH_TOP));
-    double leftPixel = push_pixel(NSMinX(rect), scale.width, ! (pushOptions & PUSH_LEFT));
-    double bottomPixel = push_pixel(NSMinY(rect), scale.height, ! (pushOptions & PUSH_BOTTOM));
-    return NSMakeRect(leftPixel, bottomPixel, rightPixel - leftPixel, topPixel - bottomPixel);    
-}
-
-/**
- * Returns the pixel push options (describing how we round) for the tile at a
- * given index. Currently it's pretty uniform!
- */
-static unsigned push_options(unsigned x, unsigned y)
-{
-    return PUSH_TOP | PUSH_LEFT;
-}
-
-/**
  * ------------------------------------------------------------------------
  * Graphics support
  * ------------------------------------------------------------------------ */
