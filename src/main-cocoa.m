@@ -576,37 +576,19 @@ static int compare_advances(const void *ap, const void *bp)
     }
     
     /*
-     * Some fonts, for instance DIN Condensed and Rockwell in 10.14, the ascent
-     * on '@' exceeds that reported by [screenFont ascender] and both of those
-     * fonts have clearing artifacts along the tops of drawn glyphs.  Get
-     * the overall bounding box for the glyphs, and use that instead of
-     * the ascender and descender values if the bounding box result extends
-     * farther from the baseline.
+     * Record the ascender and descender.  Adjust both by 0.5 pixel to leave
+     * space for antialiasing/subpixel positioning.
      */
-    CGRect bounds = CTFontGetBoundingRectsForGlyphs((CTFontRef)screenFont, kCTFontHorizontalOrientation, glyphArray, NULL, GLYPH_COUNT);
+    fontAscender = [screenFont ascender] + 0.5;
+    fontDescender = [screenFont descender] - 0.5;
 
-    /* Record the ascender and descender */
-    fontAscender = [screenFont ascender];
-    if (fontAscender < bounds.origin.y + bounds.size.height) {
-	NSLog(@"adjusted ascender for %@: %.2f to %.2f",
-	      CTFontCopyFamilyName((CTFontRef) screenFont),
-	      (double) fontAscender,
-	      (double) (bounds.origin.y + bounds.size.height));
-	fontAscender = bounds.origin.y + bounds.size.height;
-    }
-    fontDescender = [screenFont descender];
-    if (fontDescender > bounds.origin.y) {
-	NSLog(@"adjusted descender for %@: %.2f to %.2f",
-	      CTFontCopyFamilyName((CTFontRef) screenFont),
-	      (double) fontDescender, (double) bounds.origin.y);
-	fontDescender = bounds.origin.y;
-    }
-
-    /* Record the tile size. Note that these are typically fractional values -
-	 * which seems sketchy, but we end up scaling the heck out of our view
-	 * anyways, so it seems to not matter. */
-    tileSize.width = medianAdvance;
-    tileSize.height = fontAscender - fontDescender;
+    /*
+     * Record the tile size.  Add one to the median advance to leave space
+     * for antialiasing/subpixel positioning.  Round both values up to
+     * have tile boundaries match pixel boundaries.
+     */
+    tileSize.width = ceil(medianAdvance + 1.);
+    tileSize.height = ceil(fontAscender - fontDescender);
 }
 
 - (void)updateImage
@@ -2174,12 +2156,6 @@ static errr Term_curs_cocoa(int x, int y)
     /* Get the tile */
     NSRect rect = [angbandContext rectInImageForTileAtX:x Y:y];
     
-    /* We'll need to redisplay in that rect */
-    NSRect redisplayRect = rect;
-
-    /* Go to the pixel boundaries corresponding to this tile */
-    rect = crack_rect(rect, AngbandScaleIdentity, push_options(x, y));
-    
     /* Lock focus and draw it */
     [angbandContext lockFocus];
     [[NSColor yellowColor] set];
@@ -2187,7 +2163,7 @@ static errr Term_curs_cocoa(int x, int y)
     [angbandContext unlockFocus];
     
     /* Invalidate that rect */
-    [angbandContext setNeedsDisplayInBaseRect:redisplayRect];
+    [angbandContext setNeedsDisplayInBaseRect:rect];
     
     /* Success */
     [pool drain];
@@ -2211,9 +2187,6 @@ static errr Term_wipe_cocoa(int x, int y, int n)
      */
     NSRect rect = [angbandContext rectInImageForTileAtX:x Y:y];
     rect.size.width = angbandContext->tileSize.width * n;
-    rect = crack_rect(rect, AngbandScaleIdentity,
-		      (push_options(x, y) & ~PUSH_LEFT)
-		      | (push_options(x + n - 1, y) | PUSH_RIGHT));
     
     /* Lock focus and clear */
     [angbandContext lockFocus];
@@ -2343,7 +2316,6 @@ static errr Term_pict_cocoa(int x, int y, int n, TERM_COLOR *ap,
 static errr Term_text_cocoa(int x, int y, int n, byte_hack a, concptr cp)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    NSRect redisplayRect = NSZeroRect;
     AngbandContext* angbandContext = Term->data;
     
     /* Focus on our layer */
@@ -2353,12 +2325,7 @@ static errr Term_text_cocoa(int x, int y, int n, byte_hack a, concptr cp)
     NSRect charRect = [angbandContext rectInImageForTileAtX:x Y:y];
     
     const CGFloat tileWidth = angbandContext->tileSize.width;
-    
-    /* erase behind us */
-    unsigned leftPushOptions = push_options(x, y);
-    unsigned rightPushOptions = push_options(x + n - 1, y);
-    leftPushOptions &= ~ PUSH_LEFT;
-    rightPushOptions |= PUSH_RIGHT;
+
 #if 0    
     switch (a / MAX_COLORS) {
     case BG_BLACK:
@@ -2374,10 +2341,19 @@ static errr Term_text_cocoa(int x, int y, int n, byte_hack a, concptr cp)
 #endif    
     NSRect rectToClear = charRect;
     rectToClear.size.width = tileWidth * n;
-    rectToClear = crack_rect(rectToClear, AngbandScaleIdentity,
-			     leftPushOptions | rightPushOptions);
     NSRectFill(rectToClear);
-    
+
+    /* Clear the current path. so it does not affect clipping. */
+    CGContextBeginPath(ctx);
+
+    /*
+     * Clip to the clearing rectangle so clutter is not left behind.  Using
+     * CGContextSetTextDrawingMode() to include clipping does not appear to
+     * be necessary on 10.14 and is actually detrimental - when displaying
+     * more than one character only the first is visible.
+     */
+    CGContextClipToRect(ctx, rectToClear);
+
     NSFont *selectionFont = [[angbandContext selectionFont] screenFont];
     [selectionFont set];
     
