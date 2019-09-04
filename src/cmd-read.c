@@ -35,6 +35,7 @@
 void do_cmd_read_scroll_aux(INVENTORY_IDX item, bool known)
 {
 	int         k, used_up, ident, lev;
+	BIT_FLAGS   inventory_flags;
 	object_type *o_ptr;
 
 
@@ -553,7 +554,15 @@ void do_cmd_read_scroll_aux(INVENTORY_IDX item, bool known)
 		used_up=FALSE;
 	}
 
-	p_ptr->update |= (PU_COMBINE | PU_REORDER);
+	/*
+	 * Store what may have to be updated for the inventory (including
+	 * autodestroy if set by something else).  Then turn off those flags
+	 * so that updates triggered by calling gain_exp() below do not
+	 * rearrange the inventory before destroying the scroll in the pack.
+	 */
+	inventory_flags = (PU_COMBINE | PU_REORDER |
+			   (p_ptr->update & PU_AUTODESTROY));
+	p_ptr->update &= ~(PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
 
 	if (!(object_is_aware(o_ptr)))
 	{
@@ -573,7 +582,7 @@ void do_cmd_read_scroll_aux(INVENTORY_IDX item, bool known)
 	}
 
 	p_ptr->window |= (PW_INVEN | PW_EQUIP | PW_PLAYER);
-
+	p_ptr->update |= inventory_flags;
 
 	/* Hack -- allow certain scrolls to be "preserved" */
 	if (!used_up)
