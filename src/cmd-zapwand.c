@@ -321,6 +321,7 @@ void do_cmd_aim_wand_aux(INVENTORY_IDX item)
 	DEPTH lev;
 	int ident, chance;
 	DIRECTION dir;
+	BIT_FLAGS inventory_flags;
 	object_type *o_ptr;
 	bool old_target_pet = target_pet;
 
@@ -402,7 +403,14 @@ void do_cmd_aim_wand_aux(INVENTORY_IDX item)
 	sound(SOUND_ZAP);
 
 	ident = wand_effect(o_ptr->sval, dir, FALSE, FALSE);
-	p_ptr->update |= (PU_COMBINE | PU_REORDER);
+	/*
+	 * Temporarily remove the flags for updating the inventory so
+	 * gain_exp() does not reorder the inventory before the charge
+	 * is deducted from the wand.
+	 */
+	inventory_flags = (PU_COMBINE | PU_REORDER |
+			   (p_ptr->update & PU_AUTODESTROY));
+	p_ptr->update &= ~(PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
 
 	if (!(object_is_aware(o_ptr)))
 	{
@@ -422,7 +430,7 @@ void do_cmd_aim_wand_aux(INVENTORY_IDX item)
 	}
 
 	p_ptr->window |= (PW_INVEN | PW_EQUIP | PW_PLAYER);
-
+	p_ptr->update |= inventory_flags;
 
 	/* Use a single charge */
 	o_ptr->pval--;
