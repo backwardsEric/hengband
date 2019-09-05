@@ -1789,6 +1789,11 @@ static void Term_init_cocoa(term *t)
     
     NSEnableScreenUpdates();
     
+    /*
+     * Since do nothing special for row flushes, disable notifications about
+     * them.
+     */
+    t->never_frosh = true;
     /* Set "mapped" flag */
     t->mapped_flag = true;
     [pool drain];
