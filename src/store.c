@@ -3691,7 +3691,7 @@ static void display_inventory(void)
 #ifdef JP
 	put_str("          ", 5, 20);
 #else
-	put_str("        ", 5, 20);
+	put_str("        ", 5, 22);
 #endif
 
 
@@ -3703,7 +3703,7 @@ static void display_inventory(void)
 
 		/* Indicate the "current page" */
 		/* Trailing spaces are to display (Page xx) and (Page x) */
-		put_str(format(_("(%dページ)  ", "(Page %d)  "), store_top/store_bottom + 1), 5, 20);
+		put_str(format(_("(%dページ)  ", "(Page %d)  "), store_top/store_bottom + 1), 5, _(20, 22));
 	}
 
 	if (cur_store_num == STORE_HOME || cur_store_num == STORE_MUSEUM)
