@@ -738,7 +738,7 @@ static void prt_level(void)
 {
 	char tmp[32];
 
-	sprintf(tmp, _("%5d", "%6d"), p_ptr->lev);
+	sprintf(tmp, "%5d", p_ptr->lev);
 
 	if (p_ptr->lev >= p_ptr->max_plv)
 	{
