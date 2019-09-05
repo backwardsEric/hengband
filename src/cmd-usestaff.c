@@ -272,6 +272,7 @@ int staff_effect(OBJECT_SUBTYPE_VALUE sval, bool *use_charge, bool powerful, boo
 void do_cmd_use_staff_aux(INVENTORY_IDX item)
 {
 	int         ident, chance, lev;
+	BIT_FLAGS   inventory_flags;
 	object_type *o_ptr;
 
 
@@ -355,7 +356,14 @@ void do_cmd_use_staff_aux(INVENTORY_IDX item)
 		chg_virtue(V_CHANCE, 1);
 		chg_virtue(V_KNOWLEDGE, -1);
 	}
-	p_ptr->update |= (PU_COMBINE | PU_REORDER);
+	/*
+	 * Temporarily remove the flags for updating the inventory so
+	 * gain_exp() does not reorder the inventory before the charge
+	 * is deducted from the staff.
+	 */
+	inventory_flags = (PU_COMBINE | PU_REORDER |
+			   (p_ptr->update & PU_AUTODESTROY));
+	p_ptr->update &= ~(PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
 
 	/* Tried the item */
 	object_tried(o_ptr);
@@ -368,7 +376,7 @@ void do_cmd_use_staff_aux(INVENTORY_IDX item)
 	}
 
 	p_ptr->window |= (PW_INVEN | PW_EQUIP | PW_PLAYER);
-
+	p_ptr->update |= inventory_flags;
 
 	/* Hack -- some uses are "free" */
 	if (!use_charge) return;
