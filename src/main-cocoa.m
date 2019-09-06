@@ -2120,6 +2120,34 @@ static errr Term_curs_cocoa(int x, int y)
 }
 
 /**
+ * Draw a cursor that's two tiles wide.  For Japanese, that's used when
+ * the cursor points at a kanji character, irregardless of whether operating
+ * in big tile mode.
+ */
+static errr Term_bigcurs_cocoa(int x, int y)
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    AngbandContext *angbandContext = Term->data;
+    
+    /* Get the tile */
+    NSRect rect = [angbandContext rectInImageForTileAtX:x Y:y];
+    rect.size.width += angbandContext->tileSize.width;
+
+    /* Lock focus and draw it */
+    [angbandContext lockFocus];
+    [[NSColor yellowColor] set];
+    NSFrameRectWithWidth(rect, 1);
+    [angbandContext unlockFocus];
+    
+    /* Invalidate that rect */
+    [angbandContext setNeedsDisplayInBaseRect:rect];
+    
+    /* Success */
+    [pool drain];
+    return 0;
+}
+
+/**
  * Low level graphics (Assumes valid input)
  *
  * Erase "n" characters starting at (x,y)
@@ -2394,6 +2422,7 @@ static term *term_data_link(int i)
     newterm->xtra_hook = Term_xtra_cocoa;
     newterm->wipe_hook = Term_wipe_cocoa;
     newterm->curs_hook = Term_curs_cocoa;
+    newterm->bigcurs_hook = Term_bigcurs_cocoa;
     newterm->text_hook = Term_text_cocoa;
     newterm->pict_hook = Term_pict_cocoa;
     /* newterm->mbcs_hook = Term_mbcs_cocoa; */
