@@ -548,7 +548,7 @@ It's deciding which things are crucial that separates the wise from others.
 Invulnerability is impenetrable.
 Invulnerability may be penetrated by evil creatures.
 Resistance to nether will guard against invulnerability-penetration.
-Creatures of good alignment are not deterred by invlnerability.
+Creatures of good alignment are not deterred by invulnerability.
 Being clocked backwards is just a terrible irony of fate.
 Time is a weird attack - not even sustained stats will save you.
 Stumble on a death mold: another unsettling occurrence in an unsettling world.
