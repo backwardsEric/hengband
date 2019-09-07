@@ -24,9 +24,9 @@ There are Black Market stores hidden deep in the dungeon, with COOL stuff!
 Have you ever seen a Rod of Havoc inscribed {BFG9000}?
 What a pity, you cannot read it!
 You will encounter a dark, tall stranger...
-A Mithril mail will not rust.
-An Adamantite mail will not rust.
-A Rusty Chain Mail cannot rust any further.
+Mithril mail will not rust.
+Adamantite mail will not rust.
+Rusty Chain Mail cannot rust any further.
 If you are a mage, you will NOT want to find Raal's Tome of Destruction!
 You won't want to find Raal's Tome of Destruction!
 You won't want to find Raal's Tome of Destruction, unless you are a mage.
@@ -572,7 +572,7 @@ There are no guarantees in life, but it's smarter to take fewer chances.
 Artsi is not susceptible to sorcery, ideal warrior! If ever get him in melee.
 It's a crying shame, but 30000's the highest you'll ever sell an item for.
 There is a shopkeeper who may pay 50000 gold for an item.
-Is it really true that a good chain armour once rusted can't be restored?
+Is it really true that good chain armour once rusted can't be restored?
 Never thought about that daylight might be not just an illumination?
 Stone Skin is valuable as diamonds: even the tougher foes will miss you.
 You WILL need some means to prevent to be teleported to and fro unwanted.
