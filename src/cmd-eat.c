@@ -304,9 +304,9 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 	/*
 	 * Store what may have to be updated for the inventory (including
 	 * autodestroy if set by something else).  Then turn off those flags
-	 * so that updates triggered by calling gain_exp() below do not
-	 * rearrange the inventory before the food item is destroyed in the
-	 * pack.
+	 * so that updates triggered by calling gain_exp() or set_food() below
+	 * do not rearrange the inventory before the food item is destroyed in
+	 * the pack.
 	 */
 	inventory_flags = (PU_COMBINE | PU_REORDER |
 			   (p_ptr->update & PU_AUTODESTROY));
@@ -330,7 +330,6 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 	}
 
 	p_ptr->window |= (PW_INVEN | PW_EQUIP | PW_PLAYER);
-	p_ptr->update |= inventory_flags;
 
 	/* Food can feed the player */
 	if (prace_is_(RACE_VAMPIRE) || (p_ptr->mimic_form == MIMIC_VAMPIRE))
@@ -355,6 +354,7 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 		if (o_ptr->tval == TV_STAFF &&
 			(item < 0) && (o_ptr->number > 1))
 		{
+		        p_ptr->update |= inventory_flags;
 			msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
 			return;
 		}
@@ -365,7 +365,7 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 		{
 			msg_format(_("この%sにはもう魔力が残っていない。", "The %s has no charges left."), staff);
 			o_ptr->ident |= (IDENT_EMPTY);
-			p_ptr->update |= (PU_COMBINE | PU_REORDER);
+			p_ptr->update |= inventory_flags;
 			p_ptr->window |= (PW_INVEN);
 
 			return;
@@ -416,6 +416,7 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 		}
 
 		p_ptr->window |= (PW_INVEN | PW_EQUIP);
+		p_ptr->update |= inventory_flags;
 
 		/* Don't eat a staff/wand itself */
 		return;
@@ -482,7 +483,9 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 		(void)set_food(p_ptr->food + o_ptr->pval);
 	}
 
-	/* Destroy a food in the pack */
+	p_ptr->update |= inventory_flags;
+
+ 	/* Destroy a food in the pack */
 	if (item >= 0)
 	{
 		inven_item_increase(item, -1);
