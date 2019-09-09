@@ -1620,7 +1620,7 @@ static struct
 	{ 1, 12, 25, "Blows/Round"},
 	{ 1, 17, 25, "Shots/Round"},
 	{ 1, 13, 25, "AverageDmg/Rnd"},
-	{53, 20, -1, "Infra-Vision: "},
+	{53, 20, -1, "Infravision: "},
 	{26,  1, -1, "Name  : "},
 	{ 1,  3, -1, "Sex      : "},
 	{ 1,  4, -1, "Race     : "},
