@@ -1634,7 +1634,7 @@ static struct
 	{29,  7, 21, "Align"},
 	{29, 14, 21, "Construction"},
 	{29, 16, 21, "Const to Adv"},
-	{53, 19, -1, "Digging    :" },
+	{53, 19, -1, "Digging    : " },
 };
 #endif
 
