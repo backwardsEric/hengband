@@ -1859,7 +1859,7 @@ static void record_current_savefile(void)
     {
         NSUserDefaults *angbandDefs = [NSUserDefaults angbandDefaults];
         [angbandDefs setObject:savefileString forKey:@"SaveFile"];
-        [angbandDefs synchronize];        
+        [angbandDefs synchronize];
     }
 }
 
@@ -2581,7 +2581,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 			    prc->cell_changes[jx].a;
 			sourceRect.size.width = graf_width;
 			sourceRect.size.height = graf_height;
-			terrainRect.origin.x = graf_width * 
+			terrainRect.origin.x = graf_width *
 			    prc->cell_changes[jx].tcol;
 			terrainRect.origin.y = graf_height *
 			    prc->cell_changes[jx].trow;
@@ -2601,7 +2601,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 				pict_image,
 				sourceRect,
 				destinationRect,
-				NSCompositeSourceOver); 
+				NSCompositeSourceOver);
 			} else {
 			    draw_image_tile(
 				nsContext,
@@ -2746,7 +2746,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 	[angbandContext setNeedsDisplayInBaseRect:rect];
     }
 
-    [angbandContext unlockFocus];    
+    [angbandContext unlockFocus];
 }
 
 
@@ -2825,7 +2825,7 @@ static errr Term_xtra_cocoa(int n, int v)
         {        
             [angbandContext lockFocus];
             [[NSColor blackColor] set];
-            NSRect imageRect = {NSZeroPoint, [angbandContext imageSize]};            
+            NSRect imageRect = {NSZeroPoint, [angbandContext imageSize]};
             NSRectFillUsingOperation(imageRect, NSCompositeCopy);
             [angbandContext unlockFocus];
             [angbandContext setNeedsDisplay:YES];
@@ -4391,7 +4391,7 @@ static void hook_quit(const char * str)
 
 int main(int argc, char* argv[])
 {
-    NSApplicationMain(argc, (void*)argv);    
+    NSApplicationMain(argc, (void*)argv);
     return (0);
 }
 
