@@ -1733,9 +1733,9 @@ void spell_RF6_HASTE(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 
 	monspell_message_base(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
-		_("%^sが自分の体に念を送った。", "%^s concentrates on %s body."),
-		_("%^sが自分の体に念を送った。", "%^s concentrates on %s body."),
-		_("%^sが自分の体に念を送った。", "%^s concentrates on %s body."),
+		_("%^sが自分の体に念を送った。", "%^s concentrates on his body."),
+		_("%^sが自分の体に念を送った。", "%^s concentrates on his body."),
+		_("%^sが自分の体に念を送った。", "%^s concentrates on his body."),
 		p_ptr->blind > 0, TARGET_TYPE);
 
 	/* Allow quick speed increases to base+10 */
@@ -1796,9 +1796,9 @@ void spell_RF6_HEAL(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 
 	monspell_message_base(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
-		_("%^sは自分の傷に念を集中した。", "%^s concentrates on %s wounds."),
-		_("%^sが自分の傷に集中した。", "%^s concentrates on %s wounds."),
-		_("%^sは自分の傷に念を集中した。", "%^s concentrates on %s wounds."),
+		_("%^sは自分の傷に念を集中した。", "%^s concentrates on his wounds."),
+		_("%^sが自分の傷に集中した。", "%^s concentrates on my wounds."),
+		_("%^sは自分の傷に念を集中した。", "%^s concentrates on his wounds."),
 		p_ptr->blind > 0, TARGET_TYPE);
 
 	/* Heal some */
