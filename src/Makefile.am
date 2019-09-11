@@ -141,7 +141,7 @@ BUNDLE_IDENTIFIER = jp.osdn.hengband
 BUNDLE_VERSION = $(PACKAGE_VERSION)
 # Be careful with characters (like '&') in the copyright that have special
 # meanings to sed.
-COPYRIGHT = (c) Mr. Hoge and many others
+COPYRIGHT = Copyright © Mr. Hoge and many others
 APPBNDL = $(bindir)/$(APPDIR)
 APPCONT = $(APPBNDL)/Contents
 APPBIN = $(APPCONT)/MacOS

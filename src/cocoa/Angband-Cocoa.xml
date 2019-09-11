@@ -17,7 +17,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>$VERSION$</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © $COPYRIGHT$</string>
+	<string>$COPYRIGHT$</string>
 	<key>CFBundleSignature</key>
 	<string>Heng</string>
 	<key>CFBundleVersion</key>
