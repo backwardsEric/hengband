@@ -131,8 +131,8 @@ EXTRA_DIST = \
 
 if COCOA
 hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
-AM_CFLAGS = -mmacosx-version-min=10.7
-AM_OBJCFLAGS = -mmacosx-version-min=10.7
+AM_CFLAGS = -mmacosx-version-min=10.7 -Wunguarded-availability
+AM_OBJCFLAGS = -mmacosx-version-min=10.7 -Wunguarded-availability
 hengband_LDFLAGS = -framework cocoa $(AM_LDFLAGS)
 hengband_LINK = MACOSX_DEPLOYMENT_TARGET=10.7 $(OBJCLINK) $(hengband_LDFLAGS) $(LDFLAGS) -o $@ 
 APPNAME = $(PACKAGE_NAME)
