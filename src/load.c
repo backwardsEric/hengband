@@ -3262,7 +3262,7 @@ static errr rd_dungeon(void)
 	byte num;
 	int i;
 
-	/* Initialize saved_floors array and temporal files */
+	/* Initialize saved_floors array and temporary files */
 	init_saved_floors(FALSE);
 
 	/* Older method */
@@ -3323,7 +3323,7 @@ static errr rd_dungeon(void)
 		}
 
 
-		/* Move saved floors data to temporal files */
+		/* Move saved floors data to temporary files */
 		for (i = 0; i < num; i++)
 		{
 			saved_floor_type *sf_ptr = &saved_floors[i];
@@ -3341,14 +3341,14 @@ static errr rd_dungeon(void)
 			/* Error? */
 			if (err) break;
 
-			/* Re-save as temporal saved floor file */
+			/* Re-save as temporary saved floor file */
 			if (!save_floor(sf_ptr, SLF_SECOND)) err = 182;
 
 			/* Error? */
 			if (err) break;
 		}
 
-		/* Finally load current floor data from temporal file */
+		/* Finally load current floor data from temporary file */
 		if (!err)
 		{
 			if (!load_floor(get_sf_ptr(p_ptr->floor_id), SLF_SECOND)) err = 183;
@@ -3380,7 +3380,7 @@ static errr rd_dungeon(void)
 		break;
 
 	case 182:
-		note(_("テンポラリ・ファイルを作成できません！", "Failed to make temporal files!"));
+		note(_("テンポラリ・ファイルを作成できません！", "Failed to make temporary files!"));
 		break;
 
 	case 183:

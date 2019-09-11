@@ -29,7 +29,7 @@ static u32b latest_visit_mark;  /*!<フロアを渡った回数？(確認中) / 
 /*!
  * @brief 保存フロア配列を初期化する / Initialize saved_floors array. 
  * @param force テンポラリファイルが残っていた場合も警告なしで強制的に削除する。
- * @details Make sure that old temporal files are not remaining as gurbages.
+ * @details Make sure that old temporary files are not remaining as gurbages.
  * @return なし
  */
 void init_saved_floors(bool force)
@@ -67,11 +67,11 @@ void init_saved_floors(bool force)
 		{
 			if (!force)
 			{
-				msg_print(_("エラー：古いテンポラリ・ファイルが残っています。", "Error: There are old temporal files."));
+				msg_print(_("エラー：古いテンポラリ・ファイルが残っています。", "Error: There are old temporary files."));
 				msg_print(_("変愚蛮怒を二重に起動していないか確認してください。", "Make sure you are not running two game processes simultaneously."));
-				msg_print(_("過去に変愚蛮怒がクラッシュした場合は一時ファイルを", "If the temporal files are garbages of old crashed process, "));
+				msg_print(_("過去に変愚蛮怒がクラッシュした場合は一時ファイルを", "If the temporary files are garbages of old crashed process, "));
 				msg_print(_("強制的に削除して実行を続けられます。", "you can delete it safely."));
-				if (!get_check(_("強制的に削除してもよろしいですか？", "Do you delete old temporal files? ")))
+				if (!get_check(_("強制的に削除してもよろしいですか？", "Do you delete old temporary files? ")))
 					quit(_("実行中止", "Aborted."));
 				force = TRUE;
 			}
@@ -85,7 +85,7 @@ void init_saved_floors(bool force)
 		/* Grab permissions */
 		safe_setuid_grab();
 
-		/* Simply kill the temporal file */ 
+		/* Simply kill the temporary file */ 
 		(void)fd_kill(floor_savefile);
 
 		/* Drop permissions */
@@ -100,7 +100,7 @@ void init_saved_floors(bool force)
 	/* vist_mark is from 1 */
 	latest_visit_mark = 1;
 
-	/* A sign to mark temporal files */
+	/* A sign to mark temporary files */
 	saved_floor_file_sign = (u32b)time(NULL);
 
 	/* No next floor yet */
@@ -118,7 +118,7 @@ void init_saved_floors(bool force)
 }
 
 /*!
- * @brief 保存フロア用テンポラリファイルを削除する / Kill temporal files
+ * @brief 保存フロア用テンポラリファイルを削除する / Kill temporary files
  * @details Should be called just before the game quit.
  * @return なし
  */
@@ -138,7 +138,7 @@ void clear_saved_floor_files(void)
 	{
 		saved_floor_type *sf_ptr = &saved_floors[i];
 
-		/* No temporal file */
+		/* No temporary file */
 		if (!sf_ptr->floor_id) continue;
 		if (sf_ptr->floor_id == p_ptr->floor_id) continue;
 
@@ -148,7 +148,7 @@ void clear_saved_floor_files(void)
 		/* Grab permissions */
 		safe_setuid_grab();
 
-		/* Simply kill the temporal file */ 
+		/* Simply kill the temporary file */ 
 		(void)fd_kill(floor_savefile);
 
 		/* Drop permissions */
@@ -205,7 +205,7 @@ static void kill_saved_floor(saved_floor_type *sf_ptr)
 		/* Kill current floor */
 		p_ptr->floor_id = 0;
 
-		/* Current floor doesn't have temporal file */
+		/* Current floor doesn't have temporary file */
 	}
 	else 
 	{
@@ -215,7 +215,7 @@ static void kill_saved_floor(saved_floor_type *sf_ptr)
 		/* Grab permissions */
 		safe_setuid_grab();
 
-		/* Simply kill the temporal file */ 
+		/* Simply kill the temporary file */ 
 		(void)fd_kill(floor_savefile);
 
 		/* Drop permissions */
@@ -860,12 +860,12 @@ void leave_floor(void)
 	/* New floor is not yet prepared */
 	new_floor_id = 0;
 
-	/* Temporary get a floor_id (for Arena) */
+	/* Temporarily get a floor_id (for Arena) */
 	if (!p_ptr->floor_id &&
 	    (change_floor_mode & CFM_SAVE_FLOORS) &&
 	    !(change_floor_mode & CFM_NO_RETURN))
 	{
-	    /* Get temporal floor_id */
+	    /* Get temporary floor_id */
 	    p_ptr->floor_id = get_new_floor_id();
 	}
 
@@ -1072,7 +1072,7 @@ void leave_floor(void)
  * @return なし
  * @details
  * If the floor is an old saved floor, it will be\n
- * restored from the temporal file.  If the floor is new one, new current_floor_ptr->grid_array\n
+ * restored from the temporary file.  If the floor is new one, new current_floor_ptr->grid_array\n
  * will be generated.\n
  */
 void change_floor(void)
@@ -1274,7 +1274,7 @@ void change_floor(void)
 		{
 			if (sf_ptr->last_visit)
 			{
-				/* Temporal file is broken? */
+				/* Temporary file is broken? */
 				msg_print(_("階段は行き止まりだった。", "The staircases come to a dead end..."));
 
 				/* Create simple dead end */

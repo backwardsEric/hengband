@@ -452,7 +452,7 @@ world_type world;
 world_type *current_world_ptr = &world;
 
 /*
- * Sign for current process used in temporal files.
+ * Sign for current process used in temporary files.
  * Actually it is the start time of current process.
  */
 u32b saved_floor_file_sign;

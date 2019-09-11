@@ -6227,7 +6227,7 @@ void close_game(void)
 	/* Forget the high score fd */
 	highscore_fd = -1;
 
-	/* Kill all temporal files */
+	/* Kill all temporary files */
 	clear_saved_floor_files();
 
 	/* Allow suspending now */
