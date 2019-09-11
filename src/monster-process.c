@@ -372,7 +372,7 @@ void mon_take_hit_mon(MONSTER_IDX m_idx, HIT_POINT dam, bool *dead, bool *fear, 
 		if (m_ptr->hp > m_ptr->maxhp/3) dam = (dam + 1) / 2;
 		if (rakuba((dam > 200) ? 200 : dam, FALSE))
 		{
-			msg_format(_("%^sに振り落とされた！", "You have thrown off from %s!"), m_name);
+			msg_format(_("%^sに振り落とされた！", "You have been thrown off from %s!"), m_name);
 		}
 	}
 
