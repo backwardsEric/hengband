@@ -3455,7 +3455,7 @@ bool make_attack_normal(MONSTER_IDX m_idx)
 						/* Modify the damage */
 						dam = mon_damage_mod(m_ptr, dam, FALSE);
 
-						msg_format(_("影のオーラが%^sに反撃した！", "Enveloped shadows attack %^s."), m_name);
+						msg_format(_("影のオーラが%^sに反撃した！", "Enveloping shadows attack %^s."), m_name);
 						if (mon_take_hit(m_idx, dam, &fear, _("は倒れた。", " is destroyed.")))
 						{
 							blinked = FALSE;
