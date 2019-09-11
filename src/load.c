@@ -4042,7 +4042,7 @@ static bool load_floor_aux(saved_floor_type *sf_ptr)
 	x_check = 0L;
 
 	/* Set the version number to current version */
-	/* Never load old temporal files */
+	/* Never load old temporary files */
 	h_ver_extra = H_VER_EXTRA;
 	h_ver_patch = H_VER_PATCH;
 	h_ver_minor = H_VER_MINOR;
@@ -4082,7 +4082,7 @@ static bool load_floor_aux(saved_floor_type *sf_ptr)
 
 
 /*!
- * @brief 一時保存フロア情報を読み込む / Attempt to load the temporally saved-floor data
+ * @brief 一時保存フロア情報を読み込む / Attempt to load the temporarily saved-floor data
  * @param sf_ptr 保存フロア読み込み先
  * @param mode オプション
  * @return 成功したらtrue
@@ -4104,7 +4104,7 @@ bool load_floor(saved_floor_type *sf_ptr, BIT_FLAGS mode)
 	byte old_kanji_code = kanji_code;
 
 	/*
-	 * Temporal files are always written in system depended kanji
+	 * Temporary files are always written in system depended kanji
 	 * code.
 	 */
 #ifdef JP
