@@ -4739,7 +4739,7 @@ static void process_player(void)
 			/* Recover fully */
 			(void)set_monster_csleep(p_ptr->riding, 0);
 			monster_desc(m_name, m_ptr, 0);
-			msg_format(_("%^sを起こした。", "You have waked %s up."), m_name);
+			msg_format(_("%^sを起こした。", "You have woken %s up."), m_name);
 		}
 
 		if (MON_STUNNED(m_ptr))

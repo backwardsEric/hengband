@@ -348,7 +348,7 @@ bool do_riding(bool force)
 			GAME_TEXT m_name[MAX_NLEN];
 			monster_desc(m_name, m_ptr, 0);
 			(void)set_monster_csleep(g_ptr->m_idx, 0);
-			msg_format(_("%sを起こした。", "You have waked %s up."), m_name);
+			msg_format(_("%sを起こした。", "You have woken %s up."), m_name);
 		}
 
 		if (p_ptr->action == ACTION_KAMAE) set_action(ACTION_NONE);
