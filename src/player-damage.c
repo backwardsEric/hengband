@@ -369,7 +369,7 @@ static bool acid_minus_ac(void)
 	/* No damage left to be done */
 	if (o_ptr->ac + o_ptr->to_a <= 0)
 	{
-		msg_format(_("%sは既にボロボロだ！", "Your %s is already crumble!"), o_name);
+		msg_format(_("%sは既にボロボロだ！", "Your %s is already fully corroded!"), o_name);
 		return (FALSE);
 	}
 
