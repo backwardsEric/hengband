@@ -14,10 +14,10 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <menu title="MainMenu" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
-                <menuItem title="Hengband" id="56">
-                    <menu key="submenu" title="Hengband" systemMenu="apple" id="57">
+                <menuItem title="変愚蛮怒" id="56">
+                    <menu key="submenu" title="変愚蛮怒" systemMenu="apple" id="57">
                         <items>
-                            <menuItem title="Hengband について" id="58">
+                            <menuItem title="変愚蛮怒 について" id="58">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="orderFrontStandardAboutPanel:" target="-2" id="142"/>
@@ -36,7 +36,7 @@
                             <menuItem isSeparatorItem="YES" id="144">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Hengband を隠す" keyEquivalent="h" id="134">
+                            <menuItem title="変愚蛮怒 を隠す" keyEquivalent="h" id="134">
                                 <connections>
                                     <action selector="hide:" target="-2" id="152"/>
                                 </connections>
@@ -55,7 +55,7 @@
                             <menuItem isSeparatorItem="YES" id="149">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Hengband を終了" keyEquivalent="q" id="136">
+                            <menuItem title="変愚蛮怒 を終了" keyEquivalent="q" id="136">
                                 <connections>
                                     <action selector="terminate:" target="-2" id="139"/>
                                 </connections>
@@ -184,7 +184,7 @@
                 <menuItem title="ヘルプ" id="103">
                     <menu key="submenu" title="ヘルプ" id="106">
                         <items>
-                            <menuItem title="Hengband ヘルプ" keyEquivalent="?" id="111">
+                            <menuItem title="変愚蛮怒 ヘルプ" keyEquivalent="?" id="111">
                                 <connections>
                                     <action selector="showHelp:" target="-1" id="122"/>
                                 </connections>
