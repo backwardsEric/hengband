@@ -2243,7 +2243,7 @@ void process_monster(MONSTER_IDX m_idx)
 					{
 						msg_format(_("%^s「ピンチだ！退却させてもらう！」", "%^s says 'It is the pinch! I will retreat'."), m_name);
 					}
-					msg_format(_("%^sがテレポート・レベルの巻物を読んだ。", "%^s read a scroll of teleport level."), m_name);
+					msg_format(_("%^sがテレポート・レベルの巻物を読んだ。", "%^s reads a scroll of teleport level."), m_name);
 					msg_format(_("%^sが消え去った。", "%^s disappears."), m_name);
 				}
 
