@@ -101,6 +101,7 @@ cocoa_icon_files = \
 	cocoa/Edit.icns \
 	cocoa/Data.icns
 cocoa_plist_template = cocoa/Angband-Cocoa.xml
+cocoa_plist_strings_template = cocoa/Angband-Cocoa.strings
 cocoa_plist_files = \
 	cocoa/CommandMenu.plist
 cocoa_en_nib_files = \
@@ -141,9 +142,13 @@ BUNDLE_IDENTIFIER = jp.osdn.hengband
 BUNDLE_VERSION = $(PACKAGE_VERSION)
 BUNDLE_DISPLAY_NAME = $(APPNAME)
 BUNDLE_NAME = $(BUNDLE_DISPLAY_NAME)
+BUNDLE_DISPLAY_NAME_JA = 変愚蛮怒
+BUNDLE_NAME_JA = $(BUNDLE_DISPLAY_NAME_JA)
 # Be careful with characters (like '&') in the copyright that have special
 # meanings to sed.
 COPYRIGHT = Copyright © Mr. Hoge and many others
+# For now, using the English version.  Should be localized to Japanese.
+COPYRIGHT_JA = $(COPYRIGHT)
 APPBNDL = $(bindir)/$(APPDIR)
 APPCONT = $(APPBNDL)/Contents
 APPBIN = $(APPCONT)/MacOS
@@ -184,6 +189,8 @@ if COCOA
 # be created from the Makefiles in the lib directory.
 install-data-local:
 	@mkdir -p $(APPCONT)
+	@mkdir -p $(appendir)
+	@mkdir -p $(appjadir)
 	@mkdir -p $(APPRES)/lib/info
 	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
 		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT)/' \
@@ -194,6 +201,16 @@ install-data-local:
 		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME)/' \
 		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME)/' \
 		$(srcdir)/$(cocoa_plist_template) > $(APPCONT)/Info.plist
+	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
+		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME)/' \
+		$(srcdir)/$(cocoa_plist_strings_template) > $(appendir)/InfoPlist.strings
+	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
+		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT_JA)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME_JA)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME_JA)/' \
+		$(srcdir)/$(cocoa_plist_strings_template) > $(appjadir)/InfoPlist.strings
 
 distclean-local:
 	-rm $(APPCONT)/Info.plist
