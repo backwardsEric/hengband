@@ -1126,7 +1126,7 @@ static void add_essence(ESSENCE_IDX mode)
 	if (o_ptr->number > 1)
 	{
 		use_essence *= o_ptr->number;
-		msg_format(_("%d個あるのでエッセンスは%d必要です。", "It will take %d essences."), o_ptr->number, use_essence);
+		msg_format(_("%d個あるのでエッセンスは%d必要です。", "For %d items, it will take %d essences."), o_ptr->number, use_essence);
 	}
 
 	if (es_ptr->essence != -1)
