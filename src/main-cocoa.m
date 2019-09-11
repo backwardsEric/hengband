@@ -4135,7 +4135,14 @@ static void hook_quit(const char * str)
     NSMenu *windowsMenu = [[NSApplication sharedApplication] windowsMenu];
     [windowsMenu addItem: [NSMenuItem separatorItem]];
 
-    NSMenuItem *angbandItem = [[NSMenuItem alloc] initWithTitle: @"Hengband" action: @selector(selectWindow:) keyEquivalent: @"0"];
+    NSString *title1 = [NSString stringWithCString:angband_term_name[0]
+#ifdef JP
+				encoding:NSJapaneseEUCStringEncoding
+#else
+				encoding:NSMacOSRomanStringEncoding
+#endif
+    ];
+    NSMenuItem *angbandItem = [[NSMenuItem alloc] initWithTitle:title1 action: @selector(selectWindow:) keyEquivalent: @"0"];
     [angbandItem setTarget: self];
     [angbandItem setTag: AngbandWindowMenuItemTagBase];
     [windowsMenu addItem: angbandItem];
@@ -4144,7 +4151,13 @@ static void hook_quit(const char * str)
     /* Add items for the additional term windows */
     for( NSInteger i = 1; i < ANGBAND_TERM_MAX; i++ )
     {
-        NSString *title = [NSString stringWithFormat: @"Term %ld", (long)i];
+        NSString *title = [NSString stringWithCString:angband_term_name[i]
+#ifdef JP
+				    encoding:NSJapaneseEUCStringEncoding
+#else
+				    encoding:NSMacOSRomanStringEncoding
+#endif
+	];
         NSString *keyEquivalent = [NSString stringWithFormat: @"%ld", (long)i];
         NSMenuItem *windowItem = [[NSMenuItem alloc] initWithTitle: title action: @selector(selectWindow:) keyEquivalent: keyEquivalent];
         [windowItem setTarget: self];
