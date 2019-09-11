@@ -139,6 +139,8 @@ APPEXE = hengband
 APPDIR = $(APPNAME).app
 BUNDLE_IDENTIFIER = jp.osdn.hengband
 BUNDLE_VERSION = $(PACKAGE_VERSION)
+BUNDLE_DISPLAY_NAME = $(APPNAME)
+BUNDLE_NAME = $(BUNDLE_DISPLAY_NAME)
 # Be careful with characters (like '&') in the copyright that have special
 # meanings to sed.
 COPYRIGHT = Copyright © Mr. Hoge and many others
@@ -189,6 +191,8 @@ install-data-local:
 		-e 's/\$$EXECUTABLE\$$/$(APPEXE)/' \
 		-e 's/\$$BUNDLE_VERSION\$$/$(BUNDLE_VERSION)/' \
 		-e 's/\$$BUNDLE_IDENTIFIER\$$/$(BUNDLE_IDENTIFIER)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME)/' \
 		$(srcdir)/$(cocoa_plist_template) > $(APPCONT)/Info.plist
 
 distclean-local:
