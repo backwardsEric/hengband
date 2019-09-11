@@ -4774,7 +4774,7 @@ static void process_player(void)
 			{
 				GAME_TEXT m_name[MAX_NLEN];
 				monster_desc(m_name, m_ptr, 0);
-				msg_format(_("%^sを恐怖から立ち直らせた。", "%^s is no longer fear."), m_name);
+				msg_format(_("%^sを恐怖から立ち直らせた。", "%^s is no longer afraid."), m_name);
 			}
 		}
 
