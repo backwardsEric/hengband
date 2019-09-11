@@ -2644,7 +2644,7 @@ static void process_world_aux_curse(void)
 				GAME_TEXT o_name[MAX_NLEN];
 
 				object_desc(o_name, choose_cursed_obj_name(TRC_CALL_ANIMAL), (OD_OMIT_PREFIX | OD_NAME_ONLY));
-				msg_format(_("%sが動物を引き寄せた！", "Your %s have attracted an animal!"), o_name);
+				msg_format(_("%sが動物を引き寄せた！", "Your %s has attracted an animal!"), o_name);
 				disturb(FALSE, TRUE);
 			}
 		}
@@ -2656,7 +2656,7 @@ static void process_world_aux_curse(void)
 				GAME_TEXT o_name[MAX_NLEN];
 
 				object_desc(o_name, choose_cursed_obj_name(TRC_CALL_DEMON), (OD_OMIT_PREFIX | OD_NAME_ONLY));
-				msg_format(_("%sが悪魔を引き寄せた！", "Your %s have attracted a demon!"), o_name);
+				msg_format(_("%sが悪魔を引き寄せた！", "Your %s has attracted a demon!"), o_name);
 				disturb(FALSE, TRUE);
 			}
 		}
@@ -2669,7 +2669,7 @@ static void process_world_aux_curse(void)
 				GAME_TEXT o_name[MAX_NLEN];
 
 				object_desc(o_name, choose_cursed_obj_name(TRC_CALL_DRAGON), (OD_OMIT_PREFIX | OD_NAME_ONLY));
-				msg_format(_("%sがドラゴンを引き寄せた！", "Your %s have attracted an dragon!"), o_name);
+				msg_format(_("%sがドラゴンを引き寄せた！", "Your %s has attracted an dragon!"), o_name);
 				disturb(FALSE, TRUE);
 			}
 		}
@@ -2682,7 +2682,7 @@ static void process_world_aux_curse(void)
 				GAME_TEXT o_name[MAX_NLEN];
 
 				object_desc(o_name, choose_cursed_obj_name(TRC_CALL_UNDEAD), (OD_OMIT_PREFIX | OD_NAME_ONLY));
-				msg_format(_("%sが死霊を引き寄せた！", "Your %s have attracted an undead!"), o_name);
+				msg_format(_("%sが死霊を引き寄せた！", "Your %s has attracted an undead!"), o_name);
 				disturb(FALSE, TRUE);
 			}
 		}
