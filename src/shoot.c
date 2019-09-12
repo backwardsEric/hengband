@@ -834,7 +834,7 @@ void exe_fire(INVENTORY_IDX item, object_type *j_ptr, SPELL_IDX snipe_type)
 
 			if (!o_idx)
 			{
-				msg_format(_("%sはどこかへ行った。", "The %s have gone to somewhere."), o_name);
+				msg_format(_("%sはどこかへ行った。", "The %s went somewhere."), o_name);
 				if (object_is_fixed_artifact(q_ptr))
 				{
 					a_info[j_ptr->name1].cur_num = 0;
