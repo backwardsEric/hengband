@@ -1213,7 +1213,7 @@ void brand_weapon(int brand_type)
 	{
 		if (flush_failure) flush();
 
-		msg_print(_("属性付加に失敗した。", "The Branding failed."));
+		msg_print(_("属性付加に失敗した。", "The branding failed."));
 		chg_virtue(V_ENCHANT, -2);
 	}
 	calc_android_exp();
