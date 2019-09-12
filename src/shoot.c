@@ -744,7 +744,7 @@ void exe_fire(INVENTORY_IDX item, object_type *j_ptr, SPELL_IDX snipe_type)
 							monster_desc(m_name, m_ptr, 0);
 
 							stick_to = TRUE;
-							msg_format(_("%sは%sに突き刺さった！", "%^s have stuck into %s!"), o_name, m_name);
+							msg_format(_("%sは%sに突き刺さった！", "%^s is stuck in %s!"), o_name, m_name);
 						}
 
 						message_pain(c_mon_ptr->m_idx, tdam);
