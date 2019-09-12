@@ -5133,7 +5133,7 @@ bool rodeo(player_type *creature_ptr)
 	}
 	else
 	{
-		msg_format(_("%sに振り落とされた！", "You have thrown off by %s."), m_name);
+		msg_format(_("%sに振り落とされた！", "You have been thrown off by %s."), m_name);
 		rakuba(1, TRUE);
 		/* 落馬処理に失敗してもとにかく乗馬解除 */
 		creature_ptr->riding = 0;
