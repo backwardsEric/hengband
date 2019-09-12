@@ -1095,7 +1095,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 				}
 				else
 				{
-					msg_print(_("復讐する気が失せた。", "You are not a mood to revenge."));
+					msg_print(_("復讐する気が失せた。", "You are not in the mood for revenge."));
 				}
 				HEX_REVENGE_POWER(p_ptr) = 0;
 			}
