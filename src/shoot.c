@@ -687,7 +687,7 @@ void exe_fire(INVENTORY_IDX item, object_type *j_ptr, SPELL_IDX snipe_type)
 							monster_desc(m_name, m_ptr, 0);
 
 							tdam = m_ptr->hp + 1;
-							msg_format(_("%sの急所に突き刺さった！", "Your shot sticked on a fatal spot of %s!"), m_name);
+							msg_format(_("%sの急所に突き刺さった！", "Your shot hit a fatal spot of %s!"), m_name);
 						}
 						else tdam = 1;
 					}
