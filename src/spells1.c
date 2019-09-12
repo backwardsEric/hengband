@@ -3331,7 +3331,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 				if (seen) obvious = TRUE;
 				if (genocide_aux(g_ptr->m_idx, dam, !who, (r_ptr->level + 1) / 2, _("モンスター消滅", "Genocide One")))
 				{
-					if (seen_msg) msg_format(_("%sは消滅した！", "%^s disappered!"), m_name);
+					if (seen_msg) msg_format(_("%sは消滅した！", "%^s disappeared!"), m_name);
 					chg_virtue(V_VITALITY, -1);
 					return TRUE;
 				}
