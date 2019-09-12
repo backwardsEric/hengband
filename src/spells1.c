@@ -512,7 +512,7 @@ static bool project_f(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 		{
 			if (is_mirror_grid(g_ptr))
 			{
-				msg_print(_("鏡が割れた！", "The mirror was crashed!"));
+				msg_print(_("鏡が割れた！", "The mirror was shattered!"));
 				sound(SOUND_GLASS);
 				remove_mirror(y, x);
 				project(0, 2, y, x, p_ptr->lev / 2 + 5, GF_SHARDS, (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP | PROJECT_NO_HANGEKI), -1);
@@ -522,7 +522,7 @@ static bool project_f(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 			{
 				if (known && (g_ptr->info & CAVE_MARK))
 				{
-					msg_format(_("%sが割れた！", "The %s was crashed!"), f_name + f_info[get_feat_mimic(g_ptr)].name);
+					msg_format(_("%sが割れた！", "The %s crumbled!"), f_name + f_info[get_feat_mimic(g_ptr)].name);
 					sound(SOUND_GLASS);
 				}
 
@@ -537,7 +537,7 @@ static bool project_f(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 		{
 			if (is_mirror_grid(g_ptr) && p_ptr->lev < 40)
 			{
-				msg_print(_("鏡が割れた！", "The mirror was crashed!"));
+				msg_print(_("鏡が割れた！", "The mirror was shattered!"));
 				sound(SOUND_GLASS);
 				remove_mirror(y, x);
 				project(0, 2, y, x, p_ptr->lev / 2 + 5, GF_SHARDS, (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP | PROJECT_NO_HANGEKI), -1);
@@ -547,7 +547,7 @@ static bool project_f(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 			{
 				if (known && (g_ptr->info & CAVE_MARK))
 				{
-					msg_format(_("%sが割れた！", "The %s was crashed!"), f_name + f_info[get_feat_mimic(g_ptr)].name);
+					msg_format(_("%sが割れた！", "The %s crumbled!"), f_name + f_info[get_feat_mimic(g_ptr)].name);
 					sound(SOUND_GLASS);
 				}
 
