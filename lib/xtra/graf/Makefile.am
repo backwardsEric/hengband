@@ -9,7 +9,7 @@ angband4_tile_files = \
 	adam-bolt/16x16.png
 
 EXTRA_DIST = \
-  $(angband_files) $(angband4_conf) $(angband4_tile_files)
+  delete.me $(angband_files) $(angband4_conf) $(angband4_tile_files)
 
 if SET_GID
 angbanddir = @DEFAULT_PATH@xtra/graf
