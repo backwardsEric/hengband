@@ -12,6 +12,7 @@ visual_studio_files = \
 EXTRA_DIST = \
 	autopick.txt \
 	autopick_eng.txt \
+	bootstrap \
 	readme.txt \
 	readme_angband \
 	readme_eng.txt \
