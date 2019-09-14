@@ -698,7 +698,7 @@ static bool cave_gen(void)
 			{
 				FEAT_IDX select_deep_feat[10];
 				FEAT_IDX select_shallow_feat[10];
-				int select_id_max = 0, selected;
+				int select_id_max = 0;
 
 				if (d_info[p_ptr->dungeon_idx].flags1 & DF1_LAVA_RIVER)
 				{
@@ -719,9 +719,13 @@ static bool cave_gen(void)
 					select_id_max++;
 				}
 
-				selected = randint0(select_id_max);
-				feat1 = select_deep_feat[selected];
-				feat2 = select_shallow_feat[selected];
+				if (select_id_max > 0)
+				{
+					int selected = randint0(select_id_max);
+
+					feat1 = select_deep_feat[selected];
+					feat2 = select_shallow_feat[selected];
+				}
 			}
 
 			if (feat1)
