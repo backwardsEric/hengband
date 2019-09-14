@@ -91,9 +91,9 @@ hengband_SOURCES = \
 
 EXTRA_hengband_SOURCES = \
 	angband.ico angband.rc ang_eng.rc maid-x11.c main-mac.c main-win.c \
-	main-dos.c main-ibm.c \
+	main-cap.c main-dos.c main-ibm.c main-xaw.c \
 	makefile.bcc makefile.std makefile.dos makefile.ibm \
-	readdib.c wall.bmp
+	readdib.c readdib.h wall.bmp
 
 cocoa_icon_files = \
 	cocoa/hengband_Icons.icns \
