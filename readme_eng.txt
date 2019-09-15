@@ -67,7 +67,7 @@ downloading the source archive and running
 
 tar -zxvf hengband-x.x.x.tar.gz
 cd hengband-x.x.x
-./configure --disable-japanese --enable-cocoa --without-x
+./configure --disable-japanese --enable-cocoa
 make install
 
 from a terminal where you substitute x.x.x with the version number you
