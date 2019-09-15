@@ -52,8 +52,16 @@ AC_ARG_ENABLE([cocoa],
 [  --enable-cocoa          enable a Cocoa user interface (OS X only)],
 AC_DEFINE([MACH_O_COCOA], [1], [Use a Cocoa interface (OS X only)]), [])
 AM_CONDITIONAL([COCOA], [test x$enable_cocoa = xyes])
-if test x"$enable_cocoa" = yes; then
-AC_LANG_OBJC
+dnl Since AC_PROG_OBJC has the side effect of setting this conditional,
+dnl guarantee that is is always set, regardless of what happens in the if
+dnl statement.
+AM_CONDITIONAL([am__fastdepOBJC], false)
+if test x"$enable_cocoa" = xyes ; then
+  dnl Use AC_LANG_PUSH and AC_LANG_POP to try to get back to the state that
+  dnl AC_LANG_C set in case there are side effects.
+  AC_LANG_PUSH([Objective C])
+  AC_PROG_OBJC
+  AC_LANG_POP([Objective C])
 fi
 
 dnl Checks for libraries.
