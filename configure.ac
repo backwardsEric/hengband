@@ -82,6 +82,10 @@ AC_CHECK_LIB(iconv, iconv_open)
 AC_CHECK_FILE(/dev/urandom, AC_DEFINE(RNG_DEVICE, "/dev/urandom", [Random Number Generation device file]))
 
 dnl Checks for header files.
+dnl AC_PATH_XTRA has side effects on CPP which are beneficial on Mac OS X.
+dnl Removing it or conditionally executing it will likely lead to warnings
+dnl on that platform about the preprocessor disagreeing with the compiler on
+dnl the tests in AC_CHECK_HEADERS.
 AC_PATH_XTRA
 if test "$have_x" = yes; then
   LIBS="$LIBS -lX11"
