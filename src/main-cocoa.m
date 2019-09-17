@@ -3520,7 +3520,7 @@ static void handle_open_when_ready(void)
         game_in_progress = TRUE;
         
         /* Wait for a keypress */
-        pause_line(23);
+        pause_line(Term->hgt - 1);
     }
 }
 
