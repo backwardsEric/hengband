@@ -4077,8 +4077,15 @@ static void hook_quit(const char * str)
         }
         else
         {
+	    /*
+	     * Another window is only usable after Term_init_cocoa() has
+	     * been called for it.  For Angband if window_flag[i] is nonzero
+	     * then that has happened for window i.  For Hengband, that is
+	     * not the case so also test angband_term[i]->data.
+	     */
             NSInteger subwindowNumber = tag - AngbandWindowMenuItemTagBase;
-            return (window_flag[subwindowNumber] > 0);
+            return (angband_term[subwindowNumber]->data != 0
+		    && window_flag[subwindowNumber] > 0);
         }
 
         return NO;
