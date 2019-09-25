@@ -274,7 +274,7 @@ bool do_riding(bool force)
 		/* Skip non-empty grids */
 		if (!player_can_ride_aux(g_ptr, FALSE))
 		{
-			msg_print(_("そちらには降りられません。", "You cannot go to that direction."));
+			msg_print(_("そちらには降りられません。", "You cannot go that direction."));
 			return FALSE;
 		}
 
