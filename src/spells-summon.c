@@ -232,7 +232,7 @@ bool cast_summon_greater_demon(void)
 	}
 	else
 	{
-		msg_print(_("悪魔は現れなかった。", "No Greater Demon arrive."));
+		msg_print(_("悪魔は現れなかった。", "No Greater Demon arrives."));
 	}
 
 	return TRUE;
@@ -432,6 +432,6 @@ void mitokohmon(void)
 	}
 	else
 	{
-		msg_print(_("しかし、何も起きなかった。", "Nothing happen."));
+		msg_print(_("しかし、何も起きなかった。", "Nothing happens."));
 	}
 }
