@@ -51,7 +51,7 @@ static bool choose_kamae(void)
 	}
 
 	prt("", 1, 0);
-	prt(_("        どの構えをとりますか？", "        Choose Form: "), 1, 14);
+	prt(_("        どの構えをとりますか？", "        Choose Stance: "), 1, 14);
 
 	while(1)
 	{
@@ -69,7 +69,7 @@ static bool choose_kamae(void)
 				set_action(ACTION_NONE);
 			}
 			else
-				msg_print(_("もともと構えていない。", "You are not assuming a posture."));
+				msg_print(_("もともと構えていない。", "You are not in a special stance."));
 			screen_load();
 			return TRUE;
 		}
@@ -98,14 +98,14 @@ static bool choose_kamae(void)
 
 	if (p_ptr->special_defense & (KAMAE_GENBU << new_kamae))
 	{
-		msg_print(_("構え直した。", "You reassume a posture."));
+		msg_print(_("構え直した。", "You reassume a stance."));
 	}
 	else
 	{
 		p_ptr->special_defense &= ~(KAMAE_MASK);
 		p_ptr->update |= (PU_BONUS);
 		p_ptr->redraw |= (PR_STATE);
-		msg_format(_("%sの構えをとった。", "You assume a posture of %s form."),kamae_shurui[new_kamae].desc);
+		msg_format(_("%sの構えをとった。", "You assume the %s stance."),kamae_shurui[new_kamae].desc);
 		p_ptr->special_defense |= (KAMAE_GENBU << new_kamae);
 	}
 	p_ptr->redraw |= PR_STATE;
@@ -144,13 +144,13 @@ static bool choose_kata(void)
 	{
 		if (p_ptr->lev >= kata_shurui[i].min_level)
 		{
-			sprintf(buf,_(" %c) %sの型    %s", " %c) Form of %-12s  %s"),I2A(i+1), kata_shurui[i].desc, kata_shurui[i].info);
+			sprintf(buf,_(" %c) %sの型    %s", " %c) Stance of %-12s  %s"),I2A(i+1), kata_shurui[i].desc, kata_shurui[i].info);
 			prt(buf, 3+i, 20);
 		}
 	}
 
 	prt("", 1, 0);
-	prt(_("        どの型で構えますか？", "        Choose Form: "), 1, 14);
+	prt(_("        どの型で構えますか？", "        Choose Stance: "), 1, 14);
 
 	while(1)
 	{
@@ -168,7 +168,7 @@ static bool choose_kata(void)
 				set_action(ACTION_NONE);
 			}
 			else
-				msg_print(_("もともと構えていない。", "You are not assuming posture."));
+				msg_print(_("もともと構えていない。", "You are not in a special stance."));
 			screen_load();
 			return TRUE;
 		}
@@ -197,13 +197,13 @@ static bool choose_kata(void)
 
 	if (p_ptr->special_defense & (KATA_IAI << new_kata))
 	{
-		msg_print(_("構え直した。", "You reassume a posture."));
+		msg_print(_("構え直した。", "You reassume a stance."));
 	}
 	else
 	{
 		p_ptr->special_defense &= ~(KATA_MASK);
 		p_ptr->update |= (PU_BONUS | PU_MONSTERS);
-		msg_format(_("%sの型で構えた。", "You assume a posture of %s form."),kata_shurui[new_kata].desc);
+		msg_format(_("%sの型で構えた。", "You assume the %s stance."),kata_shurui[new_kata].desc);
 		p_ptr->special_defense |= (KATA_IAI << new_kata);
 	}
 	p_ptr->redraw |= (PR_STATE | PR_STATUS);
@@ -975,7 +975,7 @@ void do_cmd_racial_power(void)
 	}
 	case CLASS_MONK:
 	{
-		strcpy(power_desc[num].name, _("構える", "Assume a Posture"));
+		strcpy(power_desc[num].name, _("構える", "Assume a Stance"));
 		power_desc[num].level = 25;
 		power_desc[num].cost = 0;
 		power_desc[num].stat = A_DEX;
@@ -1101,7 +1101,7 @@ void do_cmd_racial_power(void)
 		power_desc[num].fail = 0;
 		power_desc[num++].number = -3;
 		
-		strcpy(power_desc[num].name, _("型", "Assume a Posture"));
+		strcpy(power_desc[num].name, _("型", "Assume a Stance"));
 		power_desc[num].level = 25;
 		power_desc[num].cost = 0;
 		power_desc[num].stat = A_DEX;

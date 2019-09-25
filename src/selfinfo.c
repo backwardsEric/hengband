@@ -441,7 +441,7 @@ void self_knowledge(void)
 		case CLASS_MONK:
 			if (plev > 24)
 			{
-				info[i++] = _("あなたは構えることができる。(0 MP)", "You can assume a posture of special form (cost 0).");
+				info[i++] = _("あなたは構えることができる。(0 MP)", "You can assume a special stance (cost 0).");
 			}
 			if (plev > 29)
 			{
@@ -492,7 +492,7 @@ void self_knowledge(void)
 			}
 			if (plev > 24)
 			{
-				info[i++] = _("あなたは特殊な型で構えることができる。", "You can assume a posture of special form.");
+				info[i++] = _("あなたは特殊な型で構えることができる。", "You can assume a special stance.");
 			}
 			break;
 		case CLASS_BLUE_MAGE:
