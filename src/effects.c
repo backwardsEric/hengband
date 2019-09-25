@@ -1150,7 +1150,7 @@ bool set_shero(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->shero)
 		{
-			msg_print(_("野蛮な気持ちが消え失せた。", "You feel less Berserk."));
+			msg_print(_("野蛮な気持ちが消え失せた。", "You feel less berserk."));
 			notice = TRUE;
 		}
 	}
