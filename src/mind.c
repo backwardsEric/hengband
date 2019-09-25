@@ -1561,7 +1561,7 @@ static bool cast_ninja_spell(int spell)
 	{
 		if (!(p_ptr->special_defense & NINJA_KAWARIMI))
 		{
-			msg_print(_("敵の攻撃に対して敏感になった。", "You are now prepare to evade any attacks."));
+			msg_print(_("敵の攻撃に対して敏感になった。", "You are now prepared to evade any attacks."));
 			p_ptr->special_defense |= NINJA_KAWARIMI;
 			p_ptr->redraw |= (PR_STATUS);
 		}
