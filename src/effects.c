@@ -1736,7 +1736,7 @@ bool set_tim_sh_touki(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->tim_sh_touki)
 		{
-			msg_print(_("体が闘気のオーラで覆われた。", "You have enveloped by the aura of the Force!"));
+			msg_print(_("体が闘気のオーラで覆われた。", "You are enveloped by the aura of the Force!"));
 			notice = TRUE;
 		}
 	}
@@ -1746,7 +1746,7 @@ bool set_tim_sh_touki(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->tim_sh_touki)
 		{
-			msg_print(_("闘気が消えた。", "Aura of the Force disappeared."));
+			msg_print(_("闘気が消えた。", "The aura of the Force disappeared."));
 			notice = TRUE;
 		}
 	}
@@ -1785,7 +1785,7 @@ bool set_tim_sh_fire(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->tim_sh_fire)
 		{
-			msg_print(_("体が炎のオーラで覆われた。", "You have enveloped by fiery aura!"));
+			msg_print(_("体が炎のオーラで覆われた。", "You are enveloped by a fiery aura!"));
 			notice = TRUE;
 		}
 	}
@@ -1795,7 +1795,7 @@ bool set_tim_sh_fire(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->tim_sh_fire)
 		{
-			msg_print(_("炎のオーラが消えた。", "Fiery aura disappeared."));
+			msg_print(_("炎のオーラが消えた。", "The fiery aura disappeared."));
 			notice = TRUE;
 		}
 	}
@@ -1835,7 +1835,7 @@ bool set_tim_sh_holy(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->tim_sh_holy)
 		{
-			msg_print(_("体が聖なるオーラで覆われた。", "You have enveloped by holy aura!"));
+			msg_print(_("体が聖なるオーラで覆われた。", "You are enveloped by a holy aura!"));
 			notice = TRUE;
 		}
 	}
@@ -1845,7 +1845,7 @@ bool set_tim_sh_holy(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->tim_sh_holy)
 		{
-			msg_print(_("聖なるオーラが消えた。", "Holy aura disappeared."));
+			msg_print(_("聖なるオーラが消えた。", "The holy aura disappeared."));
 			notice = TRUE;
 		}
 	}
