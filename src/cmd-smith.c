@@ -1115,7 +1115,7 @@ static void add_essence(ESSENCE_IDX mode)
 
 	if ((mode != 10) && (object_is_artifact(o_ptr) || object_is_smith(o_ptr)))
 	{
-		msg_print(_("そのアイテムはこれ以上改良できない。", "This item is no more able to be improved."));
+		msg_print(_("そのアイテムはこれ以上改良できない。", "This item can not be improved any further."));
 		return;
 	}
 
