@@ -1380,7 +1380,7 @@ static bool cast_learned_spell(int spell, bool success)
 	}
 	if (no_trump)
     {
-        msg_print(_("何も現れなかった。", "No one have appeared."));
+        msg_print(_("何も現れなかった。", "No one appeared."));
 	}
 
 	return TRUE;
