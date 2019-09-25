@@ -36,7 +36,7 @@ void do_cmd_quaff_potion_aux(INVENTORY_IDX item)
 	if (p_ptr->timewalk)
 	{
 		if (flush_failure) flush();
-		msg_print(_("瓶から水が流れ出てこない！", "The potion doesn't flow out from a bottle."));
+		msg_print(_("瓶から水が流れ出てこない！", "The potion doesn't flow out from the bottle."));
 
 		sound(SOUND_FAIL);
 		return;
