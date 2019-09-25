@@ -591,7 +591,7 @@ void do_cmd_pet(void)
 		{
 			if (p_ptr->pet_extra_flags & PF_RYOUTE)
 			{
-				power_desc[num] = _("武器を片手で持つ", "use one hand to control a riding pet");
+				power_desc[num] = _("武器を片手で持つ", "use one hand to control the pet you are riding");
 			}
 			else
 			{
@@ -611,7 +611,7 @@ void do_cmd_pet(void)
 				{
 					if (p_ptr->pet_extra_flags & PF_RYOUTE)
 					{
-						power_desc[num] = _("片手で格闘する", "use one hand to control a riding pet");
+						power_desc[num] = _("片手で格闘する", "use one hand to control the pet you are riding");
 					}
 					else
 					{
@@ -624,7 +624,7 @@ void do_cmd_pet(void)
 				{
 					if (p_ptr->pet_extra_flags & PF_RYOUTE)
 					{
-						power_desc[num] = _("格闘を行わない", "use one hand to control a riding pet");
+						power_desc[num] = _("格闘を行わない", "use one hand to control the pet you are riding");
 					}
 					else
 					{

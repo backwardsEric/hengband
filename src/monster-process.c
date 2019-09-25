@@ -2232,7 +2232,7 @@ void process_monster(MONSTER_IDX m_idx)
 					msg_format(_("%sはあなたの束縛から脱出した。", "%^s succeeded to escape from your restriction!"), m_name);
 					if (rakuba(-1, FALSE))
 					{
-						msg_print(_("地面に落とされた。", "You have fallen from riding pet."));
+						msg_print(_("地面に落とされた。", "You have fallen from the pet you were riding."));
 					}
 				}
 
@@ -2249,7 +2249,7 @@ void process_monster(MONSTER_IDX m_idx)
 
 				if (is_riding_mon && rakuba(-1, FALSE))
 				{
-					msg_print(_("地面に落とされた。", "You have fallen from riding pet."));
+					msg_print(_("地面に落とされた。", "You have fallen from the pet you were riding."));
 				}
 
 				check_quest_completion(m_ptr);
