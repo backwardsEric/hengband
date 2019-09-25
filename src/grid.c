@@ -3988,7 +3988,7 @@ void update_mon_lite(void)
 		{
 			if (p_ptr->monlite)
 			{
-				msg_print(_("影の覆いが薄れた気がする。", "Your mantle of shadow become thin."));
+				msg_print(_("影の覆いが薄れた気がする。", "Your mantle of shadow becomes thin."));
 			}
 			else
 			{
