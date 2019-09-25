@@ -302,7 +302,7 @@ bool do_riding(bool force)
 
 		if (!g_ptr->m_idx || !m_ptr->ml)
 		{
-			msg_print(_("その場所にはモンスターはいません。", "Here is no monster."));
+			msg_print(_("その場所にはモンスターはいません。", "There is no monster here."));
 			return FALSE;
 		}
 		if (!is_pet(m_ptr) && !force)
