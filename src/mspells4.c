@@ -1981,7 +1981,7 @@ HIT_POINT spell_RF6_SPECIAL_BANORLUPART(MONSTER_IDX m_idx)
 			current_floor_ptr->m_list[hack_m_idx_ii].hp = dummy_hp;
 			current_floor_ptr->m_list[hack_m_idx_ii].maxhp = dummy_maxhp;
 
-			msg_print(_("『バーノール・ルパート』が分裂した！","Banor=Rupart splits in two person!"));
+			msg_print(_("『バーノール・ルパート』が分裂した！","Banor=Rupart splits into two persons!"));
 			break;
 		
 		case MON_BANOR:
