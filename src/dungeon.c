@@ -5889,7 +5889,7 @@ void play_game(bool new_game)
 			/* No player?  -- Try to regenerate floor */
 			if (!p_ptr->y || !p_ptr->x)
 			{
-				msg_print(_("プレイヤーの位置がおかしい。フロアを再生成します。", "What a strange player location.  Regenerate the dungeon floor."));
+				msg_print(_("プレイヤーの位置がおかしい。フロアを再生成します。", "What a strange player location, regenerate the dungeon floor."));
 				change_floor();
 			}
 
