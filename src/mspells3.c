@@ -1105,7 +1105,7 @@ static bool cast_learned_spell(int spell, bool success)
         msg_print(_("しかし何も起きなかった。", "Nothing happen."));
 		break;
     case MS_RAISE_DEAD:
-        msg_print(_("死者復活の呪文を唱えた。", "You cast a animate dead."));
+        msg_print(_("死者復活の呪文を唱えた。", "You animate the dead."));
 		(void)animate_dead(0, p_ptr->y, p_ptr->x);
 		break;
 	case MS_S_KIN:
