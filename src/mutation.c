@@ -1685,7 +1685,7 @@ void dump_mutations(FILE *OutFile)
 		}
 		if (p_ptr->muta2 & MUT2_RTELEPORT)
 		{
-			fprintf(OutFile, _(" あなたはランダムにテレポートする。\n", " You are teleporting randomly.\n"));
+			fprintf(OutFile, _(" あなたはランダムにテレポートする。\n", " You sometimes randomly teleport.\n"));
 
 		}
 		if (p_ptr->muta2 & MUT2_ALCOHOL)
@@ -1705,7 +1705,7 @@ void dump_mutations(FILE *OutFile)
 		}
 		if (p_ptr->muta2 & MUT2_PROD_MANA)
 		{
-			fprintf(OutFile, _(" あなたは制御不能な魔法のエネルギーを発している。\n", " You are producing magical energy uncontrollably.\n"));
+			fprintf(OutFile, _(" あなたは制御不能な魔法のエネルギーを発している。\n", " You produce magical energy uncontrollably.\n"));
 
 		}
 		if (p_ptr->muta2 & MUT2_ATT_DEMON)
@@ -1924,7 +1924,7 @@ void dump_mutations(FILE *OutFile)
 		}
 		if (p_ptr->muta3 & MUT3_ELEC_TOUC)
 		{
-			fprintf(OutFile, _(" あなたの血管には電流が流れている。\n", " Electricity is running through your veins.\n"));
+			fprintf(OutFile, _(" あなたの血管には電流が流れている。\n", " Electricity runs through your veins.\n"));
 
 		}
 		if (p_ptr->muta3 & MUT3_FIRE_BODY)
