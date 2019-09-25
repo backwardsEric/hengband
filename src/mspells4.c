@@ -2043,7 +2043,7 @@ HIT_POINT spell_RF6_SPECIAL_ROLENTO(POSITION y, POSITION x, MONSTER_IDX m_idx, M
 	}
 	
 	if (p_ptr->blind && count)
-		msg_print(_("多くのものが間近にばらまかれる音がする。", "You hear many things are scattered nearby."));
+		msg_print(_("多くのものが間近にばらまかれる音がする。", "You hear many things scattered nearby."));
 	
 	return 0;
 }
