@@ -2666,7 +2666,7 @@ void calc_bonuses(void)
 			}
 			else if (!p_ptr->riding)
 			{
-				msg_print(_("この武器は徒歩で使いやすい。", "This weapon was not suitable for use while riding."));
+				msg_print(_("この武器は徒歩で使いやすい。", "This weapon is suitable for use on foot."));
 			}
 			else if (has_melee_weapon(INVEN_RARM + i))
 			{
