@@ -3691,7 +3691,7 @@ bool tele_town(void)
 		return FALSE;
 	}
 
-	prt(_("どこに行きますか:", "Which town you go: "), 0, 0);
+	prt(_("どこに行きますか:", "Where do you want to go: "), 0, 0);
 	while(1)
 	{
 		i = inkey();
