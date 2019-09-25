@@ -2134,7 +2134,7 @@ bool set_kabenuke(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->kabenuke)
 		{
-			msg_print(_("体が半物質の状態になった。", "You became ethereal form."));
+			msg_print(_("体が半物質の状態になった。", "You became ethereal."));
 			notice = TRUE;
 		}
 	}
@@ -2144,7 +2144,7 @@ bool set_kabenuke(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->kabenuke)
 		{
-			msg_print(_("体が物質化した。", "You are no longer in an ethereal form."));
+			msg_print(_("体が物質化した。", "You are no longer ethereal."));
 			notice = TRUE;
 		}
 	}
