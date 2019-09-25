@@ -3904,7 +3904,7 @@ int take_hit(int damage_type, HIT_POINT damage, concptr hit_from, int monspell)
 			}
 			else if (damage_type == DAMAGE_ATTACK)
 			{
-				msg_print(_("攻撃は幻影に命中し、あなたには届かなかった。", "The attack hits Shadow, you are unharmed!"));
+				msg_print(_("攻撃は幻影に命中し、あなたには届かなかった。", "The attack hits Shadow, but you are unharmed!"));
 				return 0;
 			}
 		}
