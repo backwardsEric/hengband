@@ -3626,7 +3626,7 @@ bool make_attack_normal(MONSTER_IDX m_idx)
 	{
 		if (teleport_barrier(m_idx))
 		{
-			msg_print(_("泥棒は笑って逃げ...ようとしたがバリアに防がれた。", "The thief flees laughing...? But magic barrier obstructs it."));
+			msg_print(_("泥棒は笑って逃げ...ようとしたがバリアに防がれた。", "The thief flees laughing...? But a magic barrier obstructs it."));
 		}
 		else
 		{

@@ -2015,7 +2015,7 @@ static bool monst_attack_monst(MONSTER_IDX m_idx, MONSTER_IDX t_idx)
 		{
 			if (see_m)
 			{
-				msg_print(_("泥棒は笑って逃げ...ようとしたがバリアに防がれた。", "The thief flees laughing...? But magic barrier obstructs it."));
+				msg_print(_("泥棒は笑って逃げ...ようとしたがバリアに防がれた。", "The thief flees laughing...? But a magic barrier obstructs it."));
 			}
 			else if (known)
 			{
