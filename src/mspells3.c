@@ -1112,12 +1112,12 @@ static bool cast_learned_spell(int spell, bool success)
 	{
 		int k;
 
-        msg_print(_("援軍を召喚した。", "You summon minions."));
+        msg_print(_("援軍を召喚した。", "You summon one of your kin."));
 		for (k = 0;k < 1; k++)
 		{
 			if (summon_kin_player(summon_lev, p_ptr->y, p_ptr->x, (pet ? PM_FORCE_PET : 0L)))
 			{
-				if (!pet) msg_print(_("召喚された仲間は怒っている！", "Summoned fellows are angry!"));
+				if (!pet) msg_print(_("召喚された仲間は怒っている！", "The summoned companion is angry!"));
 			}
 			else
 			{
@@ -1247,7 +1247,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_ANGEL, (g_mode | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚された天使は怒っている！", "Summoned angels are angry!"));
+                    msg_print(_("召喚された天使は怒っている！", "The summoned angel is angry!"));
 			}
 			else
 			{
@@ -1263,7 +1263,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_DEMON, (g_mode | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたデーモンは怒っている！", "Summoned demons are angry!"));
+                    msg_print(_("召喚されたデーモンは怒っている！", "The summoned demon is angry!"));
 			}
 			else
 			{
@@ -1279,7 +1279,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_UNDEAD, (g_mode | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたアンデッドは怒っている！", "Summoned undeads are angry!"));
+                    msg_print(_("召喚されたアンデッドは怒っている！", "The summoned undead is angry!"));
 			}
 			else
 			{
@@ -1295,7 +1295,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_DRAGON, (g_mode | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたドラゴンは怒っている！", "Summoned dragons are angry!"));
+                    msg_print(_("召喚されたドラゴンは怒っている！", "The summoned dragon is angry!"));
 			}
 			else
 			{
@@ -1311,7 +1311,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_HI_UNDEAD, (g_mode | p_mode | u_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚された上級アンデッドは怒っている！", "Summoned greater undeads are angry!"));
+                    msg_print(_("召喚された上級アンデッドは怒っている！", "The summoned greater undead is angry!"));
 			}
 			else
 			{
@@ -1327,7 +1327,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_HI_DRAGON, (g_mode | p_mode | u_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚された古代ドラゴンは怒っている！", "Summoned ancient dragons are angry!"));
+                    msg_print(_("召喚された古代ドラゴンは怒っている！", "The summoned ancient dragon is angry!"));
 			}
 			else
 			{
@@ -1343,7 +1343,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_AMBERITES, (g_mode | p_mode | u_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたアンバーの王族は怒っている！", "Summoned Lords of Amber are angry!"));
+                    msg_print(_("召喚されたアンバーの王族は怒っている！", "The summoned Lord of Amber is angry!"));
 			}
 			else
 			{
@@ -1360,14 +1360,14 @@ static bool cast_learned_spell(int spell, bool success)
 			{
 				count++;
 				if (!pet)
-					msg_print(_("召喚されたユニーク・モンスターは怒っている！", "Summoned special opponents are angry!"));
+					msg_print(_("召喚されたユニーク・モンスターは怒っている！", "The summoned special opponent is angry!"));
 			}
 		for (k = count;k < 1; k++)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_HI_UNDEAD, (g_mode | p_mode | PM_ALLOW_UNIQUE), '\0'))
 			{
 				count++;
 				if (!pet)
-					msg_print(_("召喚された上級アンデッドは怒っている！", "Summoned greater undeads are angry!"));
+					msg_print(_("召喚された上級アンデッドは怒っている！", "The summoned greater undead is angry!"));
 			}
 		if (!count)
 		{

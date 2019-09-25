@@ -812,7 +812,7 @@ static bool use_mane(int spell)
 	{
 		int k;
 		if (!target_set(TARGET_KILL)) return FALSE;
-		msg_print(_("天使を召喚した！", "You summon angel!"));
+		msg_print(_("天使を召喚した！", "You summon an angel!"));
 		for (k = 0; k < 1; k++)
 			summon_specific(-1, target_row, target_col, plev, SUMMON_ANGEL, mode, '\0');
 		break;
@@ -839,7 +839,7 @@ static bool use_mane(int spell)
 	{
 		int k;
 		if (!target_set(TARGET_KILL)) return FALSE;
-		msg_print(_("ドラゴンを召喚した！", "You summon dragon!"));
+		msg_print(_("ドラゴンを召喚した！", "You summon a dragon!"));
 		for (k = 0; k < 1; k++)
 			summon_specific(-1, target_row, target_col, plev, SUMMON_DRAGON, (mode | u_mode), '\0');
 		break;
