@@ -782,7 +782,7 @@ bool set_lightspeed(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->lightspeed)
 		{
-			msg_print(_("非常に素早く動けるようになった！", "You feel yourself moving extremely faster!"));
+			msg_print(_("非常に素早く動けるようになった！", "You feel yourself moving extremely fast!"));
 			notice = TRUE;
 			chg_virtue(V_PATIENCE, -1);
 			chg_virtue(V_DILIGENCE, 1);
