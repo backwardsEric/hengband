@@ -1797,7 +1797,7 @@ void spell_RF6_HEAL(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 	monspell_message_base(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
 		_("%^sは自分の傷に念を集中した。", "%^s concentrates on his wounds."),
-		_("%^sが自分の傷に集中した。", "%^s concentrates on my wounds."),
+		_("%^sが自分の傷に集中した。", "%^s concentrates on his wounds."),
 		_("%^sは自分の傷に念を集中した。", "%^s concentrates on his wounds."),
 		p_ptr->blind > 0, TARGET_TYPE);
 
