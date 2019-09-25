@@ -1744,7 +1744,7 @@ bool py_attack(POSITION y, POSITION x, COMBAT_OPTION_IDX mode)
 
 	if (d_info[p_ptr->dungeon_idx].flags1 & DF1_NO_MELEE)
 	{
-		msg_print(_("なぜか攻撃することができない。", "Something prevent you from attacking."));
+		msg_print(_("なぜか攻撃することができない。", "Something prevents you from attacking."));
 		return FALSE;
 	}
 
