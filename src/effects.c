@@ -2195,7 +2195,7 @@ bool set_tsuyoshi(TIME_EFFECT v, bool do_dec)
 	{
 		if (p_ptr->tsuyoshi)
 		{
-			msg_print(_("肉体が急速にしぼんでいった。", "Your body had quickly shriveled."));
+			msg_print(_("肉体が急速にしぼんでいった。", "Your body has quickly shriveled."));
 
 			(void)dec_stat(A_CON, 20, TRUE);
 			(void)dec_stat(A_STR, 20, TRUE);
