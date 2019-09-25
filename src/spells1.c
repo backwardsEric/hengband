@@ -4728,7 +4728,7 @@ static bool project_p(MONSTER_IDX who, concptr who_name, int r, POSITION y, POSI
 			{
 				if (!CHECK_MULTISHADOW())
 				{
-					msg_print(_("霊的エネルギーで精神が攻撃された。", "Your mind is blasted by psyonic energy."));
+					msg_print(_("霊的エネルギーで精神が攻撃された。", "Your mind is blasted by psionic energy."));
 
 					if (!p_ptr->resist_conf)
 					{
@@ -4766,7 +4766,7 @@ static bool project_p(MONSTER_IDX who, concptr who_name, int r, POSITION y, POSI
 			{
 				if (!CHECK_MULTISHADOW())
 				{
-					msg_print(_("霊的エネルギーで精神が攻撃された。", "Your mind is blasted by psyonic energy."));
+					msg_print(_("霊的エネルギーで精神が攻撃された。", "Your mind is blasted by psionic energy."));
 
 					p_ptr->csp -= 100;
 					if (p_ptr->csp < 0)
