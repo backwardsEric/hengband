@@ -3992,7 +3992,7 @@ void update_mon_lite(void)
 			}
 			else
 			{
-				msg_print(_("影の覆いが濃くなった！", "Your mantle of shadow restored its original darkness."));
+				msg_print(_("影の覆いが濃くなった！", "Your mantle of shadow is restored to its original darkness."));
 			}
 		}
 	}
