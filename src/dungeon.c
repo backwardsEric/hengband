@@ -3299,7 +3299,7 @@ static void process_world(void)
 
 		if (number_mon == 0)
 		{
-			msg_print(_("相打ちに終わりました。", "They have kill each other at the same time."));
+			msg_print(_("相打ちに終わりました。", "Nothing survived."));
 			msg_print(NULL);
 			p_ptr->energy_need = 0;
 			battle_monsters();
@@ -3312,7 +3312,7 @@ static void process_world(void)
 			wm_ptr = &current_floor_ptr->m_list[win_m_idx];
 
 			monster_desc(m_name, wm_ptr, 0);
-			msg_format(_("%sが勝利した！", "%s is winner!"), m_name);
+			msg_format(_("%sが勝利した！", "%s won!"), m_name);
 			msg_print(NULL);
 
 			if (win_m_idx == (sel_monster+1))
@@ -3331,7 +3331,7 @@ static void process_world(void)
 		}
 		else if (current_world_ptr->game_turn - current_floor_ptr->generated_turn == 150 * TURNS_PER_TICK)
 		{
-			msg_print(_("申し分けありませんが、この勝負は引き分けとさせていただきます。", "This battle have ended in a draw."));
+			msg_print(_("申し分けありませんが、この勝負は引き分けとさせていただきます。", "This battle ended in a draw."));
 			p_ptr->au += kakekin;
 			msg_print(NULL);
 			p_ptr->energy_need = 0;
