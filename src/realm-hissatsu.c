@@ -236,7 +236,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 9:
 		if (name) return _("斬魔剣弐の太刀", "Zammaken");
 		if (desc) return _("生命のない邪悪なモンスターに大ダメージを与えるが、他のモンスターには全く効果がない。",
-			"Attacks an evil unliving monster with great damage. No effect to other  monsters.");
+			"Attacks an evil unliving monster with great damage. Has no effect on other monsters.");
 
 		if (cast)
 		{
