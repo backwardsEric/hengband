@@ -702,7 +702,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 24:
 		if (name) return _("吸血鬼の牙", "Vampire's Fang");
 		if (desc) return _("攻撃した相手の体力を吸いとり、自分の体力を回復させる。生命を持たないモンスターには通じない。",
-			"Attacks with vampiric strikes which absorb HP from a monster and heal you. No effect to unliving monsters.");
+			"Attacks with vampiric strikes which absorb HP from a monster and heal you. Has no effect to unliving monsters.");
 
 		if (cast)
 		{
