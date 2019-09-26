@@ -1411,7 +1411,7 @@ void call_the_(void)
 
 		if (one_in_(666))
 		{
-			if (!vanish_dungeon()) msg_print(_("ダンジョンは一瞬静まり返った。", "The dungeon silences a moment."));
+			if (!vanish_dungeon()) msg_print(_("ダンジョンは一瞬静まり返った。", "The dungeon becomes quiet for a moment."));
 		}
 		else
 		{
