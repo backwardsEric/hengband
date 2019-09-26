@@ -566,7 +566,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 21:
 		if (name) return _("地走り", "Crack");
-		if (desc) return _("衝撃波のビームを放つ。", "Fires a beam of shock wave.");
+		if (desc) return _("衝撃波のビームを放つ。", "Fires a shock wave as a beam.");
 
 		if (cast)
 		{
