@@ -344,7 +344,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 12:
 		if (name) return _("破岩斬", "Rock Smash");
-		if (desc) return _("岩を壊し、岩石系のモンスターに大ダメージを与える。", "Breaks rock. Or greatly damages a monster made by rocks.");
+		if (desc) return _("岩を壊し、岩石系のモンスターに大ダメージを与える。", "Breaks rock or greatly damages a monster made of rocks.");
 
 		if (cast)
 		{
