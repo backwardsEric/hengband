@@ -2588,7 +2588,7 @@ bool lite_area(HIT_POINT dam, POSITION rad)
 
 	if (d_info[p_ptr->dungeon_idx].flags1 & DF1_DARKNESS)
 	{
-		msg_print(_("ダンジョンが光を吸収した。", "The darkness of this dungeon absorb your light."));
+		msg_print(_("ダンジョンが光を吸収した。", "The darkness of this dungeon absorbs your light."));
 		return FALSE;
 	}
 
