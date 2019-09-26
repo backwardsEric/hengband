@@ -409,7 +409,7 @@ concptr do_crusade_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 24:
 		if (name) return _("士気高揚", "Heroism");
-		if (desc) return _("一定時間、ヒーロー気分になる。", "Removes fear, and gives bonus to hit and 10 more HP for a while.");
+		if (desc) return _("一定時間、ヒーロー気分になる。", "Removes fear, and gives a bonus to hit and 10 more HP for a while.");
 
 		{
 			int base = 25;

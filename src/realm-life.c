@@ -35,7 +35,7 @@ concptr do_life_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 1:
 		if (name) return _("祝福", "Bless");
-		if (desc) return _("一定時間、命中率とACにボーナスを得る。", "Gives bonus to hit and AC for a few turns.");
+		if (desc) return _("一定時間、命中率とACにボーナスを得る。", "Gives a bonus to hit and AC for a few turns.");
 		{
 			int base = 12;
 
