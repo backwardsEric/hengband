@@ -27,7 +27,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	{
 	case 0:
 		if (name) return _("飛飯綱", "Tobi-Izuna");
-		if (desc) return _("2マス離れたところにいるモンスターを攻撃する。", "Attacks a two squares distant monster.");
+		if (desc) return _("2マス離れたところにいるモンスターを攻撃する。", "Attacks a monster two squares away.");
 
 		if (cast)
 		{
