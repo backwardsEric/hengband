@@ -83,7 +83,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 2:
 		if (name) return _("ブーメラン", "Boomerang");
 		if (desc) return _("武器を手元に戻ってくるように投げる。戻ってこないこともある。",
-			"Throws current weapon. And it'll return to your hand unless failed.");
+			"Throws current weapon. It'll return to your hand unless the action failed.");
 
 		if (cast)
 		{
