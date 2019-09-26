@@ -40,7 +40,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 1:
 		if (name) return _("五月雨斬り", "3-Way Attack");
-		if (desc) return _("3方向に対して攻撃する。", "Attacks in 3 directions in one time.");
+		if (desc) return _("3方向に対して攻撃する。", "Attacks in 3 directions at one time.");
 
 		if (cast)
 		{
