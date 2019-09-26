@@ -367,7 +367,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		if (info) return info_heal(1, 10, 0);
 		if (cast)
 		{
-			msg_print(_("気分が良くなってくる。", "You feel better and better."));
+			msg_print(_("気分が良くなってくる。", "You feel a little better."));
 		}
 		if (cast || cont) (void)cure_light_wounds(1, 10);
 		break;
@@ -563,7 +563,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		if (info) return info_heal(2, 10, 0);
 		if (cast)
 		{
-			msg_print(_("気分が良くなってくる。", "You feel better and better."));
+			msg_print(_("気分が良くなってくる。", "You feel better."));
 		}
 		if (cast || cont) (void)cure_serious_wounds(2, 10);
 		break;
@@ -671,7 +671,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		if (info) return info_heal(4, 10, 0);
 		if (cast)
 		{
-			msg_print(_("気分が良くなってくる。", "You feel better and better."));
+			msg_print(_("気分が良くなってくる。", "You feel much better."));
 		}
 		if (cast || cont) (void)cure_critical_wounds(damroll(4, 10));
 		break;
