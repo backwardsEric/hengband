@@ -526,7 +526,7 @@ concptr do_death_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		break;
 
 	case 26:
-		if (name) return _("死者の秘伝", "Esoteria");
+		if (name) return _("死者の秘伝", "Secrets of the Dead");
 		if (desc) return _("アイテムを1つ識別する。レベルが高いとアイテムの能力を完全に知ることができる。",
 			"Identifies an item. Or *identifies* an item at higher level.");
 
