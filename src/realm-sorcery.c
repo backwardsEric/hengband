@@ -415,7 +415,7 @@ concptr do_sorcery_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 24:
 		if (name) return _("調査", "Probing");
 		if (desc) return _("モンスターの属性、残り体力、最大体力、スピード、正体を知る。",
-			"Proves all monsters' alignment, HP, speed and their true character.");
+			"Probes all monsters' alignment, HP, speed and their true character.");
 
 		{
 			if (cast)
