@@ -790,7 +790,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 			if (!o_ptr->k_idx)
 			{
-				msg_print(_("クロークを身につけていない！", "You don't ware any cloak."));
+				msg_print(_("クロークを身につけていない！", "You are not wearing a cloak."));
 				return NULL;
 			}
 			else if (!object_is_cursed(o_ptr))
