@@ -413,7 +413,7 @@ concptr do_nature_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 23:
 		if (name) return _("腐食防止", "Protect from Corrosion");
-		if (desc) return _("アイテムを酸で傷つかないよう加工する。", "Makes an equipment acid-proof.");
+		if (desc) return _("アイテムを酸で傷つかないよう加工する。", "Makes a piece of equipment acid-proof.");
 
 		{
 			if (cast)
