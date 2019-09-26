@@ -420,7 +420,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 15:
 		if (name) return _("魔神斬り", "Majingiri");
 		if (desc) return _("会心の一撃で攻撃する。攻撃がかわされやすい。",
-			"Attempts to attack with critical hit. But this attack is easy to evade for a monster.");
+			"Attempts to attack with a critical hit, but this attack is easy to evade for a monster.");
 
 		if (cast)
 		{
