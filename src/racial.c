@@ -453,7 +453,7 @@ static bool cmd_racial_power_aux(s32b command)
 		{
 			if (!(empty_hands(TRUE) & EMPTY_HAND_RARM))
 			{
-				msg_print(_("素手じゃないとできません。", "You need to be bare hand."));
+				msg_print(_("素手じゃないとできません。", "You need to be barehanded."));
 				return FALSE;
 			}
 			if (p_ptr->riding)
