@@ -612,7 +612,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 		if (cast)
 		{
-			msg_print(_("雄叫びをあげた！", "You roar out!"));
+			msg_print(_("雄叫びをあげた！", "You roar!"));
 			project_all_los(GF_SOUND, randint1(plev * 3));
 			aggravate_monsters(0);
 		}
