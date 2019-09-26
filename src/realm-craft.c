@@ -244,7 +244,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 14:
 		if (name) return _("癒し", "Cure");
-		if (desc) return _("毒、朦朧状態、負傷を全快させ、幻覚を直す。", "Heals poison, stun, cut and hallucination completely.");
+		if (desc) return _("毒、朦朧状態、負傷を全快させ、幻覚を直す。", "Completely heals poisons, cuts, hallucination and being stunned.");
 
 		{
 			if (cast)

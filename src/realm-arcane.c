@@ -141,7 +141,7 @@ concptr do_arcane_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 7:
 		if (name) return _("軽傷の治癒", "Cure Light Wounds");
-		if (desc) return _("怪我と体力を少し回復させる。", "Heals cut and HP a little.");
+		if (desc) return _("怪我と体力を少し回復させる。", "Heals cuts and HP a little.");
 
 		{
 			DICE_NUMBER dice = 2;
@@ -312,7 +312,7 @@ concptr do_arcane_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 18:
 		if (name) return _("重傷の治癒", "Cure Medium Wounds");
-		if (desc) return _("怪我と体力を中程度回復させる。", "Heals cut and HP more.");
+		if (desc) return _("怪我と体力を中程度回復させる。", "Heals cuts and HP.");
 
 		{
 			DICE_NUMBER dice = 4;
