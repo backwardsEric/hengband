@@ -620,7 +620,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 23:
 		if (name) return _("無双三段", "Musou-Sandan");
-		if (desc) return _("強力な3段攻撃を繰り出す。", "Attacks with powerful 3 strikes.");
+		if (desc) return _("強力な3段攻撃を繰り出す。", "Attacks with three powerful strikes.");
 
 		if (cast)
 		{
