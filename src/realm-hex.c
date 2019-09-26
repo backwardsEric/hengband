@@ -189,7 +189,7 @@ void check_hex(void)
 		p_ptr->redraw |= PR_MANA;
 		if (res)
 		{
-			msg_print(_("詠唱を再開した。", "You restart spelling."));
+			msg_print(_("詠唱を再開した。", "You restart casting."));
 
 			p_ptr->action = ACTION_SPELL;
 

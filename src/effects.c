@@ -86,7 +86,7 @@ void set_action(ACTION_IDX typ)
 			}
 			case ACTION_SPELL:
 			{
-				msg_print(_("呪文の詠唱を中断した。", "You stopped spelling all spells."));
+				msg_print(_("呪文の詠唱を中断した。", "You stopped casting."));
 				break;
 			}
 		}
