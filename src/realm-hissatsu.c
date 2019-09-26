@@ -327,7 +327,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 11:
 		if (name) return _("刀匠の目利き", "Judge");
 		if (desc) return _("武器・防具を1つ識別する。レベル45以上で武器・防具の能力を完全に知ることができる。",
-			"Identifies a weapon or armor. Or *identifies* these at level 45.");
+			"Identifies a weapon or armor. *Identifies* the item at level 45.");
 
 		if (cast)
 		{
