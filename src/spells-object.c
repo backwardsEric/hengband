@@ -119,7 +119,7 @@ bool create_ammo(void)
 
 		if (!have_flag(f_info[get_feat_mimic(g_ptr)].flags, FF_CAN_DIG))
 		{
-			msg_print(_("そこには岩石がない。", "You need pile of rubble."));
+			msg_print(_("そこには岩石がない。", "You need a pile of rubble."));
 			return FALSE;
 		}
 		else if (!cave_have_flag_grid(g_ptr, FF_CAN_DIG) || !cave_have_flag_grid(g_ptr, FF_HURT_ROCK))
