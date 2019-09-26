@@ -5040,7 +5040,7 @@ bool mirror_concentration(player_type *creature_ptr)
 {
 	if (total_friends)
 	{
-		msg_print(_("今はペットを操ることに集中していないと。", "You need concentration on the pets now."));
+		msg_print(_("今はペットを操ることに集中していないと。", "Your pets demand all of your attention."));
 		return FALSE;
 	}
 	if (is_mirror_grid(&current_floor_ptr->grid_array[creature_ptr->y][creature_ptr->x]))
@@ -5166,7 +5166,7 @@ bool concentration(player_type *creature_ptr)
 
 	if (total_friends)
 	{
-		msg_print(_("今はペットを操ることに集中していないと。", "You need concentration on the pets now."));
+		msg_print(_("今はペットを操ることに集中していないと。", "Your pets demand all of your attention."));
 		return FALSE;
 	}
 	if (creature_ptr->special_defense & KATA_MASK)
