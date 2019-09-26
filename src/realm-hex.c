@@ -1037,7 +1037,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 30:
 		if (name) return _("反魔法結界", "Anti magic barrier");
-		if (desc) return _("視界内のモンスターの魔法を阻害するバリアを張る。", "Obstructs all magic spell of monsters in your sight.");
+		if (desc) return _("視界内のモンスターの魔法を阻害するバリアを張る。", "Obstructs all magic spells of monsters in your sight.");
 		power = plev * 3 / 2;
 		if (info) return info_power(power);
 		if (cast)
