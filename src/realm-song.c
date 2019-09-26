@@ -859,7 +859,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 			if (cast)
 			{
 				msg_print(_("暗黒の中に光と美をふりまいた。体が元の活力を取り戻した。",
-					"You strewed light and beauty in the dark as you sing. You feel refreshed."));
+					"You strew light and beauty in the dark as you sing. You feel refreshed."));
 				(void)restore_all_status();
 				(void)restore_level();
 			}
