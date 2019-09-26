@@ -73,7 +73,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 3:
 		if (name) return _("耐冷気", "Resist Cold");
 		if (desc) return _("一定時間、冷気への耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to cold. This resistance can be added to which from equipment for more powerful resistance.");
+			"Gives resistance to cold. This resistance can be added to that from equipment for more powerful resistance.");
 
 		{
 			int base = 20;
@@ -90,7 +90,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 4:
 		if (name) return _("耐火炎", "Resist Fire");
 		if (desc) return _("一定時間、炎への耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to fire. This resistance can be added to which from equipment for more powerful resistance.");
+			"Gives resistance to fire. This resistance can be added to that from equipment for more powerful resistance.");
 
 		{
 			int base = 20;
@@ -123,7 +123,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 6:
 		if (name) return _("耐電撃", "Resist Lightning");
 		if (desc) return _("一定時間、電撃への耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to electricity. This resistance can be added to which from equipment for more powerful resistance.");
+			"Gives resistance to electricity. This resistance can be added to that from equipment for more powerful resistance.");
 
 		{
 			int base = 20;
@@ -140,7 +140,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 7:
 		if (name) return _("耐酸", "Resist Acid");
 		if (desc) return _("一定時間、酸への耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to acid. This resistance can be added to which from equipment for more powerful resistance.");
+			"Gives resistance to acid. This resistance can be added to that from equipment for more powerful resistance.");
 
 		{
 			int base = 20;
@@ -182,7 +182,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 10:
 		if (name) return _("耐毒", "Resist Poison");
 		if (desc) return _("一定時間、毒への耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to poison. This resistance can be added to which from equipment for more powerful resistance.");
+			"Gives resistance to poison. This resistance can be added to that from equipment for more powerful resistance.");
 
 		{
 			int base = 20;
@@ -308,7 +308,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 18:
 		if (name) return _("全耐性", "Resistance");
 		if (desc) return _("一定時間、酸、電撃、炎、冷気、毒に対する耐性を得る。装備による耐性に累積する。",
-			"Gives resistance to fire, cold, electricity, acid and poison for a while. These resistances can be added to which from equipment for more powerful resistances.");
+			"Gives resistance to fire, cold, electricity, acid and poison for a while. These resistances can be added to those from equipment for more powerful resistances.");
 
 		{
 			int base = 20;
