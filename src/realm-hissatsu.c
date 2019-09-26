@@ -127,7 +127,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 5:
 		if (name) return _("みね打ち", "Strike to Stun");
-		if (desc) return _("相手にダメージを与えないが、朦朧とさせる。", "Attempts to stun a monster in the adjacent.");
+		if (desc) return _("相手にダメージを与えないが、朦朧とさせる。", "Attempts to stun a monster next to you.");
 
 		if (cast)
 		{
