@@ -366,7 +366,7 @@ concptr do_trump_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		break;
 
 	case 18:
-		if (name) return _("爬虫類のカード", "Trump Reptiles");
+		if (name) return _("爬虫類のカード", "Trump Reptile");
 		if (desc) return _("1体のヒドラを召喚する。", "Summons a hydra.");
 
 		{
