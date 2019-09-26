@@ -496,7 +496,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 7:
 		if (name) return _("我慢", "Patience");
 		if (desc) return _("数ターン攻撃を耐えた後、受けたダメージを地獄の業火として周囲に放出する。",
-			"Bursts hell fire strongly after patients any damage while few turns.");
+			"Bursts hell fire strongly after enduring damage for a few turns.");
 		power = MIN(200, (HEX_REVENGE_POWER(p_ptr) * 2));
 		if (info) return info_damage(0, 0, power);
 		if (cast)
@@ -506,14 +506,14 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 			if (HEX_REVENGE_TURN(p_ptr) > 0)
 			{
-				msg_print(_("すでに我慢をしている。", "You are already patienting."));
+				msg_print(_("すでに我慢をしている。", "You are already biding your time for vengeance."));
 				return NULL;
 			}
 
 			HEX_REVENGE_TYPE(p_ptr) = 1;
 			HEX_REVENGE_TURN(p_ptr) = r;
 			HEX_REVENGE_POWER(p_ptr) = 0;
-			msg_print(_("じっと耐えることにした。", "You decide to patient all damages."));
+			msg_print(_("じっと耐えることにした。", "You decide to endure damage for future retribution."));
 			add = FALSE;
 		}
 		if (cont)
@@ -524,7 +524,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 			if ((HEX_REVENGE_TURN(p_ptr) <= 0) || (power >= 200))
 			{
-				msg_print(_("我慢が解かれた！", "Time for end of patioence!"));
+				msg_print(_("我慢が解かれた！", "My patience is at an end!"));
 				if (power)
 				{
 					project(0, rad, p_ptr->y, p_ptr->x, power, GF_HELL_FIRE,
