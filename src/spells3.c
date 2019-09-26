@@ -1557,7 +1557,7 @@ void alter_reality(void)
 	else
 	{
 		p_ptr->alter_reality = 0;
-		msg_print(_("景色が元に戻った...", "The view around you got back..."));
+		msg_print(_("景色が元に戻った...", "The view around you returns to normal..."));
 		p_ptr->redraw |= (PR_STATUS);
 	}
 	return;
