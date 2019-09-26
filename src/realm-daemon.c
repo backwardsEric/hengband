@@ -515,7 +515,7 @@ concptr do_daemon_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 28:
 		if (name) return _("グレーターデーモン召喚", "Summon Greater Demon");
 		if (desc) return _("上級デーモンを召喚する。召喚するには人間('p','h','t'で表されるモンスター)の死体を捧げなければならない。",
-			"Summons greater demon. It need to sacrifice a corpse of human ('p','h' or 't').");
+			"Summons greater demon. Requires the sacrifice of a human corpse ('p','h' or 't').");
 
 		{
 			if (cast)
