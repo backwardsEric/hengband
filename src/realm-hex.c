@@ -636,7 +636,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 			"Attempts to increases your strength, dexterity and constitusion.");
 		if (cast)
 		{
-			msg_print(_("身体が強くなった気がした。", "You feel your body is developed more now."));
+			msg_print(_("身体が強くなった気がした。", "You feel your body is more developed now."));
 		}
 		break;
 
