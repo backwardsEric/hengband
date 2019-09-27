@@ -892,7 +892,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 31:
 		if (name) return _("フィンゴルフィンの挑戦", "Fingolfin's Challenge");
 		if (desc) return _("ダメージを受けなくなるバリアを張る。",
-			"Generates a barrier which completely protect you from almost all damage.");
+			"Generates a barrier which completely protects you from almost all damage.");
 
 		/* Stop singing before start another */
 		if (cast || fail) stop_singing(p_ptr);
