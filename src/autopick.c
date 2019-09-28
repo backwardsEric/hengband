@@ -1953,28 +1953,38 @@ bool autopick_autoregister(object_type *o_ptr)
 	}
 
 	/* Check the header */
-	while (TRUE)
-	{
-		/* Read a line */
-		if (my_fgets(pref_fff, buf, sizeof(buf)))
+	if (pref_fff) {
+		while (TRUE)
 		{
-			/* No header found */
-			p_ptr->autopick_autoregister = FALSE;
+			/* Read a line */
+			if (my_fgets(pref_fff, buf, sizeof(buf)))
+			{
+				/* No header found */
+				p_ptr->autopick_autoregister = FALSE;
 
-			break;
+				break;
+			}
+
+			if (streq(buf, autoregister_header))
+			{
+				/* Found the header */
+				p_ptr->autopick_autoregister = TRUE;
+
+				break;
+			}
 		}
 
-		if (streq(buf, autoregister_header))
-		{
-			/* Found the header */
-			p_ptr->autopick_autoregister = TRUE;
-
-			break;
-		}
+		/* Close read only FILE* */
+		fclose(pref_fff);
 	}
-
-	/* Close read only FILE* */
-	fclose(pref_fff);
+	else
+	{
+		/*
+		 * File could not be opened for reading.  Assume header not
+		 * present.
+		 */
+		p_ptr->autopick_autoregister = FALSE;
+	}
 
 	/* Open for append */
 	pref_fff = my_fopen(pref_file, "a");
