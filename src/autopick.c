@@ -2431,7 +2431,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	{
 		before_str[before_n++] = "very rare";
 		body_str = "equipments";
-		after_str[after_n++] = "such as Dragon armors, Blades of Chaos, etc.";
+		after_str[after_n++] = "such as Dragon armor, Blades of Chaos, etc.";
 	}
 
 	/*** Common equipments ***/
@@ -2439,7 +2439,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	{
 		before_str[before_n++] = "relatively common";
 		body_str = "equipments";
-		after_str[after_n++] = "compared to very rare Dragon armors, Blades of Chaos, etc.";
+		after_str[after_n++] = "compared to very rare Dragon armor, Blades of Chaos, etc.";
 	}
 
 	/*** Worthless items ***/
