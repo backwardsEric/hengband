@@ -1901,6 +1901,7 @@ bool autopick_autoregister(object_type *o_ptr)
 	char pref_file[1024];
 	FILE *pref_fff;
 	autopick_type an_entry, *entry = &an_entry;
+	concptr tmp;
 
 	int match_autopick = is_autopick(o_ptr);
 
@@ -2023,7 +2024,9 @@ bool autopick_autoregister(object_type *o_ptr)
 
 	/* Add a line to the file */
 	/* Don't kill "entry" */
-	fprintf(pref_fff, "%s\n", autopick_line_from_entry(entry));
+	tmp = autopick_line_from_entry(entry);
+	fprintf(pref_fff, "%s\n", tmp);
+	string_free(tmp);
 	fclose(pref_fff);
 
 	return TRUE;
