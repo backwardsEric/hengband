@@ -50,46 +50,48 @@ void init_saved_floors(bool force)
 	{
 		saved_floor_type *sf_ptr = &saved_floors[i];
 
-		/* File name */
-		sprintf(floor_savefile, "%s.F%02d", savefile, i);
+		if (savefile[0]) {
+			/* File name */
+			sprintf(floor_savefile, "%s.F%02d", savefile, i);
 
-		/* Grab permissions */
-		safe_setuid_grab();
+			/* Grab permissions */
+			safe_setuid_grab();
 
-		/* Try to create the file */
-		fd = fd_make(floor_savefile, mode);
+			/* Try to create the file */
+			fd = fd_make(floor_savefile, mode);
 
-		/* Drop permissions */
-		safe_setuid_drop();
+			/* Drop permissions */
+			safe_setuid_drop();
 
-		/* Failed! */
-		if (fd < 0)
-		{
-			if (!force)
+			/* Failed! */
+			if (fd < 0)
 			{
-				msg_print(_("エラー：古いテンポラリ・ファイルが残っています。", "Error: There are old temporary files."));
-				msg_print(_("変愚蛮怒を二重に起動していないか確認してください。", "Make sure you are not running two game processes simultaneously."));
-				msg_print(_("過去に変愚蛮怒がクラッシュした場合は一時ファイルを", "If the temporary files are garbages of old crashed process, "));
-				msg_print(_("強制的に削除して実行を続けられます。", "you can delete it safely."));
-				if (!get_check(_("強制的に削除してもよろしいですか？", "Do you delete old temporary files? ")))
-					quit(_("実行中止", "Aborted."));
-				force = TRUE;
+				if (!force)
+				{
+					msg_print(_("エラー：古いテンポラリ・ファイルが残っています。", "Error: There are old temporary files."));
+					msg_print(_("変愚蛮怒を二重に起動していないか確認してください。", "Make sure you are not running two game processes simultaneously."));
+					msg_print(_("過去に変愚蛮怒がクラッシュした場合は一時ファイルを", "If the temporary files are garbages of old crashed process, "));
+					msg_print(_("強制的に削除して実行を続けられます。", "you can delete it safely."));
+					if (!get_check(_("強制的に削除してもよろしいですか？", "Do you delete old temporary files? ")))
+					    quit(_("実行中止", "Aborted."));
+					force = TRUE;
+				}
 			}
+			else
+		        {
+				/* Close the "fd" */
+				(void)fd_close(fd);
+			}
+
+			/* Grab permissions */
+			safe_setuid_grab();
+
+			/* Simply kill the temporary file */ 
+			(void)fd_kill(floor_savefile);
+
+			/* Drop permissions */
+			safe_setuid_drop();
 		}
-		else
-		{
-			/* Close the "fd" */
-			(void)fd_close(fd);
-		}
-
-		/* Grab permissions */
-		safe_setuid_grab();
-
-		/* Simply kill the temporary file */ 
-		(void)fd_kill(floor_savefile);
-
-		/* Drop permissions */
-		safe_setuid_drop();
 
 		sf_ptr->floor_id = 0;
 	}
