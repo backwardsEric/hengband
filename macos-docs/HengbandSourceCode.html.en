@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN"
+   "http://www.w3.org/TR/1998/REC-html40-19980424/strict.dtd">
+<HTML>
+  <HEAD lang="en">
+    <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <TITLE>Hengband Application for Mac OS X: Source Code</TITLE>
+  </HEAD>
+
+  <BODY>
+    <H1>Hengband Application for Mac OS X</H1>
+    <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | Source code | <A HREF="HengbandChangeLog.html.en">Changes</A>
+    <H1>Source Code</H1>
+      <P>If you want to compile the code yourself or examine the changes I
+        made, you can either get one of the packaged source code archives,
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72021/hengband-2.2.1.7a.tar.gz/">hengband-2.2.1.7a.tar.gz</A> is the latest, from
+        <A HREF="https://osdn.net/projects/hengbandforosx/releases/">https://osdn.net/projbects/hengbandforosx/releases/</A>
+        or the clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
+      <P>If you cloned the git repository and want to compile the code, you'll
+       first need to create the configure script and some of the files it uses.
+       To do so, run this command in the top-level directory of the directory
+       tree with the source code (you'll need to have autoconf and automake
+       in the path):
+       <OL>
+         <LI><CODE>./bootstrap</CODE>
+       </OL>
+      <P>To compile the changed code and generate an English version of the game
+        which uses the Mac OS X Cocoa user interface, run these commands from
+        the top-level directory of the directory tree with the source code:
+        <OL>
+          <LI><CODE>./configure --disable-japanese --enable-cocoa</CODE>
+          <LI><CODE>make install</CODE>
+        </OL>
+      <P>That will create the full application, hengband.app, in the top-level
+        directory.  You can move that wherever you want.  If you want the
+        curses interface or, if you have the X11 libraries installed, the X11
+        interface, do not specify <CODE>--enable-cocoa</CODE> when
+        running configure.  The curses or X11 interface will not use
+        hengband.app.  Instead you'll get an executable, hengband, in the
+        directory where you ran configure and that executable will pull
+        information from the lib subdirectory there.  To get the Japanesei
+        version, do not specify <CODE>--disable-japanese</CODE> when running
+        configure.  Compilation of the Japanese version requires the utility,
+        nkf.  Source code for that utility is available from
+        <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>.
+      <P>Eventually, the hope is that the changes made here will be
+        incorporated into the standard version of Hengband and you can get
+        both the source code and binaries from them.
+  </BODY>
+</HTML>

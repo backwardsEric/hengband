@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN"
+   "http://www.w3.org/TR/1998/REC-html40-19980424/strict.dtd">
+<HTML>
+  <HEAD lang="en">
+    <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <TITLE>Hengband Application for Mac OS X: Feedback</TITLE>
+  </HEAD>
+
+  <BODY>
+    <H1>Hengband Application for Mac OS X</H1>
+    <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | Feedback | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">Changes</A>
+    <H1>Feedback</H1>
+      <P>If you have trouble using the application or suggestions for
+        improvement, it would be best to post them to the
+        <A HREF="http://angband.oook.cz/forum/showthread.php?t=9554">Hengband OS X thread</A> on the
+        <A HREF="http://angband.oook.cz/forum">Angband forums at
+        http://angband.oook.cz/forum</A> or on the ticket list at
+        <A HREF="https://osdn.net/projects/hengbandforosx/ticket/">https://osdn.net/projects/hengbandforosx/ticket/</A>..
+      <P>The hope is to have the application run on Mac OS X 10.7 or later.
+        The system I have access to runs 10.14 and that's the system where the
+        application has been tested.  If you encounter trouble with another
+        version of Mac OS X, please post in the Hengband OS X thread.
+      <P>If the application fails to run and the system does not provide a
+        useful explanation of why it failed, you might try the following:
+        <OL>
+          <LI>Open a Terminal window, from the Go-&gt;Utilities menu in the
+            Finder.
+          <LI>In the Terminal run the following, but replace
+            <VAR>/Users/somebody/Desktop</VAR> with the location where you
+            placed the hengband application:
+            <OL>
+              <LI><CODE>cd /Users/somebody/Desktop/hengband.app/Contents/MacOS</CODE>
+              <LI><CODE>./hengband</CODE>
+            </OL>
+        </OL>
+        <P>Then any messages from the application will appear in the Terminal
+        window rather than be buried in the system logs or not reported at all.
+  </BODY>
+</HTML>

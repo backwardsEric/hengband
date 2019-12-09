@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN"
+   "http://www.w3.org/TR/1998/REC-html40-19980424/strict.dtd">
+<HTML>
+  <HEAD lang="en">
+    <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <TITLE>Hengband Application for Mac OS X: Changes</TITLE>
+  </HEAD>
+
+  <BODY>
+    <H1>Hengband Application for Mac OS X</H1>
+    <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | Changes
+    <H1>Changes</H1>
+      <OL>
+        <LI>August 27, 2019.  Initial release
+        <LI>August 29, 2019.  Corrected three English game messages that could
+          could cause crashes (from castle_quest() in bldg.c,
+          spell_RF6_HEAL() in mspells4.c, and project_m() in spells1.c).
+          Replaced more instances of "current_world_ptr-&gt;game_turn" with
+          "turn" in English messages.  Changed Mac OS X interface to avoid
+          clearing artifacts along the tops of characters when using the
+          Rockwell or DIN Condensed fonts.  That change will mean less rows
+          for a given terminal height with some fonts.  There still are
+          clearing artifacts on the right side of "@" with the Snell Roundhand
+          and Zapfino fonts.
+        <LI>September 10, 2019.  Corrected two more English game messages that
+          could cause crashes (from spell_RF6_HASTE() and spell_RF6_HEAL() in
+          mspells4.c).  Changed so that eating an unidentified item from the
+          pack or reading an unidentified scroll from the pack would not have
+          the potential to remove a different item from the pack.  Changed so
+          that aiming an unidentified wand from the pack or using an
+          unidentified staff from the pack would not have the potential to
+          remove a charge from a different item.  Corrected some typos in the
+          English version ("less" in some messages increasing a statistic;
+          duplicated character level in monster recall; some corrections in
+          the rumors).  In the English version, made minor layout adjustments
+          for the level indicator in the main screen, page indicator in the
+          shops, and for the digging and infravision proficiencies in the
+          character screen.  For the Mac OS X interface, changed the rendering
+          to reduce the clearing and clipping artifacts with fonts like Snell
+          Roundhand and Zapfino.  That will change the number of rows and
+          columns that can be displayed in a given space with most fonts so
+          you'll likely have to adjust your window layout.  Added a
+          bigcurs_hook implementation so that the cursor over a kanji
+          character in the Japanese version will encompass the character.
+        <LI>September 16, 2019.  Changed floor-generate.c to avoid patches
+          of unidentified terrain and crashes in dungeons like Yeek's den.
+          Changes spells2.c to avoid an uninitialized variable and potential
+          crash in one branch of probing().  Changed cmd-smith.c to correct a
+          misleading English message about enhancing multiple items.  For the
+          English version, modified monster1.c to avoid missing output in
+          monster recall and compiler warnings about unused expressions.
+          Made several changes for grammar or clarity in English messages.
+          Changed a cast in files.c to avoid a compiler warning.  For the
+          Mac OS X interface, changed the names for the terminal windows in
+          the Window menu to match the names in the windows' title bars.
+          Localized Info.plist for Japanese and changed the Japanese version
+          of the menus to use 変愚蛮怒 instead of hengband.  Adjusted some
+          of the automake files to carry over more files when "make dist" is
+          run.  Changed the handling of Objective C in configure.ac for better
+          portability.  Also reduced the number of library dependencies for the
+          Cocoa version.
+        <LI>October 2, 2019.  Changed to use upstream's fix for rivers in
+          dungeons:  levels in Yeek's den can have rivers of water.  Changed
+          to avoid crash in English version if "Merfolk" is selected as the
+          race.  Changed to avoid crash if "Auto" selected when destroying an
+          item and neither autopick preference file is present.  For English,
+          adjusted layout in character screen so the row for sustains
+          experience aligns with the others.  Made many adjustments, primarily
+          for spell and ability descriptions or messages, to English game
+          messages.  For the Mac OS X interface, changed to disable "Window"
+          menu entries until the backend is ready.  That prevents crashes if
+          the item is selected before a character is selected.  Also changed
+          to recompute the minimum window size after changing the font and to
+          coerce the current window size at least as large as the minimum size
+          if necessary.
+        <LI>October 24, 2019.  Added upstream's modification for the update
+          monster list option.  Made several changes to English messages,
+          primarily for character generation, the in-game help, and
+          explanations in the autopick editor. 
+        <LI>November 12, 2019.  Ported upstream's correction for a
+          division by zero exception when choosing monsters for arena battles.
+          Corrected English spelling mistakes in the Hunter's office and one
+          ability description.  Changed the English description of the ranger
+          class.
+        <LI>December 1, 2019.  Changed Cocoa rendering so text is rendered
+          more compactly and to avoid deprecated
+          CGContextShowGlyphsWithAdvances.
+      </OL>
+  </BODY>
+</HTML>
