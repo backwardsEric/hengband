@@ -166,7 +166,7 @@ by the racial/class power command ("U"/"O").
 
     Half-mortal descendants of the mighty titans, these immensely
     powerful creatures put almost any other race to shame.  They may
-    lack the fascinating special powers of certain other races but
+    lack the fascinating special powers of certain other races, but
     their enhanced attributes more than make up for that.  They learn
     to estimate the strengths of their foes, and their love for law
     and order makes them resistant to the effects of Chaos.
@@ -260,7 +260,7 @@ by the racial/class power command ("U"/"O").
 
     A demon-creature from the nether-world, naturally resistant to
     fire attacks, and capable of learning fire bolt and fire ball
-    attacks.  They are little loved by other races, but can perform
+    attacks.  They are little loved by other races but can perform
     fairly well in most professions.  As they advance levels, they
     gain the powers of See Invisible.
 
