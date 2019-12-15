@@ -517,7 +517,7 @@ void self_knowledge(void)
 		case CLASS_NINJA:
 			if (plev > 19)
 			{
-				info[i++] = _("あなたは素早く移動することができる。", "You can walk extremery fast.");
+				info[i++] = _("あなたは素早く移動することができる。", "You can walk extremely fast.");
 			}
 			break;
 	}
