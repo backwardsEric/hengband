@@ -73,7 +73,7 @@ void init_saved_floors(bool force)
 					msg_print(_("過去に変愚蛮怒がクラッシュした場合は一時ファイルを", "If the temporary files are garbages of old crashed process, "));
 					msg_print(_("強制的に削除して実行を続けられます。", "you can delete it safely."));
 					if (!get_check(_("強制的に削除してもよろしいですか？", "Do you delete old temporary files? ")))
-					    quit(_("実行中止", "Aborted."));
+						quit(_("実行中止", "Aborted."));
 					force = TRUE;
 				}
 			}
