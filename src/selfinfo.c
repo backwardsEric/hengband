@@ -957,7 +957,7 @@ void self_knowledge(void)
 	}
 	if (p_ptr->cursed & TRC_DRAIN_EXP)
 	{
-		info[i++] = _("あなたは経験値を吸われている。", "You are drained.");
+		info[i++] = _("あなたは経験値を吸われている。", "You occasionally lose experience for no reason.");
 	}
 	if (p_ptr->cursed & TRC_SLOW_REGEN)
 	{
@@ -1009,11 +1009,11 @@ void self_knowledge(void)
 	}
 	if (p_ptr->cursed & TRC_DRAIN_HP)
 	{
-		info[i++] = _("あなたは体力を吸われている。", "You are drained.");
+		info[i++] = _("あなたは体力を吸われている。", "You occasionally lose hit points for no reason.");
 	}
 	if (p_ptr->cursed & TRC_DRAIN_MANA)
 	{
-		info[i++] = _("あなたは魔力を吸われている。", "You brain is drained.");
+		info[i++] = _("あなたは魔力を吸われている。", "You occasionally lose spell points for no reason.");
 	}
 	if (IS_BLESSED())
 	{
