@@ -61,13 +61,13 @@ void set_action(ACTION_IDX typ)
 			}
 			case ACTION_KAMAE:
 			{
-				msg_print(_("構えをといた。", "You stop assuming the posture."));
+				msg_print(_("構えをといた。", "You stop assuming the special stance."));
 				p_ptr->special_defense &= ~(KAMAE_MASK);
 				break;
 			}
 			case ACTION_KATA:
 			{
-				msg_print(_("型を崩した。", "You stop assuming the posture."));
+				msg_print(_("型を崩した。", "You stop assuming the special stance."));
 				p_ptr->special_defense &= ~(KATA_MASK);
 				p_ptr->update |= (PU_MONSTERS);
 				p_ptr->redraw |= (PR_STATUS);
