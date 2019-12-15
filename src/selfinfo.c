@@ -1001,7 +1001,7 @@ void self_knowledge(void)
 	}
 	if (p_ptr->cursed & TRC_LOW_MAGIC)
 	{
-		info[i++] = _("あなたは魔法を失敗しやすい。", "You are subject to fail spellcasting.");
+		info[i++] = _("あなたは魔法を失敗しやすい。", "Your spells fail more frequently.");
 	}
 	if (p_ptr->cursed & TRC_FAST_DIGEST)
 	{
