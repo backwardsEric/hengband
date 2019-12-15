@@ -4804,7 +4804,7 @@ static void dump_aux_virtues(FILE *fff)
 			else fprintf(fff, "%s ???\n", stat_names[v_nr]);
 		}
 
-	fprintf(fff, _("\n属性 : %s\n", "\nYour alighnment : %s\n"), your_alignment());
+	fprintf(fff, _("\n属性 : %s\n", "\nYour alignment : %s\n"), your_alignment());
 	fprintf(fff, "\n");
 	dump_virtues(fff);
 }
