@@ -815,7 +815,7 @@ void self_knowledge(void)
 		}
 		if (p_ptr->muta3 & MUT3_ALBINO)
 		{
-			info[i++] = _("あなたはアルビノだ。(耐久-4)", "You are albino (-4 CON).");
+			info[i++] = _("あなたはアルビノだ。(耐久-4)", "You are an albino (-4 CON).");
 		}
 		if (p_ptr->muta3 & MUT3_FLESH_ROT)
 		{
