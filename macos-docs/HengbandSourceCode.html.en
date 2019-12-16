@@ -37,7 +37,7 @@
         running configure.  The curses or X11 interface will not use
         hengband.app.  Instead you'll get an executable, hengband, in the
         directory where you ran configure and that executable will pull
-        information from the lib subdirectory there.  To get the Japanesei
+        information from the lib subdirectory there.  To get the Japanese
         version, do not specify <CODE>--disable-japanese</CODE> when running
         configure.  Compilation of the Japanese version requires the utility,
         nkf.  Source code for that utility is available from
