@@ -531,7 +531,7 @@ concptr do_arcane_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 31:
 		if (name) return _("千里眼", "Clairvoyance");
 		if (desc) return _("その階全体を永久に照らし、ダンジョン内すべてのアイテムを感知する。さらに、一定時間テレパシー能力を得る。",
-			"Maps and lights whole dungeon level. Knows all objects location. And gives telepathy for a while.");
+			"Maps and lights whole dungeon level. Reveals locations of all objects. Gives telepathy for a while.");
 
 		{
 			int base = 25;
