@@ -470,7 +470,7 @@ concptr do_crusade_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 28:
 		if (name) return _("目には目を", "An Eye for an Eye");
 		if (desc) return _("一定時間、自分がダメージを受けたときに攻撃を行ったモンスターに対して同等のダメージを与える。",
-			"Gives special aura for a while. When you are attacked by a monster, the monster is injured with same amount of damage as you take.");
+			"Gives special aura for a while. When you are attacked by a monster, the monster is injured with same amount of damage as you took.");
 
 		{
 			int base = 10;
