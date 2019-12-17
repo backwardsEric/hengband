@@ -291,7 +291,7 @@ concptr do_trump_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 14:
 		if (name) return _("帰還の呪文", "Word of Recall");
 		if (desc) return _("地上にいるときはダンジョンの最深階へ、ダンジョンにいるときは地上へと移動する。",
-			"Recalls player from dungeon to town, or from town to the deepest level of dungeon.");
+			"Recalls player from dungeon to town or from town to the deepest level of dungeon.");
 
 		{
 			int base = 15;
