@@ -221,7 +221,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 7:
 		if (name) return _("戦いの歌", "Heroic Ballad");
-		if (desc) return _("ヒーロー気分になる。", "Removes fear, and gives bonus to hit and 10 more HP for a while.");
+		if (desc) return _("ヒーロー気分になる。", "Removes fear. Gives a bonus to hit for a while. Heals you for 10 HP.");
 
 		/* Stop singing before start another */
 		if (cast || fail) stop_singing(p_ptr);
