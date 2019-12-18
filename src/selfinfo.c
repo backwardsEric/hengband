@@ -399,7 +399,7 @@ void self_knowledge(void)
 		case CLASS_ROGUE:
 			if (plev > 7)
 			{
-				info[i++] = _("あなたは攻撃して即座に逃げることができる。(12 MP)", "You can hit a monster and teleport away simultaneosly (cost 12).");
+				info[i++] = _("あなたは攻撃して即座に逃げることができる。(12 MP)", "You can hit a monster and teleport away simultaneously (cost 12).");
 			}
 			break;
 		case CLASS_RANGER:
