@@ -1745,17 +1745,17 @@ bool earthquake_aux(POSITION cy, POSITION cx, POSITION r, MONSTER_IDX m_idx)
 		{
 			case 1:
 			{
-				msg_print(_("ダンジョンの壁が崩れた！", "The current_floor_ptr->grid_array ceiling collapses!"));
+				msg_print(_("ダンジョンの壁が崩れた！", "The ceiling collapses!"));
 				break;
 			}
 			case 2:
 			{
-				msg_print(_("ダンジョンの床が不自然にねじ曲がった！", "The current_floor_ptr->grid_array floor twists in an unnatural way!"));
+				msg_print(_("ダンジョンの床が不自然にねじ曲がった！", "The floor twists in an unnatural way!"));
 				break;
 			}
 			default:
 			{
-				msg_print(_("ダンジョンが揺れた！崩れた岩が頭に降ってきた！", "The current_floor_ptr->grid_array quakes!  You are pummeled with debris!"));
+				msg_print(_("ダンジョンが揺れた！崩れた岩が頭に降ってきた！", "The dungeon quakes!  You are pummeled with debris!"));
 				break;
 			}
 		}
