@@ -1057,7 +1057,7 @@ void do_cmd_cast(void)
 		if (hex_spell_fully())
 		{
 			bool flag = FALSE;
-			msg_print(_("これ以上新しい呪文を詠唱することはできない。", "Can not spell new spells more."));
+			msg_print(_("これ以上新しい呪文を詠唱することはできない。", "Can not cast more spells."));
 			flush();
 			if (p_ptr->lev >= 35) flag = stop_hex_spell();
 			if (!flag) return;
