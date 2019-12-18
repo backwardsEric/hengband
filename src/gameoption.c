@@ -344,7 +344,7 @@ const option_type option_info[] =
 	"exp_need",                     _("次のレベルに必要な経験値を表示する", "Show the experience needed for next level") },
 
 	{ &ignore_unview,               FALSE, OPT_PAGE_TEXT, 2, 13,
-	"ignore_unview",                _("視界外のモンスターの行動を表示しない", "Ignore whenever any monster does") },
+	"ignore_unview",                _("視界外のモンスターの行動を表示しない", "Ignore out-of-sight monster behavior") },
 
 	{ &refresh_mon_list,            FALSE, OPT_PAGE_TEXT, 2, 18,
 	"refresh_mon_list",             _("行動前に視界内モンスターリストを更新(重い)", "Refresh monster list before action") },
