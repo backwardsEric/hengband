@@ -7387,7 +7387,7 @@ static void do_cmd_knowledge_kubi(void)
 
 		if (!listed)
 		{
-			fprintf(fff,"\n%s\n", _("賞金首はもう残っていません。", "There is no more wanted monster."));
+			fprintf(fff,"\n%s\n", _("賞金首はもう残っていません。", "There are no more wanted monsters."));
 		}
 	}
 		my_fclose(fff);
