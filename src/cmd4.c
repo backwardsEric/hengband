@@ -856,7 +856,7 @@ static void do_cmd_last_get(void)
 
 	turn_tmp = current_world_ptr->game_turn;
 	current_world_ptr->game_turn = record_turn;
-	sprintf(buf,_("%sを手に入れた。", "descover %s."), record_o_name);
+	sprintf(buf,_("%sを手に入れた。", "discover %s."), record_o_name);
 	do_cmd_write_nikki(NIKKI_BUNSHOU, 0, buf);
 	current_world_ptr->game_turn = turn_tmp;
 }
