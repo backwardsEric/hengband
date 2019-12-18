@@ -443,7 +443,7 @@ static OBJECT_SUBTYPE_VALUE select_magic_eater(bool only_browse)
 			{
 				if (p_ptr->magic_num1[ext+i]  > k_info[lookup_kind(tval, i)].pval * (p_ptr->magic_num2[ext+i] - 1) * EATER_ROD_CHARGE)
 				{
-					msg_print(_("その魔法はまだ充填している最中だ。", "The magic are still charging."));
+					msg_print(_("その魔法はまだ充填している最中だ。", "The magic is still charging."));
 					msg_print(NULL);
 					if (use_menu) ask = TRUE;
 					continue;
