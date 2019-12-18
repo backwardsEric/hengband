@@ -2241,7 +2241,7 @@ G:?:w
 I:70:22:0
 W:40:0:5:200
 A:40/1
-D:$It recharges wands, staffs or rods when you read it.
+D:$It recharges wands, staves or rods when you read it.
 D:それは読むと魔法棒/杖の充填数を回復させたり, 充填中のロッドの充填時間を
 D:縮めたりする。
 
@@ -3221,7 +3221,7 @@ D:それは使うとダメージ250+レベル*3のロケットを発射する。
 
 
 
-##### Staffs #####
+##### Staves #####
 
 N:300:トラップ感知:ポプラの
 E:Trap Location:Aspen

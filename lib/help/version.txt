@@ -528,7 +528,7 @@ The source can be used to compile English version too.
    BeastMaster : dominate or summon monsters and ride on these.
    Sorcerer : cast spells of all magic realms. But physically hopeless.
    Archer : a warrior specialized in missile weapon. can create ammo.
-   Magic-Eater : absorb wands, staffs and rods to use it as magic spell.
+   Magic-Eater : absorb wands, staves and rods to use it as magic spell.
    Bard : sing songs. like Harper of PernAngband.
    Red-Mage : dual-class, can cast all lower rank spells of all realms.
    Samurai : use Samurai Arts which include various special attack.

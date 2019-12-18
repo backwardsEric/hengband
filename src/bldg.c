@@ -3424,7 +3424,7 @@ static void building_recharge(void)
 	{
 		if (o_ptr->number > 1)
 		{
-			msg_print(_("この杖はもう充分に充填されています。", "These staffs are already fully charged."));
+			msg_print(_("この杖はもう充分に充填されています。", "These staves are already fully charged."));
 		}
 		else
 		{

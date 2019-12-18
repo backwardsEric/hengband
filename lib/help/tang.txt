@@ -163,7 +163,7 @@ Potions of Life
 --- Items for Identifying Objects ---
 
 There are various methods of Identify which you *need*. Identify comes
-in the form of scrolls, Staffs of Perception, Rods of Perception, the
+in the form of scrolls, Staves of Perception, Rods of Perception, the
 spell Identify, and the prayer Perception. These will tell you any
 magical properties of the item, like magical bonuses to hit and to
 damage, and magical bonuses to stats. It also tells you if the item is

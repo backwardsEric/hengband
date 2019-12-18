@@ -782,7 +782,7 @@ Wands ('-')
     are generally useful for attacking purposes. Wands must be 'a'imed
     and most wands will require a target.
 
-Staffs ('_')
+Staves ('_')
     Staves are a flavored item and are made of various types of wood.
     Like wands, they contain a limited number of charges and must be
     recharged when empty. In general, staves have an area affect or

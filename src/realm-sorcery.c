@@ -146,7 +146,7 @@ concptr do_sorcery_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 7:
 		if (name) return _("魔力充填", "Recharging");
-		if (desc) return _("杖/魔法棒の充填回数を増やすか、充填中のロッドの充填時間を減らす。", "Recharges staffs, wands or rods.");
+		if (desc) return _("杖/魔法棒の充填回数を増やすか、充填中のロッドの充填時間を減らす。", "Recharges staves, wands or rods.");
 
 		{
 			int power = plev * 4;

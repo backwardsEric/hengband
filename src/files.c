@@ -4351,7 +4351,7 @@ static void dump_aux_class_special(FILE *fff)
 			{
 			case 0:
 				tval = TV_STAFF;
-				fprintf(fff, _("\n[杖]\n", "\n[Staffs]\n"));
+				fprintf(fff, _("\n[杖]\n", "\n[Staves]\n"));
 				break;
 			case 1:
 				tval = TV_WAND;

@@ -184,7 +184,7 @@ Keywords:
   armors            : Any piece of armor (helm, cloak, body armor, shield,
                       gloves, or boots) matches.
   missiles          : Arrows, bolts, and shots match.
-  magical devices   : Wands, staffs, rods and scrolls match.
+  magical devices   : Wands, staves, rods and scrolls match.
   lights            : Light sources match.
   junks             : Junk items like Shard of Pottery or etc. match.
   corpses or skeletons : Corpses or skeletons of monsters match.

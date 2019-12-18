@@ -901,7 +901,7 @@ Errorowwww!
 #The highest bonused amulets of searching/brilliance I have seen was +6!
 私が今まで見たことのある一番いい探索/知性のアミュレットは +6 だ！
 It's your own fault if you don't use all non-cheating means of awareness.
-#Pay ANY price for a Rod of Perception for it saves you lots of scrolls/staffs.
+#Pay ANY price for a Rod of Perception for it saves you lots of scrolls/staves.
 鑑定のロッドは、いかなる代償を払ってでも手に入れろ。たくさんの巻物や杖を節約できる。
 #Rods seem somewhat secure from fire/acid/lightning attacks, but get stolen!
 ロッドは火/酸/電気の攻撃に対して無傷なようだが、盗まれることはある！
@@ -1011,11 +1011,11 @@ XX 退散の巻物は敵に 60 HP のダメージを与えることが出来る�
 賢者達が「癒し」について言うことは6つ(！)ものトラウマの回復を含む。
 #The traumata to suffer: Cut, Stun, Blind, Confused, Terrified, Hallucination.
 その頭を悩ませるトラウマ：切り傷、朦朧、盲目、混乱、恐怖、幻覚。
-#Staffs of Power will dispel any monster.
+#Staves of Power will dispel any monster.
 力の杖はあらゆるモンスターを退散させるだろう。
-#Staffs of Holiness will dispel evil ones and also protect you.
+#Staves of Holiness will dispel evil ones and also protect you.
 聖浄の杖は邪悪な者どもを退散させ、さらにあなたを守るだろう。
-#Staffs of the Magi will help eggheads to clear the head and recover energies.
+#Staves of the Magi will help eggheads to clear the head and recover energies.
 賢者の杖はインテリ君をはっきりさせてエネルギーを回復するのに役立つ。
 #Those who seek knowledge of the sources must be experienced hunters of hints.
 ソースコードの知識を追い求める者は経験あるヒントの狩人達である。間違いない。

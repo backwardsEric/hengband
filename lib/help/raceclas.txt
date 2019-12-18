@@ -782,7 +782,7 @@ command("U"/"O").
     their spells.  They are middling-poor at fighting.  A
     Magic-Eater's prime statistic is intelligence.
 
-    Magic-Eaters can absorb the energy of wands, staffs, and rods, and
+    Magic-Eaters can absorb the energy of wands, staves, and rods, and
     can then use these magics as if they were carrying all of these
     absorbed devices.  Mana and changes of absorbed devices are
     regenerated naturally by a Magic-Eater's power, and speed of
