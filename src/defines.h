@@ -4271,10 +4271,10 @@ extern int PlayerUID;
 
 
 /*
- * Flags for save/load temporal saved floor file
+ * Flags for save/load temporary saved floor file
  */
 #define SLF_SECOND     	 0x0001  /* Called from another save/load function */
-#define SLF_NO_KILL      0x0002  /* Don't kill temporal files */
+#define SLF_NO_KILL      0x0002  /* Don't kill temporary files */
 
 
 /*
