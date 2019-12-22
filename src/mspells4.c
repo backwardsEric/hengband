@@ -1847,7 +1847,7 @@ void spell_RF6_HEAL(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 
 		if (see_monster(m_idx))
 		{
-			msg_format(_("%^sは勇気を取り戻した。", format("%%^s recovers %s courage.", m_poss)));
+			msg_format(_("%^sは勇気を取り戻した。", format("%%^s recovers %s courage.", m_poss)), m_name);
 		}
 	}
 }
