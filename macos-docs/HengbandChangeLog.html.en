@@ -11,6 +11,16 @@
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | Changes
     <H1>Changes</H1>
       <OL>
+        <LI>December 31, 2019.  Plugged memory leak in autopick_autoregister().
+          Changed init_saved_floors() to only check for out-of-date saved
+          floors if savefile is not an empty string; that prevents spurious
+          messages about old temporary files when "New" is selected in the
+          Cocoa front-end for Mac OS X.  Redid earlier change for English
+          message crashes in spell_RF6_HEAL() to be more compact.  Made many
+          adjustments to the text of English messages especially in monster and
+          item descriptions.  To better match the source material, the base
+          object for the crown of Amber is now a Jewel Encrusted Crown rather
+          than a Golden Crown.
         <LI>December 1, 2019.  Changed Cocoa rendering so text is rendered
           more compactly and to avoid deprecated
           CGContextShowGlyphsWithAdvances.
