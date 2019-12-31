@@ -12,7 +12,7 @@
     <H1>Source Code</H1>
       <P>If you want to compile the code yourself or examine the changes I
         made, you can either get one of the packaged source code archives,
-        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72021/hengband-2.2.1.7a.tar.gz/">hengband-2.2.1.7a.tar.gz</A> is the latest, from
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72021/hengband-2.2.1.7b.tar.gz/">hengband-2.2.1.7b.tar.gz</A> is the latest, from
         <A HREF="https://osdn.net/projects/hengbandforosx/releases/">https://osdn.net/projbects/hengbandforosx/releases/</A>
         or the clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
       <P>If you cloned the git repository and want to compile the code, you'll
