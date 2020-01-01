@@ -6652,7 +6652,7 @@ void exit_game_panic(void)
 	/* Clear the top line */
 	prt("", 0, 0);
 
-	/* Hack -- current_world_ptr->game_turn off some things */
+	/* Hack -- turn off some things */
 	disturb(TRUE, TRUE);
 
 	/* Mega-Hack -- Delay death */
