@@ -169,7 +169,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 	case 7:
 		if (name) return _("払い抜け", "Harainuke");
 		if (desc) return _("攻撃した後、反対側に抜ける。",
-			"Attacks a monster with your weapons normally, then dodges to one side.");
+			"In one action, attacks a monster with your weapons normally and then moves to the space beyond the monster if that space is not blocked.");
 
 		if (cast)
 		{
