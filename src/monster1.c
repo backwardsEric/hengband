@@ -1545,6 +1545,7 @@ static void roff_aux(MONRACE_IDX r_idx, BIT_FLAGS mode)
 		{
 			hooked_roff(format(_("%^sは経験を積むと、", "%^s will evolve into "), wd_he[msex]));
 			hook_c_roff(TERM_YELLOW, format("%s", r_name+r_info[r_ptr->next_r_idx].name));
+
 			hooked_roff(
 				_(format("に進化する。"), 
 				  format(" when %s gets enough experience.  ", wd_he[msex])));
