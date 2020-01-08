@@ -3299,13 +3299,13 @@ static bool enchant_item(PRICE cost, HIT_PROB to_hit, HIT_POINT to_dam, ARMOUR_C
 
 
 /*!
- * @brief 魔道具の使用回数を回復させる施設のメインルーチン / Recharge rods, wands and staves
+ * @brief 魔道具の使用回数を回復させる施設のメインルーチン / Recharge rods, wands and staffs
  * @details
  * The player can select the number of charges to add\n
  * (up to a limit), and the recharge never fails.\n
  *\n
  * The cost for rods depends on the level of the rod. The prices\n
- * for recharging wands and staves are dependent on the cost of\n
+ * for recharging wands and staffs are dependent on the cost of\n
  * the base-item.\n
  * @return なし
  */
@@ -3424,7 +3424,7 @@ static void building_recharge(void)
 	{
 		if (o_ptr->number > 1)
 		{
-			msg_print(_("この杖はもう充分に充填されています。", "These staves are already fully charged."));
+			msg_print(_("この杖はもう充分に充填されています。", "These staffs are already fully charged."));
 		}
 		else
 		{
@@ -3471,7 +3471,7 @@ static void building_recharge(void)
 		else
 			max_charges = o_ptr->number * k_ptr->pval - o_ptr->pval;
 
-		/* Get the quantity for staves and wands */
+		/* Get the quantity for staffs and wands */
 		charges = (PARAMETER_VALUE)get_quantity(format(_("一回分＄%d で何回分充填しますか？", "Add how many charges for %d gold? "), price), 
 					MIN(p_ptr->au / price, max_charges));
 
@@ -3508,13 +3508,13 @@ static void building_recharge(void)
 
 
 /*!
- * @brief 魔道具の使用回数を回復させる施設の一括処理向けサブルーチン / Recharge rods, wands and staves
+ * @brief 魔道具の使用回数を回復させる施設の一括処理向けサブルーチン / Recharge rods, wands and staffs
  * @details
  * The player can select the number of charges to add\n
  * (up to a limit), and the recharge never fails.\n
  *\n
  * The cost for rods depends on the level of the rod. The prices\n
- * for recharging wands and staves are dependent on the cost of\n
+ * for recharging wands and staffs are dependent on the cost of\n
  * the base-item.\n
  * @return なし
  */

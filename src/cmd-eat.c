@@ -355,7 +355,7 @@ void do_cmd_eat_food_aux(INVENTORY_IDX item)
 			(item < 0) && (o_ptr->number > 1))
 		{
 		        p_ptr->update |= inventory_flags;
-			msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staves."));
+			msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
 			return;
 		}
 		staff = (o_ptr->tval == TV_STAFF) ? _("杖", "staff") : _("魔法棒", "wand");

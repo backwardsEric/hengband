@@ -361,7 +361,7 @@ concptr do_chaos_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 18:
 		if (name) return _("魔力封入", "Arcane Binding");
-		if (desc) return _("杖/魔法棒の充填回数を増やすか、充填中のロッドの充填時間を減らす。", "Recharges staves, wands or rods.");
+		if (desc) return _("杖/魔法棒の充填回数を増やすか、充填中のロッドの充填時間を減らす。", "Recharges staffs, wands or rods.");
 
 		{
 			int power = 90;

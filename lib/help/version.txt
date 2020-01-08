@@ -206,7 +206,7 @@ Implemented 'Saved Floors':
 - Removed scrolls of satisfy hunger and that class power of Berserkers.
   Androids can quaff flasks of oil.
   Barlogs can sacrifice corpses with symbol 't','p', or 'h' using the Eat command.
-  Golems, Zombies, Skeletons, and Spectors can Eat charges of wands and staves.
+  Golems, Zombies, Skeletons, and Spectors can Eat charges of wands and staffs.
   Ents can get nutritions from water in any potions.
 - Added lists of known monsters/objects from Eyangband.
 - Shift + direction keys will move cursor quickly in the look command.
@@ -528,7 +528,7 @@ The source can be used to compile English version too.
    BeastMaster : dominate or summon monsters and ride on these.
    Sorcerer : cast spells of all magic realms. But physically hopeless.
    Archer : a warrior specialized in missile weapon. can create ammo.
-   Magic-Eater : absorb wands, staves and rods to use it as magic spell.
+   Magic-Eater : absorb wands, staffs and rods to use it as magic spell.
    Bard : sing songs. like Harper of PernAngband.
    Red-Mage : dual-class, can cast all lower rank spells of all realms.
    Samurai : use Samurai Arts which include various special attack.

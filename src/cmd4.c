@@ -4253,7 +4253,7 @@ static concptr object_group_text[] =
 	"Whistle",
 	"Lanterns",
 	"Wands",
-	"Staves",
+	"Staffs",
 	"Rods",
 	"Cards",
 	"Capture Balls",

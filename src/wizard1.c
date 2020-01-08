@@ -134,7 +134,7 @@ static grouper group_item[] =
 	{ TV_LITE,          _("光源", "Light Sources") },
 	{ TV_AMULET,        _("アミュレット", "Amulets" )},
 	{ TV_RING,          _("指輪", "Rings") },
-	{ TV_STAFF,         _("杖", "Staves") },
+	{ TV_STAFF,         _("杖", "Staffs") },
 	{ TV_WAND,          _("魔法棒", "Wands") },
 	{ TV_ROD,           _("ロッド", "Rods") },
 	{ TV_SCROLL,        _("巻物", "Scrolls") },

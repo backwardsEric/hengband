@@ -296,7 +296,7 @@ void do_cmd_use_staff_aux(INVENTORY_IDX item)
 	/* Mega-Hack -- refuse to use a pile from the ground */
 	if ((item < 0) && (o_ptr->number > 1))
 	{
-		msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staves."));
+		msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
 		return;
 	}
 

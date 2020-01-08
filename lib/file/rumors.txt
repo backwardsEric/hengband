@@ -247,8 +247,8 @@ You are prepared to thrill us with a traditional heroic display?
 Some underworld lads would *LOVE* to blacken your name!
 Beware! The Castle now and then provides regrettable accidents.
 Never use a Staff of Insanity.
-Staves of Insanity will confuse all monsters you can see.
-Staves of Insanity can be used to turn the enemy against itself...
+Staffs of Insanity will confuse all monsters you can see.
+Staffs of Insanity can be used to turn the enemy against itself...
 Let the sun of wilderness melt the chill from your life!
 By combining our minds with motion we can tune for the shadow we desire.
 I can show ya the wayy back to chaos, if ya'r gettin homesick.
@@ -558,7 +558,7 @@ The highest bonused ring of damage I have seen was +23!
 The highest bonused amulets of searching/brilliance I have seen was +6!
 Haven't you found a Ring of Extra Attacks (+5) yet?
 It's your own fault if you don't use all non-cheating means of awareness.
-Pay ANY price for a Rod of Perception for it saves you lots of scrolls/staves.
+Pay ANY price for a Rod of Perception for it saves you lots of scrolls/staffs.
 Rods seem somewhat secure from fire/acid/lightning attacks, but get stolen!
 Some black humored remarks (rumors) on common morals are not easily outwitted.
 Ever read Ambrose Bierce, From the devil's dictionary? No, didn't steal there.
@@ -626,10 +626,10 @@ Scrolls of Ice deal twice the damage of Fire, but less than Chaos.
 To find a Rod of Havoc means nothing else than: chaos at your fingertips.
 If the sages speak of Curing this comprehends the recovery of 6! traumata.
 The traumata to suffer: Cut, Stun, Blind, Confused, Terrified, Hallucination.
-Staves of Power will dispel any monster.
-Staves of Power are almost as unpleasant as Raal's Tomes.
-Staves of Holiness will dispel evil monsters and also protect you.
-Staves of the Magi will help eggheads to clear the head and recover energies.
+Staffs of Power will dispel any monster.
+Staffs of Power are almost as unpleasant as Raal's Tomes.
+Staffs of Holiness will dispel evil monsters and also protect you.
+Staffs of the Magi will help eggheads to clear the head and recover energies.
 Those who seek knowledge of the sources must be experienced hunters of hints.
 You have difficulties to find survey or details in the source files? Combat!
 There are always people who'd like to restrict knowledge to their own circles.
