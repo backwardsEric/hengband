@@ -2685,7 +2685,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 		    /* Save the state since the clipping will be modified. */
 		    CGContextSaveGState(ctx);
 
-		    /* Clear the area that where rendering will be done. */
+		    /* Clear the area where rendering will be done. */
 		    r = [angbandContext rectInImageForTileAtX:isrend Y:iy];
 		    r.size.width = angbandContext->tileSize.width *
 			(ierend - isrend + 1);
