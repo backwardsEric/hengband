@@ -1745,12 +1745,12 @@ bool earthquake_aux(POSITION cy, POSITION cx, POSITION r, MONSTER_IDX m_idx)
 		{
 			case 1:
 			{
-				msg_print(_("ダンジョンの壁が崩れた！", "The ceiling collapses!"));
+				msg_print(_("ダンジョンの壁が崩れた！", "The dungeon's ceiling collapses!"));
 				break;
 			}
 			case 2:
 			{
-				msg_print(_("ダンジョンの床が不自然にねじ曲がった！", "The floor twists in an unnatural way!"));
+				msg_print(_("ダンジョンの床が不自然にねじ曲がった！", "The dungeon's floor twists in an unnatural way!"));
 				break;
 			}
 			default:
