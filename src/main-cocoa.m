@@ -1358,7 +1358,7 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     [self prepareFilePathsAndDirectories];
 
     /* Note the "system" */
-    ANGBAND_SYS = "mac";
+    ANGBAND_SYS = "coc";
 
     /* Load preferences */
     load_prefs();
