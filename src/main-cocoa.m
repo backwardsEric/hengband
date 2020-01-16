@@ -3684,10 +3684,6 @@ static BOOL send_event(NSEvent *event)
             
             
             /* Extract some modifiers */
-#if 0
-	    /* Caught above so don't do anything with it here. */
-            int mx = !! (modifiers & NSCommandKeyMask);
-#endif            
             int mc = !! (modifiers & NSControlKeyMask);
             int ms = !! (modifiers & NSShiftKeyMask);
             int mo = !! (modifiers & NSAlternateKeyMask);
@@ -3697,32 +3693,22 @@ static BOOL send_event(NSEvent *event)
             /* Get the Angband char corresponding to this unichar */
             unichar c = [[event characters] characterAtIndex:0];
             char ch;
-            switch (c) {
+	    /*
+	     * Have anything from the numeric keypad generate a macro
+	     * trigger so that shift or control modifiers can be passed.
+	     */
+	    if (c <= 0x7F && !kp)
+	    {
+		ch = (char) c;
+	    }
+	    else {
 		/*
-		 * Convert some special keys to what would be the normal
-		 * alternative in the original keyset or, for things lke
-		 * Delete, Return, and Escape, what one might use from ASCII.
 		 * The rest of Hengband uses Angband 2.7's or so key handling:
 		 * so for the rest do something like the encoding that
 		 * main-win.c does:  send a macro trigger with the Unicode
-		 * value encoded into printable ASCII characters.  Since
-		 * macro triggers appear to assume at most two keys plus the
-		 * modifiers, can only handle values of c below 4096 with
-		 * 64 values per key.
+		 * value encoded into printable ASCII characters.
 		 */
-	        case NSUpArrowFunctionKey: ch = '8'; kp = 0; break;
-	        case NSDownArrowFunctionKey: ch = '2'; kp = 0; break;
-	        case NSLeftArrowFunctionKey: ch = '4'; kp = 0; break;
-	        case NSRightArrowFunctionKey: ch = '6'; kp = 0; break;
-	        case NSHelpFunctionKey: ch = '?'; break;
-	        case NSDeleteFunctionKey: ch = '\b'; break;
-                    
-                default:
-                    if (c <= 0x7F)
-                        ch = (char)c;
-                    else
-                        ch = '\0';
-                    break;
+		ch = '\0';
             }
             
             /* override special keys */
@@ -3740,22 +3726,18 @@ static BOOL send_event(NSEvent *event)
             /* Enqueue it */
             if (ch != '\0')
             {
-                
-                /* Enqueue the keypress */
-#if 0
-                byte mods = 0;
-                if (mo) mods |= KC_MOD_ALT;
-                if (mx) mods |= KC_MOD_META;
-                if (mc && MODS_INCLUDE_CONTROL(ch)) mods |= KC_MOD_CONTROL;
-                if (ms && MODS_INCLUDE_SHIFT(ch)) mods |= KC_MOD_SHIFT;
-                if (kp) mods |= KC_MOD_KEYPAD;
-                Term_keypress(ch, mods);
-#else
                 Term_keypress(ch);
-#endif
-            } else if (c < 4096 || (c >= 0xF700 && c <= 0xF77F)) {
-		unichar part;
-		char cenc;
+            }
+	    else
+	    {
+		/*
+		 * Could use the hexsym global but some characters overlap with
+		 * those used to indicate modifiers.
+		 */
+		const char encoded[16] = {
+		    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+		    'c', 'd', 'e', 'f'
+		};
 
 		/* Begin the macro trigger. */
 		Term_keypress(31);
@@ -3763,36 +3745,13 @@ static BOOL send_event(NSEvent *event)
 		/* Send the modifiers. */
 		if (mc) Term_keypress('C');
 		if (ms) Term_keypress('S');
-		if (mo) Term_keypress('A');
+		if (mo) Term_keypress('O');
 		if (kp) Term_keypress('K');
 
-		/*
-		 * Put part of the range Apple reserves for special keys
-		 * into 0 - 127 since that range has been handled normally.
-		 */
-		if (c >= 0xF700) {
-		    c -= 0xF700;
-		}
-
-		/* Encode the value as two printable characters. */
-		part = (c >> 6) & 63;
-		if (part > 38) {
-		    cenc = 'a' + (part - 38);
-		} else if (part > 12) {
-		    cenc = 'A' + (part - 12);
-		} else {
-		    cenc = '0' + part;
-		}
-		Term_keypress(cenc);
-		part = c & 63;
-		if (part > 38) {
-		    cenc = 'a' + (part - 38);
-		} else if (part > 12) {
-		    cenc = 'A' + (part - 12);
-		} else {
-		    cenc = '0' + part;
-		}
-		Term_keypress(cenc);
+		do {
+		    Term_keypress(encoded[c & 0xF]);
+		    c >>= 4;
+		} while (c > 0);
 
 		/* End the macro trigger. */
 		Term_keypress(13);

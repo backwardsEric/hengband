@@ -21,6 +21,10 @@ T:&#:CSOX:control-:shift-:option-:command-
 # T:<trigger name>:<keycode>:<keycode with shiftkey>
 # '\' in <trigger name> is escape character.
 
+# The key codes differ between the Carbon interface and Cocoa interface.
+# Give the corresponding ones the same trigger names so most macro definitions
+# can be the same for both.
+?:[EQU $SYS mac]
 T:KP_Decimal:1
 T:KP_Multiply:3
 T:KP_Add:5
@@ -65,192 +69,282 @@ T:Right:60
 T:Down:61
 T:Up:62
 
+?:[EQU $SYS coc]
+
+# NSEvent.h assigns special keys to the range 0xF700 to 0XF8FF.  main_cocoa.m
+# converts all keys not in the range of 0x01 to 0x7F to a macro trigger where
+# the keycode is the key number written as a little-endian hexadecimal number
+# using '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
+# 'e', and 'f' as the digits.
+# NSUpArrowFunctionKey = 0xF700
+T:Up:K007f
+T:Down:K107f
+T:Left:K207f
+T:Right:K307f
+T:F1:407f
+T:F2:507f
+T:F3:607f
+T:F4:707f
+T:F5:807f
+T:F6:907f
+T:F7:a07f
+T:F8:b07f
+T:F9:c07f
+T:F10:d07f
+T:F11:e07f
+T:F12:f07f
+T:F13:017f
+T:F14:117f
+T:F15:217f
+T:F16:317f
+# NSInsertFunctionKey = 0xF727
+T:Insert:727f
+T:Delete:827f
+T:Home:927f
+T:Begin:a27f
+T:End:b27f
+T:Page_Up:c27f
+T:Page_Down:d27f
+# NSClearLineFunctionKey = 0xF739
+T:KP_Clear:K937f
+# NSHelpFunctionKey = 0xF746
+T:Help:647f
+
+# The numeric keypad keys not handled above are also mapped (except for the
+# enter key on the keypad) to macro triggers by main-cocoa.m.  The encoding
+# of the keycode is the same as above but all of these have keycodes in the
+# range of 0x01 to 0x7f.
+T:KP_Decimal:Ke2
+T:KP_Multiply:Ka2
+T:KP_Add:Kb2
+T:KP_Divide:Kf2
+T:KP_Subtract:Kd2
+T:KP_Equal:Kd3
+# Below is what the numeric keypad enter key would be if it was handled like
+# the other numeric keypad keys by main-cocoa.m.
+T:KP_Enter:K3
+T:KP_0:K03
+T:KP_1:K13
+T:KP_2:K23
+T:KP_3:K33
+T:KP_4:K43
+T:KP_5:K53
+T:KP_6:K63
+T:KP_7:K73
+T:KP_8:K83
+T:KP_9:K93
 
 
 ##### Simple Macros #####
+# These are the same for both the Carbon and Cocoa interfaces.
 
+?:[IOR [EQU $SYS mac] [EQU $SYS coc]]
+
+#
+# Keys that are not digits on keypad -- same as corresponding key on main
+# keyboard
+#
+A:.
+P:\[KP_Decimal]
+
+A:*
+P:\[KP_Multiply]
+
+A:+
+P:\[KP_Add]
+
+A:/
+P:\[KP_Divide]
+
+A:\n
+P:\[KP_Enter]
+
+A:-
+P:\[KP_Subtract]
+
+A:=
+P:\[KP_Equal]
 
 #
 # Keypad -- Direction
 #
-
 A:0
-P:^_18\r
+P:\[KP_0]
 
 A:1
-P:^_19\r
+P:\[KP_1]
 
 A:2
-P:^_20\r
+P:\[KP_2]
 
 A:3
-P:^_21\r
+P:\[KP_3]
 
 A:4
-P:^_22\r
+P:\[KP_4]
 
 A:5
-P:^_23\r
+P:\[KP_5]
 
 A:6
-P:^_24\r
+P:\[KP_6]
 
 A:7
-P:^_25\r
+P:\[KP_7]
 
 A:8
-P:^_27\r
+P:\[KP_8]
 
 A:9
-P:^_28\r
-
-A:+
-P:^_05\r
-
-A:-
-P:^_14\r
-
-A:*
-P:^_03\r
-
-A:/
-P:^_11\r
-
-A:=
-P:^_17\r
-
-A:\n
-P:^_12\r
-
-A:_
-P:^_30\r
-
-A:.
-P:^_01\r
-
-A:,
-P:^_31\r
+P:\[KP_9]
 
 #
 # Shift-Keypad -- Directed running
 #
-
 A:\e\e\\.1
-P:^_S19\r
+P:\[shift-KP_1]
 
 A:\e\e\\.2
-P:^_S20\r
+P:\[shift-KP_2]
 
 A:\e\e\\.3
-P:^_S21\r
+P:\[shift-KP_3]
 
 A:\e\e\\.4
-P:^_S22\r
+P:\[shift-KP_4]
 
 A:\e\e\\.5
-P:^_S23\r
+P:\[shift-KP_5]
 
 A:\e\e\\.6
-P:^_S24\r
+P:\[shift-KP_6]
 
 A:\e\e\\.7
-P:^_S25\r
+P:\[shift-KP_7]
 
 A:\e\e\\.8
-P:^_S27\r
+P:\[shift-KP_8]
 
 A:\e\e\\.9
-P:^_S28\r
-
+P:\[shift-KP_9]
 
 #
 # Control-Keypad -- Directed tunneling
 #
-
 A:\e\e\\+1
-P:^_C19\r
+P:\[control-KP_1]
 
 A:\e\e\\+2
-P:^_C20\r
+P:\[control-KP_2]
 
 A:\e\e\\+3
-P:^_C21\r
+P:\[control-KP_3]
 
 A:\e\e\\+4
-P:^_C22\r
+P:\[control-KP_4]
 
 A:\e\e\\+5
-P:^_C23\r
+P:\[control-KP_5]
 
 A:\e\e\\+6
-P:^_C24\r
+P:\[control-KP_6]
 
 A:\e\e\\+7
-P:^_C25\r
+P:\[control-KP_7]
 
 A:\e\e\\+8
-P:^_C27\r
+P:\[control-KP_8]
 
 A:\e\e\\+9
-P:^_C28\r
-
-
+P:\[control-KP_9]
 
 #
 # Option-Control-Keypad -- wield {@0} and tunnel
 #
 
 A:\e\ew0\s\s\\+1
-P:^_CO19\r
+P:\[control-option-KP_1]
 
 A:\e\ew0\s\s\\+2
-P:^_CO20\r
+P:\[control-option-KP_2]
 
 A:\e\ew0\s\s\\+3
-P:^_CO21\r
+P:\[control-option-KP_3]
 
 A:\e\ew0\s\s\\+4
-P:^_CO22\r
+P:\[control-option-KP_4]
 
 A:\e\ew0\s\s\\+5
-P:^_CO23\r
+P:\[control-option-KP_5]
 
 A:\e\ew0\s\s\\+6
-P:^_CO24\r
+P:\[control-option-KP_6]
 
 A:\e\ew0\s\s\\+7
-P:^_CO25\r
+P:\[control-option-KP_7]
 
 A:\e\ew0\s\s\\+8
-P:^_CO27\r
+P:\[control-option-KP_8]
 
 A:\e\ew0\s\s\\+9
-P:^_CO28\r
-
+P:\[control-option-KP_9]
 
 #
 # Option-Control-Keypad-Zero -- wield {@0}
 #
 
 A:\e\ew0\s
-P:^_CO18\r
-
-
+P:\[control-option-KP_0]
 
 #
-# Hack -- Arrow-Keys
+# Use arrow keys without additional modifiers for movement
 #
 
 A:4
-P:^_59\r
+P:\[Left]
 
 A:6
-P:^_60\r
+P:\[Right]
 
 A:2
-P:^_61\r
+P:\[Down]
 
 A:8
-P:^_62\r
+P:\[Up]
 
+#
+# Shift + arrow key -- directed running
+#
+A:\e\e\\.4
+P:\[shift-Left]
 
+A:\e\e\\.6
+P:\[shift-Right]
+
+A:\e\e\\.2
+P:\[shift-Down]
+
+A:\e\e\\.8
+P:\[shift-Up]
+
+#
+# Ctrl + arrow key is trapped by the Cocoa interface so don't bother setting
+# up triggers to map it to tunneling.
+#
+
+#
+# Have the help function key bring up the in-game help.
+#
+A:?
+P:\[Help]
+
+#
+# Keyboard macros only used for the Carbon interface.
+#
+?:[EQU $SYS mac]
+
+A:_
+P:^_30\r
+
+A:,
+P:^_31\r
