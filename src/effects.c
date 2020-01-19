@@ -55,7 +55,7 @@ void set_action(ACTION_IDX typ)
 			}
 			case ACTION_LEARN:
 			{
-				msg_print(_("学習をやめた。", "You stop learning"));
+				msg_print(_("学習をやめた。", "You stop learning."));
 				new_mane = FALSE;
 				break;
 			}
