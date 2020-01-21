@@ -2257,10 +2257,6 @@ static errr Term_xtra_cocoa_react(void)
         
         /* Record what we did */
         use_graphics = new_mode ? new_mode->grafID : 0;
-#if 0
-	/* This global is not in Hengband. */
-        use_transparency = (new_mode != NULL);
-#endif
         ANGBAND_GRAF = (new_mode ? new_mode->graf : "ascii");
         current_graphics_mode = new_mode;
         
