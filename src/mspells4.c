@@ -1737,7 +1737,7 @@ void spell_RF6_HASTE(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 	monspell_message_base(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
 		_("%^sが自分の体に念を送った。", format("%%^s concentrates on %s body.", m_poss)),
-	        _("%^sが自分の体に念を送った。", format("%%^s concentrates on %s body.", m_poss)),
+		_("%^sが自分の体に念を送った。", format("%%^s concentrates on %s body.", m_poss)),
 		_("%^sが自分の体に念を送った。", format("%%^s concentrates on %s body.", m_poss)),
 		p_ptr->blind > 0, TARGET_TYPE);
 
