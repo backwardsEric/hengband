@@ -861,7 +861,7 @@ void do_cmd_racial_power(void)
 	case CLASS_HIGH_MAGE:
 	if (p_ptr->realm1 == REALM_HEX)
 	{
-		strcpy(power_desc[num].name, _("詠唱をやめる", "Stop spelling"));
+		strcpy(power_desc[num].name, _("詠唱をやめる", "Stop spell casting"));
 		power_desc[num].level = 1;
 		power_desc[num].cost = 0;
 		power_desc[num].stat = A_INT;
