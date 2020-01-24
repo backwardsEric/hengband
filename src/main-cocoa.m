@@ -1368,6 +1368,9 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     /* Load preferences */
     load_prefs();
     
+    /* Load possible graphics modes */
+    init_graphics_modes();
+
     /* Prepare the windows */
     init_windows();
     
@@ -1379,9 +1382,6 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     
     /* Initialise game */
     init_angband();
-
-    /* This is not incorporated into Hengband's init_angband() yet. */
-    init_graphics_modes();
 
     /* Initialize some save file stuff */
     player_egid = getegid();
