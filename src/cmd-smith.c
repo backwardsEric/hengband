@@ -1306,7 +1306,8 @@ static void add_essence(ESSENCE_IDX mode)
 	}
 
 	take_turn(p_ptr, 100);
-	msg_format(_("%sに%sの能力を付加しました。", "You have added ability of %s to %s."), o_name, es_ptr->add_name);
+	_(msg_format("%sに%sの能力を付加しました。", o_name, es_ptr->add_name),
+	  msg_format("You have added ability of %s to %s.", es_ptr->add_name, o_name));
 	p_ptr->update |= (PU_COMBINE | PU_REORDER);
 	p_ptr->window |= (PW_INVEN);
 }
