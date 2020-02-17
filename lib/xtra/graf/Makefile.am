@@ -12,7 +12,7 @@ EXTRA_DIST = \
   delete.me $(angband_files) $(angband4_conf) $(angband4_tile_files)
 
 if SET_GID
-angbanddir = @DEFAULT_PATH@xtra/graf
+angbanddir = @DEFAULT_LIB_PATH@/xtra/graf
 
 angband_DATA = \
   $(angband_files)

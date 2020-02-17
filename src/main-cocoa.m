@@ -1293,7 +1293,7 @@ static NSString *AngbandCorrectedDirectoryPath(NSString *originalPath)
 	NSString *angbandDocumentsPath = AngbandCorrectedDirectoryPath([self angbandDocumentsPath]);
 	[angbandDocumentsPath getFileSystemRepresentation: basepath maxLength: sizeof(basepath)];
 
-	init_file_paths(libpath, libpath, basepath);
+	init_file_paths(libpath, basepath);
 	create_needed_dirs();
 }
 

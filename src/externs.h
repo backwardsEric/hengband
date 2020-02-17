@@ -618,7 +618,7 @@ extern s16b f_tag_to_index(concptr str);
 extern errr process_dungeon_file(concptr name, int ymin, int xmin, int ymax, int xmax);
 
 /* init2.c */
-extern void init_file_paths(concptr configpath, concptr libpath, concptr datapath);
+extern void init_file_paths(concptr libpath, concptr varpath);
 extern void create_needed_dirs(void);
 extern concptr err_str[PARSE_ERROR_MAX];
 extern errr init_v_info(void);
