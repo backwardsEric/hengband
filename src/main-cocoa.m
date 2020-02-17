@@ -466,8 +466,13 @@ static int resize_pending_changes(struct PendingChanges* pc, int nrow)
  * defaults */
 - (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults;
 
-/* Change the minimum size for the window associated with the context. */
-- (void)setMinimumWindowSize;
+/*
+ * Change the minimum size for the window associated with the context.
+ * If termIdx is not negative, use it as the terminal index (that is useful
+ * if self->terminal has not been set yet).  Otherwise, [self terminalIndex]
+ * will be used as the index.
+ */
+- (void)setMinimumWindowSize:(int)termIdx;
 
 /* Called from the view to indicate that it is starting or ending live resize */
 - (void)viewWillStartLiveResize:(AngbandView *)view;
@@ -1091,7 +1096,7 @@ static int compare_advances(const void *ap, const void *bp)
 		 * and rows since they could be changed */
         NSRect contentRect = [self->primaryWindow contentRectForFrameRect: [self->primaryWindow frame]];
 
-	[self setMinimumWindowSize];
+	[self setMinimumWindowSize:-1];
 	NSSize size = self->primaryWindow.contentMinSize;
 	BOOL windowNeedsResizing = NO;
 	if (contentRect.size.width < size.width) {
@@ -1677,11 +1682,14 @@ static NSMenuItem *superitem(NSMenuItem *self)
     Term_activate( old );
 }
 
-- (void)setMinimumWindowSize
+- (void)setMinimumWindowSize:(int)termIdx
 {
     NSSize minsize;
 
-    if ([self terminalIndex] == 0) {
+    if (termIdx < 0) {
+	termIdx = [self terminalIndex];
+    }
+    if (termIdx == 0) {
 	minsize.width = 80;
 	minsize.height = 24;
     } else {
@@ -2031,8 +2039,8 @@ static void Term_init_cocoa(term *t)
 #endif
     ];
     [window setTitle:title];
-    [context setMinimumWindowSize];
-    
+    [context setMinimumWindowSize:termIdx];
+
     /* If this is the first term, and we support full screen (Mac OS X Lion or
 	 * later), then allow it to go full screen (sweet). Allow other terms to be
 	 * FullScreenAuxilliary, so they can at least show up. Unfortunately in
