@@ -17,7 +17,6 @@
 #import <Cocoa/Cocoa.h>
 
 @interface AngbandAppDelegate : NSObject <NSApplicationDelegate> {
-    IBOutlet NSMenu *terminalsMenu;
     NSMenu *_graphicsMenu;
     NSMenu *_commandMenu;
     NSDictionary *_commandMenuTagMap;
@@ -31,7 +30,7 @@
 - (IBAction)saveGame:(id)sender;
 - (IBAction)setRefreshRate:(NSMenuItem *)sender;
 - (IBAction)toggleSound:(NSMenuItem *)menuItem;
-- (IBAction)setGraphicsMode:(NSMenuItem *)sender;
-- (IBAction)selectWindow:(id)sender;
+- (void)setGraphicsMode:(NSMenuItem *)sender;
+- (void)selectWindow:(id)sender;
 
 @end
