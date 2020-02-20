@@ -130,9 +130,9 @@ void init_file_paths(concptr libpath, concptr varpath)
 	path_build(buf, sizeof(buf), base, VERSION_NAME);
 
 	ANGBAND_DIR_USER = string_make(buf);
-#else
+#else /* PRIVATE_USER_PATH */
 	ANGBAND_DIR_USER = string_make(format("%suser", varpath));
-#endif
+#endif /* PRIVATE_USER_PATH */
 
 
 #ifdef NeXT
