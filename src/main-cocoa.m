@@ -4385,27 +4385,39 @@ static void hook_quit(const char * str)
 /**
  * Delegate method that gets called if we're asked to open a file.
  */
-- (BOOL)application:(NSApplication *)sender openFiles:(NSArray *)filenames
+- (void)application:(NSApplication *)sender openFiles:(NSArray *)filenames
 {
     /* Can't open a file once we've started */
-    if (game_in_progress) return NO;
-    
+    if (game_in_progress) {
+	[[NSApplication sharedApplication]
+	    replyToOpenOrPrint:NSApplicationDelegateReplyFailure];
+	return;
+    }
+
     /* We can only open one file. Use the last one. */
     NSString *file = [filenames lastObject];
-    if (! file) return NO;
-    
+    if (! file) {
+	[[NSApplication sharedApplication]
+	    replyToOpenOrPrint:NSApplicationDelegateReplyFailure];
+	return;
+    }
+
     /* Put it in savefile */
-    if (! [file getFileSystemRepresentation:savefile maxLength:sizeof savefile])
-		return NO;
-    
+    if (! [file getFileSystemRepresentation:savefile maxLength:sizeof savefile]) {
+	[[NSApplication sharedApplication]
+	    replyToOpenOrPrint:NSApplicationDelegateReplyFailure];
+	return;
+    }
+
     game_in_progress = TRUE;
     new_game = FALSE;
 
     /* Wake us up in case this arrives while we're sitting at the Welcome
 	 * screen! */
     wakeup_event_loop();
-    
-    return YES;
+
+    [[NSApplication sharedApplication]
+	replyToOpenOrPrint:NSApplicationDelegateReplySuccess];
 }
 
 @end
