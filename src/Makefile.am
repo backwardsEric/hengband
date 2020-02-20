@@ -95,6 +95,10 @@ EXTRA_hengband_SOURCES = \
 	makefile.bcc makefile.std makefile.dos makefile.ibm \
 	readdib.c readdib.h wall.bmp
 
+cocoa_xcode_files = \
+	cocoa/AppDelegate.h \
+	cocoa/AppDelegate.m \
+	cocoa/Base.lproj/MainMenu.xib
 cocoa_icon_files = \
 	cocoa/hengband_Icons.icns \
 	cocoa/Save.icns \
@@ -118,6 +122,7 @@ cocoa_ja_strings_files = \
 
 EXTRA_DIST = \
 	gcc-wrap \
+	$(cocoa_xcode_files) \
 	$(cocoa_icon_files) \
 	$(cocoa_plist_template) \
 	$(cocoa_plist_strings_template) \
