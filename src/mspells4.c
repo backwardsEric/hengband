@@ -1729,9 +1729,8 @@ void spell_RF6_HASTE(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 	bool see_m = see_monster(m_idx);
 	monster_type	*m_ptr = &current_floor_ptr->m_list[m_idx];
 	GAME_TEXT m_name[MAX_NLEN];
-	char m_poss[10];
-
 	monster_name(m_idx, m_name);
+	char m_poss[10];
 	monster_desc(m_poss, m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE);
 
 	monspell_message_base(m_idx, t_idx,
@@ -1793,9 +1792,8 @@ void spell_RF6_HEAL(MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
 	DEPTH rlev = monster_level_idx(m_idx);
 	bool seen = (!p_ptr->blind && m_ptr->ml);
 	GAME_TEXT m_name[MAX_NLEN];
-	char m_poss[10];
-
 	monster_name(m_idx, m_name);
+	char m_poss[10];
 	monster_desc(m_poss, m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE);
 
 	disturb(TRUE, TRUE);
