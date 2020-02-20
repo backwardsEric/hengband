@@ -1504,21 +1504,6 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
 }
 
 
-- (BOOL)validateMenuItem:(NSMenuItem *)menuItem
-{
-    int tag = [menuItem tag];
-    SEL sel = [menuItem action];
-    if (sel == @selector(setGraphicsMode:))
-    {
-        [menuItem setState: (tag == graf_mode_req)];
-        return YES;
-    }
-    else
-    {
-        return YES;
-    }
-}
-
 - (NSWindow *)makePrimaryWindow
 {
     if (! primaryWindow)
