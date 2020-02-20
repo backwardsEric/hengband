@@ -485,9 +485,6 @@ static int resize_pending_changes(struct PendingChanges* pc, int nrow)
 /* Begins an Angband game. This is the entry point for starting off. */
 + (void)beginGame;
 
-/* Ends an Angband game. */
-+ (void)endGame;
-
 /* Internal method */
 - (AngbandView *)activeView;
 
@@ -1429,16 +1426,6 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     play_game(new_game);
 
     quit(NULL);
-}
-
-+ (void)endGame
-{    
-    /* Hack -- Forget messages */
-    msg_flag = FALSE;
-    
-    p_ptr->playing = FALSE;
-    p_ptr->leaving = TRUE;
-    quit_when_ready = TRUE;
 }
 
 - (void)addAngbandView:(AngbandView *)view
