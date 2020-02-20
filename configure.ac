@@ -21,7 +21,7 @@ dnl generate the installation path for the ./lib/ folder
 if test "$GAMEGROUP" != ""; then
   MY_EXPAND_DIR(game_libpath, "$datadir/games/$PACKAGE/lib/")
 else
-  MY_EXPAND_DIR(game_datadir, "./lib/")
+  MY_EXPAND_DIR(game_libpath, "./lib/")
   bindir="`pwd`"
 fi
 
