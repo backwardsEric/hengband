@@ -253,8 +253,9 @@ bool dir_create(concptr path)
 
 /*
  * Create any missing directories. We create only those dirs which may be
- * empty (user/, save/, apex/, bone/, data/). The others are assumed
- * to contain required files and therefore must exist at startup
+ * empty (user/, save/, apex/, bone/, data/). Only user/ is created when
+ * the PRIVATE_USER_PATH preprocessor macro has been set. The others are
+ * assumed to contain required files and therefore must exist at startup
  * (edit/, pref/, file/, xtra/).
  *
  * ToDo: Only create the directories when actually writing files.
@@ -271,6 +272,7 @@ void create_needed_dirs(void)
     path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_USER, "");
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
 
+#ifndef PRIVATE_USER_PATH
     path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_SAVE, "");
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
 
@@ -282,6 +284,7 @@ void create_needed_dirs(void)
 
     path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_DATA, "");
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+#endif /* ndef PRIVATE_USER_PATH */
 }
 
 
