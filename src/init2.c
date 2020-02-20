@@ -82,7 +82,7 @@ static void put_title(void);
 void init_file_paths(concptr libpath, concptr varpath)
 {
 #ifdef PRIVATE_USER_PATH
-        char base[1024];
+	char base[1024];
 	char buf[1024];
 #endif /* PRIVATE_USER_PATH */
 
@@ -103,7 +103,6 @@ void init_file_paths(concptr libpath, concptr varpath)
 	string_free(ANGBAND_DIR_SAVE);
 	string_free(ANGBAND_DIR_USER);
 	string_free(ANGBAND_DIR_XTRA);
-
 
 	/*** Prepare the "path" ***/
 
