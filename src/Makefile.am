@@ -96,7 +96,6 @@ EXTRA_hengband_SOURCES = \
 	readdib.c readdib.h wall.bmp
 
 cocoa_xcode_files = \
-	cocoa/AppDelegate.h \
 	cocoa/AppDelegate.m \
 	cocoa/Base.lproj/MainMenu.xib
 cocoa_icon_files = \
@@ -132,7 +131,7 @@ EXTRA_DIST = \
 	$(cocoa_ja_strings_files)
 
 if COCOA
-hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
+hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c cocoa/AppDelegate.h
 AM_CFLAGS = -mmacosx-version-min=10.8 -Wunguarded-availability
 AM_OBJCFLAGS = -mmacosx-version-min=10.8 -Wunguarded-availability
 hengband_LDFLAGS = -framework cocoa $(AM_LDFLAGS)
@@ -168,7 +167,8 @@ appendir = $(APPRES)/en.lproj
 appja_DATA = $(cocoa_ja_strings_files)
 appjadir = $(APPRES)/ja.lproj
 else
-EXTRA_hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c
+EXTRA_hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c \
+	cocoa/AppDelegate.h
 hengband_LINK = $(LINK)
 endif
 

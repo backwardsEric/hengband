@@ -23,7 +23,7 @@
 #if defined(MACH_O_COCOA)
 
 /* Mac headers */
-#include <Cocoa/Cocoa.h>
+#include <cocoa/AppDelegate.h>
 //#include <Carbon/Carbon.h> /* For keycodes */
 /* Hack - keycodes to enable compiling in macOS 10.14 */
 #define kVK_Return 0x24
@@ -3896,29 +3896,6 @@ static void hook_quit(const char * str)
  * ------------------------------------------------------------------------
  * Main program
  * ------------------------------------------------------------------------ */
-
-@interface AngbandAppDelegate : NSObject {
-    IBOutlet NSMenu *terminalsMenu;
-    NSMenu *_graphicsMenu;
-    NSMenu *_commandMenu;
-    NSDictionary *_commandMenuTagMap;
-}
-
-@property (nonatomic, retain) IBOutlet NSMenu *graphicsMenu;
-@property (nonatomic, retain) IBOutlet NSMenu *commandMenu;
-@property (nonatomic, retain) NSDictionary *commandMenuTagMap;
-
-- (IBAction)newGame:sender;
-- (IBAction)openGame:sender;
-
-- (IBAction)editFont:sender;
-- (IBAction)setGraphicsMode:(NSMenuItem *)sender;
-- (IBAction)toggleSound:(NSMenuItem *)sender;
-
-- (IBAction)setRefreshRate:(NSMenuItem *)menuItem;
-- (IBAction)selectWindow: (id)sender;
-
-@end
 
 @implementation AngbandAppDelegate
 
