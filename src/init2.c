@@ -207,7 +207,7 @@ bool dir_create(concptr path)
     return FALSE;
 #else
     const char *ptr;
-    char buf[512];
+    char buf[1024];
 
     /* If the directory already exists then we're done */
     if (dir_exists(path)) return TRUE;
@@ -267,7 +267,7 @@ bool dir_create(concptr path)
  */
 void create_needed_dirs(void)
 {
-    char dirpath[512];
+    char dirpath[1024];
 
     path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_USER, "");
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
