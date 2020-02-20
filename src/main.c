@@ -87,6 +87,7 @@ static void init_stuff(void)
 
 	/* Initialize */
 	init_file_paths(libpath, varpath);
+}
 
 
 
