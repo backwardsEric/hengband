@@ -253,7 +253,7 @@ bool dir_create(concptr path)
 
 /*
  * Create any missing directories. We create only those dirs which may be
- * empty (user/, save/, apex/, bone/, script/). The others are assumed
+ * empty (user/, save/, apex/, bone/, data/). The others are assumed
  * to contain required files and therefore must exist at startup
  * (edit/, pref/, file/, xtra/).
  *
@@ -261,8 +261,8 @@ bool dir_create(concptr path)
  * Copied over from PosChengband to support main-cocoa.m.  Dropped
  * creation of help/ (and removed it and info/ in the comment)
  * since init_file_paths() puts those in libpath which may not be writable
- * by the user running the application.  Added bone/ and script/ since
- * init_file_paths() puts those in datapath.
+ * by the user running the application.  Added bone/ since
+ * init_file_paths() puts that in varpath.
  */
 void create_needed_dirs(void)
 {
@@ -281,9 +281,6 @@ void create_needed_dirs(void)
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
 
     path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_DATA, "");
-    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
-
-    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_SCRIPT, "");
     if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
 }
 
