@@ -468,9 +468,8 @@ static int resize_pending_changes(struct PendingChanges* pc, int nrow)
 
 /*
  * Change the minimum size for the window associated with the context.
- * If termIdx is not negative, use it as the terminal index (that is useful
- * if self->terminal has not been set yet).  Otherwise, [self terminalIndex]
- * will be used as the index.
+ * termIdx is the index for the terminal:  pass it so this function can be
+ * used when self->terminal has not yet been set.
  */
 - (void)setMinimumWindowSize:(int)termIdx;
 
@@ -1093,7 +1092,7 @@ static int compare_advances(const void *ap, const void *bp)
 		 * and rows since they could be changed */
         NSRect contentRect = [self->primaryWindow contentRectForFrameRect: [self->primaryWindow frame]];
 
-	[self setMinimumWindowSize:-1];
+	[self setMinimumWindowSize:[self terminalIndex]];
 	NSSize size = self->primaryWindow.contentMinSize;
 	BOOL windowNeedsResizing = NO;
 	if (contentRect.size.width < size.width) {
@@ -1649,9 +1648,6 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
 {
     NSSize minsize;
 
-    if (termIdx < 0) {
-	termIdx = [self terminalIndex];
-    }
     if (termIdx == 0) {
 	minsize.width = 80;
 	minsize.height = 24;
