@@ -2233,10 +2233,33 @@ static errr Term_xtra_cocoa_react(void)
             NSString *img_path = [NSString stringWithFormat:@"%s/%s", new_mode->path, new_mode->file];
             pict_image = create_angband_image(img_path);
 
-            /* If we failed to create the image, set the new desired mode to
-			 * NULL */
-            if (! pict_image)
+            /* If we failed to create the image, revert to ASCII. */
+            if (! pict_image) {
                 new_mode = NULL;
+		[[NSUserDefaults angbandDefaults]
+		    setInteger:GRAPHICS_NONE
+		    forKey:AngbandGraphicsDefaultsKey];
+		[[NSUserDefaults angbandDefaults] synchronize];
+
+		NSString *msg = NSLocalizedStringWithDefaultValue(
+		    @"Error.TileSetLoadFailed",
+		    AngbandMessageCatalog,
+		    [NSBundle mainBundle],
+		    @"Failed to Load Tile Set",
+		    @"Alert text for failed tile set load");
+		NSString *info = NSLocalizedStringWithDefaultValue(
+		    @"Error.TileSetRevertToASCII",
+		    AngbandMessageCatalog,
+		    [NSBundle mainBundle],
+		    @"Could not load the tile set.  Switched back to ASCII.",
+		    @"Alert informative message for failed tile set load");
+		NSAlert *alert = [[NSAlert alloc] init];
+
+		alert.messageText = msg;
+		alert.informativeText = info;
+		NSModalResponse result = [alert runModal];
+		[alert release];
+	    }
         }
         
         /* Record what we did */
