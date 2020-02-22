@@ -15784,7 +15784,7 @@ S:1_IN_5 |
 S:S_DEMON | BR_ACID | S_UNDEAD | S_KIN | CONF | SCARE |
 S:MIND_BLAST | BR_CONF 
 D:$"An almost globular torso, with six long, sinuous limbs terminating 
-D:$in clab-like claws. From the upper end a subsidiary globe bulged 
+D:$in crab-like claws. From the upper end a subsidiary globe bulged 
 D:$forward bubble-like; its triangle of three staring, fishy eyes, 
 D:$its foot-long and evidently flexible proboscis, and a distended 
 D:$lateral system analogous to gills, suggested that it was a head."
