@@ -3016,12 +3016,18 @@ static errr Term_pict_cocoa(int x, int y, int n, TERM_COLOR *ap,
     
     AngbandContext* angbandContext = Term->data;
     int any_change = 0;
+    int step = (use_bigtile) ? 2 : 1;
     struct PendingCellChange *pc;
 
     if (angbandContext->changes == 0) {
 	/* Bail out; there was an earlier memory allocation failure. */
 	return 1;
     }
+    /*
+     * In bigtile mode, it is sufficient that the bounds for the modified
+     * region only encompass the left cell for the region affected by the
+     * tile and that only that cell has to have the details of the changes.
+     */
     if (angbandContext->changes->rows[y] == 0) {
 	angbandContext->changes->rows[y] =
 	    create_row_change(angbandContext->cols);
@@ -3040,12 +3046,12 @@ static errr Term_pict_cocoa(int x, int y, int n, TERM_COLOR *ap,
     if (angbandContext->changes->rows[y]->xmin > x) {
 	angbandContext->changes->rows[y]->xmin = x;
     }
-    if (angbandContext->changes->rows[y]->xmax < x + n - 1) {
-	angbandContext->changes->rows[y]->xmax = x + n - 1;
+    if (angbandContext->changes->rows[y]->xmax < x + step * (n - 1)) {
+	angbandContext->changes->rows[y]->xmax = x + step * (n - 1);
     }
     for (pc = angbandContext->changes->rows[y]->cell_changes + x;
-	 pc != angbandContext->changes->rows[y]->cell_changes + x + n;
-	 ++pc) {
+	 pc != angbandContext->changes->rows[y]->cell_changes + x + step * n;
+	 pc += step) {
 	TERM_COLOR a = *ap++;
 	char c = *cp++;
 	TERM_COLOR ta = *tap++;
