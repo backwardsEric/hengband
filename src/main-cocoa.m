@@ -2612,6 +2612,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 		    NSGraphicsContext *nsContext =
 			[NSGraphicsContext currentContext];
 		    NSCompositingOperation op = nsContext.compositingOperation;
+		    int step = (use_bigtile) ? 2 : 1;
 
 		    jx = ix;
 		    while (jx <= prc->xmax &&
@@ -2621,6 +2622,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 			    [angbandContext rectInImageForTileAtX:jx Y:iy];
 			NSRect sourceRect, terrainRect;
 
+			destinationRect.size.width *= step;
 			sourceRect.origin.x = graf_width *
 			    prc->cell_changes[jx].c.c;
 			sourceRect.origin.y = graf_height *
@@ -2664,7 +2666,7 @@ static void Term_xtra_cocoa_fresh(AngbandContext* angbandContext)
 				destinationRect,
 				NSCompositeCopy);
 			}
-			++jx;
+			jx += step;
 		    }
 
 		    [nsContext setCompositingOperation:op];
