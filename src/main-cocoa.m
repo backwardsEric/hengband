@@ -1363,11 +1363,11 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     /* Note the "system" */
     ANGBAND_SYS = "coc";
 
-    /* Load preferences */
-    load_prefs();
-    
     /* Load possible graphics modes */
     init_graphics_modes();
+
+    /* Load preferences */
+    load_prefs();
 
     /* Prepare the windows */
     init_windows();
