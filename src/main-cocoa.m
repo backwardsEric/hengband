@@ -2352,7 +2352,11 @@ static void query_before_text(
 	     */
 	    break;
 	} else if (prc->cell_changes[i].change_type == CELL_CHANGE_NONE) {
-	    /* It has not changed so inquire what it is. */
+	    /*
+	     * It has not changed (or using big tile mode and it is within
+	     * a changed tile but is not the left cell for that tile) so
+	     * inquire what it is.
+	     */
 	    TERM_COLOR a[2];
 	    char c[2];
 
@@ -2364,6 +2368,17 @@ static void query_before_text(
 		 * region can not be extended.
 		 */
 		break;
+	    }
+	    if (use_bigtile && i > 0) {
+		Term_what(i - 1, iy, a, c);
+		if (use_graphics && (a[0] & 0x80) && (c[0] & 0x80)) {
+		    /*
+		     * It is the right cell of a location rendered with a tile.
+		     * Do not want to modify its contents so the clipping and
+		     * rendering region can not be exteded.
+		     */
+		    break;
+		}
 	    }
 	    /*
 	     * It is unchanged text.  A character from the changed region
