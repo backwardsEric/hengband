@@ -41,6 +41,7 @@ static NSString * const AngbandTerminalRowsDefaultsKey = @"Rows";
 static NSString * const AngbandTerminalColumnsDefaultsKey = @"Columns";
 static NSString * const AngbandTerminalVisibleDefaultsKey = @"Visible";
 static NSString * const AngbandGraphicsDefaultsKey = @"GraphicsID";
+static NSString * const AngbandBigTileDefaultsKey = @"UseBigTiles";
 static NSString * const AngbandFrameRateDefaultsKey = @"FramesPerSecond";
 static NSString * const AngbandSoundDefaultsKey = @"AllowSound";
 static NSInteger const AngbandWindowMenuItemTagBase = 1000;
@@ -2236,6 +2237,9 @@ static errr Term_xtra_cocoa_react(void)
             /* If we failed to create the image, revert to ASCII. */
             if (! pict_image) {
                 new_mode = NULL;
+		if (use_bigtile) {
+		    arg_bigtile = FALSE;
+		}
 		[[NSUserDefaults angbandDefaults]
 		    setInteger:GRAPHICS_NONE
 		    forKey:AngbandGraphicsDefaultsKey];
@@ -2285,10 +2289,18 @@ static errr Term_xtra_cocoa_react(void)
         }
         
         /* Reset visuals */
-        if (initialized && game_in_progress)
+        if (arg_bigtile == use_bigtile)
         {
             reset_visuals();
         }
+    }
+
+    if (arg_bigtile != use_bigtile) {
+	/* Reset visuals */
+	reset_visuals();
+
+	Term_activate(angband_term[0]);
+	Term_resize(angband_term[0]->wid, angband_term[0]->hgt);
     }
 
     [pool drain];
@@ -3313,6 +3325,7 @@ static void load_prefs()
                               [NSNumber numberWithInt:60], AngbandFrameRateDefaultsKey,
                               [NSNumber numberWithBool:YES], AngbandSoundDefaultsKey,
                               [NSNumber numberWithInt:GRAPHICS_NONE], AngbandGraphicsDefaultsKey,
+                              [NSNumber numberWithBool:YES], AngbandBigTileDefaultsKey,
                               defaultTerms, AngbandTerminalsDefaultsKey,
                               nil];
     [defs registerDefaults:defaults];
@@ -3321,7 +3334,16 @@ static void load_prefs()
     
     /* Preferred graphics mode */
     graf_mode_req = [defs integerForKey:AngbandGraphicsDefaultsKey];
-    
+    if (graf_mode_req != GRAPHICS_NONE &&
+	get_graphics_mode(graf_mode_req)->grafID != GRAPHICS_NONE &&
+	[defs boolForKey:AngbandBigTileDefaultsKey] == YES) {
+	use_bigtile = TRUE;
+	arg_bigtile = TRUE;
+    } else {
+	use_bigtile = FALSE;
+	arg_bigtile = FALSE;
+    }
+
     /* Use sounds; set the Angband global */
     use_sound = ([defs boolForKey:AngbandSoundDefaultsKey] == YES) ? TRUE : FALSE;
     
@@ -4192,8 +4214,23 @@ static void hook_quit(const char * str)
     [[NSUserDefaults angbandDefaults] setInteger:graf_mode_req forKey:AngbandGraphicsDefaultsKey];
     [[NSUserDefaults angbandDefaults] synchronize];
     
+    if (graf_mode_req == GRAPHICS_NONE ||
+	get_graphics_mode(graf_mode_req) == GRAPHICS_NONE) {
+	if (use_bigtile) {
+	    arg_bigtile = FALSE;
+	}
+    } else if ([[NSUserDefaults angbandDefaults] boolForKey:AngbandBigTileDefaultsKey] == YES &&
+	       ! use_bigtile) {
+	arg_bigtile = TRUE;
+    }
+
     if (game_in_progress)
     {
+	if (arg_bigtile != use_bigtile) {
+	    Term_activate(angband_term[0]);
+	    Term_resize(angband_term[0]->wid, angband_term[0]->hgt);
+	}
+
         /* Hack -- Force redraw */
         do_cmd_redraw();
         
@@ -4211,6 +4248,27 @@ static void hook_quit(const char * str)
     use_sound = (is_on) ? FALSE : TRUE;
     [[NSUserDefaults angbandDefaults] setBool:(! is_on)
 				      forKey:AngbandSoundDefaultsKey];
+}
+
+- (IBAction)toggleWideTiles:(NSMenuItem *) sender
+{
+    BOOL is_on = (sender.state == NSOnState);
+
+    /* Toggle the state and update the Angband globals and preferences. */
+    sender.state = (is_on) ? NSOffState : NSOnState;
+    [[NSUserDefaults angbandDefaults] setBool:(! is_on)
+				      forKey:AngbandBigTileDefaultsKey];
+    [[NSUserDefaults angbandDefaults] synchronize];
+    if (graphics_are_enabled()) {
+	arg_bigtile = (is_on) ? FALSE : TRUE;
+	/* Mimics the logic in setGraphicsMode(). */
+	if (game_in_progress && arg_bigtile != use_bigtile) {
+	    Term_activate(angband_term[0]);
+	    Term_resize(angband_term[0]->wid, angband_term[0]->hgt);
+	    do_cmd_redraw();
+	    wakeup_event_loop();
+	}
+    }
 }
 
 /**

@@ -106,6 +106,9 @@
 - (IBAction)toggleSound:(NSMenuItem*)menuItem {
 }
 
+- (IBAction)toggleWideTiles:(NSMenuItem *)sender {
+}
+
 - (IBAction)setGraphicsMode:(NSMenuItem *)sender {
 }
 

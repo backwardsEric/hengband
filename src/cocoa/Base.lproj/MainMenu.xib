@@ -154,6 +154,12 @@
                                     <action selector="toggleSound:" target="Voe-Tx-rLC" id="y1f-OG-ExO"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Toggle Wide Tiles" state="on" id="tR9-z3-4SZ" userLabel="Toggle Wide Tiles">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleWideTiles:" target="Voe-Tx-rLC" id="fLa-ij-GCQ"/>
+                                </connections>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>

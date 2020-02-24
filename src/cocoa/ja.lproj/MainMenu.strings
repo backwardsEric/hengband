@@ -88,6 +88,9 @@
 /* Class = "NSMenu"; title = "Window"; ObjectID = "Td7-aD-5lo"; */
 "Td7-aD-5lo.title" = "ウインドウ";
 
+/* Class = "NSMenuItem"; title = "Toggle Wide Tiles"; ObjectID = "tR9-z3-4SZ"; */
+"tR9-z3-4SZ.title" = "広いタイルを切り替え";
+
 /* Class = "NSMenu"; title = "Hengband"; ObjectID = "uQy-DD-JDr"; */
 "uQy-DD-JDr.title" = "変愚蛮怒";
 

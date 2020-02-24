@@ -30,6 +30,7 @@
 - (IBAction)saveGame:(id)sender;
 - (IBAction)setRefreshRate:(NSMenuItem *)sender;
 - (IBAction)toggleSound:(NSMenuItem *)menuItem;
+- (IBAction)toggleWideTiles:(NSMenuItem *)sender;
 - (void)setGraphicsMode:(NSMenuItem *)sender;
 - (void)selectWindow:(id)sender;
 
