@@ -480,11 +480,6 @@ static int resize_pending_changes(struct PendingChanges* pc, int nrow)
 - (void)saveWindowVisibleToDefaults: (BOOL)windowVisible;
 - (BOOL)windowVisibleUsingDefaults;
 
-/* Class methods */
-
-/* Begins an Angband game. This is the entry point for starting off. */
-+ (void)beginGame;
-
 /* Internal method */
 - (AngbandView *)activeView;
 
@@ -627,6 +622,10 @@ static Boolean game_in_progress = FALSE;
 static void wakeup_event_loop(void);
 static void hook_plog(const char *str);
 static void hook_quit(const char * str);
+static NSString* get_lib_directory(void);
+static NSString* get_doc_directory(void);
+static NSString* AngbandCorrectedDirectoryPath(NSString *originalPath);
+static void prepare_paths_and_directories(void);
 static void load_prefs(void);
 static void load_sounds(void);
 static void init_windows(void);
@@ -1186,116 +1185,6 @@ static int compare_advances(const void *ap, const void *bp)
     [super dealloc];
 }
 
-
-
-#pragma mark -
-#pragma mark Directories and Paths Setup
-
-/**
- * Return the path for Angband's lib directory and bail if it isn't found. The
- * lib directory should be in the bundle's resources directory, since it's
- * copied when built.
- */
-+ (NSString *)libDirectoryPath
-{
-    NSString *bundleLibPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent: AngbandDirectoryNameLib];
-    BOOL isDirectory = NO;
-    BOOL libExists = [[NSFileManager defaultManager] fileExistsAtPath: bundleLibPath isDirectory: &isDirectory];
-
-    if( !libExists || !isDirectory )
-    {
-        NSLog( @"[%@ %@]: can't find %@/ in bundle: isDirectory: %d libExists: %d", NSStringFromClass( [self class] ), NSStringFromSelector( _cmd ), AngbandDirectoryNameLib, isDirectory, libExists );
-
-	NSString *msg = NSLocalizedStringWithDefaultValue(
-	    @"Error.MissingResources",
-	    AngbandMessageCatalog,
-	    [NSBundle mainBundle],
-	    @"Missing Resources",
-	    @"Alert text for missing resources");
-	NSString *info = NSLocalizedStringWithDefaultValue(
-	    @"Error.MissingAngbandLib",
-	    AngbandMessageCatalog,
-	    [NSBundle mainBundle],
-	    @"Hengband was unable to find required resources and must quit. Please report a bug on the Angband forums.",
-	    @"Alert informative message for missing Angband lib/ folder");
-	NSString *quit_label = NSLocalizedStringWithDefaultValue(
-	    @"Label.Quit", AngbandMessageCatalog, [NSBundle mainBundle],
-	    @"Quit", @"Quit");
-	NSAlert *alert = [[NSAlert alloc] init];
-
-	/*
-	 * Note that NSCriticalAlertStyle was deprecated in 10.10.  The
-	 * replacement is NSAlertStyleCritical.
-	 */
-	alert.alertStyle = NSCriticalAlertStyle;
-	alert.messageText = msg;
-	alert.informativeText = info;
-	[alert addButtonWithTitle:quit_label];
-	NSModalResponse result = [alert runModal];
-	[alert release];
-        exit( 0 );
-    }
-
-	return bundleLibPath;
-}
-
-/**
- * Return the path for the directory where Angband should look for its standard
- * user file tree.
- */
-+ (NSString *)angbandDocumentsPath
-{
-	NSString *documents = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-
-#if defined(SAFE_DIRECTORY)
-	NSString *versionedDirectory = [NSString stringWithFormat: @"%@-%s", AngbandDirectoryNameBase, VERSION_STRING];
-	return [documents stringByAppendingPathComponent: versionedDirectory];
-#else
-	return [documents stringByAppendingPathComponent: AngbandDirectoryNameBase];
-#endif
-}
-
-/**
- * Adjust directory paths as needed to correct for any differences needed by
- * Angband. \c init_file_paths() currently requires that all paths provided have
- * a trailing slash and all other platforms honor this.
- *
- * \param originalPath The directory path to adjust.
- * \return A path suitable for Angband or nil if an error occurred.
- */
-static NSString *AngbandCorrectedDirectoryPath(NSString *originalPath)
-{
-	if ([originalPath length] == 0) {
-		return nil;
-	}
-
-	if (![originalPath hasSuffix: @"/"]) {
-		return [originalPath stringByAppendingString: @"/"];
-	}
-
-	return originalPath;
-}
-
-/**
- * Give Angband the base paths that should be used for the various directories
- * it needs. It will create any needed directories.
- */
-+ (void)prepareFilePathsAndDirectories
-{
-	char libpath[PATH_MAX + 1] = "\0";
-	NSString *libDirectoryPath = AngbandCorrectedDirectoryPath([self libDirectoryPath]);
-	[libDirectoryPath getFileSystemRepresentation: libpath maxLength: sizeof(libpath)];
-
-	char basepath[PATH_MAX + 1] = "\0";
-	NSString *angbandDocumentsPath = AngbandCorrectedDirectoryPath([self angbandDocumentsPath]);
-	[angbandDocumentsPath getFileSystemRepresentation: basepath maxLength: sizeof(basepath)];
-
-	init_file_paths(libpath, basepath);
-	create_needed_dirs();
-}
-
-#pragma mark -
-
 #if 0
 /* From the Linux mbstowcs(3) man page:
  *   If dest is NULL, n is ignored, and the conversion  proceeds  as  above,
@@ -1346,87 +1235,6 @@ static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
     return count;
 }
 #endif
-
-/**
- * Entry point for initializing Angband
- */
-+ (void)beginGame
-{
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    
-    /* Hooks in some "z-util.c" hooks */
-    plog_aux = hook_plog;
-    quit_aux = hook_quit;
-    
-    /* Initialize file paths */
-    [self prepareFilePathsAndDirectories];
-
-    /* Note the "system" */
-    ANGBAND_SYS = "coc";
-
-    /* Load possible graphics modes */
-    init_graphics_modes();
-
-    /* Load preferences */
-    load_prefs();
-
-    /* Prepare the windows */
-    init_windows();
-    
-    /* Set up game event handlers */
-    /* init_display(); */
-    
-    /* Register the sound hook */
-    /* sound_hook = play_sound; */
-    
-    /* Initialise game */
-    init_angband();
-
-    /* Initialize some save file stuff */
-    player_egid = getegid();
-    
-    /* We are now initialized */
-    initialized = TRUE;
-    
-    /* Handle "open_when_ready" */
-    handle_open_when_ready();
-    
-    /* Handle pending events (most notably update) and flush input */
-    Term_flush();
-
-    /* Prompt the user. */
-    int message_row = (Term->hgt - 23) / 5 + 23;
-    Term_erase(0, message_row, 255);
-    put_str(
-#ifdef JP
-	"['ファイル' メニューから '新' または '開く' を選択します]",
-	message_row, (Term->wid - 57) / 2
-#else
-	"[Choose 'New' or 'Open' from the 'File' menu]",
-	message_row, (Term->wid - 45) / 2
-#endif
-    );
-    Term_fresh();
-
-    /*
-     * Play a game -- "new_game" is set by "new", "open" or the open document
-     * even handler as appropriate
-     */
-        
-    [pool drain];
-    
-    while (!game_in_progress) {
-        NSAutoreleasePool *splashScreenPool = [[NSAutoreleasePool alloc] init];
-        NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantFuture] inMode:NSDefaultRunLoopMode dequeue:YES];
-        if (event) [NSApp sendEvent:event];
-        [splashScreenPool drain];
-    }
-
-    Term_fresh();
-    play_game(new_game);
-
-    quit(NULL);
-}
 
 - (void)addAngbandView:(AngbandView *)view
 {
@@ -3923,6 +3731,111 @@ static void hook_quit(const char * str)
 }
 
 /**
+ * Return the path for Angband's lib directory and bail if it isn't found. The
+ * lib directory should be in the bundle's resources directory, since it's
+ * copied when built.
+ */
+static NSString* get_lib_directory(void)
+{
+    NSString *bundleLibPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent: AngbandDirectoryNameLib];
+    BOOL isDirectory = NO;
+    BOOL libExists = [[NSFileManager defaultManager] fileExistsAtPath: bundleLibPath isDirectory: &isDirectory];
+
+    if( !libExists || !isDirectory )
+    {
+	NSLog( @"Hengband: can't find %@/ in bundle: isDirectory: %d libExists: %d", AngbandDirectoryNameLib, isDirectory, libExists );
+
+	NSString *msg = NSLocalizedStringWithDefaultValue(
+	    @"Error.MissingResources",
+	    AngbandMessageCatalog,
+	    [NSBundle mainBundle],
+	    @"Missing Resources",
+	    @"Alert text for missing resources");
+	NSString *info = NSLocalizedStringWithDefaultValue(
+	    @"Error.MissingAngbandLib",
+	    AngbandMessageCatalog,
+	    [NSBundle mainBundle],
+	    @"Hengband was unable to find required resources and must quit. Please report a bug on the Angband forums.",
+	    @"Alert informative message for missing Angband lib/ folder");
+	NSString *quit_label = NSLocalizedStringWithDefaultValue(
+	    @"Label.Quit", AngbandMessageCatalog, [NSBundle mainBundle],
+	    @"Quit", @"Quit");
+	NSAlert *alert = [[NSAlert alloc] init];
+
+	/*
+	 * Note that NSCriticalAlertStyle was deprecated in 10.10.  The
+	 * replacement is NSAlertStyleCritical.
+	 */
+	alert.alertStyle = NSCriticalAlertStyle;
+	alert.messageText = msg;
+	alert.informativeText = info;
+	[alert addButtonWithTitle:quit_label];
+	NSModalResponse result = [alert runModal];
+	[alert release];
+	exit( 0 );
+    }
+
+    return bundleLibPath;
+}
+
+/**
+ * Return the path for the directory where Angband should look for its standard
+ * user file tree.
+ */
+static NSString* get_doc_directory(void)
+{
+	NSString *documents = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+
+#if defined(SAFE_DIRECTORY)
+	NSString *versionedDirectory = [NSString stringWithFormat: @"%@-%s", AngbandDirectoryNameBase, VERSION_STRING];
+	return [documents stringByAppendingPathComponent: versionedDirectory];
+#else
+	return [documents stringByAppendingPathComponent: AngbandDirectoryNameBase];
+#endif
+}
+
+/**
+ * Adjust directory paths as needed to correct for any differences needed by
+ * Angband.  init_file_paths() currently requires that all paths provided have
+ * a trailing slash and all other platforms honor this.
+ *
+ * \param originalPath The directory path to adjust.
+ * \return A path suitable for Angband or nil if an error occurred.
+ */
+static NSString* AngbandCorrectedDirectoryPath(NSString *originalPath)
+{
+	if ([originalPath length] == 0) {
+		return nil;
+	}
+
+	if (![originalPath hasSuffix: @"/"]) {
+		return [originalPath stringByAppendingString: @"/"];
+	}
+
+	return originalPath;
+}
+
+/**
+ * Give Angband the base paths that should be used for the various directories
+ * it needs. It will create any needed directories.
+ */
+static void prepare_paths_and_directories(void)
+{
+	char libpath[PATH_MAX + 1] = "\0";
+	NSString *libDirectoryPath =
+	    AngbandCorrectedDirectoryPath(get_lib_directory());
+	[libDirectoryPath getFileSystemRepresentation: libpath maxLength: sizeof(libpath)];
+
+	char basepath[PATH_MAX + 1] = "\0";
+	NSString *angbandDocumentsPath =
+	    AngbandCorrectedDirectoryPath(get_doc_directory());
+	[angbandDocumentsPath getFileSystemRepresentation: basepath maxLength: sizeof(basepath)];
+
+	init_file_paths(libpath, basepath);
+	create_needed_dirs();
+}
+
+/**
  * ------------------------------------------------------------------------
  * Main program
  * ------------------------------------------------------------------------ */
@@ -4070,6 +3983,86 @@ static void hook_quit(const char * str)
 	 * It's a little sketchy that this only happens when we save through the
 	 * menu; ideally game-triggered saves would trigger it too. */
     record_current_savefile();
+}
+
+/**
+ * Entry point for initializing Angband
+ */
+- (void)beginGame
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    /* Hooks in some "z-util.c" hooks */
+    plog_aux = hook_plog;
+    quit_aux = hook_quit;
+
+    /* Initialize file paths */
+    prepare_paths_and_directories();
+
+    /* Note the "system" */
+    ANGBAND_SYS = "coc";
+
+    /* Load possible graphics modes */
+    init_graphics_modes();
+
+    /* Load preferences */
+    load_prefs();
+
+    /* Prepare the windows */
+    init_windows();
+
+    /* Set up game event handlers */
+    /* init_display(); */
+
+    /* Register the sound hook */
+    /* sound_hook = play_sound; */
+
+    /* Initialise game */
+    init_angband();
+
+    /* Initialize some save file stuff */
+    player_egid = getegid();
+
+    /* We are now initialized */
+    initialized = TRUE;
+
+    /* Handle "open_when_ready" */
+    handle_open_when_ready();
+
+    /* Handle pending events (most notably update) and flush input */
+    Term_flush();
+
+    /* Prompt the user. */
+    int message_row = (Term->hgt - 23) / 5 + 23;
+    Term_erase(0, message_row, 255);
+    put_str(
+#ifdef JP
+	"['ファイル' メニューから '新' または '開く' を選択します]",
+	message_row, (Term->wid - 57) / 2
+#else
+	"[Choose 'New' or 'Open' from the 'File' menu]",
+	message_row, (Term->wid - 45) / 2
+#endif
+    );
+    Term_fresh();
+
+    [pool drain];
+
+    while (!game_in_progress) {
+        NSAutoreleasePool *splashScreenPool = [[NSAutoreleasePool alloc] init];
+        NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantFuture] inMode:NSDefaultRunLoopMode dequeue:YES];
+        if (event) [NSApp sendEvent:event];
+        [splashScreenPool drain];
+    }
+
+    /*
+     * Play a game -- "new_game" is set by "new", "open" or the open document
+     * even handler as appropriate
+     */
+    Term_fresh();
+    play_game(new_game);
+
+    quit(NULL);
 }
 
 /**
@@ -4363,7 +4356,7 @@ static void hook_quit(const char * str)
 
 - (void)applicationDidFinishLaunching:sender
 {
-    [AngbandContext beginGame];
+    [self beginGame];
     
     /* Once beginGame finished, the game is over - that's how Angband works,
 	 * and we should quit */
