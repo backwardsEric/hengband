@@ -107,7 +107,7 @@
 "Vdr-fp-XzO.title" = "ほかを隠す";
 
 /* Class = "NSMenuItem"; title = "New"; ObjectID = "Was-JA-tGl"; */
-"Was-JA-tGl.title" = "新";
+"Was-JA-tGl.title" = "新規";
 
 /* Class = "NSMenuItem"; title = "Choose Font ..."; ObjectID = "wd6-md-9jG"; */
 "wd6-md-9jG.title" = "フォントを選択…";
