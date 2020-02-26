@@ -115,4 +115,16 @@
 - (void)selectWindow:(id)sender {
 }
 
+- (void)linkTermData:(int)termIndex {
+}
+
+- (void)initWindows {
+}
+
+- (void)loadPrefs {
+}
+
+- (void)beginGame {
+}
+
 @end
