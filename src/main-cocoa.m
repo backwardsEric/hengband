@@ -57,8 +57,6 @@ static NSInteger const AngbandCommandMenuItemTagBase = 2000;
 /* Global defines etc from Angband 3.5-dev - NRM */
 #define ANGBAND_TERM_MAX 8
 
-static bool new_game = TRUE;
-
 #define MAX_COLORS 256
 #define MSG_MAX SOUND_MAX
 
@@ -89,6 +87,9 @@ static Boolean game_is_finished = FALSE;
 
 /* Our frames per second (e.g. 60). A value of 0 means unthrottled. */
 static int frames_per_second;
+
+/* Force a new game or not? */
+static bool new_game = FALSE;
 
 @class AngbandView;
 
@@ -4180,7 +4181,6 @@ static void play_sound(int event)
 
 	    /* Game is in progress */
 	    game_in_progress = TRUE;
-	    new_game = FALSE;
 	}
     }
 }
@@ -4881,7 +4881,6 @@ static void play_sound(int event)
     }
 
     game_in_progress = TRUE;
-    new_game = FALSE;
 
     /* Wake us up in case this arrives while we're sitting at the Welcome
 	 * screen! */
