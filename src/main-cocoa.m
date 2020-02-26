@@ -114,11 +114,6 @@ static bool new_game = FALSE;
 - (id)init;
 
 /**
- * Releases the resources acquired for the catalog.
- */
-- (void)dispose;
-
-/**
  * If self.enabled is YES and the given event has one or more sounds
  * corresponding to it in the catalog, plays one of those sounds, chosen at
  * random.
@@ -155,11 +150,6 @@ static bool new_game = FALSE;
 	self->_enabled = NO;
     }
     return self;
-}
-
-- (void)dispose {
-    self->soundsByPath = nil;
-    self->soundArraysByEvent = nil;
 }
 
 - (void)playSound:(int)event {
