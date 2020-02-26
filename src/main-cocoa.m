@@ -146,17 +146,6 @@ static bool new_game = FALSE;
 
 @end
 
-/**
- * This is a helper function for AngbandSoundCatalog's sharedSounds and
- * clearSharedSounds.  Implement a Singleton pattern.
- */
-static __strong AngbandSoundCatalog** get_shared_sounds(void)
-{
-    static __strong AngbandSoundCatalog* catalog = nil;
-
-    return &catalog;
-}
-
 @implementation AngbandSoundCatalog
 
 - (id)init {
