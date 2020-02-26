@@ -3899,6 +3899,13 @@ static void hook_plog(const char * str)
  */
 static void hook_quit(const char * str)
 {
+    for (int i = ANGBAND_TERM_MAX - 1; i >= 0; --i) {
+	if (angband_term[i]) {
+	    term_nuke(angband_term[i]);
+	}
+    }
+    [AngbandSoundCatalog clearSharedSounds];
+    [AngbandContext setDefaultFont:nil];
     plog(str);
     exit(0);
 }
