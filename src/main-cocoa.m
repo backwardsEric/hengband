@@ -68,17 +68,6 @@ enum
     AngbandEventWakeup = 1
 };
 
-/* Redeclare some 10.7 constants and methods so we can build on 10.6 */
-enum
-{
-    Angband_NSWindowCollectionBehaviorFullScreenPrimary = 1 << 7,
-    Angband_NSWindowCollectionBehaviorFullScreenAuxiliary = 1 << 8
-};
-
-@interface NSWindow (AngbandLionRedeclares)
-- (void)setRestorable:(BOOL)flag;
-@end
-
 /* Delay handling of pre-emptive "quit" event */
 static BOOL quit_when_ready = FALSE;
 
@@ -2536,8 +2525,8 @@ static void Term_init_cocoa(term *t)
 	    NSWindowCollectionBehavior behavior = [window collectionBehavior];
 	    behavior |=
 		(termIdx == 0 ?
-		 Angband_NSWindowCollectionBehaviorFullScreenPrimary :
-		 Angband_NSWindowCollectionBehaviorFullScreenAuxiliary);
+		 NSWindowCollectionBehaviorFullScreenPrimary :
+		 NSWindowCollectionBehaviorFullScreenAuxiliary);
 	    [window setCollectionBehavior:behavior];
 	}
 
