@@ -4065,7 +4065,7 @@ static void play_sound(int event)
 }
 
 /**
- * Implent NSObject's changeFont() method to receive a notification about the
+ * Implement NSObject's changeFont() method to receive a notification about the
  * changed font.  Note that, as of 10.14, changeFont() is deprecated in
  * NSObject - it will be removed at some point and the application delegate
  * will have to be declared as implementing the NSFontChanging protocol.
