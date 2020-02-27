@@ -4397,8 +4397,8 @@ static void play_sound(int event)
 	Term_erase(0, message_row, 255);
 	put_str(
 #ifdef JP
-	    "['ファイル' メニューから '新' または '開く' を選択します]",
-	    message_row, (Term->wid - 57) / 2
+	    "['ファイル' メニューから '新規' または '開く' を選択します]",
+	    message_row, (Term->wid - 59) / 2
 #else
 	    "[Choose 'New' or 'Open' from the 'File' menu]",
 	    message_row, (Term->wid - 45) / 2
