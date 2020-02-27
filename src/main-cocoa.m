@@ -4392,16 +4392,20 @@ static void play_sound(int event)
 	/* Handle pending events (most notably update) and flush input */
 	Term_flush();
 
-	/* Prompt the user */
-	int message_row = (Term->hgt - 23) / 5 + 23;
+	/*
+	 * Prompt the user; assume the splash screen is 80 x 23 and position
+	 * relative to that rather than center based on the full size of the
+	 * window.
+	 */
+	int message_row = 23;
 	Term_erase(0, message_row, 255);
 	put_str(
 #ifdef JP
 	    "['ファイル' メニューから '新規' または '開く' を選択します]",
-	    message_row, (Term->wid - 59) / 2
+	    message_row, (80 - 59) / 2
 #else
 	    "[Choose 'New' or 'Open' from the 'File' menu]",
-	    message_row, (Term->wid - 45) / 2
+	    message_row, (80 - 45) / 2
 #endif
 	);
 	Term_fresh();
