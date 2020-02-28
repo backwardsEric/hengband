@@ -1989,13 +1989,25 @@ static __strong NSFont* gDefaultFont = nil;
 
         NSUInteger styleMask = NSTitledWindowMask | NSResizableWindowMask | NSMiniaturizableWindowMask;
 
-        /* Make every window other than the main window closable */
+        /*
+	 * Make every window other than the main window closable, also create
+	 * them as utility panels to get the thinner title bar and other
+	 * attributes that already match up with how those windows are used.
+	 */
         if ((__bridge AngbandContext*) (angband_term[0]->data) != self)
         {
-            styleMask |= NSClosableWindowMask;
-        }
+	    self.primaryWindow =
+		[[NSPanel alloc] initWithContentRect:contentRect
+				 styleMask:(styleMask | NSClosableWindowMask |
+					    NSUtilityWindowMask)
+				 backing:NSBackingStoreBuffered defer:YES];
+        } else {
+	    self.primaryWindow =
+		[[NSWindow alloc] initWithContentRect:contentRect
+				  styleMask:styleMask
+				  backing:NSBackingStoreBuffered defer:YES];
+	}
 
-        self.primaryWindow = [[NSWindow alloc] initWithContentRect:contentRect styleMask: styleMask backing:NSBackingStoreBuffered defer:YES];
 
         /* Not to be released when closed */
         [self.primaryWindow setReleasedWhenClosed:NO];
