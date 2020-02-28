@@ -23,7 +23,7 @@
 #if defined(MACH_O_COCOA)
 
 /* Mac headers */
-#include <cocoa/AppDelegate.h>
+#import "cocoa/AppDelegate.h"
 //#include <Carbon/Carbon.h> /* For keycodes */
 /* Hack - keycodes to enable compiling in macOS 10.14 */
 #define kVK_Return 0x24
