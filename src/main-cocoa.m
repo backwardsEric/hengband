@@ -1085,8 +1085,11 @@ struct PendingCellChange {
  */
 + (void)setDefaultFont:(NSFont*)font;
 
-/* Internal method */
+/* Internal methods */
 - (AngbandView *)activeView;
+
+/* Set the title for the primary window. */
+- (void)setDefaultTitle:(int)termIdx;
 
 @end
 
@@ -1952,6 +1955,20 @@ static __strong NSFont* gDefaultFont = nil;
     return result;
 }
 
+- (void)setDefaultTitle:(int)termIdx
+{
+    NSMutableString *title =
+	[NSMutableString stringWithCString:angband_term_name[termIdx]
+#ifdef JP
+			 encoding:NSJapaneseEUCStringEncoding
+#else
+			 encoding:NSMacOSRomanStringEncoding
+#endif
+	];
+    [title appendFormat:@" %dx%d", self.cols, self.rows];
+    [[self makePrimaryWindow] setTitle:title];
+}
+
 - (void)angbandViewDidScale:(AngbandView *)view
 {
     /* If we're live-resizing with graphics, we're using the live resize
@@ -2112,9 +2129,11 @@ static __strong NSFont* gDefaultFont = nil;
     self->_rows = newRows;
     [self.changes resize:self.cols rows:self.rows];
 
+    int termIndex = [self terminalIndex];
+    [self setDefaultTitle:termIndex];
+
     if( saveToDefaults )
     {
-        int termIndex = [self terminalIndex];
         NSArray *terminals = [[NSUserDefaults standardUserDefaults] valueForKey: AngbandTerminalsDefaultsKey];
 
         if( termIndex < (int)[terminals count] )
@@ -2492,15 +2511,7 @@ static void Term_init_cocoa(term *t)
 	NSWindow *window = [context makePrimaryWindow];
 
 	/* Set its title and, for auxiliary terms, tentative size */
-	NSString *title =
-	    [NSString stringWithCString:angband_term_name[termIdx]
-#ifdef JP
-		      encoding:NSJapaneseEUCStringEncoding
-#else
-		      encoding:NSMacOSRomanStringEncoding
-#endif
-	    ];
-	[window setTitle:title];
+	[context setDefaultTitle:termIdx];
 	[context setMinimumWindowSize:termIdx];
 
 	/*
