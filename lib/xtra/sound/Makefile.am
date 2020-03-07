@@ -1,6 +1,12 @@
 ## Makefile.am -- Process this file with automake to process Makefile.in
 
+EXTRA_DIST = \
+	readme.txt \
+	sound.cfg \
+	$(sound_files)
+
 sound_files = \
+	se_maoudamashii_voice_monster01.wav \
 	apple1-r.wav \
 	decision25r.wav \
 	drop1.wav \
@@ -14,12 +20,6 @@ sound_files = \
 	sword-drawn1-r.wav \
 	sword-gesture3-r.wav \
 	sword-slash3-r.wav
-
-EXTRA_DIST = \
-	readme.txt \
-	sound.cfg \
-	$(sound_files) \
-	se_maoudamashii_voice_monster01.wav
 
 if COCOA
 # APPNAME to APPRES duplicate what's in src/Makefile.am.  It would be nice to
