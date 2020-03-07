@@ -64,11 +64,13 @@ static void put_title(void);
  * The traditional behavior was to put all of the sub-directories within
  * one directory, "lib".  To get that behavior, pass the same string for
  * libpath and varpath.  Further customization may be done later in response
- * to command line options, but that is done after this function, see
- * change_path() in main.c.  libpath, and datapath should end in the
- * appropriate "PATH_SEP" string.  All of the "sub-directory" paths (created
- * below or supplied by the user) will NOT end in the "PATH_SEP" string, see
- * the special "path_build()" function in "util.c" for more information.
+ * to command line options (most importantly for the "info", "user", and
+ * "save" directories), but that is done after this function:  see
+ * "change_path()" in "main.c".  libpath and varpath should end in the
+ * appropriate "PATH_SEP" string.  All of the "sub-directory" paths
+ * (created below or supplied by the user) will NOT end in the "PATH_SEP"
+ * string, see the special "path_build()" function in "util.c" for more
+ * information.
  * Mega-Hack -- support fat raw files under NEXTSTEP, using special
  * "suffixed" directories for the "ANGBAND_DIR_DATA" directory, but
  * requiring the directories to be created by hand by the user.
