@@ -113,16 +113,15 @@ void init_file_paths(concptr libpath, concptr varpath)
 
 	/*** Build the sub-directory names ***/
 
+	ANGBAND_DIR_APEX = string_make(format("%sapex", varpath));
+	ANGBAND_DIR_BONE = string_make(format("%sbone", varpath));
+	ANGBAND_DIR_DATA = string_make(format("%sdata", varpath));
 	ANGBAND_DIR_EDIT = string_make(format("%sedit", libpath));
+	ANGBAND_DIR_SCRIPT = string_make(format("%sscript", libpath));
 	ANGBAND_DIR_FILE = string_make(format("%sfile", libpath));
 	ANGBAND_DIR_HELP = string_make(format("%shelp", libpath));
 	ANGBAND_DIR_INFO = string_make(format("%sinfo", libpath));
 	ANGBAND_DIR_PREF = string_make(format("%spref", libpath));
-	ANGBAND_DIR_SCRIPT = string_make(format("%sscript", libpath));
-	ANGBAND_DIR_XTRA = string_make(format("%sxtra", libpath));
-	ANGBAND_DIR_APEX = string_make(format("%sapex", varpath));
-	ANGBAND_DIR_BONE = string_make(format("%sbone", varpath));
-	ANGBAND_DIR_DATA = string_make(format("%sdata", varpath));
 	ANGBAND_DIR_SAVE = string_make(format("%ssave", varpath));
 
 #ifdef PRIVATE_USER_PATH
@@ -172,6 +171,8 @@ void init_file_paths(concptr libpath, concptr varpath)
 
 #endif /* NeXT */
 
+
+	ANGBAND_DIR_XTRA = string_make(format("%sxtra", libpath));
 }
 
 
