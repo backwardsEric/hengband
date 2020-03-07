@@ -53,7 +53,7 @@ F:93:0x82/0x9A:LIT
 # brake
 F:94:0x82/0x9D:LIT
 
-# Museum (not a particularly match)
+# Museum (not a particularly good match)
 F:95:0x82/0x86
 
 # tree (the remapped grass is the same as the tree in graf-new.prf so reset
@@ -124,7 +124,7 @@ K:580:0xB6/0x8A
 # Wizardstaff (not a particularly good match)
 K:581:0xB5/0x97
 
-# Feanorian lamp (no particularly good match; use the same as brass lantern)
+# Feanorian lamp (not a particularly good match; use the same as brass lantern)
 K:582:0x8E/0x8A
 
 # Crystal Ball (not a particularly close match; same as mithril shot)
