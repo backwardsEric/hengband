@@ -55,8 +55,25 @@ or makefile.dos before MAKE with these.
 
 --- Macintosh
 
-Download the binary archive for Macintosh.
-Unpack it, and click hengband to play.
+Download the dmg file for Macintosh, double click on it to open the disk
+image, and then drag the hengband application inside it to where you want
+to store it.  Double clicking on the application will run it.  Since the
+application has not been signed, you'll likely have to make an exception
+for it to use the application.  Apple's instructions for how to do that
+are at
+
+    https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac
+
+In short, one way to grant the exception is:
+
+1) Control click (i.e. click while holding the control button down) on the
+   application in the finder.
+2) Select "Open" in the menu that comes up.
+3) That will bring up a confirmation dialog about allowing the application to
+   open on the system.
+4) If your account does not have administrator privileges, there'll be an
+   additional dialog asking you to authenticate as an administrator to apply
+   the exception to the security settings.
 
 For Mac OS X with Xcode installed, the Unix instructions can work to build a
 version usable from a terminal.  If XQuartz, https://www.xquartz.org ,  is
