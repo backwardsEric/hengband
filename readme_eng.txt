@@ -62,8 +62,8 @@ For Mac OS X with XCode installed, the Unix instructions can work to build a
 version usable from a terminal.  If XQuartz, https://www.xquartz.org ,  is
 installed, X11 will be used for display.
 
-For Mac OS X 7 or later with XCode installed, a native version can be built by
-downloading the source archive and running
+For Mac OS X 10.7 or later with XCode installed, a native version can be
+built by downloading the source archive and running
 
 tar -zxvf hengband-x.x.x.tar.gz
 cd hengband-x.x.x
