@@ -148,8 +148,10 @@ BUNDLE_NAME_JA = $(BUNDLE_DISPLAY_NAME_JA)
 # Be careful with characters (like '&') in the copyright that have special
 # meanings to sed.
 COPYRIGHT = Copyright © Mr. Hoge and many others
-# For now, using the English version.  Should be localized to Japanese.
-COPYRIGHT_JA = $(COPYRIGHT)
+# For now, using the line that appears in news_j.txt.  Is that appropriate?
+# The ampersand is a kanji so it doesn't seem to be treated as a special
+# character by sed.
+COPYRIGHT_JA = Mr.hoge (echizen＠users.sourceforge.jp) ＆ 多くの方々
 APPBNDL = $(bindir)/$(APPDIR)
 APPCONT = $(APPBNDL)/Contents
 APPBIN = $(APPCONT)/MacOS
