@@ -1224,6 +1224,19 @@ static BOOL graphics_are_enabled(void)
 }
 
 /**
+ * Like graphics_are_enabled(), but test the requested graphics mode.
+ */
+static BOOL graphics_will_be_enabled(void)
+{
+    if (graf_mode_req == GRAPHICS_NONE) {
+	return NO;
+    }
+
+    graphics_mode *new_mode = get_graphics_mode(graf_mode_req);
+    return new_mode && new_mode->grafID != GRAPHICS_NONE;
+}
+
+/**
  * Hack -- game in progress
  */
 static Boolean game_in_progress = FALSE;
@@ -3506,8 +3519,8 @@ static errr Term_pict_cocoa(TERM_LEN x, TERM_LEN y, int n,
 			    TERM_COLOR *ap, concptr cp,
 			    const TERM_COLOR *tap, concptr tcp)
 {
-    /* Paranoia: Bail if we don't have a current graphics mode */
-    if (! current_graphics_mode) return -1;
+    /* Paranoia: Bail if graphics aren't enabled */
+    if (! graphics_are_enabled()) return -1;
 
     AngbandContext* angbandContext = (__bridge AngbandContext*) (Term->data);
     int step = (use_bigtile) ? 2 : 1;
@@ -4347,8 +4360,7 @@ static void play_sound(int event)
 
     /* Preferred graphics mode */
     graf_mode_req = [defs integerForKey:AngbandGraphicsDefaultsKey];
-    if (graf_mode_req != GRAPHICS_NONE &&
-	get_graphics_mode(graf_mode_req)->grafID != GRAPHICS_NONE &&
+    if (graphics_will_be_enabled() &&
 	[defs boolForKey:AngbandBigTileDefaultsKey] == YES) {
 	use_bigtile = TRUE;
 	arg_bigtile = TRUE;
@@ -4555,8 +4567,7 @@ static void play_sound(int event)
     /* Stash it in UserDefaults */
     [[NSUserDefaults angbandDefaults] setInteger:graf_mode_req forKey:AngbandGraphicsDefaultsKey];
 
-    if (graf_mode_req == GRAPHICS_NONE ||
-	get_graphics_mode(graf_mode_req) == GRAPHICS_NONE) {
+    if (! graphics_will_be_enabled()) {
 	if (use_bigtile) {
 	    arg_bigtile = FALSE;
 	}
