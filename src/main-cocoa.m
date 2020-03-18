@@ -2137,7 +2137,7 @@ static __strong NSFont* gDefaultFont = nil;
     CGFloat newRows = floor(
 	(contentRect.size.height - (self.borderSize.height * 2.0)) /
 	self.tileSize.height);
-    CGFloat newColumns = ceil(
+    CGFloat newColumns = floor(
 	(contentRect.size.width - (self.borderSize.width * 2.0)) /
 	self.tileSize.width);
 
