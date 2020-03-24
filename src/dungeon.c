@@ -3606,7 +3606,7 @@ static bool enter_wizard_mode(void)
 			return (FALSE);
 		}
 
-		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ウィザードモードに突入してスコアを残せなくなった。", "give up recording score to enter wizard mode."));
+		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ウィザードモードに突入してスコアを残せなくなった。", "gave up recording score to enter wizard mode."));
 		/* Mark savefile */
 		p_ptr->noscore |= 0x0002;
 	}
@@ -3647,7 +3647,7 @@ static bool enter_debug_mode(void)
 			return (FALSE);
 		}
 
-		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("デバッグモードに突入してスコアを残せなくなった。", "give up sending score to use debug commands."));
+		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("デバッグモードに突入してスコアを残せなくなった。", "gave up sending score to use debug commands."));
 		/* Mark savefile */
 		p_ptr->noscore |= 0x0008;
 	}
@@ -3688,7 +3688,7 @@ static bool enter_borg_mode(void)
 			return (FALSE);
 		}
 
-		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ボーグ・コマンドを使用してスコアを残せなくなった。", "give up recording score to use borg commands."));
+		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ボーグ・コマンドを使用してスコアを残せなくなった。", "gave up recording score to use borg commands."));
 		/* Mark savefile */
 		p_ptr->noscore |= 0x0010;
 	}
@@ -5789,7 +5789,7 @@ void play_game(bool new_game)
 
 		do_cmd_write_nikki(NIKKI_GAMESTART, 1, 
 					  _("                            ----ゲーム再開----",
-						"                            ---- Restart Game ----"));
+						"                            --- Restarted Game ---"));
 
 /*
  * 1.0.9 以前はセーブ前に p_ptr->riding = -1 としていたので、再設定が必要だった。
@@ -5918,7 +5918,7 @@ void play_game(bool new_game)
 	if (new_game)
 	{
 		char buf[80];
-		sprintf(buf, _("%sに降り立った。", "You are standing in the %s."), map_name());
+		sprintf(buf, _("%sに降り立った。", "arrived in %s."), map_name());
 		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, buf);
 	}
 

@@ -496,7 +496,7 @@ errr do_cmd_write_nikki(int type, int num, concptr note)
 		{
 			if (quest[num].flags & QUEST_FLAG_SILENT) break;
 			fprintf(fff, _(" %2d:%02d %20s クエスト「%s」から命からがら逃げ帰った。\n",
-						   " %2d:%02d %20s run away from quest '%s'.\n"), hour, min, note_level, quest[num].name);
+						   " %2d:%02d %20s ran away from quest '%s'.\n"), hour, min, note_level, quest[num].name);
 			break;
 		}
 		case NIKKI_RAND_QUEST_C:
@@ -566,7 +566,7 @@ errr do_cmd_write_nikki(int type, int num, concptr note)
 		}
 		case NIKKI_TELE_LEV:
 		{
-			fprintf(fff, _(" %2d:%02d %20s レベル・テレポートで脱出した。\n", " %2d:%02d %20s Got out using teleport level.\n"),
+			fprintf(fff, _(" %2d:%02d %20s レベル・テレポートで脱出した。\n", " %2d:%02d %20s got out using teleport level.\n"),
 						hour, min, note_level);
 			break;
 		}
@@ -614,7 +614,7 @@ errr do_cmd_write_nikki(int type, int num, concptr note)
 				to = format(_("%d階(%s)", "level %d of %s"), current_floor_ptr->dun_level, d_name+d_info[p_ptr->dungeon_idx].name);
 
 			fprintf(fff, _(" %2d:%02d %20s %sへとウィザード・テレポートで移動した。\n",
-						   " %2d:%02d %20s wizard-teleport to %s.\n"), hour, min, note_level, to);
+						   " %2d:%02d %20s wizard-teleported to %s.\n"), hour, min, note_level, to);
 			break;
 		}
 		case NIKKI_PAT_TELE:
@@ -856,7 +856,7 @@ static void do_cmd_last_get(void)
 
 	turn_tmp = current_world_ptr->game_turn;
 	current_world_ptr->game_turn = record_turn;
-	sprintf(buf,_("%sを手に入れた。", "discover %s."), record_o_name);
+	sprintf(buf,_("%sを手に入れた。", "discovered %s."), record_o_name);
 	do_cmd_write_nikki(NIKKI_BUNSHOU, 0, buf);
 	current_world_ptr->game_turn = turn_tmp;
 }
@@ -1430,7 +1430,7 @@ static void do_cmd_options_cheat(concptr info)
 			{
 				if(!p_ptr->noscore)
 				do_cmd_write_nikki(NIKKI_BUNSHOU, 0,
-							_("詐欺オプションをONにして、スコアを残せなくなった。", "give up sending score to use cheating options."));
+							_("詐欺オプションをONにして、スコアを残せなくなった。", "gave up sending score to use cheating options."));
 				p_ptr->noscore |= (cheat_info[k].o_set * 256 + cheat_info[k].o_bit);
 				(*cheat_info[k].o_var) = TRUE;
 				k = (k + 1) % n;

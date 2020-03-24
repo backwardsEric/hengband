@@ -2913,7 +2913,7 @@ void do_cmd_suicide(void)
 
 	if (!p_ptr->total_winner)
 	{
-		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ダンジョンの探索に絶望して自殺した。", "give up all hope to commit suicide."));
+		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("ダンジョンの探索に絶望して自殺した。", "gave up all hope to commit suicide."));
 		do_cmd_write_nikki(NIKKI_GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
 		do_cmd_write_nikki(NIKKI_BUNSHOU, 1, "\n\n\n\n");
 	}

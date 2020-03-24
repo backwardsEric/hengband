@@ -3112,7 +3112,7 @@ void monster_death(MONSTER_IDX m_idx, bool drop_item)
 
 		play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_FINAL_QUEST_CLEAR);
 
-		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("見事に変愚蛮怒の勝利者となった！", "finally become *WINNER* of Hengband!"));
+		do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("見事に変愚蛮怒の勝利者となった！", "finally became *WINNER* of Hengband!"));
 
 		admire_from_patron(p_ptr);
 

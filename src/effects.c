@@ -4012,7 +4012,7 @@ int take_hit(int damage_type, HIT_POINT damage, concptr hit_from, int monspell)
 
 			if (winning_seppuku)
 			{
-				do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("勝利の後切腹した。", "did Seppuku after the winning."));
+				do_cmd_write_nikki(NIKKI_BUNSHOU, 0, _("勝利の後切腹した。", "committed seppuku after winning."));
 			}
 			else
 			{
@@ -4168,7 +4168,7 @@ int take_hit(int damage_type, HIT_POINT damage, concptr hit_from, int monspell)
 			if (p_ptr->image && damage_type == DAMAGE_ATTACK)
 				hit_from = _("何か", "something");
 
-			sprintf(tmp,_("%sによってピンチに陥った。", "A critical situation because of %s."),hit_from);
+			sprintf(tmp,_("%sによってピンチに陥った。", "was in a critical situation because of %s."),hit_from);
 			do_cmd_write_nikki(NIKKI_BUNSHOU, 0, tmp);
 		}
 

@@ -854,7 +854,7 @@ bool recall_player(player_type *creature_ptr, TIME_EFFECT turns)
 		{
 			max_dlv[p_ptr->dungeon_idx] = current_floor_ptr->dun_level;
 			if (record_maxdepth)
-				do_cmd_write_nikki(NIKKI_TRUMP, p_ptr->dungeon_idx, _("帰還のときに", "when recall from dungeon"));
+				do_cmd_write_nikki(NIKKI_TRUMP, p_ptr->dungeon_idx, _("帰還のときに", "when recalled from dungeon"));
 		}
 
 	}
