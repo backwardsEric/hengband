@@ -3855,7 +3855,7 @@ static bool player_birth_aux(void)
 	/*** Instructions ***/
 
 	/* Display some helpful information */
-	put_str(_("キャラクターを作成します。('S'やり直す, 'Q'終了, '?'ヘルプ)", "Make your charactor. ('S' Restart, 'Q' Quit, '?' Help)"), 8, 10);
+	put_str(_("キャラクターを作成します。('S'やり直す, 'Q'終了, '?'ヘルプ)", "Make your character. ('S' Restart, 'Q' Quit, '?' Help)"), 8, 10);
 
 	/*** Player sex ***/
 
