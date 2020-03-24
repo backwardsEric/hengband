@@ -3365,8 +3365,8 @@ bool make_attack_normal(MONSTER_IDX m_idx)
 						/* Modify the damage */
 						dam = mon_damage_mod(m_ptr, dam, FALSE);
 
-						msg_format(_("%^sは鏡の破片をくらった！", "%^s gets zapped!"), m_name);
-						if (mon_take_hit(m_idx, dam, &fear, _("はズタズタになった。", " had torn to pieces.")))
+						msg_format(_("%^sは鏡の破片をくらった！", "%^s gets sliced!"), m_name);
+						if (mon_take_hit(m_idx, dam, &fear, _("はズタズタになった。", " is torn to pieces.")))
 						{
 							blinked = FALSE;
 							alive = FALSE;
