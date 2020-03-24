@@ -3319,7 +3319,7 @@ bool make_attack_normal(MONSTER_IDX m_idx)
 						dam = mon_damage_mod(m_ptr, dam, FALSE);
 
 						msg_format(_("%^sは電撃をくらった！", "%^s gets zapped!"), m_name);
-						if (mon_take_hit(m_idx, dam, &fear, _("は燃え殻の山になった。", " turns into a pile of cinder.")))
+						if (mon_take_hit(m_idx, dam, &fear, _("は燃え殻の山になった。", " turns into a pile of cinders.")))
 						{
 							blinked = FALSE;
 							alive = FALSE;
