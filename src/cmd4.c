@@ -433,7 +433,7 @@ errr do_cmd_write_nikki(int type, int num, concptr note)
 	if (write_level)
 	{
 		if (p_ptr->inside_arena)
-			note_level = _("アリーナ:", "Arane:");
+			note_level = _("アリーナ:", "Arena:");
 		else if (!current_floor_ptr->dun_level)
 			note_level = _("地上:", "Surface:");
 		else if (q_idx && (is_fixed_quest_idx(q_idx)
