@@ -1900,8 +1900,18 @@ static void draw_image_tile(
 /* Return whether the context's primary window is ordered in or not */
 - (BOOL)isOrderedIn;
 
-/* Return whether the context's primary window is key */
+/*
+ * Return whether the context's primary window is the main window.
+ * Since the terminals other than terminal 0 are configured as panels in
+ * Hengband, this will only be true for terminal 0.
+ */
 - (BOOL)isMainWindow;
+
+/*
+ * Return whether the context's primary window is the destination for key
+ * input.
+ */
+- (BOOL)isKeyWindow;
 
 /* Invalidate the whole image */
 - (void)setNeedsDisplay:(BOOL)val;
@@ -3728,6 +3738,11 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     return [[self->angbandView window] isMainWindow];
 }
 
+- (BOOL)isKeyWindow
+{
+    return [[self->angbandView window] isKeyWindow];
+}
+
 - (void)setNeedsDisplay:(BOOL)val
 {
     [self->angbandView setNeedsDisplay:val];
@@ -5346,7 +5361,7 @@ static void play_sound(int event)
     for (i=0; i < ANGBAND_TERM_MAX; i++) {
 	AngbandContext *context =
 	    (__bridge AngbandContext*) (angband_term[i]->data);
-        if ([context isMainWindow]) {
+        if ([context isKeyWindow]) {
             termFont = [context angbandViewFont];
             break;
         }
@@ -5368,7 +5383,7 @@ static void play_sound(int event)
     for (mainTerm=0; mainTerm < ANGBAND_TERM_MAX; mainTerm++) {
 	AngbandContext *context =
 	    (__bridge AngbandContext*) (angband_term[mainTerm]->data);
-        if ([context isMainWindow]) {
+        if ([context isKeyWindow]) {
             break;
         }
     }
