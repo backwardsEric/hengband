@@ -4588,7 +4588,7 @@ void player_birth(void)
 
 	if (p_ptr->realm1)
 	{
-		sprintf(buf,_("                            魔法の領域に%s%sを選択した。", "                            chose %s%s realm."),realm_names[p_ptr->realm1], p_ptr->realm2 ? format("と%s",realm_names[p_ptr->realm2]) : "");
+		sprintf(buf,_("                            魔法の領域に%s%sを選択した。", "                            chose %s%s."),realm_names[p_ptr->realm1], p_ptr->realm2 ? format(_("と%s", " and %s realms"),realm_names[p_ptr->realm2]) : _("", " realm"));
 		do_cmd_write_nikki(NIKKI_BUNSHOU, 1, buf);
 	}
 
