@@ -11,6 +11,48 @@
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | Changes
     <H1>Changes</H1>
       <OL>
+        <LI>March 28, 2020.  2.2.1.7d includes the following changes:
+        <UL>
+          <LI>Fixed regression:  changing the font or tile set during character
+            generation in the Mac OS X front end would cause a crash.
+          <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40204">ticket 40204</A>,
+            configured terminals other than the main one in the Mac OS X
+            front end as non-floating panels so they have narrower title bars.
+            Has the side effect that those terminals will automatically hide
+            when one switches to another application.
+          <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40203">ticket 40203</A>,
+            added the dimensions, in rows and columns, to the title bar for
+            each terminal window shown in the Mac OS X front end.
+          <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40060">ticket 40060</A>,
+            changed the kanji for the File menu's "New" entry in the Japanese
+            version of the Mac OS X front end.
+          <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40202">ticket 40202</A>,
+            changed so the prompt to select new or open on the splash screen
+            for the Mac OS X front end always has the same position relative
+            to the rest of the splash screen text regardless of the dimensions
+            of the window.
+          <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/39940">ticket 39940</A>,
+            changed English diary entries to consistently use simple past
+            tense.  Also omitted the subject in the diary entries when it was
+            "you".  Made some changes in the entries to be more idiomatic.
+          <LI>For the Mac OS X front end, brought over changes from Angband
+            to improve the drawing speed.
+          <LI>For the Mac OS X front end, modified so user changes to a
+            window's width are in increments of the width of a column and
+            user changes to a window's height are in increments of the height
+            of a row.
+          <LI>For the Mac OS X front end, changed to round down when
+            calculating the number of columns for a given size so a font change
+            can leave blank space at the end of a row rather than a partially
+            obscured character.
+          <LI>Changed readme_eng.txt to bring it up to date.
+          <LI>Changed some English game messages to fix a typo on the first
+            birth screen and improve some the notifications about the player's
+            aura damaging monsters.
+          <LI>For the Japanese version of the Mac OS X front end, changed the
+            copyright string to match the line crediting Mr. Hoge from
+            news_j.txt.
+        </UL>
         <LI>February 24, 2020.  2.2.1.7c includes the following changes:
         <UL>
           <LI>The new version now requires 10.8 or later since the application

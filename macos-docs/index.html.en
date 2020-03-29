@@ -11,13 +11,13 @@
     <P>Binaries | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">Changes</A>
     <H1>Binaries</H1>
       <UL>
-        <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72419/Hengband-2.2.1.7c-English.dmg/">English version; 2.2.1.7c</A>
-        <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72419/Hengband-2.2.1.7c-Japanese.dmg/">Japanese version; 2.2.1.7c</A>
+        <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/Hengband-2.2.1.7d-English.dmg/">English version; 2.2.1.7d</A>
+        <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/Hengband-2.2.1.7d-Japanese.dmg/">Japanese version; 2.2.1.7d</A>
       </UL>
       <P>I have put together a version of the rogue-like game,
          <A HREF="https://hengband.osdn.jp/en/">Hengband</A>, for computers
         running Mac OS X 10.8 or later.  To use the English version, download
-        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72419/Hengband-2.2.1.7c-English.dmg/">Hengband-2.2.1.7c-English.dmg</A>,
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/Hengband-2.2.1.7d-English.dmg/">Hengband-2.2.1.7d-English.dmg</A>,
         double click on the downloaded file to open the disk image, and then
         drag the hengband application to where you want to store it.  Double
         clicking on the application will run it.  Since the application has not
@@ -36,7 +36,7 @@
             administrator to apply the exception to the security settings.
         </OL>
       <P>A Japanese version is also available.  The installation instructions
-        are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72419/Hengband-2.2.1.7c-Japanese.dmg/">Hengband-2.2.1.7c-Japanese.dmg</A>.
+        are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/Hengband-2.2.1.7d-Japanese.dmg/">Hengband-2.2.1.7d-Japanese.dmg</A>.
       <P>Both versions correspond to version 2.2.1.7 of Hengband with changes
         to support the Mac OS X interface, a change for how rivers are added
         in dungeons which nominally do not allow any of the river types,
