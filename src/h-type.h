@@ -38,7 +38,9 @@
  * These limits should be verified and coded into "h-constant.h".
  */
 
-
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 
 /*** Special 4 letter names for some standard types ***/
 
@@ -113,13 +115,18 @@ typedef unsigned long huge;
 
 
 /* Signed/Unsigned 16 bit value */
+#ifdef HAVE_STDINT_H
+typedef int16_t s16b;
+typedef uint16_t u16b;
+#else
 typedef signed short s16b;
 typedef unsigned short u16b;
+#endif
 
 /* Signed/Unsigned 32 bit value */
-#ifdef L64	/* 64 bit longs */
-typedef signed int s32b;
-typedef unsigned int u32b;
+#ifdef HAVE_STDINT_H
+typedef int32_t s32b;
+typedef uint32_t u32b;
 #else
 typedef signed long s32b;
 typedef unsigned long u32b;
