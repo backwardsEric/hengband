@@ -1828,7 +1828,7 @@ bool create_artifact(object_type *o_ptr, bool a_scroll)
 	add_flag(o_ptr->art_flags, TR_IGNORE_COLD);
 
 	total_flags = flag_cost(o_ptr, o_ptr->pval);
-	if (cheat_peek) msg_format("%ld", total_flags);
+	if (cheat_peek) msg_format("%ld", (long int)total_flags);
 
 	if (a_cursed) curse_artifact(o_ptr);
 

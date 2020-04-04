@@ -1300,9 +1300,9 @@ msg_print("おい！金が足りないじゃないか！出ていけ！");
 			else if (wager > maxbet)
 			{
 #ifdef JP
-msg_format("%ldゴールドだけ受けよう。残りは取っときな。", maxbet);
+				msg_format("%ldゴールドだけ受けよう。残りは取っときな。", (long int)maxbet);
 #else
-				msg_format("I'll take %ld gold of that. Keep the rest.", maxbet);
+				msg_format("I'll take %ld gold of that. Keep the rest.", (long int)maxbet);
 #endif
 
 				wager = maxbet;
@@ -2032,9 +2032,9 @@ msg_print("おい！金が足りないじゃないか！出ていけ！");
 			else if (wager > maxbet)
 			{
 #ifdef JP
-msg_format("%ldゴールドだけ受けよう。残りは取っときな。", maxbet);
+				msg_format("%ldゴールドだけ受けよう。残りは取っときな。", (long int)maxbet);
 #else
-				msg_format("I'll take %ld gold of that. Keep the rest.", maxbet);
+				msg_format("I'll take %ld gold of that. Keep the rest.", (long int)maxbet);
 #endif
 
 				wager = maxbet;
@@ -2322,9 +2322,9 @@ static bool kankin(void)
 			if (get_check(buf))
 			{
 #ifdef JP
-				msg_format("賞金 %ld＄を手に入れた。", (r_info[today_mon].level * 50 + 100) * o_ptr->number);
+				msg_format("賞金 %ld＄を手に入れた。", ((long int)r_info[today_mon].level * 50 + 100) * o_ptr->number);
 #else
-				msg_format("You get %ldgp.", (r_info[today_mon].level * 50 + 100) * o_ptr->number);
+				msg_format("You get %ldgp.", ((long int)r_info[today_mon].level * 50 + 100) * o_ptr->number);
 #endif
 				p_ptr->au += (r_info[today_mon].level * 50 + 100) * o_ptr->number;
 				p_ptr->redraw |= (PR_GOLD);
@@ -2352,9 +2352,9 @@ static bool kankin(void)
 			if (get_check(buf))
 			{
 #ifdef JP
-				msg_format("賞金 %ld＄を手に入れた。", (r_info[today_mon].level * 30 + 60) * o_ptr->number);
+				msg_format("賞金 %ld＄を手に入れた。", ((long int)r_info[today_mon].level * 30 + 60) * o_ptr->number);
 #else
-				msg_format("You get %ldgp.", (r_info[today_mon].level * 30 + 60) * o_ptr->number);
+				msg_format("You get %ldgp.", ((long int)r_info[today_mon].level * 30 + 60) * o_ptr->number);
 #endif
 				p_ptr->au += (r_info[today_mon].level * 30 + 60) * o_ptr->number;
 				p_ptr->redraw |= (PR_GOLD);
