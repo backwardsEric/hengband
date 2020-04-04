@@ -4262,7 +4262,7 @@ errr make_character_dump(FILE *fff)
 
 		for (i=0;i<=col;i++)
 		{
-			fprintf(fff, p[i]);
+			fputs(p[i], fff);
 		}
 
 		fputc('\n', fff);

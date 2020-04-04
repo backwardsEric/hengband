@@ -5906,7 +5906,7 @@ void do_cmd_save_screen_html_aux(char *filename, int message)
 	tmpfff = my_fopen(buf, "r");
 	if (!tmpfff) {
 		for (i = 0; html_head[i]; i++)
-			fprintf(fff, html_head[i]);
+			fputs(html_head[i], fff);
 	}
 	else {
 		yomikomu = 0;
@@ -5968,7 +5968,7 @@ void do_cmd_save_screen_html_aux(char *filename, int message)
 
 	if (!tmpfff) {
 		for (i = 0; html_foot[i]; i++)
-			fprintf(fff, html_foot[i]);
+			fputs(html_foot[i], fff);
 	}
 	else {
 		rewind(tmpfff);
@@ -8727,7 +8727,7 @@ static void do_cmd_knowledge_quests_current(FILE *fff)
 					quest[i].name, quest[i].level, note);
 #endif
 
-				fprintf(fff, tmp_str);
+				fputs(tmp_str, fff);
 
 				if (quest[i].status == QUEST_STATUS_COMPLETED)
 				{
@@ -8736,7 +8736,7 @@ static void do_cmd_knowledge_quests_current(FILE *fff)
 #else
 					sprintf(tmp_str, "    Quest Completed - Unrewarded\n");
 #endif
-					fprintf(fff, tmp_str);
+					fputs(tmp_str, fff);
 				}
 				else
 				{
@@ -8790,7 +8790,7 @@ static void do_cmd_knowledge_quests_current(FILE *fff)
 	}
 
 	/* Print the current random quest  */
-	if (rand_tmp_str[0]) fprintf(fff, rand_tmp_str);
+	if (rand_tmp_str[0]) fputs(rand_tmp_str, fff);
 
 #ifdef JP
 	if (!total) fprintf(fff, "  ¤Ê¤·\n");
@@ -8881,7 +8881,7 @@ void do_cmd_knowledge_quests_completed(FILE *fff, int quest_num[])
 #endif
 			}
 
-			fprintf(fff, tmp_str);
+			fputs(tmp_str, fff);
 		}
 	}
 #ifdef JP
@@ -8955,7 +8955,7 @@ void do_cmd_knowledge_quests_failed(FILE *fff, int quest_num[])
 					quest[q_idx].name, quest[q_idx].level, quest[q_idx].complev);
 #endif
 			}
-			fprintf(fff, tmp_str);
+			fputs(tmp_str, fff);
 		}
 	}
 #ifdef JP
@@ -8997,7 +8997,7 @@ static void do_cmd_knowledge_quests_wiz_random(FILE *fff)
 			sprintf(tmp_str, "  %s (%d, %s)\n",
 				quest[i].name, quest[i].level, r_name+r_info[quest[i].r_idx].name);
 #endif
-			fprintf(fff, tmp_str);
+			fputs(tmp_str, fff);
 		}
 	}
 #ifdef JP
