@@ -132,9 +132,9 @@ static void show_building(building_type* bldg)
 				{
 					action_color = TERM_YELLOW;
 #ifdef JP
-sprintf(buff, "($%ld)", bldg->member_costs[i]);
+					sprintf(buff, "($%ld)", (long int)bldg->member_costs[i]);
 #else
-					sprintf(buff, "(%ldgp)", bldg->member_costs[i]);
+					sprintf(buff, "(%ldgp)", (long int)bldg->member_costs[i]);
 #endif
 
 				}
@@ -142,9 +142,9 @@ sprintf(buff, "($%ld)", bldg->member_costs[i]);
 				{
 					action_color = TERM_YELLOW;
 #ifdef JP
-sprintf(buff, "($%ld)", bldg->other_costs[i]);
+					sprintf(buff, "($%ld)", (long int)bldg->other_costs[i]);
 #else
-					sprintf(buff, "(%ldgp)", bldg->other_costs[i]);
+					sprintf(buff, "(%ldgp)", (long int)bldg->other_costs[i]);
 #endif
 
 				}
@@ -171,9 +171,9 @@ strcpy(buff, "(閉店)");
 				{
 					action_color = TERM_YELLOW;
 #ifdef JP
-sprintf(buff, "($%ld)", bldg->member_costs[i]);
+					sprintf(buff, "($%ld)", (long int)bldg->member_costs[i]);
 #else
-					sprintf(buff, "(%ldgp)", bldg->member_costs[i]);
+					sprintf(buff, "(%ldgp)", (long int)bldg->member_costs[i]);
 #endif
 
 				}
@@ -181,9 +181,9 @@ sprintf(buff, "($%ld)", bldg->member_costs[i]);
 				{
 					action_color = TERM_YELLOW;
 #ifdef JP
-sprintf(buff, "($%ld)", bldg->other_costs[i]);
+					sprintf(buff, "($%ld)", (long int)bldg->other_costs[i]);
 #else
-					sprintf(buff, "(%ldgp)", bldg->other_costs[i]);
+					sprintf(buff, "(%ldgp)", (long int)bldg->other_costs[i]);
 #endif
 
 				}
@@ -204,9 +204,9 @@ strcpy(buff, "(閉店)");
 				{
 					action_color = TERM_YELLOW;
 #ifdef JP
-sprintf(buff, "($%ld)", bldg->member_costs[i]);
+					sprintf(buff, "($%ld)", (long int)bldg->member_costs[i]);
 #else
-					sprintf(buff, "(%ldgp)", bldg->member_costs[i]);
+					sprintf(buff, "(%ldgp)", (long int)bldg->member_costs[i]);
 #endif
 
 				}
@@ -1267,9 +1267,9 @@ static bool gamble_comm(int cmd)
 		/* Get the wager */
 		strcpy(out_val, "");
 #ifdef JP
-sprintf(tmp_str,"賭け金 (1-%ld)？", maxbet);
+		sprintf(tmp_str,"賭け金 (1-%ld)？", (long int)maxbet);
 #else
-		sprintf(tmp_str,"Your wager (1-%ld) ? ", maxbet);
+		sprintf(tmp_str,"Your wager (1-%ld) ? ", (long int)maxbet);
 #endif
 
 
@@ -1324,17 +1324,17 @@ msg_print("ＯＫ、１ゴールドからはじめよう。");
 			oldgold = p_ptr->au;
 
 #ifdef JP
-sprintf(tmp_str, "ゲーム前の所持金: %9ld", oldgold);
+			sprintf(tmp_str, "ゲーム前の所持金: %9ld", (long int)oldgold);
 #else
-			sprintf(tmp_str, "Gold before game: %9ld", oldgold);
+			sprintf(tmp_str, "Gold before game: %9ld", (long int)oldgold);
 #endif
 
 			prt(tmp_str, 20, 2);
 
 #ifdef JP
-sprintf(tmp_str, "現在の掛け金:     %9ld", wager);
+			sprintf(tmp_str, "現在の掛け金:     %9ld", (long int)wager);
 #else
-			sprintf(tmp_str, "Current Wager:    %9ld", wager);
+			sprintf(tmp_str, "Current Wager:    %9ld", (long int)wager);
 #endif
 
 			prt(tmp_str, 21, 2);
@@ -1603,9 +1603,9 @@ prt("あなたの負け", 16, 37);
 					prt("", 17, 37);
 				}
 #ifdef JP
-sprintf(tmp_str, "現在の所持金:     %9ld", p_ptr->au);
+				sprintf(tmp_str, "現在の所持金:     %9ld", (long int)p_ptr->au);
 #else
-				sprintf(tmp_str, "Current Gold:     %9ld", p_ptr->au);
+				sprintf(tmp_str, "Current Gold:     %9ld", (long int)p_ptr->au);
 #endif
 
 				prt(tmp_str, 22, 2);
@@ -1957,9 +1957,9 @@ static bool kakutoujou(void)
 			monster_race *r_ptr = &r_info[battle_mon[i]];
 
 #ifdef JP
-			sprintf(buf,"%d) %-58s  %4ld.%02ld倍", i+1, format("%s%s",r_name + r_ptr->name, (r_ptr->flags1 & RF1_UNIQUE) ? "もどき" : "      "), mon_odds[i]/100, mon_odds[i]%100);
+			sprintf(buf,"%d) %-58s  %4ld.%02ld倍", i+1, format("%s%s",r_name + r_ptr->name, (r_ptr->flags1 & RF1_UNIQUE) ? "もどき" : "      "), (long int)mon_odds[i]/100, (long int)mon_odds[i]%100);
 #else
-			sprintf(buf,"%d) %-58s  %4ld.%02ld", i+1, format("%s%s", (r_ptr->flags1 & RF1_UNIQUE) ? "Fake " : "", r_name + r_ptr->name), mon_odds[i]/100, mon_odds[i]%100);
+			sprintf(buf,"%d) %-58s  %4ld.%02ld", i+1, format("%s%s", (r_ptr->flags1 & RF1_UNIQUE) ? "Fake " : "", r_name + r_ptr->name), (long int)mon_odds[i]/100, (long int)mon_odds[i]%100);
 #endif
 			prt(buf, 5+i, 1);
 		}
@@ -1999,9 +1999,9 @@ static bool kakutoujou(void)
 		/* Get the wager */
 		strcpy(out_val, "");
 #ifdef JP
-sprintf(tmp_str,"賭け金 (1-%ld)？", maxbet);
+		sprintf(tmp_str,"賭け金 (1-%ld)？", (long int)maxbet);
 #else
-		sprintf(tmp_str,"Your wager (1-%ld) ? ", maxbet);
+		sprintf(tmp_str,"Your wager (1-%ld) ? ", (long int)maxbet);
 #endif
 
 

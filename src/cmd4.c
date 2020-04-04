@@ -7021,7 +7021,7 @@ static void do_cmd_knowledge_kill_count(void)
 
 	char file_name[1024];
 
-	s32b Total = 0;
+	long Total = 0;
 
 
 	/* Open a new file */

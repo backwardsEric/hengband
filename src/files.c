@@ -4546,7 +4546,7 @@ errr make_character_dump(FILE *fff)
 	/* Monsters slain */
 	{
 		int k;
-		s32b Total = 0;
+		long Total = 0;
 
 		for (k = 1; k < max_r_idx; k++)
 		{
@@ -4586,9 +4586,9 @@ errr make_character_dump(FILE *fff)
 
 		else
 #ifdef JP
-			fprintf(fff,"\n %lu 体の敵を倒しています。\n", Total);
+			fprintf(fff,"\n %ld 体の敵を倒しています。\n", Total);
 #else
-			fprintf(fff,"\n You have defeated %lu enemies.\n", Total);
+			fprintf(fff,"\n You have defeated %ld enemies.\n", Total);
 #endif
 
 	}
