@@ -4722,7 +4722,7 @@ static errr Term_xtra_cocoa(int n, int v)
     return result;
 }
 
-static errr Term_curs_cocoa(TERM_LEN x, TERM_LEN y)
+static errr Term_curs_cocoa(int x, int y)
 {
     AngbandContext *angbandContext = (__bridge AngbandContext*) (Term->data);
 
@@ -4744,7 +4744,7 @@ static errr Term_curs_cocoa(TERM_LEN x, TERM_LEN y)
  * the cursor points at a kanji character, irregardless of whether operating
  * in big tile mode.
  */
-static errr Term_bigcurs_cocoa(TERM_LEN x, TERM_LEN y)
+static errr Term_bigcurs_cocoa(int x, int y)
 {
     AngbandContext *angbandContext = (__bridge AngbandContext*) (Term->data);
 
@@ -4760,7 +4760,7 @@ static errr Term_bigcurs_cocoa(TERM_LEN x, TERM_LEN y)
  *
  * Erase "n" characters starting at (x,y)
  */
-static errr Term_wipe_cocoa(TERM_LEN x, TERM_LEN y, int n)
+static errr Term_wipe_cocoa(int x, int y, int n)
 {
     AngbandContext *angbandContext = (__bridge AngbandContext*) (Term->data);
 
@@ -4771,9 +4771,9 @@ static errr Term_wipe_cocoa(TERM_LEN x, TERM_LEN y, int n)
     return 0;
 }
 
-static errr Term_pict_cocoa(TERM_LEN x, TERM_LEN y, int n,
-			    TERM_COLOR *ap, concptr cp,
-			    const TERM_COLOR *tap, concptr tcp)
+static errr Term_pict_cocoa(int x, int y, int n,
+			    const byte *ap, const char * cp,
+			    const byte *tap, const char *tcp)
 {
     /* Paranoia: Bail if graphics aren't enabled */
     if (! graphics_are_enabled()) return -1;
@@ -4792,9 +4792,9 @@ static errr Term_pict_cocoa(TERM_LEN x, TERM_LEN y, int n,
     }
 
     for (int i = x; i < x + n * step; i += step) {
-	TERM_COLOR a = *ap++;
+	byte a = *ap++;
 	char c = *cp++;
-	TERM_COLOR ta = *tap++;
+	byte ta = *tap++;
 	char tc = *tcp++;
 
 	if (use_graphics && (a & 0x80) && (c & 0x80)) {
@@ -4835,7 +4835,7 @@ static errr Term_pict_cocoa(TERM_LEN x, TERM_LEN y, int n,
  * Draw several ("n") chars, with an attr, at a given location.
  */
 static errr Term_text_cocoa(
-    TERM_LEN x, TERM_LEN y, int n, TERM_COLOR a, concptr cp)
+    int x, int y, int n, byte a, cptr cp)
 {
     AngbandContext* angbandContext = (__bridge AngbandContext*) (Term->data);
 
