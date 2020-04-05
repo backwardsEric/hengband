@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="15705" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <development version="8000" identifier="xcode"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="15705"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
+            <connections>
+                <outlet property="delegate" destination="Voe-Tx-rLC" id="GzC-gU-4Uq"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSMenu"/>
+        <customObject id="Voe-Tx-rLC" customClass="AngbandAppDelegate">
+            <connections>
+                <outlet property="commandMenu" destination="V5r-G0-OsI" id="1Zs-qw-zFF"/>
+                <outlet property="graphicsMenu" destination="HjX-nW-gDH" id="viC-2N-jWh"/>
+            </connections>
+        </customObject>
+        <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
+        <menu title="Main Menu" systemMenu="main" id="AYu-sK-qS6">
+            <items>
+                <menuItem title="Hengband" id="1Xt-HY-uBw">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Hengband" systemMenu="apple" id="uQy-DD-JDr">
+                        <items>
+                            <menuItem title="About Hengband" id="5kV-Vb-QxS" userLabel="About Hengband">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="orderFrontStandardAboutPanel:" target="-1" id="Exp-CZ-Vem"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="VOq-y0-SEH"/>
+                            <menuItem title="Preferences…" keyEquivalent="," id="BOF-NM-1cW"/>
+                            <menuItem isSeparatorItem="YES" id="wFC-TO-SCJ"/>
+                            <menuItem title="Services" id="NMo-om-nkz">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Services" systemMenu="services" id="hz9-B4-Xy5"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="4je-JR-u6R"/>
+                            <menuItem title="Hide Hengband" keyEquivalent="h" id="Olw-nP-bQN" userLabel="Hide Hengband">
+                                <connections>
+                                    <action selector="hide:" target="-1" id="PnN-Uc-m68"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Hide Others" keyEquivalent="h" id="Vdr-fp-XzO">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="hideOtherApplications:" target="-1" id="VT4-aY-XCT"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show All" id="Kd2-mp-pUS">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="unhideAllApplications:" target="-1" id="Dhg-Le-xox"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="kCx-OE-vgT"/>
+                            <menuItem title="Quit Hengband" keyEquivalent="q" id="4sb-4s-VLi" userLabel="Quit Hengband">
+                                <connections>
+                                    <action selector="terminate:" target="-1" id="Te7-pn-YzF"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="File" id="dMs-cI-mzQ">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="File" id="bib-Uj-vzu">
+                        <items>
+                            <menuItem title="New" keyEquivalent="n" id="Was-JA-tGl">
+                                <connections>
+                                    <action selector="newGame:" target="Voe-Tx-rLC" id="der-R0-E3m"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Open…" keyEquivalent="o" id="IAo-SY-fd9">
+                                <connections>
+                                    <action selector="openGame:" target="Voe-Tx-rLC" id="lRd-hc-bRg"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="m54-Is-iLE"/>
+                            <menuItem title="Save…" keyEquivalent="s" id="pxx-59-PXV">
+                                <connections>
+                                    <action selector="saveGame:" target="Voe-Tx-rLC" id="qzx-Gf-uzC"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Settings" id="KRs-UN-gSY">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Settings" id="yJq-0y-VBt">
+                        <items>
+                            <menuItem title="Choose Font ..." keyEquivalent="t" id="wd6-md-9jG">
+                                <connections>
+                                    <action selector="editFont:" target="Voe-Tx-rLC" id="Czs-ZF-d6u"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Graphics" id="WnC-Sx-T6W" userLabel="Graphics">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Graphics" id="HjX-nW-gDH" userLabel="Graphics Menu">
+                                    <connections>
+                                        <outlet property="delegate" destination="Voe-Tx-rLC" id="chx-c6-Xwx"/>
+                                    </connections>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Frame Rate" tag="150" id="j2X-op-BDF" userLabel="Frame Rate">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Frame Rate" id="bv6-jc-SiG">
+                                    <items>
+                                        <menuItem title="Unlimited (no animation)" keyEquivalent="1" id="86N-Gt-5KF" userLabel="Unlimited (no animation)">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="jkB-HC-ibR"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="60 per second" tag="60" keyEquivalent="2" id="Ijd-bJ-27K" userLabel="60 per second">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="5SR-6e-70y"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="50 per second" tag="50" keyEquivalent="3" id="VBb-sl-VxX">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="ukg-4G-kwU"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="40 per second" tag="40" keyEquivalent="4" id="ZN5-kE-LHc">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="paN-nZ-exb"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="30 per second" tag="30" keyEquivalent="5" id="PdF-nK-k8P">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="DmI-Tf-blY"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="20 per second" tag="20" keyEquivalent="6" id="Pka-9x-yi4" userLabel="20 per second">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="Lxs-Bp-ho6"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="10 per second" tag="10" keyEquivalent="7" id="uRE-OY-ABT" userLabel="10 per second">
+                                            <connections>
+                                                <action selector="setRefreshRate:" target="Voe-Tx-rLC" id="P0O-gy-9LJ"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Toggle Sound" state="on" id="mul-VV-UfU">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleSound:" target="Voe-Tx-rLC" id="y1f-OG-ExO"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Toggle Wide Tiles" state="on" id="tR9-z3-4SZ" userLabel="Toggle Wide Tiles">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleWideTiles:" target="Voe-Tx-rLC" id="fLa-ij-GCQ"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Command" id="czb-8N-K9z" userLabel="Command">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Command" id="V5r-G0-OsI" userLabel="Command Menu"/>
+                </menuItem>
+                <menuItem title="Window" id="aUF-d1-5bR">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Window" systemMenu="window" id="Td7-aD-5lo">
+                        <items>
+                            <menuItem title="Minimize" keyEquivalent="m" id="OY7-WF-poV">
+                                <connections>
+                                    <action selector="performMiniaturize:" target="-1" id="VwT-WD-YPe"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Zoom" id="R4o-n2-Eq4">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="performZoom:" target="-1" id="DIl-cC-cCs"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="eu3-7i-yIM"/>
+                            <menuItem title="Bring All to Front" id="LE2-aR-0XJ">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="arrangeInFront:" target="-1" id="DRN-fu-gQh"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Help" id="wpr-3q-Mcd">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Help" systemMenu="help" id="F2S-fz-NVQ">
+                        <items>
+                            <menuItem title="Hengband Help" keyEquivalent="?" id="FKE-Sm-Kum" userLabel="Hengband Help">
+                                <connections>
+                                    <action selector="showHelp:" target="-1" id="y7X-2Q-9no"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+            </items>
+            <point key="canvasLocation" x="132" y="154"/>
+        </menu>
+    </objects>
+</document>

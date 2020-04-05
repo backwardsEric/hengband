@@ -1,0 +1,8 @@
+/* Knowledge; Angband command "~" */
+"Knowledge" = "アーティファクトやユニークなどをチェックする";
+
+/* Inscribe; Angband command "{" */
+"Inscribe" = "アイテムに銘を刻む";
+
+/* Uninscribe; Angband command "}" */
+"Uninscribe" = "アイテムの銘を消す"; 

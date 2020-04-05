@@ -1,0 +1,17 @@
+/* Alert text for generic warning */
+"Warning" = "警告";
+
+/* Alert text for missing resources */
+"Error.MissingResources" = "不足しているリソース";
+
+/* Alert informative message for missing Angband lib/ folder */
+"Error.MissingAngbandLib" = "変愚蛮怒 は必要なリソースを見つけることができなかったため、終了する必要があります。 バグレポートを「hengband-dev@lists.sourceforge.jp」に送信してください。";
+
+/* Alert text for failed tile set load */
+"Error.TileSetLoadFailed" = "タイルセットを読み込めませんでした";
+
+/* Alert informative message for failed tile set load */
+"Error.TileSetRevertToASCII" = "タイルセットを読み込めませんでした。 ASCIIに切り替えます。";
+
+/* Quit */
+"Label.Quit" = "を終了";

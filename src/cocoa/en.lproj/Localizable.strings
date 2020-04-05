@@ -1,0 +1,17 @@
+/* Alert text for generic warning */
+"Warning" = "Warning";
+
+/* Alert text for missing resources */
+"Error.MissingResources" = "Missing Resources";
+
+/* Alert informative message for missing Angband lib/ folder */
+"Error.MissingAngbandLib" = "Hengband was unable to find required resources and must quit. Please send a bug report to \"hengband-dev@lists.sourceforge.jp\".";
+
+/* Alert text for failed tile set load */
+"Error.TileSetLoadFailed" = "Failed to Load Tile Set";
+
+/* Alert informative message for failed tile set load */
+"Error.TileSetRevertToASCII" = "Could not load the tile set.  Switched back to ASCII.";
+
+/* Quit */
+"Label.Quit" = "Quit";
