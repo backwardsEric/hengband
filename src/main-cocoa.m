@@ -5693,11 +5693,12 @@ static void play_sound(int event)
 	/* Register the sound hook */
 	/* sound_hook = play_sound; */
 
+	/* Initialize some save file stuff */
+	player_euid = geteuid();
+	player_egid = getegid();
+
 	/* Initialise game */
 	init_angband();
-
-	/* Initialize some save file stuff */
-	player_egid = getegid();
 
 	/* We are now initialized */
 	initialized = TRUE;
