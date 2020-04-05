@@ -194,6 +194,119 @@ void init_file_paths(const char *libpath, const char *varpath)
 }
 
 
+/*
+ * Helper function for create_needed_dirs().  Copied over from PosChengband.
+ */
+bool dir_exists(const char *path)
+{
+    struct stat buf;
+    if (stat(path, &buf) != 0)
+	return FALSE;
+#ifdef WIN32
+    else if (buf.st_mode & S_IFDIR)
+#else
+    else if (S_ISDIR(buf.st_mode))
+#endif
+	return TRUE;
+    else
+	return FALSE;
+}
+
+
+/*
+ * Helper function for create_needed_dirs().  Copied over from PosChengband
+ * but use the global definition for the path separator rather than a local
+ * one in PosChengband's code and check for paths that end with the path
+ * separator.
+ */
+bool dir_create(const char *path)
+{
+#ifdef WIN32
+    /* If the directory already exists then we're done */
+    if (dir_exists(path)) return TRUE;
+    return FALSE;
+#else
+    const char *ptr;
+    char buf[1024];
+
+    /* If the directory already exists then we're done */
+    if (dir_exists(path)) return TRUE;
+    /* Iterate through the path looking for path segements. At each step,
+     * create the path segment if it doesn't already exist. */
+    for (ptr = path; *ptr; ptr++)
+        {
+	    if (*ptr == PATH_SEP[0])
+                {
+		    /* Find the length of the parent path string */
+		    size_t len = (size_t)(ptr - path);
+
+		    /* Skip the initial slash */
+		    if (len == 0) continue;
+		    /* If this is a duplicate path separator, continue */
+		    if (*(ptr - 1) == PATH_SEP[0]) continue;
+
+		    /* We can't handle really big filenames */
+		    if (len - 1 > 512) return FALSE;
+
+		    /* Create the parent path string, plus null-padding */
+		    my_strcpy(buf, path, len + 1);
+
+		    /* Skip if the parent exists */
+		    if (dir_exists(buf)) continue;
+
+		    /* The parent doesn't exist, so create it or fail */
+		    if (mkdir(buf, 0755) != 0) return FALSE;
+                }
+        }
+    /*
+     * The path ends on a path separator so have created it already in
+     * the loop above.
+     */
+    if (*(ptr-1) == PATH_SEP[0])
+	{
+	    return TRUE;
+	}
+    return mkdir(path, 0755) == 0 ? TRUE : FALSE;
+#endif
+}
+
+
+/*
+ * Create any missing directories. We create only those dirs which may be
+ * empty (user/, save/, apex/, bone/, data/). Only user/ is created when
+ * the PRIVATE_USER_PATH preprocessor macro has been set. The others are
+ * assumed to contain required files and therefore must exist at startup
+ * (edit/, pref/, file/, xtra/).
+ *
+ * ToDo: Only create the directories when actually writing files.
+ * Copied over from PosChengband to support main-cocoa.m.  Dropped
+ * creation of help/ (and removed it and info/ in the comment)
+ * since init_file_paths() puts those in libpath which may not be writable
+ * by the user running the application.  Added bone/ since
+ * init_file_paths() puts that in varpath.
+ */
+void create_needed_dirs(void)
+{
+    char dirpath[1024];
+
+    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_USER, "");
+    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+
+#ifndef PRIVATE_USER_PATH
+    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_SAVE, "");
+    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+
+    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_APEX, "");
+    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+
+    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_BONE, "");
+    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+
+    path_build(dirpath, sizeof(dirpath), ANGBAND_DIR_DATA, "");
+    if (!dir_create(dirpath)) quit_fmt("Cannot create '%s'", dirpath);
+#endif /* ndef PRIVATE_USER_PATH */
+}
+
 
 #ifdef ALLOW_TEMPLATES
 

@@ -797,6 +797,7 @@ extern errr process_dungeon_file(cptr name, int ymin, int xmin, int ymax, int xm
 
 /* init2.c */
 extern void init_file_paths(const char *libpath, const char *varpath);
+extern void create_needed_dirs(void);
 extern cptr err_str[PARSE_ERROR_MAX];
 extern errr init_v_info(void);
 extern errr init_buildings(void);
