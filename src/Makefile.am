@@ -113,3 +113,44 @@ if SET_GID
 	chgrp "@GAMEGROUP@" "$(DESTDIR)$(bindir)/hengband"
 	chmod g+s "$(DESTDIR)$(bindir)/hengband"
 endif
+
+if COCOA
+# Suppress the warnings from the EUC-JP encoded strings used when building
+# the Japanese version.
+AM_CFLAGS += -Wno-invalid-source-encoding
+AM_OBJCFLAGS += -Wno-invalid-source-encoding
+
+# Create lib/info within the application bundle since not currently
+# installing anything to it.  Other relevant lib directories should
+# be created from the Makefiles in the lib directory.
+install-data-local:
+	@mkdir -p $(APPCONT)
+	@mkdir -p $(appendir)
+	@mkdir -p $(appjadir)
+	@mkdir -p $(APPRES)/lib/info
+	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
+		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT)/' \
+		-e 's/\$$NAME\$$/$(APPNAME)/' \
+		-e 's/\$$EXECUTABLE\$$/$(APPEXE)/' \
+		-e 's/\$$BUNDLE_VERSION\$$/$(BUNDLE_VERSION)/' \
+		-e 's/\$$BUNDLE_IDENTIFIER\$$/$(BUNDLE_IDENTIFIER)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME)/' \
+		$(srcdir)/$(cocoa_plist_template) > $(APPCONT)/Info.plist
+	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
+		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME)/' \
+		$(srcdir)/$(cocoa_plist_strings_template) > $(appendir)/InfoPlist.strings
+	sed -e 's/\$$VERSION\$$/$(PACKAGE_VERSION)/' \
+		-e 's/\$$COPYRIGHT\$$/$(COPYRIGHT_JA)/' \
+		-e 's/\$$BUNDLE_DISPLAY_NAME\$$/$(BUNDLE_DISPLAY_NAME_JA)/' \
+		-e 's/\$$BUNDLE_NAME\$$/$(BUNDLE_NAME_JA)/' \
+		$(srcdir)/$(cocoa_plist_strings_template) > $(appjadir)/InfoPlist.strings
+
+distclean-local:
+	-rm $(APPCONT)/Info.plist
+	-rm $(appendir)/InfoPlist.strings
+	-rm $(appjadir)/InfoPlist.strings
+
+endif
