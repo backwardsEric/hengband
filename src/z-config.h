@@ -590,6 +590,21 @@
 #define SUPPORT_GAMMA
 
 /*
+ * Hack -- Mach-O (native binary format of OS X) is basically a Un*x
+ * but has Mac OS/Windows-like user interface.  Disabling the Un*x-like
+ * behavior (PRIVATE_USER_PATH, SAVEFILE_USE_UID) for the modern OS X
+ * interface (MACH_O_COCOA).
+ */
+#if defined(MACH_O_COCOA)
+# ifdef PRIVATE_USER_PATH
+#  undef PRIVATE_USER_PATH
+# endif
+# ifdef SAVEFILE_USE_UID
+#  undef SAVEFILE_USE_UID
+# endif
+#endif
+
+/*
  * Hack -- Special "ancient machine" versions
  */
 #if defined(USE_286) || defined(ANGBAND_LITE_MAC)
