@@ -5718,7 +5718,8 @@ static void play_sound(int event)
 	Term_erase(0, message_row, 255);
 	put_str(
 #ifdef JP
-	    "['ファイル' メニューから '新規' または '開く' を選択します]",
+	    "['\xa5\xd5\xa5\xa1\xa5\xa4\xa5\xeb' \xa5\xe1\xa5\xcb\xa5\xe5\xa1\xbc\xa4\xab\xa4\xe9 '\xbf\xb7\xb5\xac' \xa4\xde\xa4\xbf\xa4\xcf '\xb3\xab\xa4\xaf' \xa4\xf2\xc1\xaa\xc2\xf2\xa4\xb7\xa4\xde\xa4\xb9]",
+
 	    message_row, (80 - 59) / 2
 #else
 	    "[Choose 'New' or 'Open' from the 'File' menu]",
