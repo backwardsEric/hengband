@@ -34,7 +34,7 @@
 ?:[EQU $SYS ami]
 %:font-ami.prf
 
-?:[EQU $SYS mac]
+?:[IOR [EQU $SYS mac] [EQU $SYS coc]]
 %:font-mac.prf
 
 ?:[EQU $SYS win]

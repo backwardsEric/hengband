@@ -28,7 +28,7 @@
 ?:[EQU $SYS ami]
 %:graf-ami.prf
 
-?:[EQU $SYS mac]
+?:[IOR [EQU $SYS mac] [EQU $SYS coc]]
 %:graf-mac.prf
 
 ?:[EQU $SYS dos]

@@ -27,7 +27,7 @@
 ?:[EQU $SYS ami]
 %:user-ami.prf
 
-?:[EQU $SYS mac]
+?:[IOR [EQU $SYS mac] [EQU $SYS coc]]
 %:user-mac.prf
 
 ?:[IOR [EQU $SYS win] [EQU $SYS dos] [EQU $SYS ibm]]
