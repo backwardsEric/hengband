@@ -30,6 +30,84 @@ EXTRA_hengband_SOURCES = \
 	makefile.bcc makefile.std makefile.dos makefile.ibm \
 	readdib.c wall.bmp
 
+cocoa_xcode_files = \
+	cocoa/AppDelegate.m \
+	cocoa/Base.lproj/MainMenu.xib
+cocoa_icon_files = \
+	cocoa/hengband_Icons.icns \
+	cocoa/Save.icns \
+	cocoa/Edit.icns \
+	cocoa/Data.icns
+cocoa_plist_template = cocoa/Angband-Cocoa.xml
+cocoa_plist_strings_template = cocoa/Angband-Cocoa.strings
+cocoa_plist_files = \
+	cocoa/CommandMenu.plist
+cocoa_en_nib_files = \
+	cocoa/Base.lproj/MainMenu.nib
+cocoa_en_strings_files = \
+	cocoa/en.lproj/Localizable.strings \
+	cocoa/en.lproj/CommandMenu.strings \
+	cocoa/en.lproj/GraphicsMenu.strings
+cocoa_ja_strings_files = \
+	cocoa/ja.lproj/MainMenu.strings \
+	cocoa/ja.lproj/Localizable.strings \
+	cocoa/ja.lproj/CommandMenu.strings \
+	cocoa/ja.lproj/GraphicsMenu.strings
+
+EXTRA_DIST = \
+	$(cocoa_xcode_files) \
+	$(cocoa_icon_files) \
+	$(cocoa_plist_template) \
+	$(cocoa_plist_strings_template) \
+	$(cocoa_plist_files) \
+	$(cocoa_en_nib_files) \
+	$(cocoa_en_strings_files) \
+	$(cocoa_ja_strings_files)
+
+if COCOA
+hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c cocoa/AppDelegate.h
+AM_CFLAGS = -mmacosx-version-min=10.8 -Wunguarded-availability
+AM_OBJCFLAGS = -fobjc-arc -mmacosx-version-min=10.8 -Wunguarded-availability
+hengband_LDFLAGS = -framework cocoa $(AM_LDFLAGS)
+hengband_LINK = MACOSX_DEPLOYMENT_TARGET=10.8 $(OBJCLINK) $(hengband_LDFLAGS) $(LDFLAGS) -o $@
+APPNAME = $(PACKAGE_NAME)
+APPEXE = hengband
+APPDIR = $(APPNAME).app
+BUNDLE_IDENTIFIER = jp.osdn.hengband
+BUNDLE_VERSION = $(PACKAGE_VERSION)
+BUNDLE_DISPLAY_NAME = $(APPNAME)
+BUNDLE_NAME = $(BUNDLE_DISPLAY_NAME)
+BUNDLE_DISPLAY_NAME_JA = 変愚蛮怒
+BUNDLE_NAME_JA = $(BUNDLE_DISPLAY_NAME_JA)
+# Be careful with characters (like '&') in the copyright that have special
+# meanings to sed.
+COPYRIGHT = Copyright © Mr. Hoge and many others
+# For now, using the line that appears in news_j.txt.  Is that appropriate?
+# The ampersand is a kanji so it doesn't seem to be treated as a special
+# character by sed.
+COPYRIGHT_JA = Mr.hoge (echizen＠users.sourceforge.jp) ＆ 多くの方々
+APPBNDL = $(bindir)/$(APPDIR)
+APPCONT = $(APPBNDL)/Contents
+APPBIN = $(APPCONT)/MacOS
+APPRES = $(APPCONT)/Resources
+appbin_PROGRAMS = $(APPEXE)
+appbindir = $(APPBIN)
+dist_appicon_DATA = $(cocoa_icon_files)
+appicondir = $(APPRES)
+appplist_DATA = $(cocoa_plist_files)
+appplistdir = $(APPRES)
+appennib_DATA = $(cocoa_en_nib_files)
+appennibdir = $(APPRES)/Base.lproj
+appen_DATA = $(cocoa_en_strings_files)
+appendir = $(APPRES)/en.lproj
+appja_DATA = $(cocoa_ja_strings_files)
+appjadir = $(APPRES)/ja.lproj
+else
+EXTRA_hengband_SOURCES += main-cocoa.m grafmode.h grafmode.c \
+	cocoa/AppDelegate.h
+hengband_LINK = $(LINK)
+endif
+
 install-exec-hook:
 if SET_GID
 	chgrp "@GAMEGROUP@" "$(DESTDIR)$(bindir)/hengband"

@@ -28,3 +28,16 @@ angband_DATA = \
   $(angband_files)
 endif
 
+if COCOA
+# APPNAME to APPRES duplicate what's in src/Makefile.am.  It would be nice to
+# avoid that, but until then, they should match.
+APPNAME = $(PACKAGE_NAME)
+APPDIR = $(APPNAME).app
+APPBNDL = $(bindir)/$(APPDIR)
+APPCONT = $(APPBNDL)/Contents
+APPRES = $(APPCONT)/Resources
+
+appdatadir = $(APPRES)/lib/edit
+appdata_DATA = \
+	$(angband_files)
+endif

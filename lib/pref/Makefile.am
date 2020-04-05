@@ -5,8 +5,8 @@ angband_files = \
 	colors.prf \
 	font-ami.prf font-dos.prf font-ibm.prf font-mac.prf \
 	font-mon.prf font-win.prf font-x11.prf font-xxx.prf \
-	font.prf graf-ami.prf graf-dos.prf graf-gcu.prf \
-	graf-ibm.prf graf-mac.prf graf-new.prf graf-win.prf \
+	font.prf graf-abt.prf graf-ami.prf graf-dos.prf graf-gcu.prf \
+	graf-ibm.prf graf-mac.prf graf-new.prf graf-ori.prf graf-win.prf \
 	graf-x11.prf graf-xaw.prf graf-xxx.prf graf.prf \
 	pref-acn.prf pref-ami.prf pref-emx.prf pref-gcu.prf \
 	pref-key.prf pref-mac.prf pref-opt.prf pref-win.prf \
@@ -24,3 +24,16 @@ angband_DATA = \
   $(angband_files)
 endif
 
+if COCOA
+# APPNAME to APPRES duplicate what's in src/Makefile.am.  It would be nice to
+# avoid that, but until then, they should match.
+APPNAME = $(PACKAGE_NAME)
+APPDIR = $(APPNAME).app
+APPBNDL = $(bindir)/$(APPDIR)
+APPCONT = $(APPBNDL)/Contents
+APPRES = $(APPCONT)/Resources
+
+appprefdir = $(APPRES)/lib/pref
+apppref_DATA = \
+	$(angband_files)
+endif
