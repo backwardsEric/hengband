@@ -5676,7 +5676,7 @@ static void play_sound(int event)
 	prepare_paths_and_directories();
 
 	/* Note the "system" */
-	ANGBAND_SYS = "mac";
+	ANGBAND_SYS = "coc";
 
 	/* Load possible graphics modes */
 	init_graphics_modes();
