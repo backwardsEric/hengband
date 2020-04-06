@@ -71,6 +71,8 @@ if test x"$enable_cocoa" = xyes ; then
   AC_LANG_PUSH([Objective C])
   AC_PROG_OBJC
   AC_LANG_POP([Objective C])
+  AC_DEFINE(SAFE_DIRECTORY, 1, [Mark var directory with version string])
+  AC_DEFINE(VERSION_STRING, "2.2.1", [Version string to use for var directory])
 fi
 
 dnl Checks for libraries.
