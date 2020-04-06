@@ -5813,6 +5813,13 @@ static void play_sound(int event)
 	[menuItem setState: ((is_on) ? NSOnState : NSOffState)];
 	return YES;
     }
+    else if (sel == @selector(toggleWideTiles:)) {
+	BOOL is_on = [[NSUserDefaults standardUserDefaults]
+			 boolForKey:AngbandBigTileDefaultsKey];
+
+	[menuItem setState: ((is_on) ? NSOnState : NSOffState)];
+	return YES;
+    }
     else if( sel == @selector(sendAngbandCommand:) ||
 	     sel == @selector(saveGame:) )
     {
