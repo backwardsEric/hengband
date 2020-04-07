@@ -14,7 +14,7 @@
         made, you can either get one of the packaged source code archives,
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/hengband-2.2.1.7d.tar.gz/">hengband-2.2.1.7d.tar.gz</A> is the latest, from
         <A HREF="https://osdn.net/projects/hengbandforosx/releases/">https://osdn.net/projbects/hengbandforosx/releases/</A>
-        or the clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
+        or clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
       <P>If you cloned the git repository and want to compile the code, you'll
        first need to create the configure script and some of the files it uses.
        To do so, run this command in the top-level directory of the directory
