@@ -42,53 +42,55 @@ void init_saved_floors(void)
 	{
 		saved_floor_type *sf_ptr = &saved_floors[i];
 
-		/* File name */
-		sprintf(floor_savefile, "%s.F%02d", savefile, i);
+		if (savefile[0]) {
+			/* File name */
+			sprintf(floor_savefile, "%s.F%02d", savefile, i);
 
-		/* Grab permissions */
-		safe_setuid_grab();
+			/* Grab permissions */
+			safe_setuid_grab();
 
-		/* Try to create the file */
-		fd = fd_make(floor_savefile, mode);
+			/* Try to create the file */
+			fd = fd_make(floor_savefile, mode);
 
-		/* Drop permissions */
-		safe_setuid_drop();
+			/* Drop permissions */
+			safe_setuid_drop();
 
-		/* Failed! */
-		if (fd < 0)
-		{
-			if (!force)
+			/* Failed! */
+			if (fd < 0)
 			{
+				if (!force)
+				{
 #ifdef JP
-				msg_print("エラー：古いテンポラリ・ファイルが残っています。");
-				msg_print("変愚蛮怒を二重に起動していないか確認してください。");
-				msg_print("過去に変愚蛮怒がクラッシュした場合は一時ファイルを");
-				msg_print("強制的に削除して実行を続けられます。");
-				if (!get_check("強制的に削除してもよろしいですか？")) quit("実行中止");
+					msg_print("エラー：古いテンポラリ・ファイルが残っています。");
+					msg_print("変愚蛮怒を二重に起動していないか確認してください。");
+					msg_print("過去に変愚蛮怒がクラッシュした場合は一時ファイルを");
+					msg_print("強制的に削除して実行を続けられます。");
+					if (!get_check("強制的に削除してもよろしいですか？")) quit("実行中止");
 #else
-				msg_print("Error: There are old temporal files.");
-				msg_print("Make sure you are not running two game processes simultaneously.");
-				msg_print("If the temporal files are garbages of old crashed process, ");
-				msg_print("you can delete it safely.");
-				if (!get_check("Do you delete old temporal files? ")) quit("Aborted.");
+					msg_print("Error: There are old temporal files.");
+					msg_print("Make sure you are not running two game processes simultaneously.");
+					msg_print("If the temporal files are garbages of old crashed process, ");
+					msg_print("you can delete it safely.");
+					if (!get_check("Do you delete old temporal files? ")) quit("Aborted.");
 #endif
-				force = TRUE;
+					force = TRUE;
+				}
 			}
+			else
+			{
+				/* Close the "fd" */
+				(void)fd_close(fd);
+			}
+
+			/* Grab permissions */
+			safe_setuid_grab();
+
+			/* Simply kill the temporal file */
+			(void)fd_kill(floor_savefile);
+
+			/* Drop permissions */
+			safe_setuid_drop();
 		}
-		else
-		{
-			/* Close the "fd" */
-			(void)fd_close(fd);
-		}
-
-		/* Grab permissions */
-		safe_setuid_grab();
-
-		/* Simply kill the temporal file */ 
-		(void)fd_kill(floor_savefile);
-
-		/* Drop permissions */
-		safe_setuid_drop();
 
 		sf_ptr->floor_id = 0;
 	}
