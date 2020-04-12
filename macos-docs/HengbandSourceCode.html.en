@@ -12,9 +12,15 @@
     <H1>Source Code</H1>
       <P>If you want to compile the code yourself or examine the changes I
         made, you can either get one of the packaged source code archives,
-        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/hengband-2.2.1.7d.tar.gz/">hengband-2.2.1.7d.tar.gz</A> is the latest, from
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72653/hengband-2.2.1.7d.tar.gz/">hengband-2.2.1.7d.tar.gz</A> is the latest for the
+        version based on Hengband 2.2.1.7 and
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/hengband-1.6.2a.tar.gz/">hengband-1.6.2a.tar.gz</A> is the latest for the
+        version based on Hengband 1.6.2, from
         <A HREF="https://osdn.net/projects/hengbandforosx/releases/">https://osdn.net/projbects/hengbandforosx/releases/</A>
         or clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
+        Within the git repository, the master branch corresponds to the
+        version based on 2.2.1.7 and the version-1-6-2 branch corresponds to
+        the version based on 1.6.2.
       <P>If you cloned the git repository and want to compile the code, you'll
        first need to create the configure script and some of the files it uses.
        To do so, run this command in the top-level directory of the directory
@@ -40,7 +46,8 @@
         information from the lib subdirectory there.  To get the Japanese
         version, do not specify <CODE>--disable-japanese</CODE> when running
         configure.  Compilation of the Japanese version requires the utility,
-        nkf.  Source code for that utility is available from
+        nkf, unless you are building the code based on Hengband 1.6.2.
+        Source code for that utility is available from
         <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>.
       <P>Eventually, the hope is that the changes made here will be
         incorporated into the standard version of Hengband and you can get
