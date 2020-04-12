@@ -509,6 +509,7 @@ msg_print("あなたの飢えは新鮮な血によってのみ満たされる！");
 		if (item >= 0)
 		{
 			inven_item_charges(item);
+			p_ptr->window |= (PW_INVEN);
 		}
 
 		/* Describe charges on the floor */
