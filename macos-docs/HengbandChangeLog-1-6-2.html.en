@@ -44,7 +44,7 @@
                 disable both PRIVATE_USER_PATH and SAVEFILE_USE_UID.
               <LI>Included habu's November 18, 2012 change in the master branch
                 to configure fixed-size integer types using stdint.h.
-              <LI>Avoided compiler warnings replacing instances of
+              <LI>Avoided compiler warnings by replacing instances of
                 fprintf(fd, s) with fputs(s, fd) as had been done in the
                 master branch.
               <LI>Avoided compiler warning about 32-bit integers passed to
