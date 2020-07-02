@@ -8075,7 +8075,7 @@ void do_cmd_knowledge(void)
 			prt("(7) Display current pets", 12, 5);
 			prt("(8) Display home inventory", 13, 5);
 			prt("(9) Display *identified* equip.", 14, 5);
-			prt("(0) Display terrain symbols.", 15, 5);
+			prt("(0) Display terrain symbols", 15, 5);
 		}
 		else
 		{
