@@ -11,6 +11,48 @@
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | 2.2.1.7 Changes | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
+        <LI>July 2, 2020.  2.2.1.7e includes the following changes:
+        <UL>
+          <LI>Fixed bug:  initialize displayed state of the "big tiles" setting
+            in the menu from the stored value rather than always setting it to
+            true.
+          <LI>Configured so the writable game files are put in
+            <CODE>~/Documents/Hengband-2.2.1</CODE> rather than
+            <CODE>~/Documents/Hengband</CODE>.  You may delete
+            <CODE>~/Documents/Hengband</CODE> if you don't want to retain the
+            high scores file and previously saved games.  If you want to carry
+            over the high scores file or previously saved games you could
+            <OL>
+              <LI>Rename <CODE>~/Documents/Hengband</CODE> to
+                <CODE>~/Documents/Hengband-2.2.1</CODE> prior to running the new
+                version.
+              <LI>Copy the contents of <CODE>~/Documents/Hengband/apex</CODE> to
+                <CODE>~/Documents/Hengband-2.2.1/apex</CODE> and the contents of
+                <CODE>~/Documents/Hengband/save</CODE> to
+                <CODE>~/Documents/Hengband-2.2.1/save</CODE> after running the
+                new version.
+            </OL>
+          <LI>The executable was compiled on Mac OS X 10.15.5 rather than
+            Mac OS X 10.14.6.  If you encounter problems with versions of
+            Mac OS X prior to 10.15, please let me know.
+          <LI>Made minor changes to English messages:
+          <OL>
+            <LI>The short description for the Trump realm wasn't cleared
+              properly on the birth screen.
+            <LI>Changed English diary entries about gender and personality
+              selection so "gender" appears in the one for gender and
+              "personality" in the one about personality.
+            <LI>Changed diary entry about realm selection to put "and" between
+              the realms if there are two and to pluralize "realm" as
+              appropriate.
+            <LI>Corrected typo in a rumor.
+            <LI>Dropped period in a knowledge menu item for consistency with
+              the rest of the menu.
+          </OL>
+          <LI>Changed to initialize the effective group ID and effective user
+            ID before calling init_angband().  Has no apparent effect with
+            Hengband 2.2.1.7 but is necessary for Hengband 1.6.2.
+        </UL>
         <LI>March 28, 2020.  2.2.1.7d includes the following changes:
         <UL>
           <LI>Fixed regression:  changing the font or tile set during character
