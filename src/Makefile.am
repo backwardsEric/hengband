@@ -149,8 +149,14 @@ install-data-local:
 		$(srcdir)/$(cocoa_plist_strings_template) > $(appjadir)/InfoPlist.strings
 
 distclean-local:
+	-rm -r -f $(DEPDIR)
 	-rm $(APPCONT)/Info.plist
 	-rm $(appendir)/InfoPlist.strings
 	-rm $(appjadir)/InfoPlist.strings
+
+else
+
+distclean-local:
+	-rm -r -f $(DEPDIR)
 
 endif
