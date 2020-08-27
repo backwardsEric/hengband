@@ -18,7 +18,7 @@
         version based on Hengband 1.6.2, from
         <A HREF="https://osdn.net/projects/hengbandforosx/releases/">https://osdn.net/projbects/hengbandforosx/releases/</A>
         or clone the git repository, git://git.osdn.net/gitroot/hengbandforosx/hengbandosx.git .
-        Within the git repository, the master branch corresponds to the
+        Within the git repository, the version-2-2-1 branch corresponds to the
         version based on 2.2.1.7 and the version-1-6-2 branch corresponds to
         the version based on 1.6.2.
       <P>If you cloned the git repository and want to compile the code, you'll
