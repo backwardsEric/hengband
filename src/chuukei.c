@@ -13,6 +13,10 @@
 #include <ctype.h>
 #ifdef WINDOWS
 #include <windows.h>
+#else
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 #endif
 
 #ifdef CHUUKEI
@@ -26,7 +30,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <sys/time.h>
 #include <arpa/inet.h>
 
 #include <setjmp.h>
