@@ -2180,10 +2180,12 @@ static bool initialized = FALSE;
 
 - (NSSize)baseSize
 {
-    /* We round the base size down. If we round it up, I believe we may end up
-	 * with pixels that nobody "owns" that may accumulate garbage. In general
-	 * rounding down is harmless, because any lost pixels may be sopped up by
-	 * the border. */
+    /*
+     * We round the base size down. If we round it up, I believe we may end up
+     * with pixels that nobody "owns" that may accumulate garbage. In general
+     * rounding down is harmless, because any lost pixels may be sopped up by
+     * the border.
+     */
     return NSMakeSize(
 	floor(self.cols * self.tileSize.width + 2 * self.borderSize.width),
 	floor(self.rows * self.tileSize.height + 2 * self.borderSize.height));
@@ -2273,8 +2275,10 @@ static int compare_advances(const void *ap, const void *bp)
         glyphWidths[i] = advances[i].width;
     }
 
-    /* For good non-mono-font support, use the median advance. Start by sorting
-	 * all advances. */
+    /*
+     * For good non-mono-font support, use the median advance. Start by sorting
+     * all advances.
+     */
     qsort(advances, GLYPH_COUNT, sizeof *advances, compare_advances);
 
     /* Skip over any initially empty run */
@@ -4378,16 +4382,20 @@ static CGImageRef create_angband_image(NSString *path)
             CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)url, (CFDictionaryRef)options);
             if (source)
             {
-                /* We really want the largest image, but in practice there's
-				 * only going to be one */
+                /*
+                 * We really want the largest image, but in practice there's
+                 * only going to be one
+                 */
                 decodedImage = CGImageSourceCreateImageAtIndex(source, 0, (CFDictionaryRef)options);
                 CFRelease(source);
             }
         }
     }
     
-    /* Draw the sucker to defeat ImageIO's weird desire to cache and decode on
-	 * demand. Our images aren't that big! */
+    /*
+     * Draw the sucker to defeat ImageIO's weird desire to cache and decode on
+     * demand. Our images aren't that big!
+     */
     if (decodedImage)
     {
         size_t width = CGImageGetWidth(decodedImage), height = CGImageGetHeight(decodedImage);
@@ -5486,9 +5494,11 @@ static void play_sound(int event)
     /* Save the game */
     do_cmd_save_game(FALSE);
     
-    /* Record the current save file so we can select it by default next time.
-	 * It's a little sketchy that this only happens when we save through the
-	 * menu; ideally game-triggered saves would trigger it too. */
+    /*
+     * Record the current save file so we can select it by default next time.
+     * It's a little sketchy that this only happens when we save through the
+     * menu; ideally game-triggered saves would trigger it too.
+     */
     record_current_savefile();
 }
 
@@ -5753,7 +5763,7 @@ static void play_sound(int event)
 /**
  * Implement NSObject's validateMenuItem() method to override enabling or
  * disabling a menu item.  Note that, as of 10.14, validateMenuItem() is
- * deprecated in NSObject - it will be removed at some point and  the
+ * deprecated in NSObject - it will be removed at some point and the
  * application delegate will have to be declared as implementing the
  * NSMenuItemValidation protocol.
  */
