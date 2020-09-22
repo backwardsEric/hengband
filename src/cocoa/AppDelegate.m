@@ -24,9 +24,9 @@
  *    reference language and localizable strings as the file type.
  * 4) Copy src/cocoa/AppDelegate.h and src/cocoa/AppDelegate.m from the
  *    Hengband source files to the directory in the project with main.m.  Copy
- *    src/cocoa/MainMenu.xib to the Base.lproj subdirectory of that directory.
- *    Copy src/cocoa/ja.lproj/MainMenu.strings to the ja.lproj subdirectory of
- *    that directory.
+ *    src/cocoa/Base.lproj/MainMenu.xib to the Base.lproj subdirectory of that
+ *    directory.  Copy src/cocoa/ja.lproj/MainMenu.strings to the ja.lproj
+ *    subdirectory of that directory.
  * 5) If you modify MainMenu.xib after copying it over, you may want to
  *    set it so that it can open in older versions of Xcode.  Select it in
  *    Xcode, and select one of the things, like "File's Owner" from it.  In
@@ -55,7 +55,7 @@
  *    Contents/Resources/Base.lproj/MainMenu.nib in the product directory which
  *    is something like
  *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
- *    You can use that to replace the src/cocoa/base.lproj/MainMenu.nib in the
+ *    You can use that to replace the src/cocoa/Base.lproj/MainMenu.nib in the
  *    Hengband source files.
  *
  * This work is free software; you can redistribute it and/or modify it
