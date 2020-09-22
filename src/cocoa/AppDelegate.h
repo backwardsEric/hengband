@@ -33,9 +33,6 @@
 - (IBAction)toggleWideTiles:(NSMenuItem *)sender;
 - (void)setGraphicsMode:(NSMenuItem *)sender;
 - (void)selectWindow:(id)sender;
-- (void)loadPrefs;
-- (void)linkTermData:(int)termIndex;
-- (void)initWindows;
 - (void)beginGame;
 
 @end
