@@ -27,15 +27,15 @@
  *    src/cocoa/Base.lproj/MainMenu.xib to the Base.lproj subdirectory of that
  *    directory.  Copy src/cocoa/ja.lproj/MainMenu.strings to the ja.lproj
  *    subdirectory of that directory.
- * 5) If you modify MainMenu.xib after copying it over, you may want to
- *    set it so that it can open in older versions of Xcode.  Select it in
+ * 6) If you modify MainMenu.xib after copying it over, you may want to
+ *    set it so that it can be opened in older versions of Xcode.  Select it in
  *    Xcode, and select one of the things, like "File's Owner" from it.  In
  *    the file information panel for it, there will be a section labeled
  *    "Document Editing" with an option menu for "Opens in".  Choosing one of
  *    the options other than "Latest Xcode" will close the file and save it
- *    with the appropriate flags.  Note that reopening that MainMenu.xib in
- *    Xcode will cause the version to revert to the latest Xcode.
- * 6) If you want to change the Japanese strings for the menus, one way to
+ *    with the appropriate flags.  Note that reopening the xib file in Xcode
+ *    and saving it will cause the version to revert to the latest Xcode.
+ * 7) If you want to change the Japanese strings for the menus, one way to
  *    partly do it in Xcode is to export the localizations:  from the file view
  *    select topmost category ("hengband" with an application icon) and then
  *    select Editor->Export for Localization... in Xcode's menu bar.  That
@@ -55,7 +55,7 @@
  *    Contents/Resources/Base.lproj/MainMenu.nib in the product directory which
  *    is something like
  *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
- *    You can use that to replace the src/cocoa/Base.lproj/MainMenu.nib in the
+ *    You can use it to replace the src/cocoa/Base.lproj/MainMenu.nib in the
  *    Hengband source files.
  *
  * This work is free software; you can redistribute it and/or modify it
