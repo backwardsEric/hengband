@@ -4250,8 +4250,8 @@ static void Term_init_cocoa(term *t)
 		 * windows in the "standard default" window position in OS X:
 		 * the upper center of the screen.  The term sizes set in
 		 * load_prefs() are based on a 5-wide by 3-high grid, with the
-                 * main term being 4/5 wide by 2/3 high (hence the scaling to
-                 * find what the containing rect would be).
+		 * main term being 4/5 wide by 2/3 high (hence the scaling to
+		 * find what the containing rect would be).
 		 */
 		NSRect originalMainTermFrame = [window frame];
 		NSRect scaledFrame = originalMainTermFrame;
