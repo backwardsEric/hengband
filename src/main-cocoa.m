@@ -5243,7 +5243,7 @@ static NSString* get_lib_directory(void)
 
     if( !libExists || !isDirectory )
     {
-	NSLog( @"Hengband: can't find %@/ in bundle: isDirectory: %d libExists: %d", AngbandDirectoryNameLib, isDirectory, libExists );
+	NSLog( @"%@: can't find %@/ in bundle: isDirectory: %d libExists: %d", @VERSION_NAME, AngbandDirectoryNameLib, isDirectory, libExists );
 
 	NSString *msg = NSLocalizedStringWithDefaultValue(
 	    @"Error.MissingResources",
