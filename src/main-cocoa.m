@@ -3291,7 +3291,6 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     NSGraphicsContext *nsctx = nil;
     CGContextRef ctx = 0;
     NSFont* screenFont = nil;
-    term *old = 0;
     int graf_width = 0, graf_height = 0;
     int overdraw_row = 0, overdraw_max = 0;
     wchar_t blank = 0;
@@ -3299,8 +3298,6 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 	rect.origin.x + rect.size.width > self.borderSize.width &&
 	rect.origin.y < bottomY &&
 	rect.origin.y + rect.size.height > self.borderSize.height) {
-	old = Term;
-	Term_activate(self->terminal);
 	nsctx = [NSGraphicsContext currentContext];
 	ctx = [nsctx graphicsPort];
 	screenFont = [self.angbandViewFont screenFont];
@@ -3326,9 +3323,6 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     if (overdraw_row && invalidCount > 1) {
 	sortedRects = malloc(invalidCount * sizeof(NSRect));
 	if (sortedRects == 0) {
-	    if (old != 0) {
-		Term_activate(old);
-	    }
 	    NSException *exc = [NSException exceptionWithName:@"OutOfMemory"
 					    reason:@"sorted rects in drawRect"
 					    userInfo:nil];
@@ -3675,9 +3669,6 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     }
 
     free(sortedRects);
-    if (old != 0) {
-	Term_activate(old);
-    }
 }
 
 - (BOOL)isOrderedIn
