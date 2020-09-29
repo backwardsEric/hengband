@@ -33,7 +33,7 @@
 #define kVK_ANSI_KeypadEnter 0x4C
 
 static NSString * const AngbandDirectoryNameLib = @"lib";
-static NSString * const AngbandDirectoryNameBase = @"Hengband";
+static NSString * const AngbandDirectoryNameBase = @VERSION_NAME;
 
 static NSString * const AngbandMessageCatalog = @"Localizable";
 static NSString * const AngbandTerminalsDefaultsKey = @"Terminals";
