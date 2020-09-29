@@ -5357,14 +5357,17 @@ static term *term_data_link(int i)
     /* Initialize the term */
     term_init(newterm, columns, rows, 256 /* keypresses, for some reason? */);
 
-    /* Differentiate between BS/^h, Tab/^i, etc. */
-    /* newterm->complex_input = TRUE; */
-
     /* Use a "software" cursor */
     newterm->soft_cursor = TRUE;
 
     /* Disable the per-row flush notifications since they are not used. */
     newterm->never_frosh = TRUE;
+
+    /*
+     * Differentiate between BS/^h, Tab/^i, ... so ^h and ^j work under the
+     * roguelike command set.
+     */
+    /* newterm->complex_input = TRUE; */
 
     /* Erase with "white space" */
     newterm->attr_blank = TERM_WHITE;
