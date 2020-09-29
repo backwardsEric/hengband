@@ -2658,7 +2658,6 @@ static __strong NSFont* gDefaultFont = nil;
 				  backing:NSBackingStoreBuffered defer:YES];
 	}
 
-
         /* Not to be released when closed */
         [self.primaryWindow setReleasedWhenClosed:NO];
         [self.primaryWindow setExcludedFromWindowsMenu: YES]; /* we're using custom window menu handling */
@@ -4487,7 +4486,6 @@ static errr Term_xtra_cocoa_react(void)
 			@"Could not load the tile set.  Switched back to ASCII.",
 			@"Alert informative message for failed tile set load");
 		    NSAlert *alert = [[NSAlert alloc] init];
-
 		    alert.messageText = msg;
 		    alert.informativeText = info;
 		    [alert runModal];
@@ -5263,7 +5261,6 @@ static NSString* get_lib_directory(void)
 	    @"Label.Quit", AngbandMessageCatalog, [NSBundle mainBundle],
 	    @"Quit", @"Quit");
 	NSAlert *alert = [[NSAlert alloc] init];
-
 	/*
 	 * Note that NSCriticalAlertStyle was deprecated in 10.10.  The
 	 * replacement is NSAlertStyleCritical.
@@ -5273,7 +5270,7 @@ static NSString* get_lib_directory(void)
 	alert.informativeText = info;
 	[alert addButtonWithTitle:quit_label];
 	[alert runModal];
-	exit( 0 );
+	exit(0);
     }
 
     return bundleLibPath;
