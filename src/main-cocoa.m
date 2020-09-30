@@ -118,7 +118,7 @@ static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp);
 - (void)playSound:(int)event;
 
 /**
- * Impose an arbitary limit on number of possible samples per event.
+ * Impose an arbitrary limit on the number of possible samples per event.
  * Currently not declaring this as a class property for compatibility with
  * versions of Xcode prior to 8.
  */
@@ -132,7 +132,7 @@ static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp);
 + (AngbandSoundCatalog*)sharedSounds;
 
 /**
- * Release any resouces associated with shared sounds.
+ * Release any resources associated with shared sounds.
  */
 + (void)clearSharedSounds;
 
