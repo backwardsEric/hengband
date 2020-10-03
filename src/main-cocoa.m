@@ -4913,7 +4913,7 @@ static void quit_calmly(void)
     {
         /* Hack -- Forget messages and term */
         msg_flag = FALSE;
-		Term->mapped_flag = FALSE;
+        Term->mapped_flag = FALSE;
 
         /* Save the game */
         do_cmd_save_game(FALSE);
