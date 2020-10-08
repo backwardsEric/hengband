@@ -1795,7 +1795,8 @@ static void draw_image_tile(
 }
 
 
-/* The max number of glyphs we support.  Currently this only affects
+/*
+ * The max number of glyphs we support.  Currently this only affects
  * updateGlyphInfo() for the calculation of the tile size, fontAscender,
  * fontDescender, nColPre, and nColPost.  The rendering in drawWChar() will
  * work for a glyph not in updateGlyphInfo()'s set, and that is used for
@@ -1926,8 +1927,10 @@ static void draw_image_tile(
 /* Display (flush) our Angband views */
 - (void)displayIfNeeded;
 
-/* Resize context to size of contentRect, and optionally save size to
- * defaults */
+/*
+ * Resize context to size of contentRect, and optionally save size to
+ * defaults
+ */
 - (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults;
 
 /*
@@ -4324,8 +4327,10 @@ static void Term_init_cocoa(term *t)
 	    [window setFrame: windowFrame display: NO];
 	}
 
-	/* Override the default frame above if the user has adjusted windows in
-	 * the past */
+	/*
+	 * Override the default frame above if the user has adjusted windows in
+	 * the past
+	 */
 	if (autosaveName) [window setFrameAutosaveName:autosaveName];
 
 	/*
@@ -4818,20 +4823,22 @@ static errr Term_text_cocoa(
 }
 
 #if 0
-/* From the Linux mbstowcs(3) man page:
- *   If dest is NULL, n is ignored, and the conversion  proceeds  as  above,
- *   except  that  the converted wide characters are not written out to mem‐
- *   ory, and that no length limit exists.
+/*
+ * From the Linux mbstowcs(3) man page:
+ * If dest is NULL, n is ignored, and the conversion proceeds as above,
+ * except that the converted wide characters are not written out to
+ * memory, and that no length limit exists.
  */
 static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
 {
     int i;
     int count = 0;
 
-    /* Unicode code point to UTF-8
-     *  0x0000-0x007f:   0xxxxxxx
-     *  0x0080-0x07ff:   110xxxxx 10xxxxxx
-     *  0x0800-0xffff:   1110xxxx 10xxxxxx 10xxxxxx
+    /*
+     * Unicode code point to UTF-8
+     * 0x0000-0x007f:    0xxxxxxx
+     * 0x0080-0x07ff:    110xxxxx 10xxxxxx
+     * 0x0800-0xffff:    1110xxxx 10xxxxxx 10xxxxxx
      * 0x10000-0x1fffff: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
      * Note that UTF-16 limits Unicode to 0x10ffff. This code is not
      * endian-agnostic.
@@ -5040,7 +5047,8 @@ static void AngbandHandleEventMouseDown( NSEvent *event )
 
 /**
  * Encodes an NSEvent Angband-style, or forwards it along.  Returns YES if the
- * event was sent to Angband, NO if Cocoa (or nothing) handled it */
+ * event was sent to Angband, NO if Cocoa (or nothing) handled it
+ */
 static BOOL send_event(NSEvent *event)
 {
 
@@ -5996,7 +6004,7 @@ static void init_windows(void)
 }
 
 /**
- *  Send a command to Angband via a menu item. This places the appropriate key
+ * Send a command to Angband via a menu item. This places the appropriate key
  * down events into the queue so that it seems like the user pressed them
  * (instead of trying to use the term directly).
  */
@@ -6036,7 +6044,7 @@ static void init_windows(void)
 }
 
 /**
- *  Set up the command menu dynamically, based on CommandMenu.plist.
+ * Set up the command menu dynamically, based on CommandMenu.plist.
  */
 - (void)prepareCommandMenu
 {
