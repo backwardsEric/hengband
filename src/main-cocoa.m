@@ -6185,8 +6185,10 @@ static void init_windows(void)
 	    if (graf->grafID == GRAPHICS_NONE) {
 		continue;
 	    }
-	    /* Make the title. NSMenuItem throws on a nil title, so ensure it's
-	           * not nil. */
+	    /*
+	     * Make the title. NSMenuItem throws on a nil title, so ensure it's
+	     * not nil.
+	     */
 	    key = [[NSString alloc] initWithUTF8String:graf->menuname];
 	    title = NSLocalizedStringWithDefaultValue(
 		key, tblname, [NSBundle mainBundle], key, @"");
