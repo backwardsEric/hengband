@@ -76,7 +76,7 @@ static bool new_game = FALSE;
 @class AngbandView;
 
 #ifdef JP
-static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp);
+static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 #endif
 
 /**
@@ -828,7 +828,7 @@ static int isCharNoPartial(const struct TerminalCell *c)
 		 */
 		break;
 	    }
-	    cellsRow[i].v.ch.glyph = convert_two_byte_eucjp_to_utf16_native(g);
+	    cellsRow[i].v.ch.glyph = convert_two_byte_eucjp_to_utf32_native(g);
 	    cellsRow[i].v.ch.attr = a;
 	    cellsRow[i].hscl = 2;
 	    cellsRow[i].vscl = 1;
@@ -4122,14 +4122,22 @@ static void record_current_savefile(void)
 #ifdef JP
 /**
  * Convert a two-byte EUC-JP encoded character (both *cp and (*cp + 1) are in
- * the range, 0xA1-0xFE, or *cp is 0x8E) to a utf16 value in the native byte
- * ordering.
+ * the range, 0xA1-0xFE, or *cp is 0x8E) to a UTF-32 (as a wchar_t) value in
+ * the native byte ordering.
  */
-static wchar_t convert_two_byte_eucjp_to_utf16_native(const char *cp)
+static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp)
 {
     NSString* str = [[NSString alloc] initWithBytes:cp length:2
 				      encoding:NSJapaneseEUCStringEncoding];
-    wchar_t result = [str characterAtIndex:0];
+    wchar_t result;
+    UniChar first = [str characterAtIndex:0];
+
+    if (CFStringIsSurrogateHighCharacter(first)) {
+        result = CFStringGetLongCharacterForSurrogatePair(
+            first, [str characterAtIndex:1]);
+    } else {
+        result = first;
+    }
     str = nil;
     return result;
 }
