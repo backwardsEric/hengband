@@ -5562,7 +5562,7 @@ static void load_prefs(void)
 
     NSDictionary *defaults = [[NSDictionary alloc] initWithObjectsAndKeys:
 #ifdef JP
-                              @"Osaka", @"FontName-0",
+                              @"HiraMaruProN-W4", @"FontName-0",
 #else
                               @"Menlo", @"FontName-0",
 #endif
