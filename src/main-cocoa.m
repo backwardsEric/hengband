@@ -821,7 +821,7 @@ static int isCharNoPartial(const struct TerminalCell *c)
     while (i < icol + n) {
 #ifdef JP
 	if (iskanji(*g)) {
-	    if (i == n - 1) {
+	    if (i == icol + n - 1) {
 		/*
 		 * The second byte of the character is past the end.  Ignore
 		 * the character.
