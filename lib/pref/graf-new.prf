@@ -5704,8 +5704,3 @@ R:1069:0x03/0x70
 
 # Load the special player pictures
 %:xtra-new.prf
-
-# On the Mac, using Angband's version of Adam Bolt's tiles.  Override some
-# of the above for what's different.
-?:[EQU $SYS coc]
-%:graf-abt.prf
