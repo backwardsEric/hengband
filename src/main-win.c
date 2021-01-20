@@ -1728,7 +1728,7 @@ static bool init_graphics(void)
 	if (arg_graphics == GRAPHICS_ADAM_BOLT)
 	{
 		/* Access the mask file */
-		path_build(buf, sizeof(buf), ANGBAND_DIR_XTRA_GRAF, "mask.bmp");
+		path_build(buf, sizeof(buf), ANGBAND_DIR_XTRA_GRAF, "16x16-mask.bmp");
 
 		/* Load the bitmap or quit */
 		if (!ReadDIB(data[0].w, buf, &infMask))
