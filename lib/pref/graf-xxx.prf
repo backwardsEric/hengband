@@ -4736,8 +4736,3 @@ K:657:0x01:0x3F
 
 # Load the special player pictures
 %:xtra-xxx.prf
-
-# On the Mac, using Angband's version of the original tile set.  Override
-# some of the above for what's different.
-?:[EQU $SYS coc]
-%:graf-ori.prf

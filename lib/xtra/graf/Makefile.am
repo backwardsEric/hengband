@@ -1,21 +1,26 @@
 ## Makefile.am -- Process this file with automake to process Makefile.in
 
-angband_files = \
-	8x8.bmp
+hengband_tilesets = \
+	8x8.bmp \
+	16x16.bmp \
+	16x16-mask.bmp
 
 angband4_conf = list.txt
-angband4_tile_files = \
+converted_tilesets = \
 	old/8x8.png \
 	adam-bolt/16x16.png
 
 EXTRA_DIST = \
-  $(angband_files) $(angband4_conf) $(angband4_tile_files)
+  $(hengband_tilesets) \
+  $(angband4_conf) \
+  osx_bmp2png.py \
+  $(converted_tilesets)
 
 if SET_GID
 angbanddir = @DEFAULT_LIB_PATH@/xtra/graf
 
 angband_DATA = \
-  $(angband_files)
+  $(hengband_tilesets)
 endif
 
 if COCOA
@@ -31,5 +36,5 @@ appgrafdir = $(APPRES)/lib/xtra/graf
 appgraf_DATA = \
 	$(angband4_conf)
 nobase_appgraf_DATA = \
-	$(angband4_tile_files)
+	$(converted_tilesets)
 endif
