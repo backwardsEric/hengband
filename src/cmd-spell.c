@@ -27,6 +27,18 @@
 #include "player-status.h"
 #include "object-hook.h"
 
+/*
+ * Define these here, rather than use preprocessor macros set in cmd-spell.h,
+ * so that the preprocessing done to switch character encoding works on the
+ * platforms that use configure/automake.
+ */
+concptr KWD_DAM = _("損傷:", "dam ");
+concptr KWD_RANGE = _("射程:", "rng ");
+concptr KWD_DURATION = _("期間:", "dur ");
+concptr KWD_SPHERE = _("範囲:", "range ");
+concptr KWD_HEAL = _("回復:", "heal ");
+concptr KWD_RANDOM = _("ランダム", "random");
+
 /*!
  * @brief
  * 魔法の効果を「キャプション:ダイス＋定数値」のフォーマットで出力する / Generate dice info string such as "foo 2d10"

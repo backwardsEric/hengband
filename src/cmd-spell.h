@@ -1,9 +1,9 @@
-﻿#define KWD_DAM      _("損傷:", "dam ")
-#define KWD_RANGE    _("射程:", "rng ")
-#define KWD_DURATION _("期間:", "dur ")
-#define KWD_SPHERE   _("範囲:", "range ")
-#define KWD_HEAL     _("回復:", "heal ")
-#define KWD_RANDOM   _("ランダム", "random")
+﻿extern concptr KWD_DAM;
+extern concptr KWD_RANGE;
+extern concptr KWD_DURATION;
+extern concptr KWD_SPHERE;
+extern concptr KWD_HEAL;
+extern concptr KWD_RANDOM;
 
 extern concptr info_string_dice(concptr str, DICE_NUMBER dice, DICE_SID sides, int base);
 extern concptr info_damage(DICE_NUMBER dice, DICE_SID sides, int base);
