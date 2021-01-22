@@ -55,7 +55,7 @@
         <UL>
           <LI>Support for the Mac OS X interface
           <LI>Correction for how rivers are added in dungeons which nominally
-            do not allow any of the river types,
+            do not allow any of the river types
           <LI>Some corrections for using unidentified items from the pack
           <LI>A correction for a division by zero exception when choosing
             monsters for arena battles
