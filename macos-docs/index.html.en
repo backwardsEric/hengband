@@ -3,11 +3,11 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X</TITLE>
+    <TITLE>Hengband Application for macOS</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P>Binaries | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>Binaries</H1>
       <H2>Based on Hengband's Current Development Release</H2>
@@ -23,7 +23,7 @@
     <H1>Instructions</H1>
       <P>I have put together a version of the rogue-like game,
         <A HREF="https://hengband.osdn.jp/en/">Hengband</A>, for computers
-        running Mac OS X 10.8 or later.  To use the English version, download
+        running macOS 10.8 or later.  To use the English version, download
         either <A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-English.dmg/">Hengband-2.2.1.7e-English.dmg</A>
         for the version based on the current development version of Hengband or
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/Hengband-1.6.2a-English.dmg/">Hengband-1.6.2a-English.dmg</A>
@@ -53,7 +53,7 @@
       <P>The versions based on Hengband 2.2.1.7 started with master branch
         source code as of April 10th, 2019 and added these changes:
         <UL>
-          <LI>Support for the Mac OS X interface
+          <LI>Support for the macOS interface using Cocoa
           <LI>Correction for how rivers are added in dungeons which nominally
             do not allow any of the river types
           <LI>Some corrections for using unidentified items from the pack
@@ -66,7 +66,7 @@
       <P>The versions based on Hengband 1.6.2 started with the source code
         tagged as 1.6.2 and added the following changes
         <UL>
-          <LI>Support for the Mac OS X interface including porting of PHO's
+          <LI>Support for the macOS interface including porting of PHO's
             February 2020 patch from the master branch
           <LI>Use stdint.h to configure the fixed-size integer types (a
             change made on November 18, 2012 in the master branch)
@@ -87,7 +87,7 @@
         </UL>
     <H1>Acknowledgements</H1>
       <P>None of this would have been possible without the Hengband source
-        code and code, especially for the Mac OS X interface and tile set
+        code and code, especially for the macOS interface and tile set
         configuration, from
         <A HREF="https://github.com/NickMcConnell/poschengband">poschengband</A> and
         <A HREF="http://rephial.org">Angband</A>.  All of the hard work was
