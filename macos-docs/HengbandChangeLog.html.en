@@ -3,11 +3,11 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X: Changes in 2.2.1.7 Version</TITLE>
+    <TITLE>Hengband Application for macOS: Changes in 2.2.1.7 Version</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | 2.2.1.7 Changes | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
@@ -32,9 +32,9 @@
                 <CODE>~/Documents/Hengband-2.2.1/save</CODE> after running the
                 new version.
             </OL>
-          <LI>The executable was compiled on Mac OS X 10.15.5 rather than
-            Mac OS X 10.14.6.  If you encounter problems with versions of
-            Mac OS X prior to 10.15, please let me know.
+          <LI>The executable was compiled on macOS 10.15.5 rather than
+            macOS 10.14.6.  If you encounter problems with versions of
+            macOS prior to 10.15, please let me know.
           <LI>Made minor changes to English messages:
           <OL>
             <LI>The short description for the Trump realm wasn't cleared
@@ -56,34 +56,34 @@
         <LI>March 28, 2020.  2.2.1.7d includes the following changes:
         <UL>
           <LI>Fixed regression:  changing the font or tile set during character
-            generation in the Mac OS X front end would cause a crash.
+            generation in the macOS front end would cause a crash.
           <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40204">ticket 40204</A>,
-            configured terminals other than the main one in the Mac OS X
+            configured terminals other than the main one in the macOS
             front end as non-floating panels so they have narrower title bars.
             Has the side effect that those terminals will automatically hide
             when one switches to another application.
           <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40203">ticket 40203</A>,
             added the dimensions, in rows and columns, to the title bar for
-            each terminal window shown in the Mac OS X front end.
+            each terminal window shown in the macOS front end.
           <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40060">ticket 40060</A>,
             changed the kanji for the File menu's "New" entry in the Japanese
-            version of the Mac OS X front end.
+            version of the macOS front end.
           <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/40202">ticket 40202</A>,
             changed so the prompt to select new or open on the splash screen
-            for the Mac OS X front end always has the same position relative
+            for the macOS front end always has the same position relative
             to the rest of the splash screen text regardless of the dimensions
             of the window.
           <LI>For <A HREF="https://osdn.net/projects/hengbandforosx/ticket/39940">ticket 39940</A>,
             changed English diary entries to consistently use simple past
             tense.  Also omitted the subject in the diary entries when it was
             "you".  Made some changes in the entries to be more idiomatic.
-          <LI>For the Mac OS X front end, brought over changes from Angband
+          <LI>For the macOS front end, brought over changes from Angband
             to improve the drawing speed.
-          <LI>For the Mac OS X front end, modified so user changes to a
+          <LI>For the macOS front end, modified so user changes to a
             window's width are in increments of the width of a column and
             user changes to a window's height are in increments of the height
             of a row.
-          <LI>For the Mac OS X front end, changed to round down when
+          <LI>For the macOS front end, changed to round down when
             calculating the number of columns for a given size so a font change
             can leave blank space at the end of a row rather than a partially
             obscured character.
@@ -91,7 +91,7 @@
           <LI>Changed some English game messages to fix a typo on the first
             birth screen and improve some the notifications about the player's
             aura damaging monsters.
-          <LI>For the Japanese version of the Mac OS X front end, changed the
+          <LI>For the Japanese version of the macOS front end, changed the
             copyright string to match the line crediting Mr. Hoge from
             news_j.txt.
         </UL>
@@ -153,7 +153,7 @@
           Changed init_saved_floors() to only check for out-of-date saved
           floors if savefile is not an empty string; that prevents spurious
           messages about old temporary files when "New" is selected in the
-          Cocoa front-end for Mac OS X.  Redid earlier change for English
+          Cocoa front-end for macOS.  Redid earlier change for English
           message crashes in spell_RF6_HEAL() to be more compact.  Made many
           adjustments to the text of English messages especially in monster and
           item descriptions.  To better match the source material, the base
@@ -179,7 +179,7 @@
           adjusted layout in character screen so the row for sustains
           experience aligns with the others.  Made many adjustments, primarily
           for spell and ability descriptions or messages, to English game
-          messages.  For the Mac OS X interface, changed to disable "Window"
+          messages.  For the macOS interface, changed to disable "Window"
           menu entries until the backend is ready.  That prevents crashes if
           the item is selected before a character is selected.  Also changed
           to recompute the minimum window size after changing the font and to
@@ -194,7 +194,7 @@
           monster recall and compiler warnings about unused expressions.
           Made several changes for grammar or clarity in English messages.
           Changed a cast in files.c to avoid a compiler warning.  For the
-          Mac OS X interface, changed the names for the terminal windows in
+          macOS interface, changed the names for the terminal windows in
           the Window menu to match the names in the windows' title bars.
           Localized Info.plist for Japanese and changed the Japanese version
           of the menus to use 変愚蛮怒 instead of hengband.  Adjusted some
@@ -215,7 +215,7 @@
           the rumors).  In the English version, made minor layout adjustments
           for the level indicator in the main screen, page indicator in the
           shops, and for the digging and infravision proficiencies in the
-          character screen.  For the Mac OS X interface, changed the rendering
+          character screen.  For the macOS interface, changed the rendering
           to reduce the clearing and clipping artifacts with fonts like Snell
           Roundhand and Zapfino.  That will change the number of rows and
           columns that can be displayed in a given space with most fonts so
@@ -226,7 +226,7 @@
           could cause crashes (from castle_quest() in bldg.c,
           spell_RF6_HEAL() in mspells4.c, and project_m() in spells1.c).
           Replaced more instances of "current_world_ptr-&gt;game_turn" with
-          "turn" in English messages.  Changed Mac OS X interface to avoid
+          "turn" in English messages.  Changed macOS interface to avoid
           clearing artifacts along the tops of characters when using the
           Rockwell or DIN Condensed fonts.  That change will mean less rows
           for a given terminal height with some fonts.  There still are

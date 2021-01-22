@@ -3,11 +3,11 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X: Source Code</TITLE>
+    <TITLE>Hengband Application for macOS: Source Code</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | Source code | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>Source Code</H1>
       <P>If you want to compile the code yourself or examine the changes I
@@ -30,7 +30,7 @@
          <LI><CODE>./bootstrap</CODE>
        </OL>
       <P>To compile the changed code and generate an English version of the game
-        which uses the Mac OS X Cocoa user interface, run these commands from
+        which uses the Cocoa user interface for macOS, run these commands from
         the top-level directory of the directory tree with the source code:
         <OL>
           <LI><CODE>./configure --disable-japanese --enable-cocoa</CODE>

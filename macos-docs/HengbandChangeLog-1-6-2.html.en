@@ -3,17 +3,17 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X: Changes in 1.6.2 Version</TITLE>
+    <TITLE>Hengband Application for macOS: Changes in 1.6.2 Version</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | 1.6.2 Changes
     <H1>Changes</H1>
       <OL>
         <LI>April 12, 2020.  Initial release, 1.6.2a.
         <UL>
-          <LI>The Mac OS X front end is nearly the same as in 2.2.1.7.  The
+          <LI>The macOS front end is nearly the same as in 2.2.1.7.  The
             changes are:
             <UL>
               <LI>Fixed bug:  initialize displayed state of the "big tiles"
@@ -31,12 +31,12 @@
             changes:
             <UL>
               <LI>Changed the Macintosh portion of readme_eng.txt to only have
-                instructions for the Mac OS X version.
-              <LI>Changed pref-mac.prf so the keycodes sent by the Mac OS X
+                instructions for the macOS version.
+              <LI>Changed pref-mac.prf so the keycodes sent by the macOS
                 interface are recognized as macro triggers.  Map the keycodes
                 sent by the classic interface to the same set of macro triggers
                 so most of the same macros can be used for both.
-              <LI>Since the Mac OS X front end uses Angband's versions of the
+              <LI>Since the macOS front end uses Angband's versions of the
                 tile sets, conditonally include workarounds for the differences
                 in graf-xxx.prf and graf-new.prf.
               <LI>If the MACH_O_COCOA preprocessor macro is set, skip the
@@ -62,7 +62,7 @@
                 or staff from the pack.
               <LI>Only check for out-of-date temporary files if the save file
                 name is not an empty string.  Avoids spurious warnings when
-                creating a new character from the Mac OS X front end.
+                creating a new character from the macOS front end.
               <LI>Made changes for compatibility with modern versions of
                 autoconf and automake.  Those included habu's January 5, 2010
                 change on the master branch.

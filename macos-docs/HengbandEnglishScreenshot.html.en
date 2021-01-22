@@ -3,13 +3,13 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X: English Screenshot</TITLE>
+    <TITLE>Hengband Application for macOS: English Screenshot</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P><A HREF="index.html.en">Binaries</A> | English screen shot | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>English Screenshot</H1>
-    <P><IMG src="http://hengbandforosx.osdn.io/hengband_english.png" alt="A screenshot of the English version of Hengband for Mac OS X:  the orcs have a well-lit cave">
+    <P><IMG src="http://hengbandforosx.osdn.io/hengband_english.png" alt="A screenshot of the English version of Hengband for macOS:  the orcs have a well-lit cave">
   </BODY>
 </HTML>

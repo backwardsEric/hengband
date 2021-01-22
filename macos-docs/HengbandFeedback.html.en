@@ -3,11 +3,11 @@
 <HTML>
   <HEAD lang="en">
     <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <TITLE>Hengband Application for Mac OS X: Feedback</TITLE>
+    <TITLE>Hengband Application for macOS: Feedback</TITLE>
   </HEAD>
 
   <BODY>
-    <H1>Hengband Application for Mac OS X</H1>
+    <H1>Hengband Application for macOS</H1>
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | Feedback | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html.en">1.6.2 Changes</A>
     <H1>Feedback</H1>
       <P>If you have trouble using the application or suggestions for
@@ -16,10 +16,10 @@
         <A HREF="http://angband.oook.cz/forum">Angband forums at
         http://angband.oook.cz/forum</A> or on the ticket list at
         <A HREF="https://osdn.net/projects/hengbandforosx/ticket/">https://osdn.net/projects/hengbandforosx/ticket/</A>..
-      <P>The hope is to have the application run on Mac OS X 10.8 or later.
+      <P>The hope is to have the application run on macOS 10.8 or later.
         The system I have access to runs 10.15 and that's the system where the
         application has been tested.  If you encounter trouble with another
-        version of Mac OS X, please post in the Hengband OS X thread.
+        version of macOS, please post in the Hengband OS X thread.
       <P>If the application fails to run and the system does not provide a
         useful explanation of why it failed, you might try the following:
         <OL>
