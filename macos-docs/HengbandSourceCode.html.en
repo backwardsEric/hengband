@@ -49,6 +49,16 @@
         nkf, unless you are building the code based on Hengband 1.6.2.
         Source code for that utility is available from
         <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>.
+      <P>To compile an English version that will run natively on either x86_64
+        or arm machines, you can use these commands from the top-level directory
+        of the directory tree with the source code:
+        <OL>
+          <LI><CODE>env CFLAGS="-arch x86_64 -arch arm64" OBJCFLAGS="-arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
+          <LI><CODE>make install</CODE>
+        </OL>
+      <P>For a Japanese version with a universal binary, the steps are much the
+        same.  The only difference is to omit <CODE>--disable-japanese</CODE>
+        when running configure.
       <P>Eventually, the hope is that the changes made here will be
         incorporated into the standard version of Hengband and you can get
         both the source code and binaries from them.
