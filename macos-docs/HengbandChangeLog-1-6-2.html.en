@@ -11,6 +11,44 @@
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | 1.6.2 Changes
     <H1>Changes</H1>
       <OL>
+        <LI>1.6.2b includes the following changes:
+        <UL>
+          <LI>Include a binary with native support for x86_64 and arm systems.
+            I don't have access to an arm-based Mac os it's best to treat
+            running natively on an arm-based Mac as an experimental feature.
+          <LI>For the Japanese version, fixed bug where an incorrect internal
+            sanity check led to some characters not being rendered (most
+            obviously in item names in the stores) or to some characters not
+            being cleared (seen when switching between screens in the character
+            sheet).
+          <LI>No longer use Angband 4's versions of the graphical tiles.
+            Instead used Hengband's versions converted to PNG with transparency
+            added.
+          <LI>For Japanese, no longer use Osaka as the default font since it
+            is not included with macOS Catalina by default.  Instead, use
+            Hiragino Maru Gothic ProN.
+          <LI>Don't call Term_activate() from drawRect().  That caused crashes
+            with Angband on some versions of macOS.
+          <LI>Changed how the fallback preferences for the font name and size
+            are set so they'll properly influence the configuration for the
+            windows.
+          <LI>Allow for the possibility that a rendered character requires
+            a surrogate pair when encoded as UTF-16.
+          <LI>Fixed regression in the macOS interface:  wasn't considering the
+            full GLYPH_COUNT glyphs in updateGlyphInfo().
+          <LI>Use VERSION_NAME rather than an explicit "Hengband" in more places
+            in the macOS interface.
+          <LI>In Term_pict_cocoa(), step through the passed-in arrays in
+            increments of the tile width scaling.  Does not matter in the
+            current configuration where only one tile at a time is passed to
+            Term_pict_cocoa().
+          <LI>Made some comment changes and code rearrangements in the macOS
+            code so it can be more easily be compared against the code in other
+            variants.
+          <LI>The executable was compiled on macOS 10.15.7 rather than
+            macOS 10.14.6.  If you encounter problems with versions of macOS
+            prior to 10.15 or with macOS 10.16, please let me know.
+        </UL>
         <LI>April 12, 2020.  Initial release, 1.6.2a.
         <UL>
           <LI>The macOS front end is nearly the same as in 2.2.1.7.  The

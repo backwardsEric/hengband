@@ -59,8 +59,12 @@
           <LI>Some corrections for using unidentified items from the pack
           <LI>A correction for a division by zero exception when choosing
             monsters for arena battles
+          <LI>Changed handling of KWD_* macros to avoid garbled characters
+            in the spell list using the Japanese version
           <LI>The addition of the monster list update option
           <LI>Some changes to the English versions of some game messages
+          <LI>Fixed missing gettimeofday() prototype to avoid compiler error
+            with recent versions of Xcode
           <LI>Incorporation of Hengband's changes for non-Windows builds
         </UL>
       <P>The versions based on Hengband 1.6.2 started with the source code
