@@ -65,7 +65,7 @@
               <LI>Changed types in terminal hook prototypes to match what's
                 in 1.6.2.
             </UL>
-          <LI>The core Hengband code is that tagged 1.6.2 with the following
+          <LI>The core Hengband code is that tagged as 1.6.2 with the following
             changes:
             <UL>
               <LI>Changed the Macintosh portion of readme_eng.txt to only have
