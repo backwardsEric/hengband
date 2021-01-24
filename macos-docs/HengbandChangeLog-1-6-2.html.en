@@ -11,7 +11,7 @@
     <P><A HREF="index.html.en">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html.en">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html.en">Japanese screen shot</A> | <A HREF="HengbandFeedback.html.en">Feedback</A> | <A HREF="HengbandSourceCode.html.en">Source code</A> | <A HREF="HengbandChangeLog.html.en">2.2.1.7 Changes</A> | 1.6.2 Changes
     <H1>Changes</H1>
       <OL>
-        <LI>1.6.2b includes the following changes:
+        <LI>January 24, 2021.  1.6.2b includes the following changes:
         <UL>
           <LI>Include a binary with native support for x86_64 and arm systems.
             I don't have access to an arm-based Mac so it's best to treat
