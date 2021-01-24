@@ -17,8 +17,8 @@
         </UL>
       <H2>Based on Hengband's Last Stable Version</H2>
         <UL>
-          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/Hengband-1.6.2a-English.dmg/">English version; 1.6.2a</A>
-          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/Hengband-1.6.2a-Japanese.dmg/">Japanese version; 1.6.2a</A>
+          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-English.dmg/">English version; 1.6.2b</A>
+          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-Japanese.dmg/">Japanese version; 1.6.2b</A>
         </UL>
     <H1>Instructions</H1>
       <P>I have put together a version of the rogue-like game,
@@ -26,7 +26,7 @@
         running macOS 10.8 or later.  To use the English version, download
         either <A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-English.dmg/">Hengband-2.2.1.7e-English.dmg</A>
         for the version based on the current development version of Hengband or
-        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/Hengband-1.6.2a-English.dmg/">Hengband-1.6.2a-English.dmg</A>
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-English.dmg/">Hengband-1.6.2b-English.dmg</A>
         for the version based on the last stable release.  Double click on the
         downloaded file to open the disk image, and then drag the hengband
         application to where you want to store it.  Double clicking on the
@@ -48,7 +48,7 @@
       <P>A Japanese version is also available.  The installation instructions
         are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-Japanese.dmg/">Hengband-2.2.1.7e-Japanese.dmg</A>
         for the version based on the current development version or
-        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/72742/Hengband-1.6.2a-Japanese.dmg/">Hengband-1.6.2a-Japanese.dmg</A>
+        <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-Japanese.dmg/">Hengband-1.6.2b-Japanese.dmg</A>
         for the version based on the last stable release.
       <P>The versions based on Hengband 2.2.1.7 started with master branch
         source code as of April 10th, 2019 and added these changes:
