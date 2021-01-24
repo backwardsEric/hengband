@@ -12,8 +12,8 @@
     <H1>Binaries</H1>
       <H2>Based on Hengband's Development Version from 2019</H2>
         <UL>
-          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-English.dmg/">English version; 2.2.1.7e</A>
-          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-Japanese.dmg/">Japanese version; 2.2.1.7e</A>
+          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-English.dmg/">English version; 2.2.1.7f</A>
+          <LI><A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-Japanese.dmg/">Japanese version; 2.2.1.7f</A>
         </UL>
       <H2>Based on Hengband's Last Stable Version</H2>
         <UL>
@@ -24,7 +24,7 @@
       <P>I have put together a version of the rogue-like game,
         <A HREF="https://hengband.osdn.jp/en/">Hengband</A>, for computers
         running macOS 10.8 or later.  To use the English version, download
-        either <A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-English.dmg/">Hengband-2.2.1.7e-English.dmg</A>
+        either <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-English.dmg/">Hengband-2.2.1.7f-English.dmg</A>
         for the version based on the current development version of Hengband or
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-English.dmg/">Hengband-1.6.2b-English.dmg</A>
         for the version based on the last stable release.  Double click on the
@@ -46,7 +46,7 @@
             administrator to apply the exception to the security settings.
         </OL>
       <P>A Japanese version is also available.  The installation instructions
-        are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/73258/Hengband-2.2.1.7e-Japanese.dmg/">Hengband-2.2.1.7e-Japanese.dmg</A>
+        are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-Japanese.dmg/">Hengband-2.2.1.7f-Japanese.dmg</A>
         for the version based on the current development version or
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-Japanese.dmg/">Hengband-1.6.2b-Japanese.dmg</A>
         for the version based on the last stable release.
