@@ -14,7 +14,7 @@
         <LI>1.6.2b includes the following changes:
         <UL>
           <LI>Include a binary with native support for x86_64 and arm systems.
-            I don't have access to an arm-based Mac os it's best to treat
+            I don't have access to an arm-based Mac so it's best to treat
             running natively on an arm-based Mac as an experimental feature.
           <LI>For the Japanese version, fixed bug where an incorrect internal
             sanity check led to some characters not being rendered (most
