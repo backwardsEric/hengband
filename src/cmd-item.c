@@ -303,7 +303,7 @@ void do_cmd_wield(void)
 		object_desc(o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 
 		sprintf(dummy, _("%sを装備すると吸血鬼になります。よろしいですか？",
-			"%s will transforms you into a vampire permanently when equiped. Do you become a vampire?"), o_name);
+			"%s will transforms you into a vampire permanently when equipped. Do you become a vampire?"), o_name);
 
 		if (!get_check(dummy)) return;
 	}
