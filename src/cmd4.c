@@ -2986,7 +2986,7 @@ static void print_visuals_menu(concptr choice_msg)
 	prt(_("(R) 画面表示方法の初期化", "(R) Reset visuals"), 13, 5);
 
 	/* Prompt */
-	prt(format("コマンド: %s", choice_msg ? choice_msg : _("", "")), 15, 0);
+	prt(format(_("コマンド: %s", "Command: %s"), choice_msg ? choice_msg : _("", "")), 15, 0);
 }
 
 static void do_cmd_knowledge_monsters(bool *need_redraw, bool visual_only, IDX direct_r_idx);
