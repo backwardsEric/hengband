@@ -199,9 +199,9 @@ static essence_type essence_info[] =
 	{TR_TELEPORT, "teleport", 3, TR_TELEPORT, 25},
 
 	{TR_SLAY_EVIL, "slay evil", 5, TR_SLAY_EVIL, 100},
+	{TR_KILL_EVIL, "kill evil", 0, TR_SLAY_EVIL, 60},
 	{TR_SLAY_ANIMAL, "slay animal", 5, TR_SLAY_ANIMAL, 20},
 	{TR_KILL_ANIMAL, "kill animal", 5, TR_SLAY_ANIMAL, 60},
-	{TR_KILL_EVIL, "kill evil", 0, TR_SLAY_EVIL, 60},
 	{TR_SLAY_UNDEAD, "slay undead", 5, TR_SLAY_UNDEAD, 20},
 	{TR_KILL_UNDEAD, "kill undead", 5, TR_SLAY_UNDEAD, 60},
 	{TR_SLAY_DEMON, "slay demon", 5, TR_SLAY_DEMON, 20},
