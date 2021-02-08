@@ -25,7 +25,7 @@
         <A HREF="https://hengband.osdn.jp/en/">Hengband</A>, for computers
         running macOS 10.8 or later.  To use the English version, download
         either <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-English.dmg/">Hengband-2.2.1.7f-English.dmg</A>
-        for the version based on the current development version of Hengband or
+        for the version based on the 2019 development version of Hengband or
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-English.dmg/">Hengband-1.6.2b-English.dmg</A>
         for the version based on the last stable release.  Double click on the
         downloaded file to open the disk image, and then drag the hengband
@@ -47,7 +47,7 @@
         </OL>
       <P>A Japanese version is also available.  The installation instructions
         are essentially the same, but you'll need to download <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74504/Hengband-2.2.1.7f-Japanese.dmg/">Hengband-2.2.1.7f-Japanese.dmg</A>
-        for the version based on the current development version or
+        for the version based on the 2019 development version or
         <A HREF="https://osdn.net/projects/hengbandforosx/downloads/74503/Hengband-1.6.2b-Japanese.dmg/">Hengband-1.6.2b-Japanese.dmg</A>
         for the version based on the last stable release.
       <P>The versions based on Hengband 2.2.1.7 started with master branch
