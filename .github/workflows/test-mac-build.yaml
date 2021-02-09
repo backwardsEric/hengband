@@ -1,0 +1,135 @@
+# Verify that the software builds on a Mac either with English or Japanese
+# enabled.
+
+name: test-mac-build
+
+on:
+  push:
+    branches: [ 'macos-develop', 'macos-2-2-1', 'macos-1-6-2' ]
+  pull_request:
+
+env:
+  # If set and is not empty or all whitespace, this should be the list of
+  # architectures to build into a universal binary.  If not set, empty, or
+  # all whitespace, the default architecture for the combination of runner and
+  # hardware will be used.
+  UNIVERSAL_ARCHS: x86_64 arm64
+  # If set and is not empty or all whitespace, sets the name of the SDK to use.
+  # Otherwise the default SDK for the runner will be used.  Currently
+  # macos-latest defaults to the 10.15 SDK which can not build arm64 objects
+  # or binaries.  For valid values for the sdk name, look at the xcrun man page.
+  SDK_OVERRIDE: macosx11.1
+
+jobs:
+  english:
+    name: English
+    runs-on: macos-latest
+    env:
+      # This will be passed to all invocations of configure for this test.
+      DEFAULT_CONFIGURE_OPTIONS: --enable-cocoa --disable-japanese
+
+    steps:
+      - name: Clone Project
+        uses: actions/checkout@v2
+
+      # Requires automake and autoconf; install those via homebrew (available
+      # by default with macos-latest).
+      - name: Install Build Dependencies
+        run: |
+          brew install autoconf
+          brew install automake
+
+      - name: Build
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          ./bootstrap
+          CFLAGS=""
+          OBJCFLAGS=""
+          LDFLAGS=""
+          DEPENDENCY_TRACKING=""
+          if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
+            DEPENDENCY_TRACKING=--disable-dependency-tracking
+            for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
+              option="-arch $arch"
+              CFLAGS="$CFLAGS $option"
+              OBJCFLAGS="$OBJCFLAGS $option"
+              LDFLAGS="$LDFLAGS $option"
+            done
+            echo "Performing a univeral build:"
+            echo "  CFLAGS = $CFLAGS"
+            echo "  OBJCFLAGS = $OBJCFLAGS"
+            echo "  LDFLAGS = $LDFLAGS"
+          fi
+          env CFLAGS="$CFLAGS" OBJCFLAGS="$OBJCFLAGS" LDFLAGS="$LDFLAGS" \
+            ./configure $DEPENDENCY_TRACKING ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
+          make install
+          # Verify that some key files in the application bundle are there.
+          test -x hengband.app/Contents/MacOS/hengband || exit 1
+          test -r hengband.app/Contents/Info.plist || exit 1
+
+      # Use make distcheck to verify that configure.ac and the Makefile.am
+      # files properly list all the dependencies and that a build outside of
+      # of the source tree works.
+      - name: Distcheck
+        run: |
+          ./bootstrap
+          ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
+          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
+            distcheck
+
+  # Unless building 1.6.2; make distcheck will not work with the Japanese
+  # build (the preprocessing to change the source encoding modifies the source
+  # tree) so don't test that for the Japanese build.
+  japanese:
+    name: Japanese
+    runs-on: macos-latest
+    env:
+      # This will be passed to all invocations of configure for this test.
+      DEFAULT_CONFIGURE_OPTIONS: --enable-cocoa
+
+    steps:
+      - name: Clone Project
+        uses: actions/checkout@v2
+
+      # Requires automake, autoconf, and, unless building the 1.6.2 version,
+      # nkf; install those via homebrew (available by default with
+      # macos-latest).
+      - name: Install Build Dependencies
+        run: |
+          brew install autoconf
+          brew install automake
+          brew install nkf
+
+      - name: Build
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          ./bootstrap
+          CFLAGS=""
+          OBJCFLAGS=""
+          LDFLAGS=""
+          DEPENDENCY_TRACKING=""
+          if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
+            DEPENDENCY_TRACKING=--disable-dependency-tracking
+            for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
+              option="-arch $arch"
+              CFLAGS="$CFLAGS $option"
+              OBJCFLAGS="$OBJCFLAGS $option"
+              LDFLAGS="$LDFLAGS $option"
+            done
+            echo "Performing a univeral build:"
+            echo "  CFLAGS = $CFLAGS"
+            echo "  OBJCFLAGS = $OBJCFLAGS"
+            echo "  LDFLAGS = $LDFLAGS"
+          fi
+          env CFLAGS="$CFLAGS" OBJCFLAGS="$OBJCFLAGS" LDFLAGS="$LDFLAGS" \
+            ./configure $DEPENDENCY_TRACKING ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
+          make install
+          # Verify that some key files in the application bundle are there.
+          test -x hengband.app/Contents/MacOS/hengband || exit 1
+          test -r hengband.app/Contents/Info.plist || exit 1
