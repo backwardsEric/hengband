@@ -366,7 +366,7 @@ bool set_blind(TIME_EFFECT v)
 		{
 			if (p_ptr->prace == RACE_ANDROID)
 			{
-				msg_print(_("センサーをやられた！", "You are blind!"));
+				msg_print(_("センサーをやられた！", "The sensor broke!"));
 			}
 			else
 			{
@@ -385,7 +385,7 @@ bool set_blind(TIME_EFFECT v)
 		{
 			if (p_ptr->prace == RACE_ANDROID)
 			{
-				msg_print(_("センサーが復旧した。", "You can see again."));
+				msg_print(_("センサーが復旧した。", "The sensor has been restored."));
 			}
 			else
 			{
