@@ -703,7 +703,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 20:
 		if (name) return _("防具呪縛", "Curse armor");
-		if (desc) return _("装備している防具に呪いをかける。", "Curse a piece of armour that you wielding.");
+		if (desc) return _("装備している防具に呪いをかける。", "Curse a piece of armour that you are wielding.");
 		if (cast)
 		{
 			OBJECT_IDX item;
