@@ -497,7 +497,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 		if (cast)
 		{
-			msg_print(_("粉砕するメロディを奏で始めた．．．", "You weave a violent pattern of sounds to break wall."));
+			msg_print(_("粉砕するメロディを奏で始めた．．．", "You weave a violent pattern of sounds to break walls."));
 			start_singing(spell, MUSIC_WALL);
 		}
 
