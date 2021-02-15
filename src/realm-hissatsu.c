@@ -804,7 +804,7 @@ concptr do_hissatsu_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 28:
 		if (name) return _("二重の剣撃", "Twin Slash");
-		if (desc) return _("1ターンで2度攻撃を行う。", "double attacks at a time.");
+		if (desc) return _("1ターンで2度攻撃を行う。", "Attack twice in one turn.");
 
 		if (cast)
 		{
