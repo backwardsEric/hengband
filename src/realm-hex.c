@@ -847,7 +847,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		if (desc) return _("その階の増殖するモンスターの増殖を阻止する。", "Obstructs all multiplying by monsters in entire floor.");
 		if (cast)
 		{
-			msg_print(_("増殖を阻止する呪いをかけた。", "You feel anyone can not already multiply."));
+			msg_print(_("増殖を阻止する呪いをかけた。", "You feel anyone can not multiply."));
 		}
 		break;
 
