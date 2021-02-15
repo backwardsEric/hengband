@@ -66,7 +66,7 @@ const concptr artifact_bias_name[MAX_BIAS] =
 	"CON",
 	"CHA",
 	"Chaos",
-	"Pristly",
+	"Priestly",
 	"Necromantic",
 	"Law",
 	"Rogue",
