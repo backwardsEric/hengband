@@ -172,7 +172,7 @@ void self_knowledge(void)
 			case MIMIC_DEMON:
 			case MIMIC_DEMON_LORD:
 			sprintf(Dummy, _("あなたは %d ダメージの地獄か火炎のブレスを吐くことができる。(%d MP)", 
-							"You can nether breathe, dam. %d (cost %d)."), 3 * plev, 10+plev/3);
+							"You can breathe nether, dam. %d (cost %d)."), 3 * plev, 10+plev/3);
 
 				info[i++] = Dummy;
 			break;
