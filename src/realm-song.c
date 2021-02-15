@@ -849,7 +849,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		break;
 
 	case 29:
-		if (name) return _("再生の歌", "Goddess' rebirth");
+		if (name) return _("再生の歌", "Goddess's rebirth");
 		if (desc) return _("すべてのステータスと経験値を回復する。", "Restores all stats and experience.");
 
 		{
