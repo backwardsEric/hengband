@@ -1095,7 +1095,7 @@ static void check_music(void)
 		{
 			SINGING_SONG_EFFECT(p_ptr) = INTERUPTING_SONG_EFFECT(p_ptr);
 			INTERUPTING_SONG_EFFECT(p_ptr) = MUSIC_NONE;
-			msg_print(_("歌を再開した。", "You restart singing."));
+			msg_print(_("歌を再開した。", "You resume singing."));
 			p_ptr->action = ACTION_SING;
 			p_ptr->update |= (PU_BONUS | PU_HP | PU_MONSTERS);
 			p_ptr->redraw |= (PR_MAP | PR_STATUS | PR_STATE);
