@@ -567,7 +567,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 		if (cast)
 		{
-			msg_print(_("軽快な歌を口ずさみ始めた．．．", "You start singing joyful pop song..."));
+			msg_print(_("軽快な歌を口ずさみ始めた．．．", "You start singing a joyful pop song..."));
 			start_singing(spell, MUSIC_SPEED);
 		}
 
