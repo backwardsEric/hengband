@@ -800,7 +800,7 @@ static void build_target_vault(POSITION x0, POSITION y0, POSITION xsize, POSITIO
 	h3 = randint1(32);
 	h4 = randint1(32) - 16;
 
-	msg_print_wizard(CHEAT_DUNGEON, _("対称形ランダムVaultを生成しました。", "Elemental Vault"));
+	msg_print_wizard(CHEAT_DUNGEON, _("対称形ランダムVaultを生成しました。", "Target Vault"));
 
 	/* work out outer radius */
 	if (xsize > ysize)
