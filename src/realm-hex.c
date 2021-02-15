@@ -844,7 +844,7 @@ concptr do_hex_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		/*** 4th book (24-31) ***/
 	case 24:
 		if (name) return _("反増殖結界", "Anti multiply barrier");
-		if (desc) return _("その階の増殖するモンスターの増殖を阻止する。", "Obstructs all multiplying by monsters in entire floor.");
+		if (desc) return _("その階の増殖するモンスターの増殖を阻止する。", "Obstructs all multiplying by monsters on entire floor.");
 		if (cast)
 		{
 			msg_print(_("増殖を阻止する呪いをかけた。", "You feel anyone can not multiply."));
