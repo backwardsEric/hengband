@@ -418,7 +418,7 @@ concptr do_daemon_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		break;
 
 	case 22:
-		if (name) return _("サキュバスの接吻", "Kiss of Succubus");
+		if (name) return _("サキュバスの接吻", "Succubus's Kiss");
 		if (desc) return _("因果混乱の球を放つ。", "Fires a ball of nexus.");
 
 		{
