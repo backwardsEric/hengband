@@ -1104,7 +1104,7 @@ bool symbol_genocide(int power, bool player_cast)
 	/* Prevent genocide in quest levels */
 	if ((p_ptr->inside_quest && !random_quest_number(current_floor_ptr->dun_level)) || p_ptr->inside_arena || p_ptr->inside_battle)
 	{
-		msg_print(_("何も起きないようだ……", "It seems nothing happen here..."));
+		msg_print(_("何も起きないようだ……", "Nothing seems to happen..."));
 		return (FALSE);
 	}
 
