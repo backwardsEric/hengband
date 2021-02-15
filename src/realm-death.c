@@ -194,7 +194,7 @@ concptr do_death_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 8:
 		if (name) return _("エントロピーの球", "Orb of Entropy");
-		if (desc) return _("生命のある者のHPと最大HP双方にダメージを与える効果のある球を放つ。", "Fires a ball which damages to both HP and MaxHP of living monsters.");
+		if (desc) return _("生命のある者のHPと最大HP双方にダメージを与える効果のある球を放つ。", "Fires a ball which reduces both HP and MaxHP of living monsters.");
 
 		{
 			DICE_NUMBER dice = 3;
