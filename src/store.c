@@ -4974,7 +4974,7 @@ static void store_sell(void)
 			msg_print(_("我が家にはもう置く場所がない。", "Your home is full."));
 
 		else if (cur_store_num == STORE_MUSEUM)
-			msg_print(_("博物館はもう満杯だ。", "Museum is full."));
+			msg_print(_("博物館はもう満杯だ。", "The Museum is full."));
 
 		else
 			msg_print(_("すいませんが、店にはもう置く場所がありません。", "I have not the room in my store to keep it."));
@@ -5187,7 +5187,7 @@ static void store_examine(void)
 		if (cur_store_num == STORE_HOME)
 			msg_print(_("我が家には何も置いてありません。", "Your home is empty."));
 		else if (cur_store_num == STORE_MUSEUM)
-			msg_print(_("博物館には何も置いてありません。", "Museum is empty."));
+			msg_print(_("博物館には何も置いてありません。", "The Museum is empty."));
 		else
 			msg_print(_("現在商品の在庫を切らしています。", "I am currently out of stock."));
 		return;
@@ -5245,7 +5245,7 @@ static void museum_remove_object(void)
 	/* Empty? */
 	if (st_ptr->stock_num <= 0)
 	{
-		msg_print(_("博物館には何も置いてありません。", "Museum is empty."));
+		msg_print(_("博物館には何も置いてありません。", "The Museum is empty."));
 		return;
 	}
 
