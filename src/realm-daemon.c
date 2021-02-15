@@ -344,7 +344,7 @@ concptr do_daemon_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		break;
 
 	case 18:
-		if (name) return _("溶岩流", "The Flow of Lava");
+		if (name) return _("溶岩流", "Lava Flow");
 		if (desc) return _("自分を中心とした炎の球を作り出し、床を溶岩に変える。",
 			"Generates a ball of fire centered on you which transforms floors to magma.");
 
