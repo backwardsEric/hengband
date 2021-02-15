@@ -66,7 +66,7 @@ bool stop_hex_spell(void)
 
 	if (!hex_spelling_any())
 	{
-		msg_print(_("呪文を詠唱していません。", "You are casting no spell."));
+		msg_print(_("呪文を詠唱していません。", "You are not casting a spell."));
 		return FALSE;
 	}
 
