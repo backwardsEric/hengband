@@ -404,7 +404,7 @@ bool fishing(player_type *creature_ptr)
 	creature_ptr->fishing_dir = dir;
 	if (!cave_have_flag_bold(y, x, FF_WATER))
 	{
-		msg_print(_("そこは水辺ではない。", "There is no fishing place."));
+		msg_print(_("そこは水辺ではない。", "You can't fish here."));
 		return FALSE;
 	}
 	else if (current_floor_ptr->grid_array[y][x].m_idx)
