@@ -2920,7 +2920,7 @@ bool set_cut(TIME_EFFECT v)
 		{
 			/* None */
 			case 0:
-			msg_format(_("やっと%s。", "You are no longer bleeding."), p_ptr->prace == RACE_ANDROID ? "怪我が直った" : "出血が止まった");
+			msg_format(_("やっと%s。", "You are no longer %s."), p_ptr->prace == RACE_ANDROID ? _("怪我が直った", "leaking fluid") : _("出血が止まった", "bleeding"));
 
 			if (disturb_state) disturb(FALSE, FALSE);
 			break;
