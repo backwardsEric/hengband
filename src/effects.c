@@ -2339,13 +2339,13 @@ bool set_ele_immune(u32b immune_type, TIME_EFFECT v)
 		/* Set duration. */
 		p_ptr->ele_immune = v;
 
-		msg_format(_("%sの攻撃を受けつけなくなった！", "For a while, You are immune to %s"),
+		msg_format(_("%sの攻撃を受けつけなくなった！", "For a while, you are immune to %s"),
 			     ((immune_type == DEFENSE_ACID) ? _("酸", "acid!") :
 			      ((immune_type == DEFENSE_ELEC) ? _("電撃", "electricity!") :
 			       ((immune_type == DEFENSE_FIRE) ? _("火炎", "fire!") : 
 				((immune_type == DEFENSE_COLD) ? _("冷気", "cold!") : 
 				 ((immune_type == DEFENSE_POIS) ? _("毒", "poison!") : 
-					_("(なし)", "do nothing special.")))))));
+					_("(なし)", "nothing special.")))))));
 	}
 
 	if (disturb_state) disturb(FALSE, FALSE);
