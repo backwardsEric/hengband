@@ -4534,7 +4534,7 @@ static void store_purchase(void)
 
 	if (cur_store_num == STORE_MUSEUM)
 	{
-		msg_print(_("博物館から取り出すことはできません。", "Museum."));
+		msg_print(_("博物館から取り出すことはできません。", "Items cannot be taken out of the Museum."));
 		return;
 	}
 
