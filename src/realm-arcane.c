@@ -233,7 +233,7 @@ concptr do_arcane_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 13:
 		if (name) return _("解毒", "Cure Poison");
-		if (desc) return _("毒を体内から完全に取り除く。", "Cures poison status.");
+		if (desc) return _("毒を体内から完全に取り除く。", "Cures yourself of any poisons.");
 
 		{
 			if (cast)
