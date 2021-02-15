@@ -333,7 +333,7 @@ concptr do_death_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 14:
 		if (name) return _("反魂の術", "Animate dead");
-		if (desc) return _("周囲の死体や骨を生き返す。", "Resurrects nearby corpse and skeletons. And makes these your pets.");
+		if (desc) return _("周囲の死体や骨を生き返す。", "Resurrects nearby corpses and skeletons. And makes them your pets.");
 
 		{
 			if (cast)

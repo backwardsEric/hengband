@@ -447,7 +447,7 @@ concptr do_music_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 14:
 		if (name) return _("フィリエルの歌", "Firiel's Song");
-		if (desc) return _("周囲の死体や骨を生き返す。", "Resurrects nearby corpse and skeletons. And makes them your pets.");
+		if (desc) return _("周囲の死体や骨を生き返す。", "Resurrects nearby corpses and skeletons. And makes them your pets.");
 
 		{
 			/* Stop singing before start another */
