@@ -1668,7 +1668,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_FALLING_STAR:
 	{
-		msg_print(_("あなたは妖刀に魅入られた…", "You are enchanted by cursed blade..."));
+		msg_print(_("あなたは妖刀に魅入られた…", "You are fascinated by the cursed blade..."));
 		msg_print(_("「狂ほしく 血のごとき 月はのぼれり 秘めおきし 魔剣 いずこぞや」", "'Behold the blade arts.'"));
 		massacre();
 		break;
