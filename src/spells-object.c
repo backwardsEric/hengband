@@ -1082,8 +1082,8 @@ bool pulish_shield(void)
 	/* Assume enchant weapon */
 	item_tester_tval = TV_SHIELD;
 
-	q = _("どの盾を磨きますか？", "Pulish which weapon? ");
-	s = _("磨く盾がありません。", "You have weapon to pulish.");
+	q = _("どの盾を磨きますか？", "Polish which shield? ");
+	s = _("磨く盾がありません。", "You have no shield to polish.");
 
 	o_ptr = choose_object(&item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
 	if (!o_ptr) return FALSE;
