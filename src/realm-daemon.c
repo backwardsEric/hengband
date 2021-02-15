@@ -131,7 +131,7 @@ concptr do_daemon_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 6:
 		if (name) return _("古代の死霊召喚", "Summon Manes");
-		if (desc) return _("古代の死霊を召喚する。", "Summons a manes.");
+		if (desc) return _("古代の死霊を召喚する。", "Summons one or more Manes.");
 
 		{
 			if (cast)
