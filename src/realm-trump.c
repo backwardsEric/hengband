@@ -177,7 +177,7 @@ concptr do_trump_spell(SPELL_IDX spell, BIT_FLAGS mode)
 
 	case 9:
 		if (name) return _("カミカゼのカード", "Trump Kamikaze");
-		if (desc) return _("複数の爆発するモンスターを召喚する。", "Summons monsters which explode by itself.");
+		if (desc) return _("複数の爆発するモンスターを召喚する。", "Summons multiple exploding monsters.");
 
 		{
 			if (cast || fail)
