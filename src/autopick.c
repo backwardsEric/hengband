@@ -2437,7 +2437,6 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	if (IS_FLG(FLG_RARE))
 	{
 		before_str[before_n++] = "very rare";
-		body_str = "equipments";
 		after_str[after_n++] = "such as Dragon armor, Blades of Chaos, etc.";
 	}
 
@@ -2445,7 +2444,6 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	if (IS_FLG(FLG_COMMON))
 	{
 		before_str[before_n++] = "relatively common";
-		body_str = "equipments";
 		after_str[after_n++] = "compared to very rare Dragon armor, Blades of Chaos, etc.";
 	}
 
@@ -2471,21 +2469,18 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	/*** Good ***/
 	if (IS_FLG(FLG_GOOD))
 	{
-		body_str = "equipment";
 		which_str[which_n++] = "have good quality";
 	}
 
 	/*** Nameless ***/
 	if (IS_FLG(FLG_NAMELESS))
 	{
-		body_str = "equipment";
-		which_str[which_n++] = "is neither ego-item nor artifact";
+		which_str[which_n++] = "are neither ego items nor artifacts";
 	}
 
 	/*** Average ***/
 	if (IS_FLG(FLG_AVERAGE))
 	{
-		body_str = "equipment";
 		which_str[which_n++] = "have average quality";
 	}
 
@@ -2519,7 +2514,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	/*** Items whose magical bonus is more than nn ***/
 	if (IS_FLG(FLG_MORE_BONUS))
 	{
-		whose_str[whose_n] = "magical bonus is bigger than (+";
+		whose_str[whose_n] = "magical bonuses are bigger than (+";
 		if (arg_n < (int) (sizeof(arg_str) / sizeof(arg_str[0]))) {
 			snprintf(arg_str[arg_n], sizeof(arg_str[arg_n]),
 				"%d)", entry->bonus);
@@ -2534,23 +2529,23 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	/*** Wanted monster's corpse/skeletons ***/
 	if (IS_FLG(FLG_WANTED))
 	{
-		body_str = "corpse or skeletons";
-		which_str[which_n++] = "is wanted at the Hunter's Office";
+		body_str = "corpses or skeletons";
+		which_str[which_n++] = "are wanted at the Hunter's Office";
 	}
 
 	/*** Human corpse/skeletons (for Daemon magic) ***/
 	if (IS_FLG(FLG_HUMAN))
 	{
 		before_str[before_n++] = "humanoid";
-		body_str = "corpse or skeletons";
+		body_str = "corpses or skeletons";
 		which_str[which_n++] = "can be used for Daemon magic";
 	}
 
 	/*** Unique monster's corpse/skeletons/statues ***/
 	if (IS_FLG(FLG_UNIQUE))
 	{
-		before_str[before_n++] = "unique monster's";
-		body_str = "corpse or skeletons";
+		before_str[before_n++] = "unique monsters'";
+		body_str = "corpses or skeletons";
 	}
 
 	/*** Unreadable spellbooks ***/
@@ -2610,7 +2605,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	else if (IS_FLG(FLG_FAVORITE_WEAPONS))
 		body_str = "favorite weapons";
 	else if (IS_FLG(FLG_ARMORS))
-		body_str = "armors";
+		body_str = "pieces of armor";
 	else if (IS_FLG(FLG_MISSILES))
 		body_str = "shots, arrows or crossbow bolts";
 	else if (IS_FLG(FLG_DEVICES))
@@ -2618,7 +2613,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	else if (IS_FLG(FLG_LIGHTS))
 		body_str = "light sources";
 	else if (IS_FLG(FLG_JUNKS))
-		body_str = "junk such as broken sticks";
+		body_str = "pieces of junk such as broken sticks";
 	else if (IS_FLG(FLG_CORPSES))
 		body_str = "corpses or skeletons";
 	else if (IS_FLG(FLG_SPELLBOOKS))
@@ -2634,7 +2629,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	else if (IS_FLG(FLG_AMULETS))
 		body_str = "amulets";
 	else if (IS_FLG(FLG_SUITS))
-		body_str = "body armors";
+		body_str = "pieces of body armor";
 	else if (IS_FLG(FLG_CLOAKS))
 		body_str = "cloaks";
 	else if (IS_FLG(FLG_HELMS))
@@ -2651,7 +2646,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 		{
 			str++;
 			top = TRUE;
-			whose_str[whose_n] = "name begins with \"";
+			whose_str[whose_n] = "names begin with \"";
 			whose_arg_str[whose_n] = "";
 			++whose_n;
 		}
@@ -2740,7 +2735,7 @@ static void describe_autopick(char *buff, autopick_type *entry)
 	if (*str && !top)
 	{
 		strncat(buff, str, 80);
-		strcat(buff, "\" as part of its name");
+		strcat(buff, "\" as part of their names");
 	}
 	strcat(buff, ".");
 
