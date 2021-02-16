@@ -128,7 +128,7 @@ static bool choose_kata(void)
 
 	if (p_ptr->stun)
 	{
-		msg_print(_("意識がはっきりとしない。", "You are not clear headed"));
+		msg_print(_("意識がはっきりとしない。", "You are not clear-headed"));
 		return FALSE;
 	}
 
