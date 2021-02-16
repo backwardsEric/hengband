@@ -520,7 +520,7 @@ static concptr const mind_tips[5][MAX_MIND_POWERS] =
 	"Identifies an item.",
 	"Gives levitation for a while.",
 	"Generates a fire ball and immediately teleports you away. Gives resistance to fire for a while. This resistance can be added to that from equipment for more powerful resistance.",
-	"Steps close to a monster and attacks at a time.",
+	"In one action, steps close to a monster and attacks.",
 	"Shoots 8 iron Spikes in 8 random directions.",
 	"Teleports a monster to a place adjacent to you.",
 	"Releases a confusion ball which doesn't inflict any damage.",
