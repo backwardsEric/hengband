@@ -43,7 +43,7 @@ static concptr const snipe_tips[MAX_SNIPE_POWERS] =
 	"敵の急所にめがけて矢を放つ。成功すると敵を一撃死させる。失敗すると1ダメージ。",
 	"全てのモンスターに高威力を発揮する矢を放つ。反動による副次効果を受ける。",
 #else
-	"Concentrate your mind fot shooting.",
+	"Concentrate your mind for shooting.",
 	"Shoot a glowing arrow effective against light-sensitive foes.",
 	"Blink after shooting.",
 	"Shoot an arrow able to shatter traps.",
