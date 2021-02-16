@@ -3797,7 +3797,7 @@ static bool research_mon(void)
 
 			return FALSE;
 		}
-		sprintf(buf, _("名前:%sにマッチ", "Monsters with a name \"%s\""),temp);
+		sprintf(buf, _("名前:%sにマッチ", "Monsters' names with \"%s\""),temp);
 	}
 	else if (ident_info[i])
 	{
