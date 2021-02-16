@@ -4221,6 +4221,9 @@ F:INT | FORCE_WEAPON
 F:SHOW_MODS
 F:SLAY_EVIL | SLAY_UNDEAD
 F:FREE_ACT | LITE
+D:$A shining sword that keeps waiting for a hero in the back of the Mirage Tower.
+D:$  The blade was held by many red robes and continued to slaughter the evil ones.
+D:$ (Square, "Final Fantasy", 1987)
 D:蜃気楼の塔の奥で英雄を待ち続ける輝ける剣だ。
 D:その刃は数多くの赤衣の者達に握られ、悪しき者たちを屠り続けてきた。(ファイナルファンタジー1)
 
