@@ -1267,7 +1267,7 @@ static void py_attack_aux(POSITION y, POSITION x, bool *fear, bool *mdeath, s16b
 
 			if (zantetsu_mukou)
 			{
-				msg_print(_("こんな軟らかいものは切れん！", "You cannot cut such a elastic thing!"));
+				msg_print(_("こんな軟らかいものは切れん！", "You cannot cut such an elastic thing!"));
 				k = 0;
 			}
 
