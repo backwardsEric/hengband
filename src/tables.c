@@ -3827,7 +3827,7 @@ const monster_power monster_powers[MAX_MONSPELLS] =
 { 25,  20,  95,  320,  80, A_INT,  "nuke ball"},
 { 25,  15,  70,  800,  95, A_CON,  "breathe nuke"},
 { 30,  32,  85,  400,  80, A_INT,  "raw Logrus"},
-{ 35,  40,  95,  150,  95, A_CON,  "breath disintegrate"},
+{ 35,  40,  95,  150,  95, A_CON,  "breathe disintegration"},
 { 18,  13,  55,  630,  80, A_INT,  "acid ball"},
 { 14,  10,  45,  316,  60, A_INT,  "lightning ball"},
 { 20,  14,  60,  720,  80, A_INT,  "fire ball"},
