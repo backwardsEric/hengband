@@ -631,7 +631,7 @@ bool screen_object(object_type *o_ptr, BIT_FLAGS mode)
 	else
 	{
 		if(rad > 0) sprintf(desc, _("それは永遠なる明かり(半径 %d)を授ける。", "It provides light (radius %d) forever."), (int)rad);
-		if(rad < 0) sprintf(desc, _("それは明かりの半径を狭める(半径に-%d)。", "It decreases radius of light source by %d."), (int)-rad);
+		if(rad < 0) sprintf(desc, _("それは明かりの半径を狭める(半径に-%d)。", "It decreases the radius of your light by %d."), (int)-rad);
 	}
 	
 	if(rad != 0) info[i++] = desc;
