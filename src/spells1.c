@@ -4670,7 +4670,7 @@ static bool project_p(MONSTER_IDX who, concptr who_name, int r, POSITION y, POSI
 				if (who > 0) 
 					msg_format(_("%^sに精神エネルギーを吸い取られてしまった！", "%^s draws psychic energy from you!"), m_name);
 				else 
-					msg_print(_("精神エネルギーを吸い取られてしまった！", "Your psychic energy is drawn!"));
+					msg_print(_("精神エネルギーを吸い取られてしまった！", "Your psychic energy is drained!"));
 
 				/* Full drain */
 				if (dam >= p_ptr->csp)
