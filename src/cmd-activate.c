@@ -932,7 +932,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_BA_DARK:
 	{
-		msg_format(_("%sが深い闇に覆われた...", "The %s is coverd in pitch-darkness..."), name);
+		msg_format(_("%sが深い闇に覆われた...", "The %s is covered in pitch-darkness..."), name);
 		if (!get_aim_dir(&dir)) return FALSE;
 		fire_ball(GF_DARK, dir, 250, 4);
 		break;
