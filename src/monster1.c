@@ -1206,7 +1206,7 @@ static void roff_aux(MONRACE_IDX r_idx, BIT_FLAGS mode)
 	if (flags4 & RF4_DISPEL)            { vp[vn] = _("魔力消去", "dispel-magic"); color[vn++] = TERM_L_WHITE; }
 	if (a_ability_flags2 & (RF6_BLINK))           { vp[vn] = _("ショートテレポート", "blink-self"); color[vn++] = TERM_UMBER; }
 	if (a_ability_flags2 & (RF6_TPORT))           { vp[vn] = _("テレポート", "teleport-self"); color[vn++] = TERM_ORANGE; }
-	if (a_ability_flags2 & (RF6_WORLD))           { vp[vn] = _("時を止める", "stop the time"); color[vn++] = TERM_L_BLUE; }
+	if (a_ability_flags2 & (RF6_WORLD))           { vp[vn] = _("時を止める", "stop time"); color[vn++] = TERM_L_BLUE; }
 	if (a_ability_flags2 & (RF6_TELE_TO))         { vp[vn] = _("テレポートバック", "teleport to"); color[vn++] = TERM_L_UMBER; }
 	if (a_ability_flags2 & (RF6_TELE_AWAY))       { vp[vn] = _("テレポートアウェイ", "teleport away"); color[vn++] = TERM_UMBER; }
 	if (a_ability_flags2 & (RF6_TELE_LEVEL))      { vp[vn] = _("テレポート・レベル", "teleport level"); color[vn++] = TERM_ORANGE; }
