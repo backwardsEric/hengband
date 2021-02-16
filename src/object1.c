@@ -564,7 +564,7 @@ bool screen_object(object_type *o_ptr, BIT_FLAGS mode)
 
 	if ((o_ptr->tval == TV_SWORD) && (o_ptr->sval == SV_DOKUBARI))
 	{
-		info[i++] = _("それは相手を一撃で倒すことがある。", "It will attempt to kill a monster instantly.");
+		info[i++] = _("それは相手を一撃で倒すことがある。", "It will attempt to instantly kill a monster.");
 	}
 
 	if ((o_ptr->tval == TV_POLEARM) && (o_ptr->sval == SV_DEATH_SCYTHE))
