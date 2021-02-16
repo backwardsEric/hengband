@@ -1199,7 +1199,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_SPIDER, (PM_ALLOW_GROUP | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚された蜘蛛は怒っている！", "Summoned spiders are angry!"));
+                    msg_print(_("召喚された蜘蛛は怒っている！", "The summoned spiders are angry!"));
 			}
 			else
 			{
@@ -1215,7 +1215,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_HOUND, (PM_ALLOW_GROUP | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたハウンドは怒っている！", "Summoned hounds are angry!"));
+                    msg_print(_("召喚されたハウンドは怒っている！", "The summoned hounds are angry!"));
 			}
 			else
 			{
@@ -1231,7 +1231,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_HYDRA, (g_mode | p_mode), '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたヒドラは怒っている！", "Summoned hydras are angry!"));
+                    msg_print(_("召喚されたヒドラは怒っている！", "The summoned hydras are angry!"));
 			}
 			else
 			{
