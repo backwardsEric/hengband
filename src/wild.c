@@ -1142,7 +1142,7 @@ bool change_wild_mode(void)
 		if (m_ptr->cdis > MAX_SIGHT) continue;
 		if (!is_hostile(m_ptr)) continue;
 		msg_print(_("敵がすぐ近くにいるときは広域マップに入れない！",
-			"You cannot enter global map, since there is some monsters nearby!"));
+			"You cannot enter global map, since there are some monsters nearby!"));
 		free_turn(p_ptr);
 		return FALSE;
 	}
