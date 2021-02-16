@@ -212,7 +212,7 @@ void do_cmd_pet_dismiss(void)
 
 			if (pet_ctr == p_ptr->riding)
 			{
-				msg_format(_("%sから降りた。", "You have got off %s. "), friend_name);
+				msg_format(_("%sから降りた。", "You dismount from %s. "), friend_name);
 
 				p_ptr->riding = 0;
 
