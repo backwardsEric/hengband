@@ -2394,7 +2394,7 @@ static bool project_m(MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_P
 					dam -= p_ptr->virtues[vir-1]/20;
 				}
 
-				msg_format(_("%sを見つめた。", "You stare into %s."), m_name);
+				msg_format(_("%sを見つめた。", "You stare at %s."), m_name);
 
 				/* Attempt a saving throw */
 				if (common_saving_throw_charm(p_ptr, dam, m_ptr) ||
