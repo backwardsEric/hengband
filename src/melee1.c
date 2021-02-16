@@ -1715,7 +1715,7 @@ bool py_attack(POSITION y, POSITION x, COMBAT_OPTION_IDX mode)
 	if (!p_ptr->migite && !p_ptr->hidarite &&
 		!(p_ptr->muta2 & (MUT2_HORNS | MUT2_BEAK | MUT2_SCOR_TAIL | MUT2_TRUNK | MUT2_TENTACLES)))
 	{
-		msg_format(_("%s攻撃できない。", "You cannot do attacking."),
+		msg_format(_("%s攻撃できない。", "You cannot attack."),
 			(empty_hands(FALSE) == EMPTY_HAND_NONE) ? _("両手がふさがって", "") : "");
 		return FALSE;
 	}
