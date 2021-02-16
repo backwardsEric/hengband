@@ -2669,7 +2669,7 @@ static void process_world_aux_curse(void)
 				GAME_TEXT o_name[MAX_NLEN];
 
 				object_desc(o_name, choose_cursed_obj_name(TRC_CALL_DRAGON), (OD_OMIT_PREFIX | OD_NAME_ONLY));
-				msg_format(_("%sがドラゴンを引き寄せた！", "Your %s has attracted an dragon!"), o_name);
+				msg_format(_("%sがドラゴンを引き寄せた！", "Your %s has attracted a dragon!"), o_name);
 				disturb(FALSE, TRUE);
 			}
 		}
