@@ -1076,7 +1076,7 @@ HIT_POINT spell_RF5_BO_ACID(POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_I
 
 	monspell_message(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
-		_("%^sがアシッド・ボルトの呪文を唱えた。", "%^s casts a acid bolt."),
+		_("%^sがアシッド・ボルトの呪文を唱えた。", "%^s casts an acid bolt."),
 		_("%sが%sに向かってアシッド・ボルトの呪文を唱えた。", "%^s casts an acid bolt at %s."),
 		TARGET_TYPE);
 
