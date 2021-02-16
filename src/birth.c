@@ -4469,7 +4469,7 @@ static bool ask_quick_start(void)
 	Term_clear();
 
 	/* Extra info */
-	put_str(_("クイック・スタートを使うと以前と全く同じキャラクターで始められます。", "Do you want to use the quick start function(same character as your last one)."), 11, 2);
+	put_str(_("クイック・スタートを使うと以前と全く同じキャラクターで始められます。", "Do you want to use the quick start function (same character as your last one)."), 11, 2);
 
 	/* Choose */
 	while (1)
