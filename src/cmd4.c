@@ -4250,7 +4250,7 @@ static concptr object_group_text[] =
 	"Scrolls",
 	"Rings",
 	"Amulets",
-	"Whistle",
+	"Whistles",
 	"Lanterns",
 	"Wands",
 	"Staffs",
