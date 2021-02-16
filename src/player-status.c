@@ -2646,7 +2646,7 @@ void calc_bonuses(void)
 			}
 			else if (p_ptr->heavy_wield[1 - i])
 			{
-				msg_print(_("まだ武器が重い。", "You have still trouble wielding a heavy weapon."));
+				msg_print(_("まだ武器が重い。", "You still have trouble wielding a heavy weapon."));
 			}
 			else
 			{
