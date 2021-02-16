@@ -1143,7 +1143,7 @@ static void py_attack_aux(POSITION y, POSITION x, bool *fear, bool *mdeath, s16b
 						(randint1(p_ptr->lev) > r_ptr->level) &&
 						m_ptr->mspeed > 60)
 					{
-						msg_format(_("%^sは足をひきずり始めた。", "%^s starts limping slower."), m_name);
+						msg_format(_("%^sは足をひきずり始めた。", "You've hobbled %s."), m_name);
 						m_ptr->mspeed -= 10;
 					}
 				}
