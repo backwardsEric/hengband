@@ -384,7 +384,7 @@ concptr do_craft_spell(SPELL_IDX spell, BIT_FLAGS mode)
 				}
 				else
 				{
-					msg_print(_("うまくゴーレムを作れなかった。", "No Golems arrive."));
+					msg_print(_("うまくゴーレムを作れなかった。", "You couldn't make a golem."));
 				}
 			}
 		}
