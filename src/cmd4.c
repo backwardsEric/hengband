@@ -871,7 +871,7 @@ static void do_cmd_erase_nikki(void)
 	char buf[256];
 	FILE *fff = NULL;
 
-	if (!get_check(_("本当に記録を消去しますか？", "Do you really want to delete all your record? "))) return;
+	if (!get_check(_("本当に記録を消去しますか？", "Do you really want to delete all your records? "))) return;
 		sprintf(file_name,_("playrecord-%s.txt", "playrec-%s.txt"),savefile_base);
 
 	/* Build the filename */
