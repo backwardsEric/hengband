@@ -131,7 +131,7 @@ const activation_type activation_info[] =
 	{ "SCARE_AREA", ACT_SCARE_AREA, 20, 2500, {20, 0},
 	  _("モンスター恐慌", "frighten monsters") },
 	{ "AGGRAVATE", ACT_AGGRAVATE, 0, 100, {0, 0},
-	  _("モンスターを怒らせる", "aggravete monsters") },
+	  _("モンスターを怒らせる", "aggravate monsters") },
 
 	{ "CHARM_ANIMAL", ACT_CHARM_ANIMAL, 40, 7500, {200, 0},
 	  _("動物魅了", "charm animal") },
