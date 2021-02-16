@@ -2084,7 +2084,7 @@ bool set_dustrobe(TIME_EFFECT v, bool do_dec)
 		}
 		else if (!p_ptr->dustrobe)
 		{
-			msg_print(_("体が鏡のオーラで覆われた。", "You were enveloped by mirror shards."));
+			msg_print(_("体が鏡のオーラで覆われた。", "You are enveloped by mirror shards."));
 			notice = TRUE;
 		}
 	}
