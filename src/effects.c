@@ -4075,7 +4075,7 @@ int take_hit(int damage_type, HIT_POINT damage, concptr hit_from, int monspell)
 #ifdef JP
 					while (!get_string(winning_seppuku ? "辞世の句: " : "断末魔の叫び: ", death_message, 1024)) ;
 #else
-					while (!get_string("Last word: ", death_message, 1024)) ;
+					while (!get_string("Last words: ", death_message, 1024)) ;
 #endif
 				}
 				while (winning_seppuku && !get_check_strict(_("よろしいですか？", "Are you sure? "), CHECK_NO_HISTORY));
