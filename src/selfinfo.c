@@ -474,7 +474,7 @@ void self_knowledge(void)
 			if (plev > 29)
 			{
 				info[i++] = _("あなたは視界内の生命のあるモンスターを支配することができる。((レベル+20)/2 MP)", 
-						"You can dominate living monsters in sight (cost (level+20)/4).");
+						"You can dominate living monsters in sight (cost (level+20)/2).");
 			}
 			break;
 		case CLASS_MAGIC_EATER:
