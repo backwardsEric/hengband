@@ -4720,7 +4720,7 @@ static void draw_text_editor(text_body_type *tb)
 			default:
 				if (tb->states[tb->cy] & LSTAT_AUTOREGISTER)
 				{
-					str2 = _("この行は後で削除されます。", "This line will be delete later.");
+					str2 = _("この行は後で削除されます。", "This line will be deleted later.");
 				}
 
 				else if (tb->states[tb->cy] & LSTAT_BYPASS)
@@ -4742,7 +4742,7 @@ static void draw_text_editor(text_body_type *tb)
 
 			if (tb->states[tb->cy] & LSTAT_AUTOREGISTER)
 			{
-				strcat(buf, _("この行は後で削除されます。", "  This line will be delete later."));
+				strcat(buf, _("この行は後で削除されます。", "  This line will be deleted later."));
 			}
 
 			if (tb->states[tb->cy] & LSTAT_BYPASS)
