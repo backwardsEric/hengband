@@ -4115,7 +4115,7 @@ menu_naiyou menu_info[10][10] =
 	{
 		{"Save and quit(^x)", KTRL('X'), TRUE},
 		{"Save(^s)", KTRL('S'), TRUE},
-		{"Help(obsoleted)(?)", '?', TRUE},
+		{"Help(out-of-date)(?)", '?', TRUE},
 		{"Redraw(^r)", KTRL('R'), TRUE},
 		{"Take note(:)", ':', TRUE},
 		{"Dump screen dump(()", ')', TRUE},
