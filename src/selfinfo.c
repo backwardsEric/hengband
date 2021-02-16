@@ -1565,7 +1565,7 @@ void self_knowledge(void)
 
 		if (have_flag(flgs, TR_FORCE_WEAPON))
 		{
-			info[i++] = _("あなたの武器はMPを使って攻撃する。", "Your weapon causes greate damages using your MP.");
+			info[i++] = _("あなたの武器はMPを使って攻撃する。", "Your weapon causes great damage using your MP.");
 		}
 		if (have_flag(flgs, TR_THROW))
 		{
