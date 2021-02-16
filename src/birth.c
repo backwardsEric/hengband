@@ -481,7 +481,7 @@ static concptr realm_subinfo[VALID_REALM] =
 "Good at both offence and defence.",
 "Destroys evil creatures.",
 "Songs with magical effects.",
-"Special attacks on melee.",
+"Special abilities for melee.",
 "Good at obstacle and revenge."
 #endif
 };
