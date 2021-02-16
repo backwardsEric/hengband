@@ -200,7 +200,7 @@ const activation_type activation_info[] =
 	{ "HERO", ACT_HERO, 10, 500, {30, 30},
 	  _("士気高揚", "heroism") },
 	{ "HERO_SPEED", ACT_HERO_SPEED, 30, 20000, {100, 200},
-	  _("士気高揚, スピード(期間 50+d50ターン)", "hero and +10 to speed (50)") },
+	  _("士気高揚, スピード(期間 50+d50ターン)", "hero and +10 to speed (dur 50+d50)") },
 	{ "RESIST_ACID", ACT_RESIST_ACID, 20, 2000, {40, 40},
 	  _("酸への耐性(期間 20+d20)", "resist acid (dur 20+d20)") },
 	{ "RESIST_FIRE", ACT_RESIST_FIRE, 20, 2000, {40, 40},
