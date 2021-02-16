@@ -720,7 +720,7 @@ static bool cmd_racial_power_aux(s32b command)
 
 		case RACE_KOBOLD:
 			if (!get_aim_dir(&dir)) return FALSE;
-			msg_print(_("毒のダーツを投げた。", "You throw a dart of poison."));
+			msg_print(_("毒のダーツを投げた。", "You throw a poisoned dart."));
 			fire_bolt(GF_POIS, dir, plev);
 			break;
 
