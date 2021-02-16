@@ -291,7 +291,7 @@ void gain_level_reward(int chosen_reward)
 
 			if (p_ptr->prace == RACE_ANDROID)
 			{
-				msg_print(_("しかし何も起こらなかった。", "But, nothing happen."));
+				msg_print(_("しかし何も起こらなかった。", "But, nothing happens."));
 			}
 			else if (p_ptr->exp < PY_MAX_EXP)
 			{
@@ -311,7 +311,7 @@ void gain_level_reward(int chosen_reward)
 
 			if (p_ptr->prace == RACE_ANDROID)
 			{
-				msg_print(_("しかし何も起こらなかった。", "But, nothing happen."));
+				msg_print(_("しかし何も起こらなかった。", "But, nothing happens."));
 			}
 			else
 			{
