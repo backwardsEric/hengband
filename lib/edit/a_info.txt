@@ -3601,6 +3601,7 @@ D:タイトや、ダイアモンドをわざわざ使ってあるくらいだも
 D:（富士見書房「アイスウインド・サーガ１魔石の復活」 R・A・サルヴァトーレ著、
 D:風見潤訳）
 
+# There Will Come Hard Rains
 N:209:『隠者の紫』
 E:'hermit's purple'
 I:21:2:2
@@ -3609,6 +3610,10 @@ P:0:1d6:10:5:0
 F:INT | WIS | FORCE_WEAPON |
 F:SEE_INVIS | TELEPATHY
 U:PROT_EVIL
+D:$It's a glam, semi-ghosted whip of thorns.
+D:$  You can convert the mental power of the owner into attack power
+D:$ and protect yourself with the power of ripples.
+D:$  When you wear it, you can see what happened in a distant place.
 D:半幽体化した不思議な茨の鞭だ。所有者の精神力を攻撃力に変換し、
 D:波紋の力で身を守ることができる。
 D:身につけると遠い場所の出来事がわかる。
