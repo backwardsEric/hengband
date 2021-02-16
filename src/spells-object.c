@@ -266,7 +266,7 @@ bool import_magic_device(void)
 	item_tester_hook = item_tester_hook_recharge;
 
 	q = _("どのアイテムの魔力を取り込みますか? ", "Gain power of which item? ");
-	s = _("魔力を取り込めるアイテムがない。", "You have nothing to gain power.");
+	s = _("魔力を取り込めるアイテムがない。", "There's nothing with power to absorb.");
 
 	o_ptr = choose_object(&item, q, s, (USE_INVEN | USE_FLOOR));
 	if (!o_ptr) return (FALSE);
