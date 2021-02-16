@@ -96,7 +96,7 @@ const activation_type activation_info[] =
 	{ "BA_MANA", ACT_BA_MANA, 70, 2500, {30, 0},
 	  _("魔力の嵐(250)", "a mana storm (250)") },
 	{ "PESTICIDE", ACT_PESTICIDE, 10, 500, {10, 0},
-	  _("害虫の駆除", "dispel small life") },
+	  _("害虫の駆除", "dispel pests") },
 	{ "BLINDING_LIGHT", ACT_BLINDING_LIGHT, 30, 5000, {40, 0},
 	  _("眩しい光", "blinding light") },
 	{ "BIZARRE", ACT_BIZARRE, 90, 10000, {50, 0},
