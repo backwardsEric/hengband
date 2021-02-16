@@ -1135,7 +1135,7 @@ bool screen_object(object_type *o_ptr, BIT_FLAGS mode)
 	}
 	if ((have_flag(flgs, TR_CALL_UNDEAD)) || (o_ptr->curse_flags & TRC_CALL_UNDEAD))
 	{
-		info[i++] = _("それは死霊を呼び寄せる。", "It attracts undeads.");
+		info[i++] = _("それは死霊を呼び寄せる。", "It attracts undead.");
 	}
 	if ((have_flag(flgs, TR_COWARDICE)) ||  (o_ptr->curse_flags & TRC_COWARDICE))
 	{
