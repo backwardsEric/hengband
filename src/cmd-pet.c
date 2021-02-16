@@ -1073,7 +1073,7 @@ bool rakuba(HIT_POINT dam, bool force)
 	if (p_ptr->levitation && !force)
 	{
 		monster_desc(m_name, m_ptr, 0);
-		msg_format(_("%sから落ちたが、空中でうまく体勢を立て直して着地した。", "You are thrown from %s, but make a good landing."), m_name);
+		msg_format(_("%sから落ちたが、空中でうまく体勢を立て直して着地した。", "You are thrown from %s but make a good landing."), m_name);
 	}
 	else
 	{
