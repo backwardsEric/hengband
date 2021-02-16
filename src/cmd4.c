@@ -4259,7 +4259,7 @@ static concptr object_group_text[] =
 	"Capture Balls",
 	"Parchments",
 	"Spikes",
-	"Boxs",
+	"Boxes",
 	"Figurines",
 	"Statues",
 	"Junk",
