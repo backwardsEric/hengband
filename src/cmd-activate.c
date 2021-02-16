@@ -287,7 +287,7 @@ const activation_type activation_info[] =
 	{ "GRAND_CROSS", ACT_GRAND_CROSS, 30, 15000, {250, 200},
 	  _("グランド・クロス", "grand cross") },
 	{ "TELEPORT_LEVEL", ACT_TELEPORT_LEVEL, 10, 1500, {100, 200},
-	  _("テレポート・レベル", "teleort level") },
+	  _("テレポート・レベル", "teleport level") },
 	{ "ARTS_FALLING_STAR", ACT_FALLING_STAR, 20, 5500, {30, 50},
 	  _("魔剣・流れ星", "blade arts 'falling star'") },
 	{ NULL, 0, 0, 0, {0, 0},
