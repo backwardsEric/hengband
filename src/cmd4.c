@@ -4262,7 +4262,7 @@ static concptr object_group_text[] =
 	"Boxs",
 	"Figurines",
 	"Statues",
-	"Junks",
+	"Junk",
 	"Bottles",
 	"Skeletons",
 	"Corpses",
