@@ -3922,7 +3922,7 @@ const concptr monster_powers_short[MAX_MONSPELLS] = {
 	"Shriek", "Something", "Dispel-magic", "Rocket", "Arrow", "Arrows", "Missile", "Missiles",
 	"Acid", "Lightning", "Fire", "Cold", "Poison", "Nether", "Light", "Dark",
 	"Confusion", "Sound", "Chaos", "Disenchantment", "Nexus", "Time", "Inertia", "Gravity",
-	"Shards", "Plasma", "Force", "Mana", "Nuke", "Nuke", "Logrus", "Disintergrate",
+	"Shards", "Plasma", "Force", "Mana", "Nuke", "Nuke", "Logrus", "Disintegration",
 
 	"Acid", "Lightning", "Fire", "Frost", "Stinking Cloud", "Nether", "Water", "Mana storm",
 	"Darkness storm", "Drain mana", "Mind blast", "Brain smash", "Cause Light Wound", "Cause Serious Wound", "Cause Critical Wound", "Cause Mortal Wound",
