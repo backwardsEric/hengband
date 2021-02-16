@@ -1211,11 +1211,11 @@ void self_knowledge(void)
 	}
 	if (p_ptr->easy_spell)
 	{
-		info[i++] = _("あなたは低い失敗率で魔法を唱えることができる。", "Fail rate of your magic is decreased.");
+		info[i++] = _("あなたは低い失敗率で魔法を唱えることができる。", "Your magic fails less often.");
 	}
 	if (p_ptr->heavy_spell)
 	{
-		info[i++] = _("あなたは高い失敗率で魔法を唱えなければいけない。", "Fail rate of your magic is increased.");
+		info[i++] = _("あなたは高い失敗率で魔法を唱えなければいけない。", "Your magic fails more often.");
 	}
 	if (p_ptr->mighty_throw)
 	{
