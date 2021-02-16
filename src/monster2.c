@@ -2816,7 +2816,7 @@ static bool place_monster_one(MONSTER_IDX who, POSITION y, POSITION x, MONRACE_I
 			}
 			else
 			{
-				msg_format(_("%s光る物が頭に浮かんだ。", "An %s image forms in your mind."), color);
+				msg_format(_("%s光る物が頭に浮かんだ。", "A %s image forms in your mind."), color);
 			}
 		}
 	}
