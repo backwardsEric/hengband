@@ -54,7 +54,7 @@ static concptr const snipe_tips[MAX_SNIPE_POWERS] =
 	"Shoot an arrow that does not always stop at the first target on its path.",
 	"Deals more damage to good monsters.",
 	"Deals more damage to evil monsters.",
-	"An allow explodes when it hits a monster.",
+	"Shoot an arrow that explodes when it hits a monster.",
 	"Shoot two arrows at once.",
 	"Deals extra damege of lightning.",
 	"Deals quick death or 1 damage.",
