@@ -3416,7 +3416,7 @@ bool mirror_tunnel(void)
 
 	if (dimension_door_aux(x, y)) return TRUE;
 
-	msg_print(_("鏡の世界をうまく通れなかった！", "You fail to pass the mirror plane correctly!"));
+	msg_print(_("鏡の世界をうまく通れなかった！", "You could not enter the mirror!"));
 
 	return TRUE;
 }
