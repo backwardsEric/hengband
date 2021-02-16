@@ -940,7 +940,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_BA_MANA:
 	{
-		msg_format(_("%sが青白く光った．．．", "The %s glows pale..."), name);
+		msg_format(_("%sが青白く光った．．．", "The %s becomes pale..."), name);
 		if (!get_aim_dir(&dir)) return FALSE;
 		fire_ball(GF_MANA, dir, 250, 4);
 		break;
