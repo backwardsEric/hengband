@@ -747,7 +747,7 @@ static byte choose_realm(s32b choices, int *count)
 		else if (c == '=')
 		{
 			screen_save();
-			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth option((*)s effect score)"));
+			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 
 			screen_load();
 		}
@@ -2576,7 +2576,7 @@ static bool get_player_race(void)
 		else if (c == '=')
 		{
 			screen_save();
-			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Option((*)s effect score)"));
+			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 			screen_load();
 		}
 		else if (c !='2' && c !='4' && c !='6' && c !='8') bell();
@@ -2748,7 +2748,7 @@ static bool get_player_class(void)
 		else if (c == '=')
 		{
 			screen_save();
-			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Option((*)s effect score)"));
+			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 			screen_load();
 		}
 		else if (c !='2' && c !='4' && c !='6' && c !='8') bell();
@@ -2949,7 +2949,7 @@ static bool get_player_seikaku(void)
 		else if (c == '=')
 		{
 			screen_save();
-			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Option((*)s effect score)"));
+			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 			screen_load();
 		}
 		else if (c !='2' && c !='4' && c !='6' && c !='8') bell();
@@ -3177,7 +3177,7 @@ static bool get_stat_limits(void)
 #ifdef JP
 			do_cmd_options_aux(OPT_PAGE_BIRTH, "初期オプション((*)はスコアに影響)");
 #else
-			do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Option((*)s effect score)");
+			do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Options ((*)) affect score");
 #endif
 
 			screen_load();
@@ -3460,7 +3460,7 @@ static bool get_chara_limits(void)
 			break;
 		case '=':
 			screen_save();
-			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Option((*)s effect score)"));
+			do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 			screen_load();
 			break;
 		default:
@@ -3952,7 +3952,7 @@ static bool player_birth_aux(void)
 #ifdef JP
 			do_cmd_options_aux(OPT_PAGE_BIRTH, "初期オプション((*)はスコアに影響)");
 #else
-			do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Option((*)s effect score)");
+			do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Options ((*)) affect score");
 #endif
 
 			screen_load();
@@ -4083,7 +4083,7 @@ static bool player_birth_aux(void)
 #ifdef JP
 	do_cmd_options_aux(OPT_PAGE_BIRTH, "初期オプション((*)はスコアに影響)");
 #else
-	do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Option((*)s effect score)");
+	do_cmd_options_aux(OPT_PAGE_BIRTH, "Birth Options ((*)) affect score");
 #endif
 
 	screen_load();
@@ -4390,7 +4390,7 @@ static bool player_birth_aux(void)
 			else if (c == '=')
 			{
 				screen_save();
-				do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Option((*)s effect score)"));
+				do_cmd_options_aux(OPT_PAGE_BIRTH, _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
 				screen_load();
 				continue;
 			}
