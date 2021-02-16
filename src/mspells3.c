@@ -1135,7 +1135,7 @@ static bool cast_learned_spell(int spell, bool success)
 			if (summon_specific((pet ? -1 : 0), p_ptr->y, p_ptr->x, summon_lev, SUMMON_CYBER, p_mode, '\0'))
 			{
                 if (!pet)
-                    msg_print(_("召喚されたサイバーデーモンは怒っている！", "The summoned Cyberdemon are angry!"));
+                    msg_print(_("召喚されたサイバーデーモンは怒っている！", "The summoned Cyberdemon is angry!"));
 			}
 			else
 			{
