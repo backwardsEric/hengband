@@ -364,7 +364,7 @@ static concptr item_activation_dragon_breath(object_type *o_ptr)
 		}
 	}
 
-	strcat(desc, _("のブレス(250)", ""));
+	strcat(desc, _("のブレス(250)", " (250)"));
 
 	return (desc);
 }
