@@ -3605,7 +3605,7 @@ const concptr player_title[MAX_CLASS][PY_MAX_LEVEL / 5] =
 		"Archimage",
 	},
 
-	/* Warrior */
+	/* Cavalry */
 	{
 		"Rookie",
 		"Soldier",
