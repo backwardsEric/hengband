@@ -948,7 +948,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_PESTICIDE:
 	{
-		msg_print(_("あなたは害虫を一掃した。", "You exterminate small life."));
+		msg_print(_("あなたは害虫を一掃した。", "You exterminate some pests."));
 		(void)dispel_monsters(4);
 		break;
 	}
