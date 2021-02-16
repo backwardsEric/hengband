@@ -2980,7 +2980,7 @@ static PRICE repair_broken_weapon_aux(PRICE bcost)
 	prt(format(_("修復する武器　： %s", "Repairing: %s"), basenm), row+3, 2);
 
 	q = _("材料となる武器は？", "Which weapon for material? ");
-	s = _("材料となる武器がありません。", "You have no material to repair.");
+	s = _("材料となる武器がありません。", "You have no material for the repair.");
 
 	/* Only forge broken weapons */
 	item_tester_hook = item_tester_hook_orthodox_melee_weapons;
