@@ -1327,7 +1327,7 @@ static void erase_essence(void)
 	item_tester_hook = object_is_smith;
 
 	q = _("どのアイテムのエッセンスを消去しますか？", "Remove from which item? ");
-	s = _("エッセンスを付加したアイテムがありません。", "You have nothing to remove essence.");
+	s = _("エッセンスを付加したアイテムがありません。", "You have nothing with added essence to remove.");
 
 	o_ptr = choose_object(&item, q, s, (USE_INVEN | USE_FLOOR));
 	if (!o_ptr) return;
