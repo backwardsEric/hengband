@@ -4040,7 +4040,7 @@ menu_naiyou menu_info[10][10] =
 		{"Use a staff(u/Z)", 'u', TRUE},
 		{"Aim a wand(a/z)", 'a', TRUE},
 		{"Zap a rod(z/a)", 'z', TRUE},
-		{"Activate an equipment(A)", 'A', TRUE},
+		{"Activate equipped item(A)", 'A', TRUE},
 		{"Eat(E)", 'E', TRUE},
 		{"Fire missile weapon(f/t)", 'f', TRUE},
 		{"Throw an item(v)", 'v', TRUE},
