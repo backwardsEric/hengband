@@ -1252,7 +1252,7 @@ static bool cast_force_spell(int spell)
 		}
 		else
 		{
-			msg_print(_("何も現れなかった。", "Nothing happen."));
+			msg_print(_("何も現れなかった。", "Nothing happens."));
 		}
 		break;
 	}
