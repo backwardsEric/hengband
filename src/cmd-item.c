@@ -1307,7 +1307,7 @@ void do_cmd_query_symbol(void)
 			temp[0]=0;
 			return;
 		}
-		sprintf(buf, _("名前:%sにマッチ", "Monsters with a name \"%s\""),temp);
+		sprintf(buf, _("名前:%sにマッチ", "Monsters' names with \"%s\""),temp);
 	}
 	else if (ident_info[i])
 	{
