@@ -1270,7 +1270,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_CURE_MANA_FULL:
 	{
-		msg_format(_("%sが青白く光った．．．", "The %s glows pale..."), name);
+		msg_format(_("%sが青白く光った．．．", "The %s glows palely..."), name);
 		restore_mana(TRUE);
 		break;
 	}
