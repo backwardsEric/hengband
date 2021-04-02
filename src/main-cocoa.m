@@ -1969,14 +1969,14 @@ static void draw_image_tile(
 u32b AngbandMaskForValidSubwindowFlags(void)
 {
     int windowFlagBits = sizeof(*(window_flag)) * CHAR_BIT;
-    int maxBits = MIN( 16, windowFlagBits );
+    int maxBits = MIN( 32, windowFlagBits );
     u32b mask = 0;
 
     for( int i = 0; i < maxBits; i++ )
     {
         if( window_flag_desc[i] != NULL )
         {
-            mask |= (1 << i);
+            mask |= (1U << i);
         }
     }
 
