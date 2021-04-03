@@ -5533,28 +5533,48 @@ static void load_prefs(void)
 
 	switch (i) {
 	case 0:
-	    columns = 129;
-	    rows = 32;
+	    columns = 100;
+#ifdef JP
+	    rows = 28;
+#else
+	    rows = 30;
+#endif
 	    break;
 	case 1:
-	    columns = 84;
-	    rows = 20;
+	    columns = 66;
+#ifdef JP
+	    rows = 9;
+#else
+	    rows = 10;
+#endif
 	    break;
 	case 2:
-	    columns = 42;
+	    columns = 38;
 	    rows = 24;
 	    break;
 	case 3:
-	    columns = 42;
-	    rows = 20;
+	    columns = 38;
+#ifdef JP
+	    rows = 9;
+#else
+	    rows = 10;
+#endif
 	    break;
 	case 4:
-	    columns = 42;
-	    rows = 16;
+	    columns = 38;
+#ifdef JP
+	    rows = 13;
+#else
+	    rows = 15;
+#endif
 	    break;
 	case 5:
-	    columns = 84;
-	    rows = 20;
+	    columns = 66;
+#ifdef JP
+	    rows = 9;
+#else
+	    rows = 10;
+#endif
 	    break;
 	default:
 	    columns = 80;
