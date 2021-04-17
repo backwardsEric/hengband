@@ -51,9 +51,16 @@
         <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>.
       <P>To compile an English version that will run natively on either x86_64
         or arm machines, you can use these commands from the top-level directory
-        of the directory tree with the source code:
+        of the directory tree with the source code if the source code is prior
+        to the move to C++ (2021 March 6th; 3.0.0 Alpha 10):
         <OL>
           <LI><CODE>env CFLAGS="-arch x86_64 -arch arm64" OBJCFLAGS="-arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
+          <LI><CODE>make install</CODE>
+        </OL>
+        For the C++-based code, these commands will work (needs source code
+        newer than 2021 March 30th for the --disable-pch option to configure):
+        <OL>
+          <LI><CODE>env CFLAGS="-arch x86_64 -arch arm64" CXXFLAGS="-arch x86_64 -arch arm64" OBJCXXFLAGS="-arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --disable-pch --enable-cocoa --disable-japanese</CODE>
           <LI><CODE>make install</CODE>
         </OL>
       <P>For a Japanese version with a universal binary, the steps are much the
