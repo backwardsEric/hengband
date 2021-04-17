@@ -2244,7 +2244,7 @@ void do_cmd_travel(void)
 	feature_type *f_ptr;
 
 	if (travel.x != 0 && travel.y != 0 &&
-		get_check(_("トラベルを継続しますか？", "Do you continue to travel?")))
+		get_check(_("トラベルを継続しますか？", "Do you continue to travel? ")))
 	{
 		y = travel.y;
 		x = travel.x;

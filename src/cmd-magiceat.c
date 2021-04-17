@@ -434,7 +434,7 @@ static OBJECT_SUBTYPE_VALUE select_magic_eater(bool only_browse)
 				char tmp_val[160];
 
 				/* Prompt */
-				(void) strnfmt(tmp_val, 78, _("%sを使いますか？ ", "Use %s?"), k_name + k_info[lookup_kind(tval ,i)].name);
+				(void) strnfmt(tmp_val, 78, _("%sを使いますか？ ", "Use %s? "), k_name + k_info[lookup_kind(tval ,i)].name);
 
 				/* Belay that order */
 				if (!get_check(tmp_val)) continue;

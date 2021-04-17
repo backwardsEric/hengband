@@ -1710,7 +1710,7 @@ bool activate_artifact(object_type *o_ptr)
 	{
 		/* Only for Muramasa */
 		if (o_ptr->name1 != ART_MURAMASA) return FALSE;
-		if (get_check(_("本当に使いますか？", "Are you sure?!")))
+		if (get_check(_("本当に使いますか？", "Are you sure?! ")))
 		{
 			msg_print(_("村正が震えた．．．", "The Muramasa pulsates..."));
 			do_inc_stat(A_STR);
