@@ -1864,6 +1864,13 @@ static void draw_image_tile(
  */
 @property TerminalChanges *changes;
 
+/*
+ * Record first possible row and column for tiles for double-height tile
+ * handling.
+ */
+@property int firstTileRow;
+@property int firstTileCol;
+
 @property (nonatomic, assign) BOOL hasSubwindowFlags;
 @property (nonatomic, assign) BOOL windowVisibilityChecked;
 
@@ -2593,7 +2600,9 @@ static int compare_advances(const void *ap, const void *bp)
 	self->lastRefreshTime = CFAbsoluteTimeGetCurrent();
 	self->inFullscreenTransition = NO;
 
-        self->_windowVisibilityChecked = NO;
+	self->_firstTileRow = 0;
+	self->_firstTileCol = 0;
+	self->_windowVisibilityChecked = NO;
     }
     return self;
 }
@@ -3087,10 +3096,12 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 			   pcell->voff_n / (1.0 * pcell->voff_d)),
 	    graf_width * pcell->hscl / (1.0 * pcell->hoff_d),
 	    graf_height * pcell->vscl / (1.0 * pcell->voff_d));
-	int dbl_height_bck = overdraw_row && (irow > 2) &&
+	int dbl_height_bck = overdraw_row &&
+	    irow >= self.firstTileRow + pcell->hoff_d &&
 	    (pcell->v.ti.bckRow >= overdraw_row &&
 	     pcell->v.ti.bckRow <= overdraw_max);
-	int dbl_height_fgd = overdraw_row && (irow > 2) &&
+	int dbl_height_fgd = overdraw_row &&
+	    irow >= self.firstTileRow + pcell->hoff_d &&
 	    (pcell->v.ti.fgdRow >= overdraw_row) &&
 	    (pcell->v.ti.fgdRow <= overdraw_max);
 	int aligned_row = 0, aligned_col = 0;
@@ -3098,14 +3109,10 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 
 	/* Initialize stuff for handling a double-height tile. */
 	if (dbl_height_bck || dbl_height_fgd) {
-	    if (self->terminal == angband_term[0]) {
-		aligned_col = ((icol0 - COL_MAP) / pcell->hoff_d) *
-		    pcell->hoff_d + COL_MAP;
-	    } else {
-		aligned_col = (icol0 / pcell->hoff_d) * pcell->hoff_d;
-	    }
-	    aligned_row = ((irow - ROW_MAP) / pcell->voff_d) *
-		pcell->voff_d + ROW_MAP;
+	    aligned_col = ((icol0 - self.firstTileCol) / pcell->hoff_d) *
+		pcell->hoff_d + self.firstTileCol;
+	    aligned_row = ((irow - self.firstTileRow) / pcell->voff_d) *
+		pcell->voff_d + self.firstTileRow;
 
 	    /*
 	     * If the lower half has been broken into multiple pieces, only
@@ -4789,6 +4796,8 @@ static errr Term_pict_cocoa(int x, int y, int n,
     } else {
 	alphablend = 0;
     }
+    angbandContext.firstTileRow = 0;
+    angbandContext.firstTileCol = 0;
 
     for (int i = x; i < x + n * step; i += step) {
 	byte a = *ap;
