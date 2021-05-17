@@ -5079,7 +5079,8 @@ static void AngbandHandleEventMouseDown( NSEvent *event )
 	AngbandContext *mainAngbandContext =
 	    (__bridge AngbandContext*) (angband_term[0]->data);
 
-	if (mainAngbandContext.primaryWindow &&
+	if ([[event window] isKeyWindow] &&
+	    mainAngbandContext.primaryWindow &&
 	    [[event window] windowNumber] ==
 	    [mainAngbandContext.primaryWindow windowNumber])
 	{
