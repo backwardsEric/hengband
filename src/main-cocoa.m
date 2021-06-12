@@ -188,7 +188,7 @@ static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 		char *search;
 		char *cur_token;
 		char *next_token;
-		int event;
+		int match;
 
 		/* Skip anything not beginning with an alphabetic character */
 		if (!buffer[0] || !isalpha((unsigned char)buffer[0])) continue;
@@ -204,11 +204,11 @@ static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 		search[0] = '\0';
 
 		/* Make sure this is a valid event name */
-		for (event = MSG_MAX - 1; event >= 0; event--) {
-		    if (strcmp(msg_name, angband_sound_name[event]) == 0)
+		for (match = MSG_MAX - 1; match >= 0; match--) {
+		    if (strcmp(msg_name, angband_sound_name[match]) == 0)
 			break;
 		}
-		if (event < 0) continue;
+		if (match < 0) continue;
 
 		/*
 		 * Advance the sample list pointer so it's at the beginning of
@@ -233,12 +233,12 @@ static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 		while (cur_token) {
 		    NSMutableArray *soundSamples =
 			[self->soundArraysByEvent
-			     objectForKey:[NSNumber numberWithInteger:event]];
+			     objectForKey:[NSNumber numberWithInteger:match]];
 		    if (soundSamples == nil) {
 			soundSamples = [[NSMutableArray alloc] init];
 			[self->soundArraysByEvent
 			     setObject:soundSamples
-			     forKey:[NSNumber numberWithInteger:event]];
+			     forKey:[NSNumber numberWithInteger:match]];
 		    }
 		    int num = (int) soundSamples.count;
 
