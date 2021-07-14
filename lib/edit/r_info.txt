@@ -19642,7 +19642,7 @@ B:KICK:HURT:2d4
 F:WILD_WASTE | BASH_DOOR | RAND_25 |
 F:ANIMAL | DROP_SKELETON | DROP_CORPSE | RIDING
 D:$This creature is gentle and submissive until you try to ride it.  
-D:$Watch out for it's reckless kicking.
+D:$Watch out for its reckless kicking.
 D:馬は普段は従順で大人しい生き物であるが、
 D:一旦暴走しだすと手がつけられなくなる。
 
