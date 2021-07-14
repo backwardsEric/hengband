@@ -2269,7 +2269,7 @@ S:1_IN_5
 S:SHOOT | HEAL | TRAPS
 A:221:1:5
 V:75
-D:$The legendary archer steals from the rich (you qualify).
+D:$This legendary archer steals from the rich (you qualify).
 D:この伝説の射手は金持ち（あなたは合格）から金を盗む
 
 #JZ#
