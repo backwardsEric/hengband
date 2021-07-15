@@ -132,7 +132,6 @@ AC_STRUCT_TM
 dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MEMCMP
-AC_TYPE_SIGNAL
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(gethostname mkdir select socket strstr strtol vasprintf vsnprintf mkstemp usleep)
