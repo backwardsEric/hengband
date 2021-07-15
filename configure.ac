@@ -121,8 +121,7 @@ if test "$have_x" = yes && test x"$enable_cocoa" != xyes ; then
   fi
 fi
 
-AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h strings.h sys/file.h sys/ioctl.h sys/time.h termio.h unistd.h stdint.h)
+AC_CHECK_HEADERS(fcntl.h sys/file.h sys/ioctl.h sys/time.h termio.h unistd.h stdint.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
