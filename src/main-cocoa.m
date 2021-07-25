@@ -62,10 +62,10 @@ enum
 };
 
 /* Delay handling of pre-emptive "quit" event */
-static BOOL quit_when_ready = FALSE;
+static BOOL quit_when_ready = NO;
 
 /* Set to indicate the game is over and we can quit without delay */
-static Boolean game_is_finished = FALSE;
+static BOOL game_is_finished = NO;
 
 /* Our frames per second (e.g. 60). A value of 0 means unthrottled. */
 static int frames_per_second;
@@ -2125,7 +2125,7 @@ static BOOL graphics_will_be_enabled(void)
 /**
  * Hack -- game in progress
  */
-static Boolean game_in_progress = FALSE;
+static BOOL game_in_progress = NO;
 
 
 #pragma mark Prototypes
@@ -2157,7 +2157,7 @@ static void record_current_savefile(void);
 /**
  * Note when "open"/"new" become valid
  */
-static bool initialized = FALSE;
+static BOOL initialized = NO;
 
 /* Methods for getting the appropriate NSUserDefaults */
 @interface NSUserDefaults (AngbandDefaults)
@@ -4107,7 +4107,7 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 /**
  * Delay handling of double-clicked savefiles
  */
-Boolean open_when_ready = FALSE;
+static BOOL open_when_ready = NO;
 
 
 
@@ -5015,10 +5015,10 @@ static void handle_open_when_ready(void)
     if (open_when_ready && initialized && !game_in_progress)
     {
         /* Forget */
-        open_when_ready = FALSE;
+        open_when_ready = NO;
         
         /* Game is in progress */
-        game_in_progress = TRUE;
+        game_in_progress = YES;
         
         /* Wait for a keypress */
         pause_line(Term->hgt - 1);
@@ -5100,11 +5100,7 @@ static void AngbandHandleEventMouseDown( NSEvent *event )
 		x = floor( p.x / tileSize.width );
 		y = floor( p.y / tileSize.height );
 
-		/*
-		 * Being safe about this, since xcode doesn't seem to like the
-		 * bool_hack stuff
-		 */
-		BOOL displayingMapInterface = ((int)inkey_flag != 0);
+		BOOL displayingMapInterface = (inkey_flag) ? YES : NO;
 
 		/* Sidebar plus border == thirteen characters; top row is reserved. */
 		/* Coordinates run from (0,0) to (cols-1, rows-1). */
@@ -5278,7 +5274,7 @@ static BOOL send_event(NSEvent *event)
 }
 
 /**
- * Check for Events, return TRUE if we process any
+ * Check for Events, return YES if we process any
  */
 static BOOL check_events(int wait)
 {
@@ -5670,7 +5666,7 @@ static void init_windows(void)
 - (IBAction)newGame:sender
 {
     /* Game is in progress */
-    game_in_progress = TRUE;
+    game_in_progress = YES;
     new_game = TRUE;
 }
 
@@ -5790,7 +5786,7 @@ static void init_windows(void)
 	    record_current_savefile();
 
 	    /* Game is in progress */
-	    game_in_progress = TRUE;
+	    game_in_progress = YES;
 	}
     }
 }
@@ -5850,7 +5846,7 @@ static void init_windows(void)
 	init_angband();
 
 	/* We are now initialized */
-	initialized = TRUE;
+	initialized = YES;
 
 	/* Handle "open_when_ready" */
 	handle_open_when_ready();
@@ -6209,15 +6205,15 @@ static void init_windows(void)
      * Once beginGame finished, the game is over - that's how Angband works,
      * and we should quit
      */
-    game_is_finished = TRUE;
+    game_is_finished = YES;
     [NSApp terminate:self];
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-    if (p_ptr->playing == FALSE || game_is_finished == TRUE)
+    if (!p_ptr->playing || game_is_finished)
     {
-        quit_when_ready = true;
+        quit_when_ready = YES;
         return NSTerminateNow;
     }
     else if (! inkey_flag)
@@ -6235,7 +6231,7 @@ static void init_windows(void)
          * function
          */
         wakeup_event_loop();
-        quit_when_ready = true;
+        quit_when_ready = YES;
         /*
          * Must return Cancel, not Later, because we need to get out of the
          * run loop and back to Angband's loop
@@ -6326,7 +6322,7 @@ static void init_windows(void)
 	return;
     }
 
-    game_in_progress = TRUE;
+    game_in_progress = YES;
 
     /*
      * Wake us up in case this arrives while we're sitting at the Welcome
