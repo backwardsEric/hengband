@@ -5572,7 +5572,7 @@ static void load_prefs(void)
     /* Preferred graphics mode */
     graf_mode_req = [defs integerForKey:AngbandGraphicsDefaultsKey];
     if (graphics_will_be_enabled() &&
-	[defs boolForKey:AngbandBigTileDefaultsKey] == YES) {
+	[defs boolForKey:AngbandBigTileDefaultsKey]) {
 	use_bigtile = TRUE;
 	arg_bigtile = TRUE;
     } else {
@@ -5581,7 +5581,7 @@ static void load_prefs(void)
     }
 
     /* Use sounds; set the Angband global */
-    if ([defs boolForKey:AngbandSoundDefaultsKey] == YES) {
+    if ([defs boolForKey:AngbandSoundDefaultsKey]) {
 	use_sound = TRUE;
 	[AngbandSoundCatalog sharedSounds].enabled = YES;
     } else {
@@ -5969,8 +5969,8 @@ static void init_windows(void)
 	if (use_bigtile) {
 	    arg_bigtile = FALSE;
 	}
-    } else if ([[NSUserDefaults angbandDefaults] boolForKey:AngbandBigTileDefaultsKey] == YES &&
-	       ! use_bigtile) {
+    } else if ([[NSUserDefaults angbandDefaults] boolForKey:AngbandBigTileDefaultsKey]
+		&& ! use_bigtile) {
 	arg_bigtile = TRUE;
     }
 
