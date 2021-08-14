@@ -78,7 +78,15 @@ fi
 
 dnl -fno-strength-reduce prevents a bug in some versions of gcc
 if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS -fno-strength-reduce"
+  AC_MSG_CHECKING([if gcc supports -fno-strength-reduce])
+  _gcc_cflags_save=$CFLAGS
+  CFLAGS="$CFLAGS -fno-strength-reduce -Werror"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([])],_gcc_stropt=yes,_gcc_stropt=no)
+  AC_MSG_RESULT($_gcc_stropt)
+  CFLAGS=$_gcc_cflags_save
+  if test x"$_gcc_stropt" = xyes ; then
+      CFLAGS="$CFLAGS -fno-strength-reduce"
+  fi
 fi
 
 dnl Checks for libraries.
