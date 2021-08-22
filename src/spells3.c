@@ -2287,9 +2287,12 @@ bool identify_fully(bool only_equip)
 
 	old_known = identify_item(o_ptr);
 
-	/* Mark the item as fully known */
 	o_ptr->ident |= (IDENT_MENTAL);
+
+	/* Update item information in subwindows without rearranging the pack */
+	p_ptr->update &= ~(PU_COMBINE | PU_REORDER);
 	handle_stuff();
+	p_ptr->update |= (PU_COMBINE | PU_REORDER);
 
 	object_desc(o_name, o_ptr, 0);
 	if (item >= INVEN_RARM)
