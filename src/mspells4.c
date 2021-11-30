@@ -2383,8 +2383,8 @@ HIT_POINT spell_RF6_PSY_SPEAR(POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER
 
 	monspell_message(m_idx, t_idx,
 		_("%^sが何かをつぶやいた。", "%^s mumbles."),
-		_("%^sが光の剣を放った。", "%^s throw a Psycho-Spear."),
-		_("%^sが%sに向かって光の剣を放った。", "%^s throw a Psycho-spear at %s."),
+		_("%^sが光の剣を放った。", "%^s throws a Psycho-Spear."),
+		_("%^sが%sに向かって光の剣を放った。", "%^s throws a Psycho-spear at %s."),
 		TARGET_TYPE);
 
 	dam = monspell_damage((MS_PSY_SPEAR), m_idx, DAM_ROLL);

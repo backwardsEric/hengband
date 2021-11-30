@@ -2265,7 +2265,7 @@ void object_desc(char *buf, object_type *o_ptr, BIT_FLAGS mode)
 				}
 				case CHEST_EXPLODE:
 				{
-					t = object_desc_str(t, _("(爆発装置)", " (Explosion Device)"));
+					t = object_desc_str(t, _("(爆発装置)", " (Explosive Device)"));
 					break;
 				}
 				case CHEST_SUMMON:

@@ -496,7 +496,7 @@ void kamaenaoshi(INVENTORY_IDX item)
 			p_ptr->total_weight += o_ptr->weight;
 			inven_item_increase(INVEN_RARM, -((int)o_ptr->number));
 			inven_item_optimize(INVEN_RARM);
-			msg_format(_("%sを持ち替えた。", "You switched hand of %s."), o_name);
+			msg_format(_("%sを持ち替えた。", "You shifted %s to your other hand."), o_name);
 		}
 	}
 }

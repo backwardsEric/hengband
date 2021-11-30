@@ -937,7 +937,7 @@ bool bless_weapon(void)
 	item_tester_hook = object_is_weapon;
 
 	q = _("どのアイテムを祝福しますか？", "Bless which weapon? ");
-	s = _("祝福できる武器がありません。", "You have weapon to bless.");
+	s = _("祝福できる武器がありません。", "You have no weapon to bless.");
 
 	o_ptr = choose_object(&item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
 	if (!o_ptr) return FALSE;

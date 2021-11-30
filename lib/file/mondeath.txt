@@ -35,7 +35,7 @@ N:880:Wong, Master of Time
 shouts, 'This CAN'T be happening!'
 
 N:921:Internet Exploder
-was deleted.
+is deleted.
 
 N:931:Caldarm the third
 says, 'I desire peace ... for all people... '
@@ -44,7 +44,7 @@ N:936:Kenshirou of hokuto
 shouts, 'JuliaAAAAAAA!!!'
 
 N:1004:Pip, the Braver from Another World
-was killed by a cruel venturer. Go to 14.
+is killed by a cruel venturer. Go to 14.
 
 N:1018:Raou
 points at himself and shouts, 'I finished my life with no regrets!'

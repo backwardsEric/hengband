@@ -48,7 +48,7 @@ concptr do_trump_spell(SPELL_IDX spell, BIT_FLAGS mode)
 		{
 			if (cast || fail)
 			{
-				msg_print(_("あなたは蜘蛛のカードに集中する...", "You concentrate on the trump of an spider..."));
+				msg_print(_("あなたは蜘蛛のカードに集中する...", "You concentrate on the trump of a spider..."));
 				if (trump_summoning(1, !fail, p_ptr->y, p_ptr->x, 0, SUMMON_SPIDER, PM_ALLOW_GROUP))
 				{
 					if (fail)
