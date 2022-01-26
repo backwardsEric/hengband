@@ -27,14 +27,16 @@
  *    src/cocoa/Base.lproj/MainMenu.xib to the Base.lproj subdirectory of that
  *    directory.  Copy src/cocoa/ja.lproj/MainMenu.strings to the ja.lproj
  *    subdirectory of that directory.
- * 6) If you modify MainMenu.xib after copying it over, you may want to
- *    set it so that it can be opened in older versions of Xcode.  Select it in
- *    Xcode, and select one of the things, like "File's Owner" from it.  In
- *    the file information panel for it, there will be a section labeled
- *    "Document Editing" with an option menu for "Opens in".  Choosing one of
- *    the options other than "Latest Xcode" will close the file and save it
- *    with the appropriate flags.  Note that reopening the xib file in Xcode
- *    and saving it will cause the version to revert to the latest Xcode.
+ * 6) (This annoyance seems to have gone away beween Xcode 11 and Xcode 13;
+ *    leaving it here just in case) If you modify MainMenu.xib after copying
+ *    it over, you may want to set it so that it can be opened in older
+ *    versions of Xcode.  Select it in Xcode, and select one of the things,
+ *    like "File's Owner" from it.  In the file information panel for it,
+ *    there will be a section labeled "Document Editing" with an option
+ *    menu for "Opens in".  Choosing one of the options other than
+ *    "Latest Xcode" will close the file and save it with the appropriate
+ *    flags.  Note that reopening the xib file in Xcode and saving it will
+ *    cause the version to revert to the latest Xcode.
  * 7) If you want to change the Japanese strings for the menus, one way to
  *    partly do it in Xcode is to export the localizations:  from the file view
  *    select topmost category ("hengband" with an application icon) and then
@@ -56,7 +58,12 @@
  *    is something like
  *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
  *    You can use it to replace the src/cocoa/Base.lproj/MainMenu.nib in the
- *    Hengband source files.
+ *    Hengband source files.  With Xcode 13, the generated .nib files are
+ *    directories.  In the build results from that version of Xcode,
+ *    copy Contents/Resources/Base.lproj/MainMenu.nib/keyedobjects.nib to
+ *    replace src/cocoa/Base.lproj/MainMenu.nib in the Hengband source files
+ *    (the keyedobjects-101300.nib file in the build results is for
+ *    macOS 10.13 or later).
  *
  * This work is free software; you can redistribute it and/or modify it
  * under the terms of either:
