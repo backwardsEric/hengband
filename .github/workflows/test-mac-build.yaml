@@ -18,7 +18,7 @@ env:
   # Otherwise the default SDK for the runner will be used.  Want an SDK that
   # can build all the architectures in UNIVERSAL_ARCHS.  For valid values for
   # the sdk name, look at the xcrun man page.
-  SDK_OVERRIDE: macosx11.1
+  #SDK_OVERRIDE: macosx11.1
 
 jobs:
   english:
