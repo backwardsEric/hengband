@@ -8,19 +8,22 @@
 
   <BODY>
     <H1>Hengband Application for macOS</H1>
-    <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | Source code | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
+    <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | Source code | <A HREF="HengbandChangeLog-3-0-0.html">3.0.0 Changes</A> | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
     <H1>Source Code</H1>
       <P>If you want to compile the code yourself or examine the changes I
         made, you can get one of the packaged source code archives,
-        <A HREF="https://github.com/backwardsEric/hengband/releases/download/vmacos2.2.1-7g/hengband-2.2.1.7g.tar.gz">hengband-2.2.1.7g.tar.gz</A>
-        is the latest for the version based on Hengband 2.2.1.7 and
+        <A HREF="https://github.com/backwardsEric/hengband/releases/download/vmacos3.0.0-alpha52/hengband-3.0.0-Alpha52.tar.gz">hengband-3.0.0-Alpha52.tar.gz</A>,
+        <A HREF="https://github.com/backwardsEric/hengband/releases/download/vmacos2.2.1-7g/hengband-2.2.1.7g.tar.gz">hengband-2.2.1.7g.tar.gz</A>, or
         <A HREF="https://github.com/backwardsEric/hengband/releases/download/vmacos1.6.2-c/hengband-1.6.2c.tar.gz">hengband-1.6.2c.tar.gz</A>
-        is the latest for the version based on Hengband 1.6.2, from
-        <A HREF="https://github.com/backwardsEric/hengband/releases">https://github.com/backwardsEric/hengband/releases</A> .
-        Alternately, you can clone the git repository, https://github.com/backwardsEric/hengband.git .
-        Within the git repository, the macos-2-2-1 branch corresponds to the
-        version based on 2.2.1.7 and the macos-1-6-2 branch corresponds to
-        the version based on 1.6.2.
+        from <A HREF="https://github.com/backwardsEric/hengband/releases">https://github.com/backwardsEric/hengband/releases</A> .
+        The first of those is based on Hengband's current development branch.
+        The second is based on Hengband's development branch from 2019.  The
+        third is based on Hengband's last stable release.  Alternately, you
+        can clone the git repository, https://github.com/backwardsEric/hengband.git .
+        Within the git repository, the macos-develop branch tracks Hengband's
+        most recent upstream development (available as the develop branch).
+        The macos-2-2-1 branch corresponds to the version based on 2.2.1.7.
+        The macos-1-6-2 branch corresponds to the version based on 1.6.2.
       <P>If you cloned the git repository and want to compile the code, you'll
        first need to create the configure script and some of the files it uses.
        To do so, run this command in the top-level directory of the directory
@@ -54,13 +57,13 @@
         of the directory tree with the source code if the source code is prior
         to the move to C++ (2021 March 6th; 3.0.0 Alpha 10):
         <OL>
-          <LI><CODE>env CFLAGS="-arch x86_64 -arch arm64" OBJCFLAGS="-arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
+          <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
           <LI><CODE>make install</CODE>
         </OL>
         For the C++-based code, these commands will work (needs source code
         newer than 2021 March 30th for the --disable-pch option to configure):
         <OL>
-          <LI><CODE>env CFLAGS="-arch x86_64 -arch arm64" CXXFLAGS="-arch x86_64 -arch arm64" OBJCXXFLAGS="-arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --disable-pch --enable-cocoa --disable-japanese</CODE>
+          <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" CXXFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCXXFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --disable-pch --enable-cocoa --disable-japanese</CODE>
           <LI><CODE>make install</CODE>
         </OL>
       <P>For a Japanese version with a universal binary, the steps are much the
