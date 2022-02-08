@@ -52,6 +52,9 @@ jobs:
           DEPENDENCY_TRACKING=""
           if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
             DEPENDENCY_TRACKING=--disable-dependency-tracking
+            # Include what configure normally infers for the compiler flags.
+            CFLAGS="$CFLAGS -g -O2"
+            OBJCFLAGS="$OBJCFLAGS -g -O2"
             for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
               option="-arch $arch"
               CFLAGS="$CFLAGS $option"
@@ -116,6 +119,9 @@ jobs:
           DEPENDENCY_TRACKING=""
           if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
             DEPENDENCY_TRACKING=--disable-dependency-tracking
+            # Include what configure normally infers for the compiler flags.
+            CFLAGS="$CFLAGS -g -O2"
+            OBJCFLAGS="$OBJCFLAGS -g -O2"
             for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
               option="-arch $arch"
               CFLAGS="$CFLAGS $option"
