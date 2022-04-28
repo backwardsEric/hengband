@@ -6198,7 +6198,7 @@ static bool player_birth_aux(void)
 #ifdef JP
 			if (prev) Term_addstr(-1, TERM_WHITE, ", 'p' 前の数値");
 #else
-			if (prev) Term_addstr(-1, TERM_WHITE, ", 'p'previous");
+			if (prev) Term_addstr(-1, TERM_WHITE, ", 'p'revious");
 #endif
 
 #ifdef JP
