@@ -4342,7 +4342,7 @@ static bool player_birth_aux(void)
 			Term_addch(TERM_WHITE, b1);
 			Term_addstr(-1, TERM_WHITE, _("'r' 次の数値", "'r'eroll"));
 
-			if (prev) Term_addstr(-1, TERM_WHITE, _(", 'p' 前の数値", "'p'previous"));
+			if (prev) Term_addstr(-1, TERM_WHITE, _(", 'p' 前の数値", ", 'p'revious"));
 			if (mode) Term_addstr(-1, TERM_WHITE, _(", 'h' その他の情報", ", 'h' Misc."));
 			else Term_addstr(-1, TERM_WHITE, _(", 'h' 生い立ちを表示", ", 'h'istory"));
 			Term_addstr(-1, TERM_WHITE, _(", Enter この数値に決定", ", or Enter to accept"));
