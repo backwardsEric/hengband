@@ -765,8 +765,8 @@ static int create_color(int i, int scale)
 
    /* In the case of white and black we need to use the ANSI colors */
    if (r == g && g == b) {
-       if (b == 0) rgb = 0;
-       if (b == scale) rgb = 15;
+      if (b == 0) rgb = 0;
+      if (b == scale) rgb = 15;
    }
 
    return rgb;
