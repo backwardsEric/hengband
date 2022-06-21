@@ -1092,10 +1092,6 @@ static errr Term_text_gcu(int x, int y, int n, byte a, cptr s)
 {
    term_data *td = (term_data *)(Term->data);
 
-   int i;
-
-   char text[81];
-
 #ifdef USE_NCURSES_ACS
    /* do we have colors + 16 ? */
    /* then call special routine for drawing special characters */
@@ -1106,9 +1102,6 @@ static errr Term_text_gcu(int x, int y, int n, byte a, cptr s)
    }
 #endif
 
-   /* Obtain a copy of the text */
-   for (i = 0; i < n; i++) text[i] = s[i];    text[n] = 0;
-
    /* Move the cursor and dump the string */
    wmove(td->win, y, x);
 
@@ -1118,7 +1111,7 @@ static errr Term_text_gcu(int x, int y, int n, byte a, cptr s)
 #endif
 
    /* Add the text */
-   waddstr(td->win, text);
+   waddnstr(td->win, s, n);
 
    /* Success */
    return (0);
