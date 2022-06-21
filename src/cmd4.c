@@ -5617,7 +5617,7 @@ void plural_aux(char *Name)
 	}
 	else if (suffix(Name, "y") && !(NameLen >= 2 && is_a_vowel(Name[NameLen - 2])))
 	{
-		strcpy(&(Name[NameLen - 2]), "ies");
+		strcpy(&(Name[NameLen - 1]), "ies");
 	}
 	else if (suffix(Name, "ouse"))
 	{
