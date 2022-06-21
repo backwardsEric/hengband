@@ -1040,7 +1040,7 @@ static errr Term_wipe_gcu(int x, int y, int n)
    wmove(td->win, y, x);
 
    /* Clear to end of line */
-   if (x + n >= 80)
+   if (x + n >= td->t.wid)
    {
       wclrtoeol(td->win);
    }
