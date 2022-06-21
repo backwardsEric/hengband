@@ -146,6 +146,8 @@ static byte room_build_order[ROOM_T_MAX] = {
 	ROOM_T_NORMAL,
 };
 
+door_type feat_door[MAX_DOOR_TYPES];
+
 /*!
  * @brief 1マスだけの部屋を作成し、上下左右いずれか一つに隠しドアを配置する。
  * @param y0 配置したい中心のY座標

@@ -6,6 +6,8 @@
 #include "store.h"
 
 
+ugbldg_type *ugbldg = NULL;
+
 
 /*
 * Precalculate buildings' location of underground arcade

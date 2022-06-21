@@ -14,4 +14,4 @@ typedef struct
 }
 ugbldg_type;
 
-ugbldg_type *ugbldg;
+extern ugbldg_type *ugbldg;
