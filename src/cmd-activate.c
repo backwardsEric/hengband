@@ -669,13 +669,15 @@ bool activate_artifact(object_type *o_ptr)
 	PLAYER_LEVEL plev = p_ptr->lev;
 	int k, dummy = 0;
 	DIRECTION dir;
-	concptr name = k_name + k_info[o_ptr->k_idx].name;
+	GAME_TEXT name[MAX_NLEN];
 	const activation_type* const act_ptr = find_activation_info(o_ptr);
 	if (!act_ptr) {
 		/* Maybe forgot adding information to activation_info table ? */
 		msg_print("Activation information is not found.");
 		return FALSE;
 	}
+
+	strip_name(name, o_ptr->k_idx);
 
 	/* Activate for attack */
 	switch (act_ptr->index)
