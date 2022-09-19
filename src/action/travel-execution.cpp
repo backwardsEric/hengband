@@ -19,6 +19,8 @@
 #include "system/grid-type-definition.h"
 #include "system/monster-type-definition.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
 travel_type travel;
@@ -32,20 +34,23 @@ travel_type travel;
  */
 static DIRECTION travel_test(PlayerType *player_ptr, DIRECTION prev_dir)
 {
-    if (player_ptr->blind || no_lite(player_ptr)) {
+    const auto blindness = player_ptr->effects()->blindness();
+    if (blindness->is_blind() || no_lite(player_ptr)) {
         msg_print(_("目が見えない！", "You cannot see!"));
         return 0;
     }
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     if ((disturb_trap_detect || alert_trap_detect) && player_ptr->dtrap && !(floor_ptr->grid_array[player_ptr->y][player_ptr->x].info & CAVE_IN_DETECT)) {
         player_ptr->dtrap = false;
         if (!(floor_ptr->grid_array[player_ptr->y][player_ptr->x].info & CAVE_UNSAFE)) {
-            if (alert_trap_detect)
+            if (alert_trap_detect) {
                 msg_print(_("* 注意:この先はトラップの感知範囲外です！ *", "*Leaving trap detect region!*"));
+            }
 
-            if (disturb_trap_detect)
+            if (disturb_trap_detect) {
                 return 0;
+            }
         }
     }
 
@@ -57,9 +62,10 @@ static DIRECTION travel_test(PlayerType *player_ptr, DIRECTION prev_dir)
         POSITION col = player_ptr->x + ddx[dir];
         g_ptr = &floor_ptr->grid_array[row][col];
         if (g_ptr->m_idx) {
-            monster_type *m_ptr = &floor_ptr->m_list[g_ptr->m_idx];
-            if (m_ptr->ml)
+            auto *m_ptr = &floor_ptr->m_list[g_ptr->m_idx];
+            if (m_ptr->ml) {
                 return 0;
+            }
         }
     }
 
@@ -73,15 +79,18 @@ static DIRECTION travel_test(PlayerType *player_ptr, DIRECTION prev_dir)
         }
     }
 
-    if (!new_dir)
+    if (!new_dir) {
         return 0;
+    }
 
     g_ptr = &floor_ptr->grid_array[player_ptr->y + ddy[new_dir]][player_ptr->x + ddx[new_dir]];
-    if (!easy_open && is_closed_door(player_ptr, g_ptr->feat))
+    if (!easy_open && is_closed_door(player_ptr, g_ptr->feat)) {
         return 0;
+    }
 
-    if (!g_ptr->mimic && !trap_can_be_ignored(player_ptr, g_ptr->feat))
+    if (!g_ptr->mimic && !trap_can_be_ignored(player_ptr, g_ptr->feat)) {
         return 0;
+    }
 
     return new_dir;
 }
@@ -109,8 +118,9 @@ void travel_step(PlayerType *player_ptr)
     if ((player_ptr->y == travel.y) && (player_ptr->x == travel.x)) {
         travel.run = 0;
         travel.y = travel.x = 0;
-    } else if (travel.run > 0)
+    } else if (travel.run > 0) {
         travel.run--;
+    }
 
     term_xtra(TERM_XTRA_DELAY, delay_factor);
 }
@@ -121,9 +131,11 @@ void travel_step(PlayerType *player_ptr)
  */
 void forget_travel_flow(floor_type *floor_ptr)
 {
-    for (POSITION y = 0; y < floor_ptr->height; y++)
-        for (POSITION x = 0; x < floor_ptr->width; x++)
+    for (POSITION y = 0; y < floor_ptr->height; y++) {
+        for (POSITION x = 0; x < floor_ptr->width; x++) {
             travel.cost[y][x] = MAX_SHORT;
+        }
+    }
 
     travel.y = travel.x = 0;
 }

@@ -7,6 +7,7 @@
 #include "mspell/mspell-special.h"
 #include "core/disturbance.h"
 #include "core/player-update-types.h"
+#include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "floor/cave.h"
@@ -29,12 +30,13 @@
 #include "player/player-damage.h"
 #include "spell-kind/spells-teleport.h"
 #include "spell-realm/spells-crusade.h"
-#include "effect/attribute-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-race-definition.h"
 #include "system/monster-type-definition.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
 /*!
@@ -44,45 +46,48 @@
  */
 static MonsterSpellResult spell_RF6_SPECIAL_BANORLUPART(PlayerType *player_ptr, MONSTER_IDX m_idx)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    monster_type *m_ptr = &floor_ptr->m_list[m_idx];
-    HIT_POINT dummy_hp, dummy_maxhp;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
+    int dummy_hp, dummy_maxhp;
     POSITION dummy_y = m_ptr->fy;
     POSITION dummy_x = m_ptr->fx;
     BIT_FLAGS mode = 0L;
 
-    if (see_monster(player_ptr, m_idx) && monster_near_player(floor_ptr, m_idx, 0))
+    if (see_monster(player_ptr, m_idx) && monster_near_player(floor_ptr, m_idx, 0)) {
         disturb(player_ptr, true, true);
+    }
 
     switch (m_ptr->r_idx) {
-    case MON_BANORLUPART:
+    case MonsterRaceId::BANORLUPART:
         dummy_hp = (m_ptr->hp + 1) / 2;
         dummy_maxhp = m_ptr->maxhp / 2;
 
-        if (floor_ptr->inside_arena || player_ptr->phase_out || !summon_possible(player_ptr, m_ptr->fy, m_ptr->fx))
+        if (floor_ptr->inside_arena || player_ptr->phase_out || !summon_possible(player_ptr, m_ptr->fy, m_ptr->fx)) {
             return MonsterSpellResult::make_invalid();
+        }
 
         delete_monster_idx(player_ptr, floor_ptr->grid_array[m_ptr->fy][m_ptr->fx].m_idx);
-        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MON_BANOR, mode);
+        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MonsterRaceId::BANOR, mode);
         floor_ptr->m_list[hack_m_idx_ii].hp = dummy_hp;
         floor_ptr->m_list[hack_m_idx_ii].maxhp = dummy_maxhp;
-        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MON_LUPART, mode);
+        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MonsterRaceId::LUPART, mode);
         floor_ptr->m_list[hack_m_idx_ii].hp = dummy_hp;
         floor_ptr->m_list[hack_m_idx_ii].maxhp = dummy_maxhp;
 
         msg_print(_("『バーノール・ルパート』が分裂した！", "Banor=Rupart splits into two persons!"));
         break;
 
-    case MON_BANOR:
-    case MON_LUPART:
+    case MonsterRaceId::BANOR:
+    case MonsterRaceId::LUPART:
         dummy_hp = 0;
         dummy_maxhp = 0;
 
-        if (!r_info[MON_BANOR].cur_num || !r_info[MON_LUPART].cur_num)
+        if (!r_info[MonsterRaceId::BANOR].cur_num || !r_info[MonsterRaceId::LUPART].cur_num) {
             return MonsterSpellResult::make_invalid();
+        }
 
         for (MONSTER_IDX k = 1; k < floor_ptr->m_max; k++) {
-            if (floor_ptr->m_list[k].r_idx == MON_BANOR || floor_ptr->m_list[k].r_idx == MON_LUPART) {
+            if (floor_ptr->m_list[k].r_idx == MonsterRaceId::BANOR || floor_ptr->m_list[k].r_idx == MonsterRaceId::LUPART) {
                 dummy_hp += floor_ptr->m_list[k].hp;
                 dummy_maxhp += floor_ptr->m_list[k].maxhp;
                 if (floor_ptr->m_list[k].r_idx != m_ptr->r_idx) {
@@ -92,11 +97,14 @@ static MonsterSpellResult spell_RF6_SPECIAL_BANORLUPART(PlayerType *player_ptr, 
                 delete_monster_idx(player_ptr, k);
             }
         }
-        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MON_BANORLUPART, mode);
+        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, MonsterRaceId::BANORLUPART, mode);
         floor_ptr->m_list[hack_m_idx_ii].hp = dummy_hp;
         floor_ptr->m_list[hack_m_idx_ii].maxhp = dummy_maxhp;
 
         msg_print(_("『バーノール』と『ルパート』が合体した！", "Banor and Rupart combine into one!"));
+        break;
+
+    default:
         break;
     }
 
@@ -110,30 +118,31 @@ static MonsterSpellResult spell_RF6_SPECIAL_BANORLUPART(PlayerType *player_ptr, 
  * @param x 対象の地点のx座標
  * @param m_idx 呪文を唱えるモンスターID
  * @param t_idx 呪文を受けるモンスターID。プレイヤーの場合はdummyで0とする。
- * @param TARGET_TYPE プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
+ * @param target_type プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
  */
-static MonsterSpellResult spell_RF6_SPECIAL_ROLENTO(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
+static MonsterSpellResult spell_RF6_SPECIAL_ROLENTO(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int target_type)
 {
     int count = 0, k;
     int num = 1 + randint1(3);
     BIT_FLAGS mode = 0L;
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     bool see_either = see_monster(player_ptr, m_idx) || see_monster(player_ptr, t_idx);
-    bool mon_to_mon = TARGET_TYPE == MONSTER_TO_MONSTER;
-    bool mon_to_player = TARGET_TYPE == MONSTER_TO_PLAYER;
+    bool mon_to_mon = target_type == MONSTER_TO_MONSTER;
+    bool mon_to_player = target_type == MONSTER_TO_PLAYER;
     bool known = monster_near_player(floor_ptr, m_idx, t_idx);
 
     mspell_cast_msg_blind msg(_("%^sが何か大量に投げた。", "%^s spreads something."),
         _("%^sは手榴弾をばらまいた。", "%^s throws some hand grenades."), _("%^sは手榴弾をばらまいた。", "%^s throws some hand grenades."));
 
-    monspell_message(player_ptr, m_idx, t_idx, msg, TARGET_TYPE);
-    if (mon_to_player || (mon_to_mon && known && see_either))
+    monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
+    if (mon_to_player || (mon_to_mon && known && see_either)) {
         disturb(player_ptr, true, true);
+    }
 
     for (k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MON_GRENADE, mode);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::GRENADE, mode);
     }
-    if (player_ptr->blind && count) {
+    if (player_ptr->effects()->blindness()->is_blind() && count) {
         msg_print(_("多くのものが間近にばらまかれる音がする。", "You hear many things scattered nearby."));
     }
 
@@ -147,17 +156,17 @@ static MonsterSpellResult spell_RF6_SPECIAL_ROLENTO(PlayerType *player_ptr, POSI
  * @param x 対象の地点のx座標
  * @param m_idx 呪文を唱えるモンスターID
  * @param t_idx 呪文を受けるモンスターID。プレイヤーの場合はdummyで0とする。
- * @param TARGET_TYPE プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
+ * @param target_type プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
  */
-static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
+static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int target_type)
 {
     mspell_cast_msg_simple msg;
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    monster_type *m_ptr = &floor_ptr->m_list[m_idx];
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
     monster_type *t_ptr = &floor_ptr->m_list[t_idx];
     monster_race *tr_ptr = &r_info[t_ptr->r_idx];
-    bool monster_to_player = (TARGET_TYPE == MONSTER_TO_PLAYER);
-    bool monster_to_monster = (TARGET_TYPE == MONSTER_TO_MONSTER);
+    bool monster_to_player = (target_type == MONSTER_TO_PLAYER);
+    bool monster_to_monster = (target_type == MONSTER_TO_MONSTER);
     bool direct = player_bold(player_ptr, y, x);
     GAME_TEXT m_name[MAX_NLEN];
     monster_name(player_ptr, m_idx, m_name);
@@ -167,7 +176,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
         msg.to_player = _("%^sは突然視界から消えた!", "You lose sight of %s!");
         msg.to_mons = _("%^sは突然急上昇して視界から消えた!", "You lose sight of %s!");
 
-        simple_monspell_message(player_ptr, m_idx, t_idx, msg, TARGET_TYPE);
+        simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
 
         teleport_away(player_ptr, m_idx, 10, TELEPORT_NONMAGICAL);
         player_ptr->update |= (PU_MONSTERS);
@@ -181,17 +190,18 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     msg.to_player = _("%^sがあなたを掴んで空中から投げ落とした。", "%^s snatches you, soars into the sky, and drops you.");
     msg.to_mons = _("%^sが%sを掴んで空中から投げ落とした。", "%^s snatches %s, soars into the sky, and releases its grip.");
 
-    simple_monspell_message(player_ptr, m_idx, t_idx, msg, TARGET_TYPE);
+    simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
 
     bool fear, dead; /* dummy */
-    HIT_POINT dam = damroll(4, 8);
+    int dam = damroll(4, 8);
 
-    if (monster_to_player || t_idx == player_ptr->riding)
+    if (monster_to_player || t_idx == player_ptr->riding) {
         teleport_player_to(player_ptr, m_ptr->fy, m_ptr->fx, i2enum<teleport_flags>(TELEPORT_NONMAGICAL | TELEPORT_PASSIVE));
-    else
+    } else {
         teleport_monster_to(player_ptr, t_idx, m_ptr->fy, m_ptr->fx, 100, i2enum<teleport_flags>(TELEPORT_NONMAGICAL | TELEPORT_PASSIVE));
+    }
 
-    if ((monster_to_player && player_ptr->levitation) || (monster_to_monster && (tr_ptr->flags7 & RF7_CAN_FLY))) {
+    if ((monster_to_player && player_ptr->levitation) || (monster_to_monster && tr_ptr->feature_flags.has(MonsterFeatureType::CAN_FLY))) {
         msg.to_player = _("あなたは静かに着地した。", "You float gently down to the ground.");
         msg.to_mons = _("%^sは静かに着地した。", "%^s floats gently down to the ground.");
     } else {
@@ -199,7 +209,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
         msg.to_mons = _("%^sは地面に叩きつけられた。", "%^s crashed into the ground.");
     }
 
-    simple_monspell_message(player_ptr, m_idx, t_idx, msg, TARGET_TYPE);
+    simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
     dam += damroll(6, 8);
 
     if (monster_to_player || (monster_to_monster && player_ptr->riding == t_idx)) {
@@ -213,11 +223,13 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
         }
     }
 
-    if (monster_to_player && player_ptr->riding)
+    if (monster_to_player && player_ptr->riding) {
         mon_take_hit_mon(player_ptr, player_ptr->riding, dam, &dead, &fear, extract_note_dies(real_r_idx(&floor_ptr->m_list[player_ptr->riding])), m_idx);
+    }
 
-    if (monster_to_monster)
+    if (monster_to_monster) {
         mon_take_hit_mon(player_ptr, t_idx, dam, &dead, &fear, extract_note_dies(real_r_idx(t_ptr)), m_idx);
+    }
 
     return MonsterSpellResult::make_valid();
 }
@@ -229,32 +241,32 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
  * @param x 対象の地点のx座標
  * @param m_idx 呪文を唱えるモンスターID
  * @param t_idx 呪文を受けるモンスターID。プレイヤーの場合はdummyで0とする。
- * @param TARGET_TYPE プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
+ * @param target_type プレイヤーを対象とする場合MONSTER_TO_PLAYER、モンスターを対象とする場合MONSTER_TO_MONSTER
  *
  * ラーニング不可。
  */
-MonsterSpellResult spell_RF6_SPECIAL(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int TARGET_TYPE)
+MonsterSpellResult spell_RF6_SPECIAL(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int target_type)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    monster_type *m_ptr = &floor_ptr->m_list[m_idx];
-    monster_race *r_ptr = &r_info[m_ptr->r_idx];
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
+    auto *r_ptr = &r_info[m_ptr->r_idx];
 
     switch (m_ptr->r_idx) {
-    case MON_OHMU:
+    case MonsterRaceId::OHMU:
         return MonsterSpellResult::make_invalid();
 
-    case MON_BANORLUPART:
-    case MON_BANOR:
-    case MON_LUPART:
+    case MonsterRaceId::BANORLUPART:
+    case MonsterRaceId::BANOR:
+    case MonsterRaceId::LUPART:
         return spell_RF6_SPECIAL_BANORLUPART(player_ptr, m_idx);
 
-    case MON_ROLENTO:
-        return spell_RF6_SPECIAL_ROLENTO(player_ptr, y, x, m_idx, t_idx, TARGET_TYPE);
+    case MonsterRaceId::ROLENTO:
+        return spell_RF6_SPECIAL_ROLENTO(player_ptr, y, x, m_idx, t_idx, target_type);
         break;
 
     default:
         if (r_ptr->d_char == 'B') {
-            return spell_RF6_SPECIAL_B(player_ptr, y, x, m_idx, t_idx, TARGET_TYPE);
+            return spell_RF6_SPECIAL_B(player_ptr, y, x, m_idx, t_idx, target_type);
             break;
         } else {
             return MonsterSpellResult::make_invalid();

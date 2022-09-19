@@ -1,6 +1,7 @@
 ﻿#pragma once
 
-struct object_type;
+enum class StoreSaleType;
+class ObjectType;
 class PlayerType;
-bool store_will_buy(PlayerType *player_ptr, const object_type *o_ptr);
-void mass_produce(PlayerType *player_ptr, object_type *o_ptr);
+bool store_will_buy(PlayerType *, const ObjectType *o_ptr, StoreSaleType store_num);
+void mass_produce(PlayerType *, ObjectType *o_ptr, StoreSaleType store_num);

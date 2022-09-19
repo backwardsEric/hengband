@@ -23,6 +23,7 @@
 #include "view/display-lore-magics.h"
 #include "view/display-lore-status.h"
 #include "view/display-lore.h"
+#include <algorithm>
 
 static void set_msex_flags(lore_type *lore_ptr)
 {
@@ -32,80 +33,103 @@ static void set_msex_flags(lore_type *lore_ptr)
         return;
     }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_MALE)
+    if (lore_ptr->r_ptr->flags1 & RF1_MALE) {
         lore_ptr->msex = MSEX_MALE;
+    }
 }
 
 static void set_flags1(lore_type *lore_ptr)
 {
-    if (lore_ptr->r_ptr->flags1 & RF1_UNIQUE)
-        lore_ptr->flags1 |= (RF1_UNIQUE);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+        lore_ptr->kind_flags.set(MonsterKindType::UNIQUE);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_QUESTOR)
+    if (lore_ptr->r_ptr->flags1 & RF1_QUESTOR) {
         lore_ptr->flags1 |= (RF1_QUESTOR);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_MALE)
+    if (lore_ptr->r_ptr->flags1 & RF1_MALE) {
         lore_ptr->flags1 |= (RF1_MALE);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_FEMALE)
+    if (lore_ptr->r_ptr->flags1 & RF1_FEMALE) {
         lore_ptr->flags1 |= (RF1_FEMALE);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_FRIENDS)
+    if (lore_ptr->r_ptr->flags1 & RF1_FRIENDS) {
         lore_ptr->flags1 |= (RF1_FRIENDS);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_ESCORT)
+    if (lore_ptr->r_ptr->flags1 & RF1_ESCORT) {
         lore_ptr->flags1 |= (RF1_ESCORT);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_ESCORTS)
+    if (lore_ptr->r_ptr->flags1 & RF1_ESCORTS) {
         lore_ptr->flags1 |= (RF1_ESCORTS);
+    }
 }
 
 static void set_race_flags(lore_type *lore_ptr)
 {
-    if (!lore_ptr->r_ptr->r_tkills && !lore_ptr->know_everything)
+    if (!lore_ptr->r_ptr->r_tkills && !lore_ptr->know_everything) {
         return;
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_ORC)
-        lore_ptr->flags3 |= (RF3_ORC);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::ORC)) {
+        lore_ptr->kind_flags.set(MonsterKindType::ORC);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_TROLL)
-        lore_ptr->flags3 |= (RF3_TROLL);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::TROLL)) {
+        lore_ptr->kind_flags.set(MonsterKindType::TROLL);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_GIANT)
-        lore_ptr->flags3 |= (RF3_GIANT);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::GIANT)) {
+        lore_ptr->kind_flags.set(MonsterKindType::GIANT);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_DRAGON)
-        lore_ptr->flags3 |= (RF3_DRAGON);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::DRAGON)) {
+        lore_ptr->kind_flags.set(MonsterKindType::DRAGON);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_DEMON)
-        lore_ptr->flags3 |= (RF3_DEMON);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::DEMON)) {
+        lore_ptr->kind_flags.set(MonsterKindType::DEMON);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_UNDEAD)
-        lore_ptr->flags3 |= (RF3_UNDEAD);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::UNDEAD)) {
+        lore_ptr->kind_flags.set(MonsterKindType::UNDEAD);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_EVIL)
-        lore_ptr->flags3 |= (RF3_EVIL);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
+        lore_ptr->kind_flags.set(MonsterKindType::EVIL);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_GOOD)
-        lore_ptr->flags3 |= (RF3_GOOD);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
+        lore_ptr->kind_flags.set(MonsterKindType::GOOD);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_ANIMAL)
-        lore_ptr->flags3 |= (RF3_ANIMAL);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL)) {
+        lore_ptr->kind_flags.set(MonsterKindType::ANIMAL);
+    }
 
-    if (lore_ptr->r_ptr->flags3 & RF3_AMBERITE)
-        lore_ptr->flags3 |= (RF3_AMBERITE);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::AMBERITE)) {
+        lore_ptr->kind_flags.set(MonsterKindType::AMBERITE);
+    }
 
-    if (lore_ptr->r_ptr->flags2 & RF2_HUMAN)
-        lore_ptr->flags2 |= (RF2_HUMAN);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::HUMAN)) {
+        lore_ptr->kind_flags.set(MonsterKindType::HUMAN);
+    }
 
-    if (lore_ptr->r_ptr->flags2 & RF2_QUANTUM)
-        lore_ptr->flags2 |= (RF2_QUANTUM);
+    if (lore_ptr->r_ptr->kind_flags.has(MonsterKindType::QUANTUM)) {
+        lore_ptr->kind_flags.set(MonsterKindType::QUANTUM);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_FORCE_DEPTH)
+    if (lore_ptr->r_ptr->flags1 & RF1_FORCE_DEPTH) {
         lore_ptr->flags1 |= (RF1_FORCE_DEPTH);
+    }
 
-    if (lore_ptr->r_ptr->flags1 & RF1_FORCE_MAXHP)
+    if (lore_ptr->r_ptr->flags1 & RF1_FORCE_MAXHP) {
         lore_ptr->flags1 |= (RF1_FORCE_MAXHP);
+    }
 }
 
 /*!
@@ -118,17 +142,27 @@ static void set_race_flags(lore_type *lore_ptr)
  * left edge of the screen, on a cleared line, in which the recall is
  * to take place.  One extra blank line is left after the recall.
  */
-void process_monster_lore(PlayerType *player_ptr, MONRACE_IDX r_idx, monster_lore_mode mode)
+void process_monster_lore(PlayerType *player_ptr, MonsterRaceId r_idx, monster_lore_mode mode)
 {
     lore_type tmp_lore;
     lore_type *lore_ptr = initialize_lore_type(&tmp_lore, r_idx, mode);
-    for (int n = 0; n < A_MAX; n++) {
-        if (lore_ptr->r_ptr->reinforce_id[n] > 0)
-            lore_ptr->reinforce = true;
-    }
 
-    if (cheat_know || (mode == MONSTER_LORE_RESEARCH) || (mode == MONSTER_LORE_DEBUG))
+    auto is_valid_reinforcer = [](const auto &reinforce) {
+        auto [r_idx, dd, ds] = reinforce;
+        auto is_reinforce = MonsterRace(r_idx).is_valid();
+        is_reinforce &= dd > 0;
+        is_reinforce &= ds > 0;
+        return is_reinforce;
+    };
+
+    lore_ptr->reinforce =
+        std::find_if(
+            lore_ptr->r_ptr->reinforces.begin(), lore_ptr->r_ptr->reinforces.end(),
+            is_valid_reinforcer) != lore_ptr->r_ptr->reinforces.end();
+
+    if (cheat_know || (mode == MONSTER_LORE_RESEARCH) || (mode == MONSTER_LORE_DEBUG)) {
         lore_ptr->know_everything = true;
+    }
 
     set_drop_flags(lore_ptr);
     set_msex_flags(lore_ptr);
@@ -141,13 +175,14 @@ void process_monster_lore(PlayerType *player_ptr, MONRACE_IDX r_idx, monster_lor
         hooked_roff("\n");
     }
 
-    if (r_idx == MON_KAGE) {
+    if (r_idx == MonsterRaceId::KAGE) {
         hooked_roff("\n");
         return;
     }
 
-    if (!display_where_to_appear(lore_ptr))
+    if (!display_where_to_appear(lore_ptr)) {
         return;
+    }
 
     display_monster_move(lore_ptr);
     display_monster_never_move(lore_ptr);
@@ -158,8 +193,9 @@ void process_monster_lore(PlayerType *player_ptr, MONRACE_IDX r_idx, monster_lor
 
     display_lore_this(player_ptr, lore_ptr);
     display_monster_aura(lore_ptr);
-    if (lore_ptr->flags2 & RF2_REFLECTING)
+    if (lore_ptr->flags2 & RF2_REFLECTING) {
         hooked_roff(format(_("%^sは矢の呪文を跳ね返す。", "%^s reflects bolt spells.  "), Who::who(lore_ptr->msex)));
+    }
 
     display_monster_collective(lore_ptr);
     lore_ptr->vn = 0;

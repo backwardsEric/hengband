@@ -1,22 +1,24 @@
 ﻿#pragma once
 
+#include "object-enchant/object-ego.h"
 #include "system/angband.h"
 #include <functional>
 #include <string_view>
 
+enum class FixedArtifactId : short;
 enum parse_error_type : int;
 
-typedef struct dungeon_grid {
+struct dungeon_grid {
     FEAT_IDX feature; /* Terrain feature */
     MONSTER_IDX monster; /* Monster */
     OBJECT_IDX object; /* Object */
-    EGO_IDX ego; /* Ego-Item */
-    ARTIFACT_IDX artifact; /* Artifact */
+    EgoType ego; /* Ego-Item */
+    FixedArtifactId artifact; /* Artifact */
     IDX trap; /* Trap */
     BIT_FLAGS cave_info; /* Flags for CAVE_MARK, CAVE_GLOW, CAVE_ICKY, CAVE_ROOM */
     int16_t special; /* Reserved for special terrain info */
     int random; /* Number of the random effect */
-} dungeon_grid;
+};
 
 extern dungeon_grid letter[255];
 

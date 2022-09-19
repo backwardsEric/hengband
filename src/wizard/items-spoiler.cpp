@@ -29,8 +29,8 @@
  */
 static void kind_info(PlayerType *player_ptr, char *buf, char *dam, char *wgt, char *chance, DEPTH *lev, PRICE *val, KIND_OBJECT_IDX k)
 {
-    object_type forge;
-    object_type *q_ptr = &forge;
+    ObjectType forge;
+    auto *q_ptr = &forge;
     q_ptr->prep(k);
     q_ptr->ident |= IDENT_KNOWN;
     q_ptr->pval = 0;
@@ -39,8 +39,9 @@ static void kind_info(PlayerType *player_ptr, char *buf, char *dam, char *wgt, c
     q_ptr->to_d = 0;
     *lev = k_info[q_ptr->k_idx].level;
     *val = object_value(q_ptr);
-    if (!buf || !dam || !chance || !wgt)
+    if (!buf || !dam || !chance || !wgt) {
         return;
+    }
 
     describe_flavor(player_ptr, buf, q_ptr, OD_NAME_ONLY | OD_STORE);
     strcpy(dam, "");
@@ -94,7 +95,7 @@ SpoilerOutputResultType spoil_obj_desc(concptr fname)
     path_build(buf, sizeof(buf), ANGBAND_DIR_USER, fname);
     spoiler_file = angband_fopen(buf, "w");
     if (!spoiler_file) {
-        return SpoilerOutputResultType::SPOILER_OUTPUT_FAIL_FOPEN;
+        return SpoilerOutputResultType::FILE_OPEN_FAILED;
     }
 
     char title[200];
@@ -138,6 +139,6 @@ SpoilerOutputResultType spoil_obj_desc(concptr fname)
         }
     }
 
-    return ferror(spoiler_file) || angband_fclose(spoiler_file) ? SpoilerOutputResultType::SPOILER_OUTPUT_FAIL_FCLOSE
-                                                                : SpoilerOutputResultType::SPOILER_OUTPUT_SUCCESS;
+    return ferror(spoiler_file) || angband_fclose(spoiler_file) ? SpoilerOutputResultType::FILE_CLOSE_FAILED
+                                                                : SpoilerOutputResultType::SUCCESSFUL;
 }

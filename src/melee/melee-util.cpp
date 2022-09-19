@@ -1,15 +1,18 @@
 ﻿#include "melee/melee-util.h"
 #include "floor/geometry.h"
 #include "grid/grid.h"
+#include "melee/melee-switcher.h"
 #include "monster-race/monster-race.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-race-definition.h"
 #include "system/monster-type-definition.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-hallucination.h"
+#include "timed-effect/timed-effects.h"
 
-mam_type *initialize_mam_type(PlayerType *player_ptr, mam_type *mam_ptr, MONRACE_IDX m_idx, MONRACE_IDX t_idx)
+mam_type *initialize_mam_type(PlayerType *player_ptr, mam_type *mam_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx)
 {
-    mam_ptr->attribute = 0;
+    mam_ptr->attribute = BlowEffectType::NONE;
     mam_ptr->m_idx = m_idx;
     mam_ptr->t_idx = t_idx;
     mam_ptr->m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
@@ -23,12 +26,12 @@ mam_type *initialize_mam_type(PlayerType *player_ptr, mam_type *mam_ptr, MONRACE
     mam_ptr->explode = false;
     mam_ptr->touched = false;
 
-    monster_race *r_ptr = &r_info[mam_ptr->m_ptr->r_idx];
+    auto *r_ptr = &r_info[mam_ptr->m_ptr->r_idx];
     monster_race *tr_ptr = &r_info[mam_ptr->t_ptr->r_idx];
     mam_ptr->ac = tr_ptr->ac;
     mam_ptr->rlev = ((r_ptr->level >= 1) ? r_ptr->level : 1);
     mam_ptr->blinked = false;
-    mam_ptr->do_silly_attack = (one_in_(2) && player_ptr->hallucinated);
+    mam_ptr->do_silly_attack = (one_in_(2) && player_ptr->effects()->hallucination()->is_hallucinated());
     mam_ptr->power = 0;
     mam_ptr->obvious = false;
     mam_ptr->known = (mam_ptr->m_ptr->cdis <= MAX_SIGHT) || (mam_ptr->t_ptr->cdis <= MAX_SIGHT);

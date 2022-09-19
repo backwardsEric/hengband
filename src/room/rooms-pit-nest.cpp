@@ -29,6 +29,7 @@
 #include "util/sort.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
+#include <optional>
 #include <vector>
 
 /*!
@@ -43,11 +44,13 @@ static int pick_vault_type(floor_type *floor_ptr, std::vector<nest_pit_type> &l_
     for (size_t i = 0; i < l_ptr.size(); i++) {
         nest_pit_type *n_ptr = &l_ptr.at(i);
 
-        if (n_ptr->level > floor_ptr->dun_level)
+        if (n_ptr->level > floor_ptr->dun_level) {
             continue;
+        }
 
-        if (!(allow_flag_mask & (1UL << i)))
+        if (!(allow_flag_mask & (1UL << i))) {
             continue;
+        }
 
         table.entry_item(i, n_ptr->chance * MAX_DEPTH / (std::min(floor_ptr->dun_level, MAX_DEPTH - 1) - n_ptr->level + 5));
     }
@@ -126,27 +129,33 @@ static bool ang_sort_comp_nest_mon_info(PlayerType *player_ptr, vptr u, vptr v, 
     (void)v;
 
     nest_mon_info_type *nest_mon_info = (nest_mon_info_type *)u;
-    MONSTER_IDX w1 = nest_mon_info[a].r_idx;
-    MONSTER_IDX w2 = nest_mon_info[b].r_idx;
+    auto w1 = nest_mon_info[a].r_idx;
+    auto w2 = nest_mon_info[b].r_idx;
     monster_race *r1_ptr = &r_info[w1];
     monster_race *r2_ptr = &r_info[w2];
     int z1 = nest_mon_info[a].used;
     int z2 = nest_mon_info[b].used;
 
-    if (z1 < z2)
+    if (z1 < z2) {
         return false;
-    if (z1 > z2)
+    }
+    if (z1 > z2) {
         return true;
+    }
 
-    if (r1_ptr->level < r2_ptr->level)
+    if (r1_ptr->level < r2_ptr->level) {
         return true;
-    if (r1_ptr->level > r2_ptr->level)
+    }
+    if (r1_ptr->level > r2_ptr->level) {
         return false;
+    }
 
-    if (r1_ptr->mexp < r2_ptr->mexp)
+    if (r1_ptr->mexp < r2_ptr->mexp) {
         return true;
-    if (r1_ptr->mexp > r2_ptr->mexp)
+    }
+    if (r1_ptr->mexp > r2_ptr->mexp) {
         return false;
+    }
 
     return w1 <= w2;
 }
@@ -226,59 +235,72 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
     grid_type *g_ptr;
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     int cur_nest_type = pick_vault_type(floor_ptr, nest_types, d_info[floor_ptr->dungeon_idx].nest);
     nest_pit_type *n_ptr;
 
     /* No type available */
-    if (cur_nest_type < 0)
+    if (cur_nest_type < 0) {
         return false;
+    }
 
     n_ptr = &nest_types[cur_nest_type];
 
     /* Process a preparation function if necessary */
-    if (n_ptr->prep_func)
+    if (n_ptr->prep_func) {
         (*(n_ptr->prep_func))(player_ptr);
+    }
     get_mon_num_prep(player_ptr, n_ptr->hook_func, nullptr);
 
     align.sub_align = SUB_ALIGN_NEUTRAL;
 
     /* Pick some monster types */
     for (i = 0; i < NUM_NEST_MON_TYPE; i++) {
-        MONRACE_IDX r_idx = 0;
-        int attempts = 100;
-        monster_race *r_ptr = nullptr;
+        auto select_r_idx = [player_ptr, floor_ptr, &align]() -> std::optional<MonsterRaceId> {
+            for (auto attempts = 100; attempts > 0; attempts--) {
+                /* Get a (hard) monster type */
+                auto r_idx = get_mon_num(player_ptr, 0, floor_ptr->dun_level + 11, 0);
+                auto *r_ptr = &r_info[r_idx];
 
-        while (attempts--) {
-            /* Get a (hard) monster type */
-            r_idx = get_mon_num(player_ptr, 0, floor_ptr->dun_level + 11, 0);
-            r_ptr = &r_info[r_idx];
+                /* Decline incorrect alignment */
+                if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
+                    continue;
+                }
 
-            /* Decline incorrect alignment */
-            if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr))
-                continue;
+                /* Accept this monster */
+                if (MonsterRace(r_idx).is_valid()) {
+                    return r_idx;
+                } else {
+                    return std::nullopt;
+                }
+            }
 
-            /* Accept this monster */
-            break;
+            return std::nullopt;
+        };
+
+        const auto r_idx = select_r_idx();
+        if (!r_idx.has_value()) {
+            return false;
         }
 
-        /* Notice failure */
-        if (!r_idx || !attempts)
-            return false;
+        const auto *r_ptr = &r_info[r_idx.value()];
 
         /* Note the alignment */
-        if (r_ptr->flags3 & RF3_EVIL)
+        if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
             align.sub_align |= SUB_ALIGN_EVIL;
-        if (r_ptr->flags3 & RF3_GOOD)
+        }
+        if (r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
             align.sub_align |= SUB_ALIGN_GOOD;
+        }
 
-        nest_mon_info[i].r_idx = (int16_t)r_idx;
+        nest_mon_info[i].r_idx = r_idx.value();
         nest_mon_info[i].used = false;
     }
 
     /* Find and reserve some space in the dungeon.  Get center of room. */
-    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 11, 25))
+    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 11, 25)) {
         return false;
+    }
 
     /* Large room */
     y1 = yval - 4;
@@ -357,7 +379,7 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
     /* Place some monsters */
     for (y = yval - 2; y <= yval + 2; y++) {
         for (x = xval - 9; x <= xval + 9; x++) {
-            MONRACE_IDX r_idx;
+            MonsterRaceId r_idx;
 
             i = randint0(NUM_NEST_MON_TYPE);
             r_idx = nest_mon_info[i].r_idx;
@@ -374,13 +396,16 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
         /* Dump the entries (prevent multi-printing) */
         for (i = 0; i < NUM_NEST_MON_TYPE; i++) {
-            if (!nest_mon_info[i].used)
+            if (!nest_mon_info[i].used) {
                 break;
+            }
             for (; i < NUM_NEST_MON_TYPE - 1; i++) {
-                if (nest_mon_info[i].r_idx != nest_mon_info[i + 1].r_idx)
+                if (nest_mon_info[i].r_idx != nest_mon_info[i + 1].r_idx) {
                     break;
-                if (!nest_mon_info[i + 1].used)
+                }
+                if (!nest_mon_info[i + 1].used) {
                     break;
+                }
             }
 
             msg_format_wizard(player_ptr, CHEAT_DUNGEON, "Nest構成モンスターNo.%d:%s", i, r_info[nest_mon_info[i].r_idx].name.c_str());
@@ -447,32 +472,34 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
     POSITION y, x, y1, x1, y2, x2, xval, yval;
     int i, j;
 
-    MONRACE_IDX what[16];
+    MonsterRaceId what[16];
 
     monster_type align;
 
     grid_type *g_ptr;
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     int cur_pit_type = pick_vault_type(floor_ptr, pit_types, d_info[floor_ptr->dungeon_idx].pit);
     nest_pit_type *n_ptr;
 
     /* No type available */
-    if (cur_pit_type < 0)
+    if (cur_pit_type < 0) {
         return false;
+    }
 
     n_ptr = &pit_types[cur_pit_type];
 
     /* Process a preparation function if necessary */
-    if (n_ptr->prep_func)
+    if (n_ptr->prep_func) {
         (*(n_ptr->prep_func))(player_ptr);
+    }
     get_mon_num_prep(player_ptr, n_ptr->hook_func, nullptr);
 
     align.sub_align = SUB_ALIGN_NEUTRAL;
 
     /* Pick some monster types */
     for (i = 0; i < 16; i++) {
-        MONRACE_IDX r_idx = 0;
+        auto r_idx = MonsterRace::empty_id();
         int attempts = 100;
         monster_race *r_ptr = nullptr;
 
@@ -482,29 +509,34 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
             r_ptr = &r_info[r_idx];
 
             /* Decline incorrect alignment */
-            if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr))
+            if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
                 continue;
+            }
 
             /* Accept this monster */
             break;
         }
 
         /* Notice failure */
-        if (!r_idx || !attempts)
+        if (!MonsterRace(r_idx).is_valid() || !attempts) {
             return false;
+        }
 
         /* Note the alignment */
-        if (r_ptr->flags3 & RF3_EVIL)
+        if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
             align.sub_align |= SUB_ALIGN_EVIL;
-        if (r_ptr->flags3 & RF3_GOOD)
+        }
+        if (r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
             align.sub_align |= SUB_ALIGN_GOOD;
+        }
 
         what[i] = r_idx;
     }
 
     /* Find and reserve some space in the dungeon.  Get center of room. */
-    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 11, 25))
+    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 11, 25)) {
         return false;
+    }
 
     /* Large room */
     y1 = yval - 4;
@@ -588,7 +620,7 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
             /* Bubble */
             if (p1 > p2) {
-                MONRACE_IDX tmp = what[i1];
+                MonsterRaceId tmp = what[i1];
                 what[i1] = what[i2];
                 what[i2] = tmp;
             }
@@ -682,19 +714,21 @@ const int place_table_trapped_pit[TRAPPED_PIT_MONSTER_PLACE_MAX][3] = {
  * @detai;
  * 穴を掘るモンスター、壁を抜けるモンスターは却下
  */
-static bool vault_aux_trapped_pit(PlayerType *player_ptr, MONRACE_IDX r_idx)
+static bool vault_aux_trapped_pit(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     /* Unused */
     (void)player_ptr;
 
-    monster_race *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &r_info[r_idx];
 
-    if (!vault_monster_okay(player_ptr, r_idx))
+    if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
+    }
 
     /* No wall passing monster */
-    if (r_ptr->flags2 & (RF2_PASS_WALL | RF2_KILL_WALL))
+    if (r_ptr->feature_flags.has_any_of({ MonsterFeatureType::PASS_WALL, MonsterFeatureType::KILL_WALL })) {
         return false;
+    }
 
     return true;
 }
@@ -748,36 +782,39 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
     POSITION y, x, y1, x1, y2, x2, xval, yval;
     int i, j;
 
-    MONRACE_IDX what[16];
+    MonsterRaceId what[16];
 
     monster_type align;
 
     grid_type *g_ptr;
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     int cur_pit_type = pick_vault_type(floor_ptr, pit_types, d_info[floor_ptr->dungeon_idx].pit);
     nest_pit_type *n_ptr;
 
     /* Only in Angband */
-    if (floor_ptr->dungeon_idx != DUNGEON_ANGBAND)
+    if (floor_ptr->dungeon_idx != DUNGEON_ANGBAND) {
         return false;
+    }
 
     /* No type available */
-    if (cur_pit_type < 0)
+    if (cur_pit_type < 0) {
         return false;
+    }
 
     n_ptr = &pit_types[cur_pit_type];
 
     /* Process a preparation function if necessary */
-    if (n_ptr->prep_func)
+    if (n_ptr->prep_func) {
         (*(n_ptr->prep_func))(player_ptr);
+    }
     get_mon_num_prep(player_ptr, n_ptr->hook_func, vault_aux_trapped_pit);
 
     align.sub_align = SUB_ALIGN_NEUTRAL;
 
     /* Pick some monster types */
     for (i = 0; i < 16; i++) {
-        MONRACE_IDX r_idx = 0;
+        auto r_idx = MonsterRace::empty_id();
         int attempts = 100;
         monster_race *r_ptr = nullptr;
 
@@ -787,29 +824,34 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
             r_ptr = &r_info[r_idx];
 
             /* Decline incorrect alignment */
-            if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr))
+            if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
                 continue;
+            }
 
             /* Accept this monster */
             break;
         }
 
         /* Notice failure */
-        if (!r_idx || !attempts)
+        if (!MonsterRace(r_idx).is_valid() || !attempts) {
             return false;
+        }
 
         /* Note the alignment */
-        if (r_ptr->flags3 & RF3_EVIL)
+        if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
             align.sub_align |= SUB_ALIGN_EVIL;
-        if (r_ptr->flags3 & RF3_GOOD)
+        }
+        if (r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
             align.sub_align |= SUB_ALIGN_GOOD;
+        }
 
         what[i] = r_idx;
     }
 
     /* Find and reserve some space in the dungeon.  Get center of room. */
-    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 13, 25))
+    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 13, 25)) {
         return false;
+    }
 
     /* Large room */
     y1 = yval - 5;
@@ -909,7 +951,7 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
             /* Bubble */
             if (p1 > p2) {
-                MONRACE_IDX tmp = what[i1];
+                MonsterRaceId tmp = what[i1];
                 what[i1] = what[i2];
                 what[i2] = tmp;
             }
@@ -925,7 +967,7 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
         what[i] = what[i * 2];
 
         if (cheat_hear) {
-            msg_print(r_info[what[i]].name.c_str());
+            msg_print(r_info[what[i]].name);
         }
     }
 

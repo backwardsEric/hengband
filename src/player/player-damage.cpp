@@ -44,6 +44,7 @@
 #include "object/object-broken.h"
 #include "object/object-flags.h"
 #include "player-base/player-class.h"
+#include "player-base/player-race.h"
 #include "player-info/class-info.h"
 #include "player-info/race-types.h"
 #include "player-info/samurai-data-type.h"
@@ -65,12 +66,15 @@
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "timed-effect/player-hallucination.h"
+#include "timed-effect/player-paralysis.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 
-using dam_func = HIT_POINT (*)(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool aura);
+using dam_func = int (*)(PlayerType *player_ptr, int dam, concptr kb_str, bool aura);
 
 /*!
  * @brief 酸攻撃による装備のAC劣化処理 /
@@ -84,7 +88,7 @@ using dam_func = HIT_POINT (*)(PlayerType *player_ptr, HIT_POINT dam, concptr kb
  */
 static bool acid_minus_ac(PlayerType *player_ptr)
 {
-    object_type *o_ptr = nullptr;
+    ObjectType *o_ptr = nullptr;
     switch (randint1(7)) {
     case 1:
         o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND];
@@ -109,8 +113,9 @@ static bool acid_minus_ac(PlayerType *player_ptr)
         break;
     }
 
-    if ((o_ptr == nullptr) || (o_ptr->k_idx == 0) || !o_ptr->is_armour())
+    if ((o_ptr == nullptr) || (o_ptr->k_idx == 0) || !o_ptr->is_armour()) {
         return false;
+    }
 
     GAME_TEXT o_name[MAX_NLEN];
     describe_flavor(player_ptr, o_name, o_ptr, OD_OMIT_PREFIX | OD_NAME_ONLY);
@@ -144,25 +149,30 @@ static bool acid_minus_ac(PlayerType *player_ptr)
  * @return 修正HPダメージ量
  * @details 酸オーラは存在しないが関数ポインタのために引数だけは用意している
  */
-HIT_POINT acid_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool aura)
+int acid_dam(PlayerType *player_ptr, int dam, concptr kb_str, bool aura)
 {
-    int inv = (dam < 30) ? 1 : (dam < 60) ? 2 : 3;
+    int inv = (dam < 30) ? 1 : (dam < 60) ? 2
+                                          : 3;
     bool double_resist = is_oppose_acid(player_ptr);
     dam = dam * calc_acid_damage_rate(player_ptr) / 100;
-    if (dam <= 0)
+    if (dam <= 0) {
         return 0;
-
-    if (aura || !check_multishadow(player_ptr)) {
-        if ((!(double_resist || has_resist_acid(player_ptr))) && one_in_(HURT_CHANCE))
-            (void)do_dec_stat(player_ptr, A_CHR);
-
-        if (acid_minus_ac(player_ptr))
-            dam = (dam + 1) / 2;
     }
 
-    HIT_POINT get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
-    if (!aura && !(double_resist && has_resist_acid(player_ptr)))
+    if (aura || !check_multishadow(player_ptr)) {
+        if ((!(double_resist || has_resist_acid(player_ptr))) && one_in_(HURT_CHANCE)) {
+            (void)do_dec_stat(player_ptr, A_CHR);
+        }
+
+        if (acid_minus_ac(player_ptr)) {
+            dam = (dam + 1) / 2;
+        }
+    }
+
+    int get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
+    if (!aura && !(double_resist && has_resist_acid(player_ptr))) {
         inventory_damage(player_ptr, BreakerAcid(), inv);
+    }
 
     return get_damage;
 }
@@ -177,24 +187,28 @@ HIT_POINT acid_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool a
  * @param aura オーラよるダメージが原因ならばTRUE
  * @return 修正HPダメージ量
  */
-HIT_POINT elec_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool aura)
+int elec_dam(PlayerType *player_ptr, int dam, concptr kb_str, bool aura)
 {
-    int inv = (dam < 30) ? 1 : (dam < 60) ? 2 : 3;
+    int inv = (dam < 30) ? 1 : (dam < 60) ? 2
+                                          : 3;
     bool double_resist = is_oppose_elec(player_ptr);
 
     dam = dam * calc_elec_damage_rate(player_ptr) / 100;
 
-    if (dam <= 0)
+    if (dam <= 0) {
         return 0;
-
-    if (aura || !check_multishadow(player_ptr)) {
-        if ((!(double_resist || has_resist_elec(player_ptr))) && one_in_(HURT_CHANCE))
-            (void)do_dec_stat(player_ptr, A_DEX);
     }
 
-    HIT_POINT get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
-    if (!aura && !(double_resist && has_resist_elec(player_ptr)))
+    if (aura || !check_multishadow(player_ptr)) {
+        if ((!(double_resist || has_resist_elec(player_ptr))) && one_in_(HURT_CHANCE)) {
+            (void)do_dec_stat(player_ptr, A_DEX);
+        }
+    }
+
+    int get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
+    if (!aura && !(double_resist && has_resist_elec(player_ptr))) {
         inventory_damage(player_ptr, BreakerElec(), inv);
+    }
 
     return get_damage;
 }
@@ -209,24 +223,28 @@ HIT_POINT elec_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool a
  * @param aura オーラよるダメージが原因ならばTRUE
  * @return 修正HPダメージ量
  */
-HIT_POINT fire_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool aura)
+int fire_dam(PlayerType *player_ptr, int dam, concptr kb_str, bool aura)
 {
-    int inv = (dam < 30) ? 1 : (dam < 60) ? 2 : 3;
+    int inv = (dam < 30) ? 1 : (dam < 60) ? 2
+                                          : 3;
     bool double_resist = is_oppose_fire(player_ptr);
 
     /* Totally immune */
-    if (has_immune_fire(player_ptr) || (dam <= 0))
+    if (has_immune_fire(player_ptr) || (dam <= 0)) {
         return 0;
+    }
 
     dam = dam * calc_fire_damage_rate(player_ptr) / 100;
     if (aura || !check_multishadow(player_ptr)) {
-        if ((!(double_resist || has_resist_fire(player_ptr))) && one_in_(HURT_CHANCE))
+        if ((!(double_resist || has_resist_fire(player_ptr))) && one_in_(HURT_CHANCE)) {
             (void)do_dec_stat(player_ptr, A_STR);
+        }
     }
 
-    HIT_POINT get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
-    if (!aura && !(double_resist && has_resist_fire(player_ptr)))
+    int get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
+    if (!aura && !(double_resist && has_resist_fire(player_ptr))) {
         inventory_damage(player_ptr, BreakerFire(), inv);
+    }
 
     return get_damage;
 }
@@ -241,22 +259,26 @@ HIT_POINT fire_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool a
  * @param aura オーラよるダメージが原因ならばTRUE
  * @return 修正HPダメージ量
  */
-HIT_POINT cold_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool aura)
+int cold_dam(PlayerType *player_ptr, int dam, concptr kb_str, bool aura)
 {
-    int inv = (dam < 30) ? 1 : (dam < 60) ? 2 : 3;
+    int inv = (dam < 30) ? 1 : (dam < 60) ? 2
+                                          : 3;
     bool double_resist = is_oppose_cold(player_ptr);
-    if (has_immune_cold(player_ptr) || (dam <= 0))
+    if (has_immune_cold(player_ptr) || (dam <= 0)) {
         return 0;
+    }
 
     dam = dam * calc_cold_damage_rate(player_ptr) / 100;
     if (aura || !check_multishadow(player_ptr)) {
-        if ((!(double_resist || has_resist_cold(player_ptr))) && one_in_(HURT_CHANCE))
+        if ((!(double_resist || has_resist_cold(player_ptr))) && one_in_(HURT_CHANCE)) {
             (void)do_dec_stat(player_ptr, A_STR);
+        }
     }
 
-    HIT_POINT get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
-    if (!aura && !(double_resist && has_resist_cold(player_ptr)))
+    int get_damage = take_hit(player_ptr, aura ? DAMAGE_NOESCAPE : DAMAGE_ATTACK, dam, kb_str);
+    if (!aura && !(double_resist && has_resist_cold(player_ptr))) {
         inventory_damage(player_ptr, BreakerCold(), inv);
+    }
 
     return get_damage;
 }
@@ -270,7 +292,7 @@ HIT_POINT cold_dam(PlayerType *player_ptr, HIT_POINT dam, concptr kb_str, bool a
  * the game when he dies, since the "You die." message is shown before
  * setting the player to "dead".
  */
-int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr hit_from)
+int take_hit(PlayerType *player_ptr, int damage_type, int damage, concptr hit_from)
 {
     int old_chp = player_ptr->chp;
 
@@ -278,13 +300,16 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
     char tmp[1024];
 
     int warning = (player_ptr->mhp * hitpoint_warn / 10);
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return 0;
+    }
 
-    if (player_ptr->sutemi)
+    if (player_ptr->sutemi) {
         damage *= 2;
-    if (PlayerClass(player_ptr).samurai_stance_is(SamuraiStanceType::IAI))
+    }
+    if (PlayerClass(player_ptr).samurai_stance_is(SamuraiStanceType::IAI)) {
         damage += (damage + 4) / 5;
+    }
 
     if (damage_type != DAMAGE_USELIFE) {
         disturb(player_ptr, true, true);
@@ -318,21 +343,24 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
                 msg_print(_("半物質の体が切り裂かれた！", "The attack cuts through your ethereal body!"));
             } else {
                 damage /= 2;
-                if ((damage == 0) && one_in_(2))
+                if ((damage == 0) && one_in_(2)) {
                     damage = 1;
+                }
             }
         }
 
         if (PlayerClass(player_ptr).samurai_stance_is(SamuraiStanceType::MUSOU)) {
             damage /= 2;
-            if ((damage == 0) && one_in_(2))
+            if ((damage == 0) && one_in_(2)) {
                 damage = 1;
+            }
         }
     }
 
     player_ptr->chp -= damage;
-    if (player_ptr->chp < -9999)
+    if (player_ptr->chp < -9999) {
         player_ptr->chp = -9999;
+    }
     if (damage_type == DAMAGE_GENO && player_ptr->chp < 0) {
         damage += player_ptr->chp;
         player_ptr->chp = 0;
@@ -347,26 +375,29 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
     }
 
     if (player_ptr->chp < 0 && !cheat_immortal) {
-        bool android = player_ptr->prace == PlayerRaceType::ANDROID;
+        bool android = PlayerRace(player_ptr).equals(PlayerRaceType::ANDROID);
 
         /* 死んだ時に強制終了して死を回避できなくしてみた by Habu */
-        if (!cheat_save && !save_player(player_ptr, SAVE_TYPE_CLOSE_GAME))
+        if (!cheat_save && !save_player(player_ptr, SaveType::CLOSE_GAME)) {
             msg_print(_("セーブ失敗！", "death save failed!"));
+        }
 
         sound(SOUND_DEATH);
         chg_virtue(player_ptr, V_SACRIFICE, 10);
         handle_stuff(player_ptr);
         player_ptr->leaving = true;
-        if (!cheat_immortal)
+        if (!cheat_immortal) {
             player_ptr->is_dead = true;
+        }
         if (player_ptr->current_floor_ptr->inside_arena) {
             concptr m_name = r_info[arena_info[player_ptr->arena_number].r_idx].name.c_str();
             msg_format(_("あなたは%sの前に敗れ去った。", "You are beaten by %s."), m_name);
             msg_print(nullptr);
-            if (record_arena)
+            if (record_arena) {
                 exe_write_diary(player_ptr, DIARY_ARENA, -1 - player_ptr->arena_number, m_name);
+            }
         } else {
-            QUEST_IDX q_idx = quest_number(player_ptr, player_ptr->current_floor_ptr->dun_level);
+            auto q_idx = quest_number(player_ptr, player_ptr->current_floor_ptr->dun_level);
             bool seppuku = streq(hit_from, "Seppuku");
             bool winning_seppuku = w_ptr->total_winner && seppuku;
 
@@ -376,23 +407,24 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
             screen_dump = make_screen_dump(player_ptr);
 #endif
             if (seppuku) {
-                strcpy(player_ptr->died_from, hit_from);
-#ifdef JP
-                if (!winning_seppuku)
-                    strcpy(player_ptr->died_from, "切腹");
-#endif
+                player_ptr->died_from = hit_from;
+                if (!winning_seppuku) {
+                    player_ptr->died_from = _("切腹", "Seppuku");
+                }
             } else {
-                char dummy[1024];
+                auto effects = player_ptr->effects();
+                auto is_hallucinated = effects->hallucination()->is_hallucinated();
+                auto paralysis_state = "";
+                if (effects->paralysis()->is_paralyzed()) {
+                    paralysis_state = player_ptr->free_act ? _("彫像状態で", " while being the statue") : _("麻痺状態で", " while paralyzed");
+                }
+
+                auto hallucintion_state = is_hallucinated ? _("幻覚に歪んだ", "hallucinatingly distorted ") : "";
 #ifdef JP
-                sprintf(dummy, "%s%s%s",
-                    !player_ptr->paralyzed     ? ""
-                        : player_ptr->free_act ? "彫像状態で"
-                                                 : "麻痺状態で",
-                    player_ptr->hallucinated ? "幻覚に歪んだ" : "", hit_from);
+                player_ptr->died_from = format("%s%s%s", paralysis_state, hallucintion_state, hit_from);
 #else
-                sprintf(dummy, "%s%s", hit_from, !player_ptr->paralyzed ? "" : " while helpless");
+                player_ptr->died_from = format("%s%s%s", hallucintion_state, hit_from, paralysis_state);
 #endif
-                angband_strcpy(player_ptr->died_from, dummy, sizeof player_ptr->died_from);
             }
 
             w_ptr->total_winner = false;
@@ -400,30 +432,37 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
                 add_retired_class(player_ptr->pclass);
                 exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, _("勝利の後切腹した。", "committed seppuku after the winning."));
             } else {
-                char buf[20];
+                std::string place;
 
-                if (player_ptr->current_floor_ptr->inside_arena)
-                    strcpy(buf, _("アリーナ", "in the Arena"));
-                else if (!is_in_dungeon(player_ptr))
-                    strcpy(buf, _("地上", "on the surface"));
-                else if (q_idx && (quest_type::is_fixed(q_idx) && !((q_idx == QUEST_OBERON) || (q_idx == QUEST_SERPENT))))
-                    strcpy(buf, _("クエスト", "in a quest"));
-                else
-                    sprintf(buf, _("%d階", "level %d"), (int)player_ptr->current_floor_ptr->dun_level);
+                if (player_ptr->current_floor_ptr->inside_arena) {
+                    place = _("アリーナ", "in the Arena");
+                } else if (!is_in_dungeon(player_ptr)) {
+                    place = _("地上", "on the surface");
+                } else if (inside_quest(q_idx) && (quest_type::is_fixed(q_idx) && !((q_idx == QuestId::OBERON) || (q_idx == QuestId::SERPENT)))) {
+                    place = _("クエスト", "in a quest");
+                } else {
+                    place = format(_("%d階", "on level %d"), static_cast<int>(player_ptr->current_floor_ptr->dun_level));
+                }
 
-                sprintf(tmp, _("%sで%sに殺された。", "killed by %s %s."), buf, player_ptr->died_from);
-                exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, tmp);
+#ifdef JP
+                std::string note = format("%sで%sに殺された。", place.c_str(), player_ptr->died_from.c_str());
+#else
+                std::string note = format("killed by %s %s.", player_ptr->died_from.c_str(), place.c_str());
+#endif
+                exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, note.c_str());
             }
 
             exe_write_diary(player_ptr, DIARY_GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
             exe_write_diary(player_ptr, DIARY_DESCRIPTION, 1, "\n\n\n\n");
             flush();
-            if (get_check_strict(player_ptr, _("画面を保存しますか？", "Dump the screen? "), CHECK_NO_HISTORY))
+            if (get_check_strict(player_ptr, _("画面を保存しますか？", "Dump the screen? "), CHECK_NO_HISTORY)) {
                 do_cmd_save_screen(player_ptr);
+            }
 
             flush();
-            if (player_ptr->last_message)
+            if (player_ptr->last_message) {
                 string_free(player_ptr->last_message);
+            }
 
             player_ptr->last_message = nullptr;
             if (!last_words) {
@@ -443,11 +482,13 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
 
                 do {
 #ifdef JP
-                    while (!get_string(winning_seppuku ? "辞世の句: " : "断末魔の叫び: ", death_message, sizeof(death_message)))
+                    while (!get_string(winning_seppuku ? "辞世の句: " : "断末魔の叫び: ", death_message, sizeof(death_message))) {
                         ;
+                    }
 #else
-                    while (!get_string("Last words: ", death_message, 1024))
+                    while (!get_string("Last words: ", death_message, 1024)) {
                         ;
+                    }
 #endif
                 } while (winning_seppuku && !get_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), CHECK_NO_HISTORY));
 
@@ -457,14 +498,15 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
 #else
                     strcpy(death_message, android ? "You are broken." : "You die.");
 #endif
-                } else
+                } else {
                     player_ptr->last_message = string_make(death_message);
+                }
 
 #ifdef JP
                 if (winning_seppuku) {
                     int i, len;
-                    int w = Term->wid;
-                    int h = Term->hgt;
+                    int w = game_term->wid;
+                    int h = game_term->hgt;
                     int msg_pos_x[9] = { 5, 7, 9, 12, 14, 17, 19, 21, 23 };
                     int msg_pos_y[9] = { 3, 4, 5, 4, 5, 4, 5, 6, 4 };
                     concptr str;
@@ -473,34 +515,40 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
                     term_clear();
 
                     /* 桜散る */
-                    for (i = 0; i < 40; i++)
+                    for (i = 0; i < 40; i++) {
                         term_putstr(randint0(w / 2) * 2, randint0(h), 2, TERM_VIOLET, "υ");
+                    }
 
                     str = death_message;
-                    if (strncmp(str, "「", 2) == 0)
+                    if (strncmp(str, "「", 2) == 0) {
                         str += 2;
+                    }
 
                     str2 = angband_strstr(str, "」");
-                    if (str2 != nullptr)
+                    if (str2 != nullptr) {
                         *str2 = '\0';
+                    }
 
                     i = 0;
                     while (i < 9) {
                         str2 = angband_strstr(str, " ");
-                        if (str2 == nullptr)
+                        if (str2 == nullptr) {
                             len = strlen(str);
-                        else
+                        } else {
                             len = str2 - str;
+                        }
 
                         if (len != 0) {
                             term_putstr_v(w * 3 / 4 - 2 - msg_pos_x[i] * 2, msg_pos_y[i], len, TERM_WHITE, str);
-                            if (str2 == nullptr)
+                            if (str2 == nullptr) {
                                 break;
+                            }
                             i++;
                         }
                         str = str2 + 1;
-                        if (*str == 0)
+                        if (*str == 0) {
                             break;
+                        }
                     }
 
                     term_putstr(w - 1, h - 1, 1, TERM_WHITE, " ");
@@ -520,28 +568,32 @@ int take_hit(PlayerType *player_ptr, int damage_type, HIT_POINT damage, concptr 
 
     handle_stuff(player_ptr);
     if (player_ptr->chp < warning) {
-        if (old_chp > warning)
+        if (old_chp > warning) {
             bell();
+        }
 
         sound(SOUND_WARN);
         if (record_danger && (old_chp > warning)) {
-            if (player_ptr->hallucinated && damage_type == DAMAGE_ATTACK)
+            if (player_ptr->effects()->hallucination()->is_hallucinated() && damage_type == DAMAGE_ATTACK) {
                 hit_from = _("何か", "something");
+            }
 
             sprintf(tmp, _("%sによってピンチに陥った。", "was in a critical situation because of %s."), hit_from);
             exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, tmp);
         }
 
-        if (auto_more)
+        if (auto_more) {
             player_ptr->now_damaged = true;
+        }
 
         msg_print(_("*** 警告:低ヒット・ポイント！ ***", "*** LOW HITPOINT WARNING! ***"));
         msg_print(nullptr);
         flush();
     }
 
-    if (player_ptr->wild_mode && !player_ptr->leaving && (player_ptr->chp < std::max(warning, player_ptr->mhp / 5)))
+    if (player_ptr->wild_mode && !player_ptr->leaving && (player_ptr->chp < std::max(warning, player_ptr->mhp / 5))) {
         change_wild_mode(player_ptr, false);
+    }
 
     return damage;
 }

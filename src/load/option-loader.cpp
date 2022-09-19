@@ -43,8 +43,9 @@ void rd_options(void)
 
     auto c = rd_u16b();
 
-    if (c & 0x0002)
+    if (c & 0x0002) {
         w_ptr->wizard = true;
+    }
 
     cheat_peek = any_bits(c, 0x0100);
     cheat_hear = any_bits(c, 0x0200);
@@ -58,17 +59,19 @@ void rd_options(void)
     cheat_sight = any_bits(c, 0x0040);
     cheat_immortal = any_bits(c, 0x0020);
 
-    autosave_l = rd_byte() != 0;
-    autosave_t = rd_byte() != 0;
+    autosave_l = rd_bool();
+    autosave_t = rd_bool();
     autosave_freq = rd_s16b();
 
     BIT_FLAGS flag[8];
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < 8; n++) {
         flag[n] = rd_u32b();
+    }
 
     BIT_FLAGS mask[8];
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < 8; n++) {
         mask[n] = rd_u32b();
+    }
 
     for (auto n = 0; n < 8; n++) {
         for (auto i = 0; i < 32; i++) {
@@ -84,22 +87,27 @@ void rd_options(void)
         }
     }
 
-    if (h_older_than(0, 4, 5))
+    if (h_older_than(0, 4, 5)) {
         load_zangband_options();
+    }
 
     extract_option_vars();
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < 8; n++) {
         flag[n] = rd_u32b();
+    }
 
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < 8; n++) {
         mask[n] = rd_u32b();
+    }
 
     for (int n = 0; n < 8; n++) {
         for (int i = 0; i < 32; i++) {
-            if (!(mask[n] & (1UL << i)))
+            if (!(mask[n] & (1UL << i))) {
                 continue;
-            if (!(window_mask[n] & (1UL << i)))
+            }
+            if (!(window_mask[n] & (1UL << i))) {
                 continue;
+            }
 
             if (flag[n] & (1UL << i)) {
                 window_flag[n] |= (1UL << i);

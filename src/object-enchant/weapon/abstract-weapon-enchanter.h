@@ -3,11 +3,18 @@
 #include "object-enchant/enchanter-base.h"
 #include "system/angband.h"
 
-struct object_type;
-class AbstractWeaponEnchanter : EnchanterBase {
+class ObjectType;
+class AbstractWeaponEnchanter : public EnchanterBase {
+public:
+    virtual ~AbstractWeaponEnchanter() = default;
+
 protected:
-    AbstractWeaponEnchanter(object_type *o_ptr, DEPTH level, int power);
-    object_type *o_ptr;
+    AbstractWeaponEnchanter(ObjectType *o_ptr, DEPTH level, int power);
+    ObjectType *o_ptr;
     DEPTH level;
     int power;
+    bool should_skip = false;
+
+    void give_killing_bonus();
+    virtual void decide_skip();
 };

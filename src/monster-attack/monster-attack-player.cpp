@@ -25,7 +25,7 @@
 #include "monster-attack/monster-attack-describer.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-switcher.h"
-#include "monster-attack/monster-attack-types.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-flags3.h"
@@ -54,7 +54,9 @@
 #include "system/object-type-definition.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-cut.h"
+#include "timed-effect/player-hallucination.h"
 #include "timed-effect/player-stun.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -68,7 +70,7 @@ MonsterAttackPlayer::MonsterAttackPlayer(PlayerType *player_ptr, short m_idx)
     , m_ptr(&player_ptr->current_floor_ptr->m_list[m_idx])
     , method(RaceBlowMethodType::NONE)
     , effect(RaceBlowEffectType::NONE)
-    , do_silly_attack(one_in_(2) && player_ptr->hallucinated)
+    , do_silly_attack(one_in_(2) && player_ptr->effects()->hallucination()->is_hallucinated())
     , player_ptr(player_ptr)
 {
 }
@@ -184,8 +186,9 @@ bool MonsterAttackPlayer::process_monster_blows()
             this->increase_blow_type_seen(ap_cnt);
 
             // 撃退成功時はそのまま次の打撃へ移行。
-            if (protect)
+            if (protect) {
                 continue;
+            }
 
             // 撃退失敗時は落馬処理、変わり身のテレポート処理を行う。
             check_fall_off_horse(this->player_ptr, this);
@@ -216,7 +219,7 @@ bool MonsterAttackPlayer::check_monster_continuous_attack()
     }
 
     auto *r_ptr = &r_info[this->m_ptr->r_idx];
-    if (is_pet(this->m_ptr) && (r_ptr->flags1 & RF1_UNIQUE) && (this->method == RaceBlowMethodType::EXPLODE)) {
+    if (is_pet(this->m_ptr) && r_ptr->kind_flags.has(MonsterKindType::UNIQUE) && (this->method == RaceBlowMethodType::EXPLODE)) {
         this->method = RaceBlowMethodType::HIT;
         this->d_dice /= 10;
     }
@@ -265,12 +268,12 @@ bool MonsterAttackPlayer::process_monster_attack_hit()
 bool MonsterAttackPlayer::effect_protecion_from_evil()
 {
     auto *r_ptr = &r_info[this->m_ptr->r_idx];
-    if ((this->player_ptr->protevil <= 0) || none_bits(r_ptr->flags3, RF3_EVIL) || (this->player_ptr->lev < this->rlev) || ((randint0(100) + this->player_ptr->lev) <= 50)) {
+    if ((this->player_ptr->protevil <= 0) || r_ptr->kind_flags.has_not(MonsterKindType::EVIL) || (this->player_ptr->lev < this->rlev) || ((randint0(100) + this->player_ptr->lev) <= 50)) {
         return false;
     }
 
     if (is_original_ap_and_seen(this->player_ptr, this->m_ptr)) {
-        r_ptr->r_flags3 |= RF3_EVIL;
+        r_ptr->r_kind_flags.set(MonsterKindType::EVIL);
     }
 
 #ifdef JP

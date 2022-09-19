@@ -1,8 +1,14 @@
 ﻿#include "info-reader/race-info-tokens-table.h"
 #include "monster-attack/monster-attack-effect.h"
-#include "monster-attack/monster-attack-types.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-race/race-ability-flags.h"
+#include "monster-race/race-drop-flags.h"
+#include "monster-race/race-feature-flags.h"
+#include "monster-race/race-kind-flags.h"
+#include "monster-race/race-population-flags.h"
+#include "monster-race/race-speak-flags.h"
 #include "monster-race/race-visual-flags.h"
+#include "monster-race/race-wilderness-flags.h"
 
 /*!
  * モンスターの打撃手段トークンの定義 /
@@ -85,7 +91,6 @@ const std::unordered_map<std::string_view, RaceBlowEffectType> r_info_blow_effec
  * Monster race flags
  */
 const std::unordered_map<std::string_view, race_flags1> r_info_flags1 = {
-    { "UNIQUE", RF1_UNIQUE },
     { "QUESTOR", RF1_QUESTOR },
     { "MALE", RF1_MALE },
     { "FEMALE", RF1_FEMALE },
@@ -95,16 +100,6 @@ const std::unordered_map<std::string_view, race_flags1> r_info_flags1 = {
     { "FRIENDS", RF1_FRIENDS },
     { "ESCORT", RF1_ESCORT },
     { "ESCORTS", RF1_ESCORTS },
-    { "ONLY_GOLD", RF1_ONLY_GOLD },
-    { "ONLY_ITEM", RF1_ONLY_ITEM },
-    { "DROP_60", RF1_DROP_60 },
-    { "DROP_90", RF1_DROP_90 },
-    { "DROP_1D2", RF1_DROP_1D2 },
-    { "DROP_2D2", RF1_DROP_2D2 },
-    { "DROP_3D2", RF1_DROP_3D2 },
-    { "DROP_4D2", RF1_DROP_4D2 },
-    { "DROP_GOOD", RF1_DROP_GOOD },
-    { "DROP_GREAT", RF1_DROP_GREAT },
 };
 
 /*!
@@ -112,7 +107,6 @@ const std::unordered_map<std::string_view, race_flags1> r_info_flags1 = {
  * Monster race flags
  */
 const std::unordered_map<std::string_view, race_flags2> r_info_flags2 = {
-    { "CAN_SPEAK", RF2_CAN_SPEAK },
     { "REFLECTING", RF2_REFLECTING },
     { "INVISIBLE", RF2_INVISIBLE },
     { "COLD_BLOOD", RF2_COLD_BLOOD },
@@ -125,10 +119,6 @@ const std::unordered_map<std::string_view, race_flags2> r_info_flags2 = {
     { "ELDRITCH_HORROR", RF2_ELDRITCH_HORROR },
     { "FLAGS2_XX14", RF2_XX14 },
     { "FLAGS2_XX15", RF2_XX15 },
-    { "PASS_WALL", RF2_PASS_WALL },
-    { "KILL_WALL", RF2_KILL_WALL },
-    { "HUMAN", RF2_HUMAN },
-    { "QUANTUM", RF2_QUANTUM }
 };
 
 /*!
@@ -136,23 +126,7 @@ const std::unordered_map<std::string_view, race_flags2> r_info_flags2 = {
  * Monster race flags
  */
 const std::unordered_map<std::string_view, race_flags3> r_info_flags3 = {
-    { "ORC", RF3_ORC },
-    { "TROLL", RF3_TROLL },
-    { "GIANT", RF3_GIANT },
-    { "DRAGON", RF3_DRAGON },
-    { "DEMON", RF3_DEMON },
-    { "UNDEAD", RF3_UNDEAD },
-    { "EVIL", RF3_EVIL },
-    { "ANIMAL", RF3_ANIMAL },
-    { "AMBERITE", RF3_AMBERITE },
-    { "GOOD", RF3_GOOD },
     { "FLAGS3_XX10", RF3_XX10 },
-    { "NONLIVING", RF3_NONLIVING },
-    { "HURT_LITE", RF3_HURT_LITE },
-    { "HURT_ROCK", RF3_HURT_ROCK },
-    { "HURT_FIRE", RF3_HURT_FIRE },
-    { "HURT_COLD", RF3_HURT_COLD },
-    { "ANGEL", RF3_ANGEL },
     { "NO_FEAR", RF3_NO_FEAR },
     { "NO_STUN", RF3_NO_STUN },
     { "NO_CONF", RF3_NO_CONF },
@@ -278,10 +252,6 @@ const std::unordered_map<std::string_view, MonsterAbilityType> r_info_ability_fl
  * "GUARDIAN" ... init.c d_infoの FINAL_GUARDIAN_* にて自動指定
  */
 const std::unordered_map<std::string_view, race_flags7> r_info_flags7 = {
-    { "AQUATIC", RF7_AQUATIC },
-    { "CAN_SWIM", RF7_CAN_SWIM },
-    { "CAN_FLY", RF7_CAN_FLY },
-    { "NAZGUL", RF7_NAZGUL },
     { "UNIQUE2", RF7_UNIQUE2 },
     { "RIDING", RF7_RIDING },
     { "KAGE", RF7_KAGE },
@@ -302,86 +272,65 @@ const std::unordered_map<std::string_view, race_flags7> r_info_flags7 = {
  * Monster race flags
  */
 const std::unordered_map<std::string_view, race_flags8> r_info_flags8 = {
-    { "WILD_ONLY", RF8_WILD_ONLY },
-    { "WILD_TOWN", RF8_WILD_TOWN },
     { "NO_QUEST", RF8_NO_QUEST },
-    { "WILD_SHORE", RF8_WILD_SHORE },
-    { "WILD_OCEAN", RF8_WILD_OCEAN },
-    { "WILD_WASTE", RF8_WILD_WASTE },
-    { "WILD_WOOD", RF8_WILD_WOOD },
-    { "WILD_VOLCANO", RF8_WILD_VOLCANO },
-    { "WILD_MOUNTAIN", RF8_WILD_MOUNTAIN },
-    { "WILD_GRASS", RF8_WILD_GRASS },
-    { "WILD_SWAMP", RF8_WILD_SWAMP },
-    { "WILD_ALL", RF8_WILD_ALL },
-};
-
-/*!
- * モンスター特性トークンの定義9 /
- * Monster race flags
- */
-const std::unordered_map<std::string_view, race_flags9> r_info_flags9 = {
-    { "DROP_CORPSE", RF9_DROP_CORPSE },
-    { "DROP_SKELETON", RF9_DROP_SKELETON },
-    { "EAT_BLIND", RF9_EAT_BLIND },
-    { "EAT_CONF", RF9_EAT_CONF },
-    { "EAT_MANA", RF9_EAT_MANA },
-    { "EAT_NEXUS", RF9_EAT_NEXUS },
-    // { "EAT_BLINK", RF9_EAT_BLINK }, //<! @note フラグ未定義
-    { "EAT_SLEEP", RF9_EAT_SLEEP },
-    { "EAT_BERSERKER", RF9_EAT_BERSERKER },
-    { "EAT_ACIDIC", RF9_EAT_ACIDIC },
-    { "EAT_SPEED", RF9_EAT_SPEED },
-    { "EAT_CURE", RF9_EAT_CURE },
-    { "EAT_FIRE_RES", RF9_EAT_FIRE_RES },
-    { "EAT_COLD_RES", RF9_EAT_COLD_RES },
-    { "EAT_ACID_RES", RF9_EAT_ACID_RES },
-    { "EAT_ELEC_RES", RF9_EAT_ELEC_RES },
-    { "EAT_POIS_RES", RF9_EAT_POIS_RES },
-    { "EAT_INSANITY", RF9_EAT_INSANITY },
-    { "EAT_DRAIN_EXP", RF9_EAT_DRAIN_EXP },
-    { "EAT_POISONOUS", RF9_EAT_POISONOUS },
-    { "EAT_GIVE_STR", RF9_EAT_GIVE_STR },
-    { "EAT_GIVE_INT", RF9_EAT_GIVE_INT },
-    { "EAT_GIVE_WIS", RF9_EAT_GIVE_WIS },
-    { "EAT_GIVE_DEX", RF9_EAT_GIVE_DEX },
-    { "EAT_GIVE_CON", RF9_EAT_GIVE_CON },
-    { "EAT_GIVE_CHR", RF9_EAT_GIVE_CHR },
-    { "EAT_LOSE_STR", RF9_EAT_LOSE_STR },
-    { "EAT_LOSE_INT", RF9_EAT_LOSE_INT },
-    { "EAT_LOSE_WIS", RF9_EAT_LOSE_WIS },
-    { "EAT_LOSE_DEX", RF9_EAT_LOSE_DEX },
-    { "EAT_LOSE_CON", RF9_EAT_LOSE_CON },
-    { "EAT_LOSE_CHR", RF9_EAT_LOSE_CHR },
-    { "EAT_DRAIN_MANA", RF9_EAT_DRAIN_MANA },
 };
 
 /*!
  * モンスター特性トークンの定義R(耐性) /
  * Monster race flags
  */
-const std::unordered_map<std::string_view, race_flags_resistance> r_info_flagsr = {
-    { "IM_ACID", RFR_IM_ACID },
-    { "IM_ELEC", RFR_IM_ELEC },
-    { "IM_FIRE", RFR_IM_FIRE },
-    { "IM_COLD", RFR_IM_COLD },
-    { "IM_POIS", RFR_IM_POIS },
-    { "RES_LITE", RFR_RES_LITE },
-    { "RES_DARK", RFR_RES_DARK },
-    { "RES_NETH", RFR_RES_NETH },
-    { "RES_WATE", RFR_RES_WATE },
-    { "RES_PLAS", RFR_RES_PLAS },
-    { "RES_SHAR", RFR_RES_SHAR },
-    { "RES_SOUN", RFR_RES_SOUN },
-    { "RES_CHAO", RFR_RES_CHAO },
-    { "RES_NEXU", RFR_RES_NEXU },
-    { "RES_DISE", RFR_RES_DISE },
-    { "RES_WALL", RFR_RES_WALL },
-    { "RES_INER", RFR_RES_INER },
-    { "RES_TIME", RFR_RES_TIME },
-    { "RES_GRAV", RFR_RES_GRAV },
-    { "RES_ALL", RFR_RES_ALL },
-    { "RES_TELE", RFR_RES_TELE },
+const std::unordered_map<std::string_view, MonsterResistanceType> r_info_flagsr = {
+    { "RES_ALL", MonsterResistanceType::RESIST_ALL },
+    { "HURT_ACID", MonsterResistanceType::HURT_ACID },
+    { "RES_ACID", MonsterResistanceType::RESIST_ACID },
+    { "IM_ACID", MonsterResistanceType::IMMUNE_ACID },
+    { "HURT_ELEC", MonsterResistanceType::HURT_ELEC },
+    { "RES_ELEC", MonsterResistanceType::RESIST_ELEC },
+    { "IM_ELEC", MonsterResistanceType::IMMUNE_ELEC },
+    { "HURT_FIRE", MonsterResistanceType::HURT_FIRE },
+    { "RES_FIRE", MonsterResistanceType::RESIST_FIRE },
+    { "IM_FIRE", MonsterResistanceType::IMMUNE_FIRE },
+    { "HURT_COLD", MonsterResistanceType::HURT_COLD },
+    { "RES_COLD", MonsterResistanceType::RESIST_FIRE },
+    { "IM_COLD", MonsterResistanceType::IMMUNE_COLD },
+    { "HURT_POIS", MonsterResistanceType::HURT_POISON },
+    { "RES_POIS", MonsterResistanceType::RESIST_POISON },
+    { "IM_POIS", MonsterResistanceType::IMMUNE_POISON },
+    { "HURT_LITE", MonsterResistanceType::HURT_LITE },
+    { "RES_LITE", MonsterResistanceType::RESIST_LITE },
+    { "HURT_DARK", MonsterResistanceType::HURT_DARK },
+    { "RES_DARK", MonsterResistanceType::RESIST_DARK },
+    { "HURT_NETH", MonsterResistanceType::HURT_NETHER },
+    { "RES_NETH", MonsterResistanceType::RESIST_NETHER },
+    { "HURT_WATE", MonsterResistanceType::HURT_WATER },
+    { "RES_WATE", MonsterResistanceType::RESIST_WATER },
+    { "HURT_PLAS", MonsterResistanceType::HURT_PLASMA },
+    { "RES_PLAS", MonsterResistanceType::RESIST_PLASMA },
+    { "HURT_SHAR", MonsterResistanceType::HURT_SHARDS },
+    { "RES_SHAR", MonsterResistanceType::RESIST_SHARDS },
+    { "HURT_SOUN", MonsterResistanceType::HURT_SOUND },
+    { "RES_SOUN", MonsterResistanceType::RESIST_SOUND },
+    { "HURT_CHAO", MonsterResistanceType::HURT_CHAOS },
+    { "RES_CHAO", MonsterResistanceType::RESIST_CHAOS },
+    { "HURT_NEXU", MonsterResistanceType::HURT_NEXUS },
+    { "RES_NEXU", MonsterResistanceType::RESIST_NEXUS },
+    { "HURT_DISE", MonsterResistanceType::HURT_DISENCHANT },
+    { "RES_DISE", MonsterResistanceType::RESIST_DISENCHANT },
+    { "HURT_WALL", MonsterResistanceType::HURT_FORCE },
+    { "RES_WALL", MonsterResistanceType::RESIST_FORCE },
+    { "HURT_INER", MonsterResistanceType::HURT_INERTIA },
+    { "RES_INER", MonsterResistanceType::RESIST_INERTIA },
+    { "HURT_TIME", MonsterResistanceType::HURT_TIME },
+    { "RES_TIME", MonsterResistanceType::RESIST_TIME },
+    { "HURT_GRAV", MonsterResistanceType::HURT_GRAVITY },
+    { "RES_GRAV", MonsterResistanceType::RESIST_GRAVITY },
+    { "RES_TELE", MonsterResistanceType::RESIST_TELEPORT },
+    { "HURT_ROCK", MonsterResistanceType::HURT_ROCK },
+    { "RES_ROCK", MonsterResistanceType::RESIST_ROCK },
+    { "HURT_ABYSS", MonsterResistanceType::HURT_ABYSS },
+    { "RES_ABYSS", MonsterResistanceType::RESIST_ABYSS },
+    { "HURT_VOID", MonsterResistanceType::HURT_VOID_MAGIC },
+    { "RES_VOID", MonsterResistanceType::RESIST_VOID_MAGIC },
 };
 
 const std::unordered_map<std::string_view, MonsterAuraType> r_info_aura_flags = {
@@ -435,4 +384,72 @@ const std::unordered_map<std::string_view, MonsterVisualType> r_info_visual_flag
     { "ATTR_MULTI", MonsterVisualType::MULTI_COLOR },
     { "ATTR_SEMIRAND", MonsterVisualType::RANDOM_COLOR },
     { "ATTR_ANY", MonsterVisualType::ANY_COLOR },
+};
+
+const std::unordered_map<std::string_view, MonsterKindType> r_info_kind_flags = {
+    { "UNIQUE", MonsterKindType::UNIQUE },
+    { "HUMAN", MonsterKindType::HUMAN },
+    { "QUANTUM", MonsterKindType::QUANTUM },
+    { "ORC", MonsterKindType::ORC },
+    { "TROLL", MonsterKindType::TROLL },
+    { "GIANT", MonsterKindType::GIANT },
+    { "DRAGON", MonsterKindType::DRAGON },
+    { "DEMON", MonsterKindType::DEMON },
+    { "UNDEAD", MonsterKindType::UNDEAD },
+    { "EVIL", MonsterKindType::EVIL },
+    { "ANIMAL", MonsterKindType::ANIMAL },
+    { "AMBERITE", MonsterKindType::AMBERITE },
+    { "GOOD", MonsterKindType::GOOD },
+    { "NONLIVING", MonsterKindType::NONLIVING },
+    { "ANGEL", MonsterKindType::ANGEL },
+};
+
+const std::unordered_map<std::string_view, MonsterDropType> r_info_drop_flags = {
+    { "ONLY_GOLD", MonsterDropType::ONLY_GOLD },
+    { "ONLY_ITEM", MonsterDropType::ONLY_ITEM },
+    { "DROP_GOOD", MonsterDropType::DROP_GOOD },
+    { "DROP_GREAT", MonsterDropType::DROP_GREAT },
+    { "DROP_CORPSE", MonsterDropType::DROP_CORPSE },
+    { "DROP_SKELETON", MonsterDropType::DROP_SKELETON },
+    { "DROP_60", MonsterDropType::DROP_60 },
+    { "DROP_90", MonsterDropType::DROP_90 },
+    { "DROP_1D2", MonsterDropType::DROP_1D2 },
+    { "DROP_2D2", MonsterDropType::DROP_2D2 },
+    { "DROP_3D2", MonsterDropType::DROP_3D2 },
+    { "DROP_4D2", MonsterDropType::DROP_4D2 },
+};
+
+const std::unordered_map<std::string_view, MonsterWildernessType> r_info_wilderness_flags = {
+    { "WILD_ONLY", MonsterWildernessType::WILD_ONLY },
+    { "WILD_TOWN", MonsterWildernessType::WILD_TOWN },
+    { "WILD_SHORE", MonsterWildernessType::WILD_SHORE },
+    { "WILD_OCEAN", MonsterWildernessType::WILD_OCEAN },
+    { "WILD_WASTE", MonsterWildernessType::WILD_WASTE },
+    { "WILD_WOOD", MonsterWildernessType::WILD_WOOD },
+    { "WILD_VOLCANO", MonsterWildernessType::WILD_VOLCANO },
+    { "WILD_MOUNTAIN", MonsterWildernessType::WILD_MOUNTAIN },
+    { "WILD_GRASS", MonsterWildernessType::WILD_GRASS },
+    { "WILD_SWAMP", MonsterWildernessType::WILD_SWAMP },
+    { "WILD_ALL", MonsterWildernessType::WILD_ALL },
+};
+
+const std::unordered_map<std::string_view, MonsterFeatureType> r_info_feature_flags = {
+    { "PASS_WALL", MonsterFeatureType::PASS_WALL },
+    { "KILL_WALL", MonsterFeatureType::KILL_WALL },
+    { "AQUATIC", MonsterFeatureType::AQUATIC },
+    { "CAN_SWIM", MonsterFeatureType::CAN_SWIM },
+    { "CAN_FLY", MonsterFeatureType::CAN_FLY },
+};
+
+const std::unordered_map<std::string_view, MonsterPopulationType> r_info_population_flags = {
+    { "NAZGUL", MonsterPopulationType::NAZGUL },
+};
+
+const std::unordered_map<std::string_view, MonsterSpeakType> r_info_speak_flags = {
+    { "SPEAK_ALL", MonsterSpeakType::SPEAK_ALL },
+    { "SPEAK_BATTLE", MonsterSpeakType::SPEAK_BATTLE },
+    { "SPEAK_FEAR", MonsterSpeakType::SPEAK_FEAR },
+    { "SPEAK_FRIEND", MonsterSpeakType::SPEAK_FRIEND },
+    { "SPEAK_DEATH", MonsterSpeakType::SPEAK_DEATH },
+    { "SPEAK_SPAWN", MonsterSpeakType::SPEAK_SPAWN },
 };

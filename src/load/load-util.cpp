@@ -27,8 +27,9 @@ void load_note(concptr msg)
 {
     static TERM_LEN y = 2;
     prt(msg, y, 0);
-    if (++y >= 24)
+    if (++y >= 24) {
         y = 2;
+    }
 
     term_fresh();
 }
@@ -49,6 +50,14 @@ byte sf_get(void)
     v_check += v;
     x_check += load_xor_byte;
     return v;
+}
+
+/*!
+ * @brief ロードファイルポインタからbool値を読み込む
+ */
+bool rd_bool()
+{
+    return rd_byte() != 0;
 }
 
 /*!
@@ -108,11 +117,13 @@ void rd_string(char *str, int max)
 {
     for (int i = 0; true; i++) {
         auto tmp8u = rd_byte();
-        if (i < max)
+        if (i < max) {
             str[i] = tmp8u;
+        }
 
-        if (!tmp8u)
+        if (!tmp8u) {
             break;
+        }
     }
 
     str[max - 1] = '\0';
@@ -134,8 +145,9 @@ void rd_string(char *str, int max)
         byte code = codeconv(str);
 
         /* 漢字コードが判明したら、それを記録 */
-        if (code)
+        if (code) {
             kanji_code = code;
+        }
 
         break;
     }
@@ -143,6 +155,18 @@ void rd_string(char *str, int max)
         break;
     }
 #endif
+}
+
+/*!
+ * @brief ロードファイルポインタから文字列を読み込んで std::string オブジェクトに格納する
+ * @param str std::string オブジェクトへの参照
+ * @param max 最大読み取りバイト数
+ */
+void rd_string(std::string &str, int max)
+{
+    std::vector<char> buf(max);
+    rd_string(buf.data(), max);
+    str = buf.data();
 }
 
 /*!

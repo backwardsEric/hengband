@@ -12,6 +12,7 @@
 #include "floor/cave.h"
 #include "floor/floor-util.h"
 #include "floor/pattern-walk.h"
+#include "io/gf-descriptions.h"
 #include "mind/mind-blue-mage.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-summon.h"
@@ -19,6 +20,7 @@
 #include "monster-race/monster-race.h"
 #include "monster-race/race-ability-flags.h"
 #include "mutation/mutation-processor.h"
+#include "object-activation/activation-others.h"
 #include "player-base/player-class.h"
 #include "player-info/bluemage-data-type.h"
 #include "player-info/smith-data-type.h"
@@ -35,14 +37,17 @@
 #include "target/grid-selector.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
+#include "term/screen-processor.h"
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
 #include "view/display-messages.h"
 
+#include <string_view>
 #include <vector>
 
-debug_spell_command debug_spell_commands_list[SPELL_MAX] = {
+static const std::vector<debug_spell_command> debug_spell_commands_list = {
     { 2, "vanish dungeon", { .spell2 = { vanish_dungeon } } },
+    { 2, "unique detection", { .spell2 = { activate_unique_detection } } },
     { 3, "true healing", { .spell3 = { true_healing } } },
     { 2, "drop weapons", { .spell2 = { drop_weapons } } },
     { 4, "ty curse", { .spell4 = { activate_ty_curse } } },
@@ -58,32 +63,35 @@ bool wiz_debug_spell(PlayerType *player_ptr)
     char tmp_val[50] = "\0";
     int tmp_int;
 
-    if (!get_string("SPELL: ", tmp_val, 32))
+    if (!get_string("SPELL: ", tmp_val, 32)) {
         return false;
+    }
 
-    for (int i = 0; i < SPELL_MAX; i++) {
-        if (strcmp(tmp_val, debug_spell_commands_list[i].command_name) != 0)
+    for (const auto &d : debug_spell_commands_list) {
+        if (strcmp(tmp_val, d.command_name) != 0) {
             continue;
+        }
 
-        switch (debug_spell_commands_list[i].type) {
+        switch (d.type) {
         case 2:
-            (*(debug_spell_commands_list[i].command_function.spell2.spell_function))(player_ptr);
+            (d.command_function.spell2.spell_function)(player_ptr);
             return true;
             break;
         case 3:
             tmp_val[0] = '\0';
-            if (!get_string("POWER:", tmp_val, 32))
+            if (!get_string("POWER:", tmp_val, 32)) {
                 return false;
+            }
             tmp_int = atoi(tmp_val);
-            (*(debug_spell_commands_list[i].command_function.spell3.spell_function))(player_ptr, tmp_int);
+            (d.command_function.spell3.spell_function)(player_ptr, tmp_int);
             return true;
             break;
         case 4:
-            (*(debug_spell_commands_list[i].command_function.spell4.spell_function))(player_ptr, true, &tmp_int);
+            (d.command_function.spell4.spell_function)(player_ptr, true, &tmp_int);
             return true;
             break;
         case 5:
-            (*(debug_spell_commands_list[i].command_function.spell5.spell_function))(player_ptr);
+            (d.command_function.spell5.spell_function)(player_ptr);
             return true;
             break;
         default:
@@ -102,8 +110,9 @@ bool wiz_debug_spell(PlayerType *player_ptr)
 void wiz_dimension_door(PlayerType *player_ptr)
 {
     POSITION x = 0, y = 0;
-    if (!tgt_pt(player_ptr, &x, &y))
+    if (!tgt_pt(player_ptr, &x, &y)) {
         return;
+    }
 
     teleport_player_to(player_ptr, y, x, TELEPORT_NONMAGICAL);
 }
@@ -119,8 +128,9 @@ void wiz_summon_horde(PlayerType *player_ptr)
 
     while (--attempts) {
         scatter(player_ptr, &wy, &wx, player_ptr->y, player_ptr->x, 3, PROJECT_NONE);
-        if (is_cave_empty_bold(player_ptr, wy, wx))
+        if (is_cave_empty_bold(player_ptr, wy, wx)) {
             break;
+        }
     }
 
     (void)alloc_horde(player_ptr, wy, wx, summon_specific);
@@ -131,8 +141,9 @@ void wiz_summon_horde(PlayerType *player_ptr)
  */
 void wiz_teleport_back(PlayerType *player_ptr)
 {
-    if (!target_who)
+    if (!target_who) {
         return;
+    }
 
     teleport_player_to(player_ptr, target_row, target_col, TELEPORT_NONMAGICAL);
 }
@@ -178,8 +189,9 @@ void wiz_fillup_all_smith_essences(PlayerType *player_ptr)
  */
 void wiz_summon_random_enemy(PlayerType *player_ptr, int num)
 {
-    for (int i = 0; i < num; i++)
+    for (int i = 0; i < num; i++) {
         (void)summon_specific(player_ptr, 0, player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_NONE, PM_ALLOW_GROUP | PM_ALLOW_UNIQUE);
+    }
 }
 
 /*!
@@ -189,14 +201,14 @@ void wiz_summon_random_enemy(PlayerType *player_ptr, int num)
  * @details
  * This function is rather dangerous
  */
-void wiz_summon_specific_enemy(PlayerType *player_ptr, MONRACE_IDX r_idx)
+void wiz_summon_specific_enemy(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    if (r_idx <= 0) {
+    if (!MonsterRace(r_idx).is_valid()) {
         int val = 1;
         if (!get_value("MonsterID", 1, r_info.size() - 1, &val)) {
             return;
         }
-        r_idx = static_cast<MONRACE_IDX>(val);
+        r_idx = static_cast<MonsterRaceId>(val);
     }
     (void)summon_named_creature(player_ptr, 0, player_ptr->y, player_ptr->x, r_idx, PM_ALLOW_SLEEP | PM_ALLOW_GROUP);
 }
@@ -208,14 +220,14 @@ void wiz_summon_specific_enemy(PlayerType *player_ptr, MONRACE_IDX r_idx)
  * @details
  * This function is rather dangerous
  */
-void wiz_summon_pet(PlayerType *player_ptr, MONRACE_IDX r_idx)
+void wiz_summon_pet(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    if (r_idx <= 0) {
+    if (!MonsterRace(r_idx).is_valid()) {
         int val = 1;
         if (!get_value("MonsterID", 1, r_info.size() - 1, &val)) {
             return;
         }
-        r_idx = static_cast<MONRACE_IDX>(val);
+        r_idx = static_cast<MonsterRaceId>(val);
     }
     (void)summon_named_creature(player_ptr, 0, player_ptr->y, player_ptr->x, r_idx, PM_ALLOW_SLEEP | PM_ALLOW_GROUP | PM_FORCE_PET);
 }
@@ -224,78 +236,47 @@ void wiz_summon_pet(PlayerType *player_ptr, MONRACE_IDX r_idx)
  * @brief ターゲットを指定して指定ダメージ・指定属性・半径0のボールを放つ
  * @param dam ダメージ量
  * @param effect_idx 属性ID
+ * @param self 自分に与えるか否か
  * @details デフォルトは100万・GF_ARROW(射撃)。RES_ALL持ちも一撃で殺せる。
  */
-void wiz_kill_enemy(PlayerType *player_ptr, HIT_POINT dam, AttributeType effect_idx)
+void wiz_kill_target(PlayerType *player_ptr, int dam, AttributeType effect_idx, const bool self)
 {
     if (dam <= 0) {
-        char tmp[80] = "";
-        sprintf(tmp, "Damage (1-999999): ");
-        char tmp_val[10] = "1000";
-        if (!get_string(tmp, tmp_val, 6))
+        dam = 1000000;
+        if (!get_value("Damage", 1, 1000000, &dam)) {
             return;
-
-        dam = (HIT_POINT)atoi(tmp_val);
+        }
     }
-    int max = (int)AttributeType::MAX;
-    int idx = (int)effect_idx;
+
+    constexpr auto max = enum2i(AttributeType::MAX);
+    auto idx = enum2i(effect_idx);
 
     if (idx <= 0) {
-        char tmp[80] = "";
-        sprintf(tmp, "Effect ID (1-%d): ", max - 1);
-        char tmp_val[10] = "";
-        if (!get_string(tmp, tmp_val, 3))
+        screen_save();
+        for (auto i = 1; i <= 23; i++) {
+            prt("", i, 0);
+        }
+        for (auto i = 0U; i < std::size(gf_descriptions); ++i) {
+            auto name = std::string_view(gf_descriptions[i].name).substr(3); // 先頭の"GF_"を取り除く
+            auto num = enum2i(gf_descriptions[i].num);
+            put_str(format("%03d:%^-.10s", num, name.data()), 1 + i / 5, 1 + (i % 5) * 16);
+        }
+        if (!get_value("EffectID", 1, max - 1, &idx)) {
+            screen_load();
             return;
-
-        effect_idx = (AttributeType)atoi(tmp_val);
+        }
+        screen_load();
     }
 
-    if (idx <= 0 || idx >= max) {
-        msg_format(_("番号は1から%dの間で指定して下さい。", "ID must be between 1 to %d."), max - 1);
+    if (self) {
+        project(player_ptr, -1, 0, player_ptr->y, player_ptr->x, dam, i2enum<AttributeType>(idx), PROJECT_KILL | PROJECT_PLAYER);
         return;
     }
 
+    effect_idx = i2enum<AttributeType>(idx);
     DIRECTION dir;
-
-    if (!get_aim_dir(player_ptr, &dir))
+    if (!get_aim_dir(player_ptr, &dir)) {
         return;
-
+    }
     fire_ball(player_ptr, effect_idx, dir, dam, 0);
-}
-
-/*!
- * @brief 自分に指定ダメージ・指定属性・半径0のボールを放つ
- * @param dam ダメージ量
- * @param effect_idx 属性ID
- */
-void wiz_kill_me(PlayerType *player_ptr, HIT_POINT dam, AttributeType effect_idx)
-{
-    if (dam <= 0) {
-        char tmp[80] = "";
-        sprintf(tmp, "Damage (1-999999): ");
-        char tmp_val[10] = "1000";
-        if (!get_string(tmp, tmp_val, 6))
-            return;
-
-        dam = (HIT_POINT)atoi(tmp_val);
-    }
-    int max = (int)AttributeType::MAX;
-    int idx = (int)effect_idx;
-
-    if (idx <= 0) {
-        char tmp[80] = "";
-        sprintf(tmp, "Effect ID (1-%d): ", max - 1);
-        char tmp_val[10] = "1";
-        if (!get_string(tmp, tmp_val, 3))
-            return;
-
-        effect_idx = (AttributeType)atoi(tmp_val);
-    }
-
-    if (idx <= 0 || idx >= max) {
-        msg_format(_("番号は1から%dの間で指定して下さい。", "ID must be between 1 to %d."), max - 1);
-        return;
-    }
-
-    project(player_ptr, -1, 0, player_ptr->y, player_ptr->x, dam, effect_idx, PROJECT_KILL | PROJECT_PLAYER);
 }

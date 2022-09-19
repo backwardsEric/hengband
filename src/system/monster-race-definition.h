@@ -1,19 +1,32 @@
 ﻿#pragma once
 
 #include "monster-attack/monster-attack-effect.h"
-#include "monster-attack/monster-attack-types.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-race/monster-aura-types.h"
 #include "monster-race/race-ability-flags.h"
 #include "monster-race/race-behavior-flags.h"
+#include "monster-race/race-drop-flags.h"
+#include "monster-race/race-feature-flags.h"
+#include "monster-race/race-flags-resistance.h"
+#include "monster-race/race-kind-flags.h"
+#include "monster-race/race-population-flags.h"
+#include "monster-race/race-speak-flags.h"
 #include "monster-race/race-visual-flags.h"
+#include "monster-race/race-wilderness-flags.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
 #include <string>
+#include <tuple>
+#include <vector>
 
 /*! モンスターが1ターンに攻撃する最大回数 (射撃を含む) / The maximum number of times a monster can attack in a turn (including SHOOT) */
 constexpr int MAX_NUM_BLOWS = 4;
 
-struct monster_blow {
+enum class FixedArtifactId : short;
+enum class MonsterRaceId : int16_t;
+
+class MonsterBlow {
+public:
     RaceBlowMethodType method{};
     RaceBlowEffectType effect{};
     DICE_NUMBER d_dice{};
@@ -42,7 +55,7 @@ struct monster_blow {
  * fields have a special prefix to aid in searching for them.
  */
 struct monster_race {
-    MONRACE_IDX idx{};
+    MonsterRaceId idx{};
     std::string name; //!< 名前データのオフセット(日本語) /  Name offset(Japanese)
 #ifdef JP
     std::string E_name; //!< 名前データのオフセット(英語) /  Name offset(English)
@@ -53,7 +66,7 @@ struct monster_race {
     ARMOUR_CLASS ac{}; //!< アーマークラス / Armour Class
     SLEEP_DEGREE sleep{}; //!< 睡眠値 / Inactive counter (base)
     POSITION aaf{}; //!< 感知範囲(1-100スクエア) / Area affect radius (1-100)
-    SPEED speed{}; //!< 加速(110で+0) / Speed (normally 110)
+    byte speed{}; //!< 加速(110で+0) / Speed (normally 110)
     EXP mexp{}; //!< 殺害時基本経験値 / Exp value for kill
     BIT_FLAGS16 extra{}; //!< 未使用 /  Unused (for now)
     RARITY freq_spell{}; //!< 魔法＆特殊能力仕様頻度(1/n) /  Spell frequency
@@ -62,28 +75,34 @@ struct monster_race {
     BIT_FLAGS flags3{}; //!< Flags 3 (race/resist)
     BIT_FLAGS flags7{}; //!< Flags 7 (movement related abilities)
     BIT_FLAGS flags8{}; //!< Flags 8 (wilderness info)
-    BIT_FLAGS flags9{}; //!< Flags 9 (drops info)
-    BIT_FLAGS flagsr{}; //!< 耐性フラグ / Flags R (resistances info)
     EnumClassFlagGroup<MonsterAbilityType> ability_flags; //!< 能力フラグ(魔法/ブレス) / Ability Flags
     EnumClassFlagGroup<MonsterAuraType> aura_flags; //!< オーラフラグ / Aura Flags
     EnumClassFlagGroup<MonsterBehaviorType> behavior_flags; //!< 能力フラグ（習性）
     EnumClassFlagGroup<MonsterVisualType> visual_flags; //!< 能力フラグ（シンボル） / Symbol Flags
-    monster_blow blow[MAX_NUM_BLOWS]{}; //!< 打撃能力定義 / Up to four blows per round
-    MONRACE_IDX reinforce_id[6]{}; //!< 指定護衛モンスター種族ID(6種まで)
-    DICE_NUMBER reinforce_dd[6]{}; //!< 指定護衛数ダイス数
-    DICE_SID reinforce_ds[6]{}; //!< 指定護衛数ダイス面
-    ARTIFACT_IDX artifact_id[4]{}; //!< 特定アーティファクトドロップID
-    RARITY artifact_rarity[4]{}; //!< 特定アーティファクトレア度
-    PERCENTAGE artifact_percent[4]{}; //!< 特定アーティファクトドロップ率
+    EnumClassFlagGroup<MonsterKindType> kind_flags; //!< 能力フラグ（種族・徳） / Attr Flags
+    EnumClassFlagGroup<MonsterResistanceType> resistance_flags; //!< 耐性フラグ / Flags R (resistances info)
+    EnumClassFlagGroup<MonsterDropType> drop_flags; //!< 能力フラグ（ドロップ） / Drop Flags
+    EnumClassFlagGroup<MonsterWildernessType> wilderness_flags; //!< 荒野フラグ / Wilderness Flags
+    EnumClassFlagGroup<MonsterFeatureType> feature_flags; //!< 能力フラグ（地形関連） / Feature Flags
+    EnumClassFlagGroup<MonsterPopulationType> population_flags; //!< 能力フラグ（出現数関連） / Population Flags
+    EnumClassFlagGroup<MonsterSpeakType> speak_flags; //!< 能力フラグ（セリフ） / Speaking Flags
+    MonsterBlow blow[MAX_NUM_BLOWS]{}; //!< 打撃能力定義 / Up to four blows per round
+
+    //! 指定護衛リスト <モンスター種族ID,護衛数ダイス数,護衛数ダイス面>
+    std::vector<std::tuple<MonsterRaceId, DICE_NUMBER, DICE_SID>> reinforces;
+
+    //! 特定アーティファクトドロップリスト <アーティファクトID,ドロップ率>
+    std::vector<std::tuple<FixedArtifactId, PERCENTAGE>> drop_artifacts;
+
     PERCENTAGE arena_ratio{}; //!< モンスター闘技場の掛け金倍率修正値(%基準 / 0=100%) / The adjustment ratio for gambling monster
-    MONRACE_IDX next_r_idx{}; //!< 進化先モンスター種族ID
+    MonsterRaceId next_r_idx{}; //!< 進化先モンスター種族ID
     EXP next_exp{}; //!< 進化に必要な経験値
     DEPTH level{}; //!< レベル / Level of creature
     RARITY rarity{}; //!< レアリティ / Rarity of creature
     TERM_COLOR d_attr{}; //!< デフォルトの表示色 / Default monster attribute
-    SYMBOL_CODE d_char{}; //!< デフォルトの表示文字 / Default monster character
+    char d_char{}; //!< デフォルトの表示文字 / Default monster character
     TERM_COLOR x_attr{}; //!< 設定した表示色(またはタイル位置Y) / Desired monster attribute
-    SYMBOL_CODE x_char{}; //!< 設定した表示文字(またはタイル位置X) / Desired monster character
+    char x_char{}; //!< 設定した表示文字(またはタイル位置X) / Desired monster character
     MONSTER_NUMBER max_num{}; //!< 階に最大存在できる数 / Maximum population allowed per level
     MONSTER_NUMBER cur_num{}; //!< 階に現在いる数 / Monster population on current level
     FLOOR_IDX floor_id{}; //!< 存在している保存階ID /  Location of unique monster
@@ -103,10 +122,13 @@ struct monster_race {
     uint32_t r_flags1{}; //!< Observed racial flags
     uint32_t r_flags2{}; //!< Observed racial flags
     uint32_t r_flags3{}; //!< Observed racial flags
-    uint32_t r_flagsr{}; //!< 見た耐性フラグ / Observed racial resistance flags
     EnumClassFlagGroup<MonsterAbilityType> r_ability_flags; //!< 見た能力フラグ(魔法/ブレス) / Observed racial ability flags
     EnumClassFlagGroup<MonsterAuraType> r_aura_flags; //!< 見た能力フラグ(オーラ) / Observed aura flags
     EnumClassFlagGroup<MonsterBehaviorType> r_behavior_flags; //!< 見た能力フラグ（習性） / Observed racial attr flags
+    EnumClassFlagGroup<MonsterKindType> r_kind_flags; //!< 見た能力フラグ（種族・徳） / Observed racial attr flags
+    EnumClassFlagGroup<MonsterResistanceType> r_resistance_flags; //!< 見た耐性フラグ / Observed racial resistances flags
+    EnumClassFlagGroup<MonsterDropType> r_drop_flags; //!< 見た能力フラグ（ドロップ） / Observed drop flags
+    EnumClassFlagGroup<MonsterFeatureType> r_feature_flags; //!< 見た能力フラグ(地形関連) / Observed feature flags
     PLAYER_LEVEL defeat_level{}; //!< 倒したレベル(ユニーク用) / player level at which defeated this race
     REAL_TIME defeat_time{}; //!< 倒した時間(ユニーク用) / time at which defeated this race
     PERCENTAGE cur_hp_per{}; //!< 生成時現在HP率(%)

@@ -79,10 +79,9 @@ typedef int16_t IDX; /*!< ゲーム中のID型を定義 */
 typedef int16_t FEAT_IDX; /*!< ゲーム中の地形ID型を定義 */
 typedef int16_t FLOOR_IDX; /*!< ゲーム中のフロアID型を定義 */
 
-typedef int16_t MONRACE_IDX; /*!< @todo monster_race_typeに差し替えて消滅させる ゲーム中のモンスター種族ID型を定義 */
-typedef int16_t MONSTER_IDX; /*!< @todo monster_race_typeに差し替えて消滅させる ゲーム中のモンスター個体ID型を定義 */
+// typedef int16_t MonsterRaceId; /*!< @todo MonsterRaceIdに差し替えて消滅させる ゲーム中のモンスター種族ID型を定義 */
+typedef int16_t MONSTER_IDX; /*!< @todo MonsterRaceIdに差し替えて消滅させる ゲーム中のモンスター個体ID型を定義 */
 typedef int16_t DUNGEON_IDX; /*!< ゲーム中のダンジョンID型を定義 */
-typedef int16_t ARTIFACT_IDX; /*!< ゲーム中のアーティファクトID型を定義 */
 typedef int16_t EGO_IDX; /*!< アイテムエゴのID型を定義 */
 typedef int16_t QUEST_IDX; /*!< ゲーム中のクエストID型を定義 */
 
@@ -97,14 +96,6 @@ typedef int16_t POSITION_IDX; /*!< ゲーム中の座標リストID型 */
 typedef byte FEAT_SUBTYPE; /*!< 地形情報の副値 (トラップ種別/パターン種別/店舗種別)*/
 
 typedef char GAME_TEXT; /*!< ゲーム中のテキスト型定義 */
-
-/*!
- * @var typedef int32_t HIT_POINT
- * @brief HPとその増減量の型定義
- * @details
- * HIT_POINTはプレイヤー及びモンスターのHPの各値とその増減量の型である。
- */
-typedef int32_t HIT_POINT;
 
 /*!
  * @var typedef int32_t MANA_POINT
@@ -123,7 +114,6 @@ typedef int32_t ITEM_NUMBER; /*!< ゲーム中のアイテム数型を定義 */
 typedef int16_t ACTION_ENERGY; /*!< ゲーム中の行動エネルギー型を定義 */
 typedef int16_t ARMOUR_CLASS; /*!< ゲーム中の行動アーマークラス型を定義 */
 typedef int16_t TIME_EFFECT; /*!< ゲーム中の時限期間の型を定義 */
-typedef int16_t SPEED; /*!< ゲーム中の加速値の型定義 */
 
 /*!
  * @var typedef int16_t ENEGRY
@@ -148,8 +138,6 @@ typedef int DICE_NUMBER; /*!< ゲーム中のダイス数の型定義 */
 typedef int DICE_SID; /*!< ゲーム中のダイス面の型定義 */
 typedef int32_t PRICE; /*!< ゲーム中の金額価値の型定義 */
 
-typedef uint32_t STR_OFFSET; /*!< テキストオフセットの型定義 */
-
 typedef int POWER; /*!< 魔法の効力定義*/
 
 typedef int32_t DEPTH; /*!< ゲーム中の階層レベルの型定義 */
@@ -165,17 +153,11 @@ typedef uint32_t BIT_FLAGS; /*!< 32ビットのフラグ配列の型定義 */
 typedef uint16_t BIT_FLAGS16; /*!< 16ビットのフラグ配列の型定義 */
 typedef byte BIT_FLAGS8; /*!< 8ビットのフラグ配列の型定義 */
 
-typedef int16_t XTRA16; /*!< 汎用変数16ビットの型定義 */
-typedef byte XTRA8; /*!< 汎用変数8ビットの型定義 */
-
 typedef int16_t COMMAND_CODE; /*!< コマンド内容の型定義 */
 typedef int16_t COMMAND_ARG; /*!< コマンド引数の型定義 */
-typedef int16_t COMMAND_NUM; /*!< コマンド数の型定義 */
 
 typedef int TERM_LEN; /*!< コンソール表示座標の型定義 */
 typedef byte TERM_COLOR; /*!< テキスト表示色の型定義 */
-typedef char SYMBOL_CODE; /*!< キャラの文字の型定義 */
-
 typedef int32_t SPELL_IDX; /*!< 各魔法領域/職業能力ごとの呪文ID型定義 */
 typedef int16_t PROB; /*!< 確率の重みの型定義 */
 typedef byte FEAT_POWER; /*!< 地形強度の型定義 */
@@ -184,8 +166,10 @@ typedef int QUANTITY; /*!< インターフェース上の指定個数 */
 
 typedef int16_t ACTION_SKILL_POWER; /*!< 行動技能値 */
 
-enum process_result {
+enum class ProcessResult {
     PROCESS_FALSE = 0,
     PROCESS_TRUE = 1,
     PROCESS_CONTINUE = 2,
+    PROCESS_LOOP_CONTINUE = 3,
+    PROCESS_LOOP_BREAK = 4,
 };

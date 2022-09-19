@@ -5,6 +5,7 @@
 #include "game-option/game-play-options.h"
 #include "object/object-stack.h"
 #include "object/object-value.h"
+#include "object/tval-types.h"
 #include "store/store-util.h"
 #include "system/object-type-definition.h"
 #include "system/player-type-definition.h"
@@ -23,30 +24,30 @@
  * known, the player may have to pick stuff up and drop it again.
  * </pre>
  */
-int home_carry(PlayerType *player_ptr, object_type *o_ptr)
+int home_carry(PlayerType *player_ptr, ObjectType *o_ptr, StoreSaleType store_num)
 {
     bool old_stack_force_notes = stack_force_notes;
     bool old_stack_force_costs = stack_force_costs;
-    if (cur_store_num != StoreSaleType::HOME) {
+    if (store_num != StoreSaleType::HOME) {
         stack_force_notes = false;
         stack_force_costs = false;
     }
 
     for (int slot = 0; slot < st_ptr->stock_num; slot++) {
-        object_type *j_ptr;
+        ObjectType *j_ptr;
         j_ptr = &st_ptr->stock[slot];
         if (object_similar(j_ptr, o_ptr)) {
             object_absorb(j_ptr, o_ptr);
-            if (cur_store_num != StoreSaleType::HOME) {
+            if (store_num != StoreSaleType::HOME) {
                 stack_force_notes = old_stack_force_notes;
                 stack_force_costs = old_stack_force_costs;
             }
 
-            return (slot);
+            return slot;
         }
     }
 
-    if (cur_store_num != StoreSaleType::HOME) {
+    if (store_num != StoreSaleType::HOME) {
         stack_force_notes = old_stack_force_notes;
         stack_force_costs = old_stack_force_costs;
     }
@@ -56,7 +57,7 @@ int home_carry(PlayerType *player_ptr, object_type *o_ptr)
      * 隠し機能: オプション powerup_home が設定されていると
      *           我が家が 20 ページまで使える
      */
-    if ((cur_store_num != StoreSaleType::HOME) || powerup_home) {
+    if ((store_num != StoreSaleType::HOME) || powerup_home) {
         if (st_ptr->stock_num >= st_ptr->stock_size) {
             return -1;
         }
@@ -68,50 +69,58 @@ int home_carry(PlayerType *player_ptr, object_type *o_ptr)
 
     PRICE value = object_value(o_ptr);
     int slot;
-    for (slot = 0; slot < st_ptr->stock_num; slot++)
-        if (object_sort_comp(player_ptr, o_ptr, value, &st_ptr->stock[slot]))
+    for (slot = 0; slot < st_ptr->stock_num; slot++) {
+        if (object_sort_comp(player_ptr, o_ptr, value, &st_ptr->stock[slot])) {
             break;
+        }
+    }
 
-    for (int i = st_ptr->stock_num; i > slot; i--)
+    for (int i = st_ptr->stock_num; i > slot; i--) {
         st_ptr->stock[i] = st_ptr->stock[i - 1];
+    }
 
     st_ptr->stock_num++;
     st_ptr->stock[slot] = *o_ptr;
     chg_virtue(player_ptr, V_SACRIFICE, -1);
-    (void)combine_and_reorder_home(player_ptr, cur_store_num);
+    (void)combine_and_reorder_home(player_ptr, store_num);
     return slot;
 }
 
-static bool exe_combine_store_items(object_type *o_ptr, object_type *j_ptr, const int max_num, const int i, bool *combined)
+static bool exe_combine_store_items(ObjectType *o_ptr, ObjectType *j_ptr, const int max_num, const int i, bool *combined)
 {
-    if (o_ptr->number + j_ptr->number > max_num)
+    if (o_ptr->number + j_ptr->number > max_num) {
         return false;
+    }
 
     object_absorb(j_ptr, o_ptr);
     st_ptr->stock_num--;
     int k;
-    for (k = i; k < st_ptr->stock_num; k++)
+    for (k = i; k < st_ptr->stock_num; k++) {
         st_ptr->stock[k] = st_ptr->stock[k + 1];
+    }
 
     (&st_ptr->stock[k])->wipe();
     *combined = true;
     return true;
 }
 
-static void sweep_reorder_store_item(object_type *o_ptr, const int i, bool *combined)
+static void sweep_reorder_store_item(ObjectType *o_ptr, const int i, bool *combined)
 {
     for (int j = 0; j < i; j++) {
-        object_type *j_ptr;
+        ObjectType *j_ptr;
         j_ptr = &st_ptr->stock[j];
-        if (!j_ptr->k_idx)
+        if (!j_ptr->k_idx) {
             continue;
+        }
 
         int max_num = object_similar_part(j_ptr, o_ptr);
-        if (max_num == 0 || j_ptr->number >= max_num)
+        if (max_num == 0 || j_ptr->number >= max_num) {
             continue;
+        }
 
-        if (exe_combine_store_items(o_ptr, j_ptr, max_num, i, combined))
+        if (exe_combine_store_items(o_ptr, j_ptr, max_num, i, combined)) {
             break;
+        }
 
         ITEM_NUMBER old_num = o_ptr->number;
         ITEM_NUMBER remain = j_ptr->number + o_ptr->number - max_num;
@@ -132,27 +141,32 @@ static void sweep_reorder_store_item(object_type *o_ptr, const int i, bool *comb
 static void exe_reorder_store_item(PlayerType *player_ptr, bool *flag)
 {
     for (int i = 0; i < st_ptr->stock_num; i++) {
-        object_type *o_ptr;
+        ObjectType *o_ptr;
         o_ptr = &st_ptr->stock[i];
-        if (!o_ptr->k_idx)
+        if (!o_ptr->k_idx) {
             continue;
+        }
 
         int32_t o_value = object_value(o_ptr);
         int j;
-        for (j = 0; j < st_ptr->stock_num; j++)
-            if (object_sort_comp(player_ptr, o_ptr, o_value, &st_ptr->stock[j]))
+        for (j = 0; j < st_ptr->stock_num; j++) {
+            if (object_sort_comp(player_ptr, o_ptr, o_value, &st_ptr->stock[j])) {
                 break;
+            }
+        }
 
-        if (j >= i)
+        if (j >= i) {
             continue;
+        }
 
         *flag = true;
-        object_type *j_ptr;
-        object_type forge;
+        ObjectType *j_ptr;
+        ObjectType forge;
         j_ptr = &forge;
         j_ptr->copy_from(&st_ptr->stock[i]);
-        for (int k = i; k > j; k--)
+        for (int k = i; k > j; k--) {
             (&st_ptr->stock[k])->copy_from(&st_ptr->stock[k - 1]);
+        }
 
         (&st_ptr->stock[j])->copy_from(j_ptr);
     }
@@ -180,10 +194,11 @@ bool combine_and_reorder_home(PlayerType *player_ptr, const StoreSaleType store_
     while (combined) {
         combined = false;
         for (int i = st_ptr->stock_num - 1; i > 0; i--) {
-            object_type *o_ptr;
+            ObjectType *o_ptr;
             o_ptr = &st_ptr->stock[i];
-            if (!o_ptr->k_idx)
+            if (!o_ptr->k_idx) {
                 continue;
+            }
 
             sweep_reorder_store_item(o_ptr, i, &combined);
         }

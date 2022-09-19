@@ -41,6 +41,8 @@
 #include "util/quarks.h"
 #include "util/string-processor.h"
 #include "world/world.h"
+#include <functional>
+#include <sstream>
 #include <utility>
 
 /*!
@@ -52,7 +54,7 @@
  */
 static bool object_easy_know(int i)
 {
-    object_kind *k_ptr = &k_info[i];
+    auto *k_ptr = &k_info[i];
     switch (k_ptr->tval) {
     case ItemKindType::LIFE_BOOK:
     case ItemKindType::SORCERY_BOOK:
@@ -117,8 +119,9 @@ void get_table_name_aux(char *out_string)
     int testcounter = randint1(3) + 1;
     strcpy(out_string, "");
     if (randint1(3) == 2) {
-        while (testcounter--)
+        while (testcounter--) {
             strcat(out_string, syllables[randint0(MAX_SYLLABLES)]);
+        }
     } else {
         char syllable[80];
         testcounter = randint1(2) + 1;
@@ -187,25 +190,24 @@ void get_table_sindarin(char *out_string)
  */
 static void shuffle_flavors(ItemKindType tval)
 {
-    std::vector<KIND_OBJECT_IDX> k_idx_list;
+    std::vector<std::reference_wrapper<IDX>> flavor_idx_ref_list;
     for (const auto &k_ref : k_info) {
-        if (k_ref.tval != tval)
+        if (k_ref.tval != tval) {
             continue;
+        }
 
-        if (!k_ref.flavor)
+        if (!k_ref.flavor) {
             continue;
+        }
 
-        if (k_ref.flags.has(TR_FIXED_FLAVOR))
+        if (k_ref.flags.has(TR_FIXED_FLAVOR)) {
             continue;
+        }
 
-        k_idx_list.push_back(k_ref.idx);
+        flavor_idx_ref_list.push_back(k_info[k_ref.idx].flavor);
     }
 
-    for (auto k_idx : k_idx_list) {
-        object_kind *k1_ptr = &k_info[k_idx];
-        object_kind *k2_ptr = &k_info[k_idx_list[randint0(k_idx_list.size())]];
-        std::swap(k1_ptr->flavor, k2_ptr->flavor);
-    }
+    rand_shuffle(flavor_idx_ref_list.begin(), flavor_idx_ref_list.end());
 }
 
 /*!
@@ -217,8 +219,9 @@ void flavor_init(void)
     const auto state_backup = w_ptr->rng.get_state();
     w_ptr->rng.set_state(w_ptr->seed_flavor);
     for (auto &k_ref : k_info) {
-        if (k_ref.flavor_name.empty())
+        if (k_ref.flavor_name.empty()) {
             continue;
+        }
 
         k_ref.flavor = k_ref.idx;
     }
@@ -233,11 +236,13 @@ void flavor_init(void)
     shuffle_flavors(ItemKindType::SCROLL);
     w_ptr->rng.set_state(state_backup);
     for (auto &k_ref : k_info) {
-        if (k_ref.idx == 0 || k_ref.name.empty())
+        if (k_ref.idx == 0 || k_ref.name.empty()) {
             continue;
+        }
 
-        if (!k_ref.flavor)
+        if (!k_ref.flavor) {
             k_ref.aware = true;
+        }
 
         k_ref.easy_know = object_easy_know(k_ref.idx);
     }
@@ -248,32 +253,36 @@ void flavor_init(void)
  * @param buf ベースアイテム格納先の参照ポインタ
  * @param k_idx ベースアイテムID
  */
-void strip_name(char *buf, KIND_OBJECT_IDX k_idx)
+std::string strip_name(KIND_OBJECT_IDX k_idx)
 {
     auto k_ptr = &k_info[k_idx];
     auto tok = str_split(k_ptr->name, ' ');
-    std::string name = "";
-    for (auto s : tok) {
-        if (s == "" || s == "~" || s == "&" || s == "#")
+    std::stringstream name;
+    for (const auto &s : tok) {
+        if (s == "" || s == "~" || s == "&" || s == "#") {
             continue;
+        }
 
         auto offset = 0;
         auto endpos = s.size();
         auto is_kanji = false;
 
-        if (s[0] == '~' || s[0] == '#')
+        if (s[0] == '~' || s[0] == '#') {
             offset++;
+        }
 #ifdef JP
-        if (s.size() > 2)
+        if (s.size() > 2) {
             is_kanji = iskanji(s[endpos - 2]);
+        }
 
 #endif
-        if (!is_kanji && (s[endpos - 1] == '~' || s[endpos - 1] == '#'))
+        if (!is_kanji && (s[endpos - 1] == '~' || s[endpos - 1] == '#')) {
             endpos--;
+        }
 
-        name += s.substr(offset, endpos);
+        name << s.substr(offset, endpos);
     }
 
-    name += " ";
-    strcpy(buf, name.c_str());
+    name << " ";
+    return name.str();
 }

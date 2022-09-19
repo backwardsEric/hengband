@@ -37,6 +37,7 @@
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
+#include <optional>
 
 #define MON_SCAT_MAXD 10 /*!< mon_scatter()関数によるモンスター配置で許される中心からの最大距離 */
 
@@ -45,7 +46,7 @@
  * @brief 護衛対象となるモンスター種族IDを渡すグローバル変数 / Hack -- help pick an escort type
  * @todo 関数ポインタの都合を配慮しながら、グローバル変数place_monster_idxを除去し、関数引数化する
  */
-static MONSTER_IDX place_monster_idx = 0;
+static MonsterRaceId place_monster_idx = MonsterRace::empty_id();
 
 /*!
  * @var place_monster_m_idx
@@ -66,40 +67,48 @@ static MONSTER_IDX place_monster_m_idx = 0;
  * @return 成功したらtrue
  *
  */
-bool mon_scatter(PlayerType *player_ptr, MONRACE_IDX r_idx, POSITION *yp, POSITION *xp, POSITION y, POSITION x, POSITION max_dist)
+bool mon_scatter(PlayerType *player_ptr, MonsterRaceId r_idx, POSITION *yp, POSITION *xp, POSITION y, POSITION x, POSITION max_dist)
 {
     POSITION place_x[MON_SCAT_MAXD];
     POSITION place_y[MON_SCAT_MAXD];
     int num[MON_SCAT_MAXD];
 
-    if (max_dist >= MON_SCAT_MAXD)
+    if (max_dist >= MON_SCAT_MAXD) {
         return false;
+    }
 
     int i;
-    for (i = 0; i < MON_SCAT_MAXD; i++)
+    for (i = 0; i < MON_SCAT_MAXD; i++) {
         num[i] = 0;
+    }
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     for (POSITION nx = x - max_dist; nx <= x + max_dist; nx++) {
         for (POSITION ny = y - max_dist; ny <= y + max_dist; ny++) {
-            if (!in_bounds(floor_ptr, ny, nx))
+            if (!in_bounds(floor_ptr, ny, nx)) {
                 continue;
-            if (!projectable(player_ptr, y, x, ny, nx))
+            }
+            if (!projectable(player_ptr, y, x, ny, nx)) {
                 continue;
-            if (r_idx > 0) {
-                monster_race *r_ptr = &r_info[r_idx];
-                if (!monster_can_enter(player_ptr, ny, nx, r_ptr, 0))
+            }
+            if (MonsterRace(r_idx).is_valid()) {
+                auto *r_ptr = &r_info[r_idx];
+                if (!monster_can_enter(player_ptr, ny, nx, r_ptr, 0)) {
                     continue;
+                }
             } else {
-                if (!is_cave_empty_bold2(player_ptr, ny, nx))
+                if (!is_cave_empty_bold2(player_ptr, ny, nx)) {
                     continue;
-                if (pattern_tile(floor_ptr, ny, nx))
+                }
+                if (pattern_tile(floor_ptr, ny, nx)) {
                     continue;
+                }
             }
 
             i = distance(y, x, ny, nx);
-            if (i > max_dist)
+            if (i > max_dist) {
                 continue;
+            }
 
             num[i]++;
             if (one_in_(num[i])) {
@@ -110,10 +119,12 @@ bool mon_scatter(PlayerType *player_ptr, MONRACE_IDX r_idx, POSITION *yp, POSITI
     }
 
     i = 0;
-    while (i < MON_SCAT_MAXD && 0 == num[i])
+    while (i < MON_SCAT_MAXD && 0 == num[i]) {
         i++;
-    if (i >= MON_SCAT_MAXD)
+    }
+    if (i >= MON_SCAT_MAXD) {
         return false;
+    }
 
     *xp = place_x[i];
     *yp = place_y[i];
@@ -133,17 +144,20 @@ bool mon_scatter(PlayerType *player_ptr, MONRACE_IDX r_idx, POSITION *yp, POSITI
  */
 bool multiply_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool clone, BIT_FLAGS mode)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    monster_type *m_ptr = &floor_ptr->m_list[m_idx];
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
     POSITION y, x;
-    if (!mon_scatter(player_ptr, m_ptr->r_idx, &y, &x, m_ptr->fy, m_ptr->fx, 1))
+    if (!mon_scatter(player_ptr, m_ptr->r_idx, &y, &x, m_ptr->fy, m_ptr->fx, 1)) {
         return false;
+    }
 
-    if (m_ptr->mflag2.has(MonsterConstantFlagType::NOPET))
+    if (m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
         mode |= PM_NO_PET;
+    }
 
-    if (!place_monster_aux(player_ptr, m_idx, y, x, m_ptr->r_idx, (mode | PM_NO_KAGE | PM_MULTIPLY)))
+    if (!place_monster_aux(player_ptr, m_idx, y, x, m_ptr->r_idx, (mode | PM_NO_KAGE | PM_MULTIPLY))) {
         return false;
+    }
 
     if (clone || m_ptr->mflag2.has(MonsterConstantFlagType::CLONED)) {
         floor_ptr->m_list[hack_m_idx_ii].mflag2.set({ MonsterConstantFlagType::CLONED, MonsterConstantFlagType::NOPET });
@@ -161,12 +175,12 @@ bool multiply_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool clone, BIT
  * @param mode 生成オプション
  * @return 成功したらtrue
  */
-static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MONRACE_IDX r_idx, BIT_FLAGS mode)
+static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode)
 {
-    monster_race *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &r_info[r_idx];
     int total = randint1(10);
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     int extra = 0;
     if (r_ptr->level > floor_ptr->dun_level) {
         extra = r_ptr->level - floor_ptr->dun_level;
@@ -176,15 +190,18 @@ static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITIO
         extra = randint1(extra);
     }
 
-    if (extra > 9)
+    if (extra > 9) {
         extra = 9;
+    }
 
     total += extra;
 
-    if (total < 1)
+    if (total < 1) {
         total = 1;
-    if (total > GROUP_MAX)
+    }
+    if (total > GROUP_MAX) {
         total = GROUP_MAX;
+    }
 
     int hack_n = 1;
     POSITION hack_x[GROUP_MAX];
@@ -198,8 +215,9 @@ static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITIO
         for (int i = 0; (i < 8) && (hack_n < total); i++) {
             POSITION mx, my;
             scatter(player_ptr, &my, &mx, hy, hx, 4, PROJECT_NONE);
-            if (!is_cave_empty_bold2(player_ptr, my, mx))
+            if (!is_cave_empty_bold2(player_ptr, my, mx)) {
                 continue;
+            }
 
             if (place_monster_one(player_ptr, who, my, mx, r_idx, mode)) {
                 hack_y[hack_n] = my;
@@ -217,37 +235,45 @@ static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITIO
  * @param r_idx チェックするモンスター種族のID
  * @return 護衛にできるならばtrue
  */
-static bool place_monster_can_escort(PlayerType *player_ptr, MONRACE_IDX r_idx)
+static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    monster_race *r_ptr = &r_info[place_monster_idx];
-    monster_type *m_ptr = &player_ptr->current_floor_ptr->m_list[place_monster_m_idx];
+    auto *r_ptr = &r_info[place_monster_idx];
+    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[place_monster_m_idx];
     monster_race *z_ptr = &r_info[r_idx];
 
-    if (mon_hook_dungeon(player_ptr, place_monster_idx) != mon_hook_dungeon(player_ptr, r_idx))
+    if (mon_hook_dungeon(player_ptr, place_monster_idx) != mon_hook_dungeon(player_ptr, r_idx)) {
         return false;
-
-    if (z_ptr->d_char != r_ptr->d_char)
-        return false;
-
-    if (z_ptr->level > r_ptr->level)
-        return false;
-
-    if (z_ptr->flags1 & RF1_UNIQUE)
-        return false;
-
-    if (place_monster_idx == r_idx)
-        return false;
-
-    if (monster_has_hostile_align(player_ptr, m_ptr, 0, 0, z_ptr))
-        return false;
-
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY)) {
-        if (monster_has_hostile_align(player_ptr, nullptr, 1, -1, z_ptr))
-            return false;
     }
 
-    if ((r_ptr->flags7 & RF7_CHAMELEON) && !(z_ptr->flags7 & RF7_CHAMELEON))
+    if (z_ptr->d_char != r_ptr->d_char) {
         return false;
+    }
+
+    if (z_ptr->level > r_ptr->level) {
+        return false;
+    }
+
+    if (z_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+        return false;
+    }
+
+    if (place_monster_idx == r_idx) {
+        return false;
+    }
+
+    if (monster_has_hostile_align(player_ptr, m_ptr, 0, 0, z_ptr)) {
+        return false;
+    }
+
+    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY)) {
+        if (monster_has_hostile_align(player_ptr, nullptr, 1, -1, z_ptr)) {
+            return false;
+        }
+    }
+
+    if ((r_ptr->flags7 & RF7_CHAMELEON) && !(z_ptr->flags7 & RF7_CHAMELEON)) {
+        return false;
+    }
 
     return true;
 }
@@ -262,32 +288,36 @@ static bool place_monster_can_escort(PlayerType *player_ptr, MONRACE_IDX r_idx)
  * @param mode 生成オプション
  * @return 生成に成功したらtrue
  */
-bool place_monster_aux(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MONRACE_IDX r_idx, BIT_FLAGS mode)
+bool place_monster_aux(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode)
 {
-    monster_race *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &r_info[r_idx];
 
-    if (!(mode & PM_NO_KAGE) && one_in_(333))
+    if (!(mode & PM_NO_KAGE) && one_in_(333)) {
         mode |= PM_KAGE;
+    }
 
-    if (!place_monster_one(player_ptr, who, y, x, r_idx, mode))
+    if (!place_monster_one(player_ptr, who, y, x, r_idx, mode)) {
         return false;
-    if (!(mode & PM_ALLOW_GROUP))
+    }
+    if (!(mode & PM_ALLOW_GROUP)) {
         return true;
+    }
 
     place_monster_m_idx = hack_m_idx_ii;
 
     /* Reinforcement */
-    for (int i = 0; i < 6; i++) {
-        if (!r_ptr->reinforce_id[i])
-            break;
-        int n = damroll(r_ptr->reinforce_dd[i], r_ptr->reinforce_ds[i]);
+    for (auto [reinforce_r_idx, dd, ds] : r_ptr->reinforces) {
+        if (!MonsterRace(reinforce_r_idx).is_valid()) {
+            continue;
+        }
+        auto n = damroll(dd, ds);
         for (int j = 0; j < n; j++) {
             POSITION nx, ny, d;
             const POSITION scatter_min = 7;
             const POSITION scatter_max = 40;
             for (d = scatter_min; d <= scatter_max; d++) {
                 scatter(player_ptr, &ny, &nx, y, x, d, PROJECT_NONE);
-                if (place_monster_one(player_ptr, place_monster_m_idx, ny, nx, r_ptr->reinforce_id[i], mode)) {
+                if (place_monster_one(player_ptr, place_monster_m_idx, ny, nx, reinforce_r_idx, mode)) {
                     break;
                 }
             }
@@ -301,21 +331,24 @@ bool place_monster_aux(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSI
         (void)place_monster_group(player_ptr, who, y, x, r_idx, mode);
     }
 
-    if (!(r_ptr->flags1 & (RF1_ESCORT)))
+    if (!(r_ptr->flags1 & (RF1_ESCORT))) {
         return true;
+    }
 
     place_monster_idx = r_idx;
     for (int i = 0; i < 32; i++) {
         POSITION nx, ny, d = 3;
-        MONRACE_IDX z;
+        MonsterRaceId z;
         scatter(player_ptr, &ny, &nx, y, x, d, PROJECT_NONE);
-        if (!is_cave_empty_bold2(player_ptr, ny, nx))
+        if (!is_cave_empty_bold2(player_ptr, ny, nx)) {
             continue;
+        }
 
         get_mon_num_prep(player_ptr, place_monster_can_escort, get_monster_hook2(player_ptr, ny, nx));
         z = get_mon_num(player_ptr, 0, r_ptr->level, 0);
-        if (!z)
+        if (!MonsterRace(z).is_valid()) {
             break;
+        }
 
         (void)place_monster_one(player_ptr, place_monster_m_idx, ny, nx, z, mode);
         if ((r_info[z].flags1 & RF1_FRIENDS) || (r_ptr->flags1 & RF1_ESCORTS)) {
@@ -337,19 +370,44 @@ bool place_monster_aux(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSI
 bool place_monster(PlayerType *player_ptr, POSITION y, POSITION x, BIT_FLAGS mode)
 {
     get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), get_monster_hook2(player_ptr, y, x));
-    MONRACE_IDX r_idx;
+    MonsterRaceId r_idx;
     do {
         r_idx = get_mon_num(player_ptr, 0, player_ptr->current_floor_ptr->monster_level, 0);
     } while ((mode & PM_NO_QUEST) && (r_info[r_idx].flags8 & RF8_NO_QUEST));
 
-    if (r_idx == 0)
+    if (!MonsterRace(r_idx).is_valid()) {
         return false;
+    }
 
-    if ((one_in_(5) || (player_ptr->current_floor_ptr->dun_level == 0)) && !(r_info[r_idx].flags1 & RF1_UNIQUE) && angband_strchr("hkoptuyAHLOPTUVY", r_info[r_idx].d_char)) {
+    if ((one_in_(5) || (player_ptr->current_floor_ptr->dun_level == 0)) && r_info[r_idx].kind_flags.has_not(MonsterKindType::UNIQUE) && angband_strchr("hkoptuyAHLOPTUVY", r_info[r_idx].d_char)) {
         mode |= PM_JURAL;
     }
 
     return place_monster_aux(player_ptr, 0, y, x, r_idx, mode);
+}
+
+static std::optional<MonsterRaceId> select_horde_leader_r_idx(PlayerType *player_ptr)
+{
+    const auto *floor_ptr = player_ptr->current_floor_ptr;
+
+    for (auto attempts = 1000; attempts > 0; --attempts) {
+        auto r_idx = get_mon_num(player_ptr, 0, floor_ptr->monster_level, 0);
+        if (!MonsterRace(r_idx).is_valid()) {
+            return std::nullopt;
+        }
+
+        if (r_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
+            continue;
+        }
+
+        if (r_idx == MonsterRaceId::HAGURE) {
+            continue;
+        }
+
+        return r_idx;
+    }
+
+    return std::nullopt;
 }
 
 /*!
@@ -363,52 +421,44 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
 {
     get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), get_monster_hook2(player_ptr, y, x));
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    MONRACE_IDX r_idx = 0;
-    int attempts = 1000;
-    monster_race *r_ptr = nullptr;
-    while (--attempts) {
-        r_idx = get_mon_num(player_ptr, 0, floor_ptr->monster_level, 0);
-        if (!r_idx)
+    auto r_idx = select_horde_leader_r_idx(player_ptr);
+    if (!r_idx.has_value()) {
+        return false;
+    }
+
+    for (auto attempts = 1000;; --attempts) {
+        if (attempts <= 0) {
             return false;
+        }
 
-        r_ptr = &r_info[r_idx];
-        if (r_ptr->flags1 & RF1_UNIQUE)
-            continue;
-
-        if (r_idx == MON_HAGURE)
-            continue;
-        break;
-    }
-
-    if (attempts < 1)
-        return false;
-
-    attempts = 1000;
-
-    while (--attempts) {
-        if (place_monster_aux(player_ptr, 0, y, x, r_idx, 0L))
+        if (place_monster_aux(player_ptr, 0, y, x, r_idx.value(), 0L)) {
             break;
+        }
     }
 
-    if (attempts < 1)
-        return false;
-
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     MONSTER_IDX m_idx = floor_ptr->grid_array[y][x].m_idx;
-    if (floor_ptr->m_list[m_idx].mflag2.has(MonsterConstantFlagType::CHAMELEON))
-        r_ptr = &r_info[floor_ptr->m_list[m_idx].r_idx];
 
     POSITION cy = y;
     POSITION cx = x;
-    for (attempts = randint1(10) + 5; attempts; attempts--) {
+    for (auto attempts = randint1(10) + 5; attempts > 0; attempts--) {
         scatter(player_ptr, &cy, &cx, y, x, 5, PROJECT_NONE);
         (void)(*summon_specific)(player_ptr, m_idx, cy, cx, floor_ptr->dun_level + 5, SUMMON_KIN, PM_ALLOW_GROUP);
         y = cy;
         x = cx;
     }
 
-    if (cheat_hear)
-        msg_format(_("モンスターの大群(%c)", "Monster horde (%c)."), r_ptr->d_char);
+    if (!cheat_hear) {
+        return true;
+    }
+
+    auto *r_ptr = &r_info[r_idx.value()];
+    if (floor_ptr->m_list[m_idx].mflag2.has(MonsterConstantFlagType::CHAMELEON)) {
+        r_ptr = &r_info[floor_ptr->m_list[m_idx].r_idx];
+    }
+
+    msg_format(_("モンスターの大群(%c)", "Monster horde (%c)."), r_ptr->d_char);
+
     return true;
 }
 
@@ -420,13 +470,14 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
  */
 bool alloc_guardian(PlayerType *player_ptr, bool def_val)
 {
-    MONRACE_IDX guardian = d_info[player_ptr->dungeon_idx].final_guardian;
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    bool is_guardian_applicable = guardian > 0;
+    MonsterRaceId guardian = d_info[player_ptr->dungeon_idx].final_guardian;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    bool is_guardian_applicable = MonsterRace(guardian).is_valid();
     is_guardian_applicable &= d_info[player_ptr->dungeon_idx].maxdepth == floor_ptr->dun_level;
     is_guardian_applicable &= r_info[guardian].cur_num < r_info[guardian].max_num;
-    if (!is_guardian_applicable)
+    if (!is_guardian_applicable) {
         return def_val;
+    }
 
     int try_count = 4000;
     while (try_count) {
@@ -442,8 +493,9 @@ bool alloc_guardian(PlayerType *player_ptr, bool def_val)
             continue;
         }
 
-        if (place_monster_aux(player_ptr, 0, oy, ox, guardian, (PM_ALLOW_GROUP | PM_NO_KAGE | PM_NO_PET)))
+        if (place_monster_aux(player_ptr, 0, oy, ox, guardian, (PM_ALLOW_GROUP | PM_NO_KAGE | PM_NO_PET))) {
             return true;
+        }
 
         try_count--;
     }
@@ -463,10 +515,11 @@ bool alloc_guardian(PlayerType *player_ptr, bool def_val)
  */
 bool alloc_monster(PlayerType *player_ptr, POSITION dis, BIT_FLAGS mode, summon_specific_pf summon_specific)
 {
-    if (alloc_guardian(player_ptr, false))
+    if (alloc_guardian(player_ptr, false)) {
         return true;
+    }
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     POSITION y = 0, x = 0;
     int attempts_left = 10000;
     while (attempts_left--) {
@@ -474,15 +527,18 @@ bool alloc_monster(PlayerType *player_ptr, POSITION dis, BIT_FLAGS mode, summon_
         x = randint0(floor_ptr->width);
 
         if (floor_ptr->dun_level) {
-            if (!is_cave_empty_bold2(player_ptr, y, x))
+            if (!is_cave_empty_bold2(player_ptr, y, x)) {
                 continue;
+            }
         } else {
-            if (!is_cave_empty_bold(player_ptr, y, x))
+            if (!is_cave_empty_bold(player_ptr, y, x)) {
                 continue;
+            }
         }
 
-        if (distance(y, x, player_ptr->y, player_ptr->x) > dis)
+        if (distance(y, x, player_ptr->y, player_ptr->x) > dis) {
             break;
+        }
     }
 
     if (!attempts_left) {
@@ -498,8 +554,9 @@ bool alloc_monster(PlayerType *player_ptr, POSITION dis, BIT_FLAGS mode, summon_
             return true;
         }
     } else {
-        if (place_monster(player_ptr, y, x, (mode | PM_ALLOW_GROUP)))
+        if (place_monster(player_ptr, y, x, (mode | PM_ALLOW_GROUP))) {
             return true;
+        }
     }
 
     return false;

@@ -6,6 +6,7 @@
 
 #include "effect/effect-player.h"
 #include "core/disturbance.h"
+#include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-player-switcher.h"
 #include "effect/effect-player.h"
@@ -25,13 +26,14 @@
 #include "realm/realm-hex-numbers.h"
 #include "spell-realm/spells-crusade.h"
 #include "spell-realm/spells-hex.h"
-#include "effect/attribute-types.h"
 #include "spell/spells-util.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-race-definition.h"
 #include "system/monster-type-definition.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include <string>
@@ -46,8 +48,16 @@
  * @param monspell 効果元のモンスター魔法ID
  * @return 初期化後の構造体ポインタ
  */
-EffectPlayerType::EffectPlayerType(MONSTER_IDX who, HIT_POINT dam, AttributeType attribute, BIT_FLAGS flag)
-    : rlev(0), m_ptr(nullptr), killer(""), m_name(""), get_damage(0), who(who), dam(dam), attribute(attribute), flag(flag)
+EffectPlayerType::EffectPlayerType(MONSTER_IDX who, int dam, AttributeType attribute, BIT_FLAGS flag)
+    : rlev(0)
+    , m_ptr(nullptr)
+    , killer("")
+    , m_name("")
+    , get_damage(0)
+    , who(who)
+    , dam(dam)
+    , attribute(attribute)
+    , flag(flag)
 {
 }
 
@@ -70,7 +80,7 @@ static bool process_bolt_reflection(PlayerType *player_ptr, EffectPlayerType *ep
     sound(SOUND_REFLECT);
 
     std::string mes;
-    if (player_ptr->blind) {
+    if (player_ptr->effects()->blindness()->is_blind()) {
         mes = _("何かが跳ね返った！", "Something bounces!");
     } else if (PlayerClass(player_ptr).samurai_stance_is(SamuraiStanceType::FUUJIN)) {
         mes = _("風の如く武器を振るって弾き返した！", "The attack bounces!");
@@ -78,7 +88,7 @@ static bool process_bolt_reflection(PlayerType *player_ptr, EffectPlayerType *ep
         mes = _("攻撃が跳ね返った！", "The attack bounces!");
     }
 
-    msg_print(mes.data());
+    msg_print(mes);
     POSITION t_y;
     POSITION t_x;
     if (ep_ptr->who > 0) {
@@ -99,7 +109,7 @@ static bool process_bolt_reflection(PlayerType *player_ptr, EffectPlayerType *ep
         t_x = player_ptr->x - 1 + randint1(3);
     }
 
-    (*project)(player_ptr, 0, 0, t_y, t_x, ep_ptr->dam, ep_ptr->attribute, (PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE));
+    (*project)(player_ptr, 0, 0, t_y, t_x, ep_ptr->dam, ep_ptr->attribute, (PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE), std::nullopt);
     disturb(player_ptr, true, true);
     return true;
 }
@@ -112,10 +122,10 @@ static bool process_bolt_reflection(PlayerType *player_ptr, EffectPlayerType *ep
  * @param x 目標X座標
  * @return 当たらなかったらFALSE、反射したらTRUE、当たったらCONTINUE
  */
-static process_result check_continue_player_effect(PlayerType *player_ptr, EffectPlayerType *ep_ptr, POSITION y, POSITION x, project_func project)
+static ProcessResult check_continue_player_effect(PlayerType *player_ptr, EffectPlayerType *ep_ptr, POSITION y, POSITION x, project_func project)
 {
     if (!player_bold(player_ptr, y, x)) {
-        return PROCESS_FALSE;
+        return ProcessResult::PROCESS_FALSE;
     }
 
     auto is_effective = ep_ptr->dam > 0;
@@ -123,18 +133,18 @@ static process_result check_continue_player_effect(PlayerType *player_ptr, Effec
     is_effective &= ep_ptr->who > 0;
     is_effective &= ep_ptr->who != player_ptr->riding;
     if (is_effective && kawarimi(player_ptr, true)) {
-        return PROCESS_FALSE;
+        return ProcessResult::PROCESS_FALSE;
     }
 
     if ((ep_ptr->who == 0) || (ep_ptr->who == player_ptr->riding)) {
-        return PROCESS_FALSE;
+        return ProcessResult::PROCESS_FALSE;
     }
 
     if (process_bolt_reflection(player_ptr, ep_ptr, project)) {
-        return PROCESS_TRUE;
+        return ProcessResult::PROCESS_TRUE;
     }
 
-    return PROCESS_CONTINUE;
+    return ProcessResult::PROCESS_CONTINUE;
 }
 
 /*!
@@ -181,14 +191,14 @@ static void describe_effect_source(PlayerType *player_ptr, EffectPlayerType *ep_
  * @param monspell 効果元のモンスター魔法ID
  * @return 何か一つでも効力があればTRUEを返す / TRUE if any "effects" of the projection were observed, else FALSE
  */
-bool affect_player(MONSTER_IDX who, PlayerType *player_ptr, concptr who_name, int r, POSITION y, POSITION x, HIT_POINT dam, AttributeType attribute,
+bool affect_player(MONSTER_IDX who, PlayerType *player_ptr, concptr who_name, int r, POSITION y, POSITION x, int dam, AttributeType attribute,
     BIT_FLAGS flag, project_func project)
 {
     EffectPlayerType tmp_effect(who, dam, attribute, flag);
     auto *ep_ptr = &tmp_effect;
     auto check_result = check_continue_player_effect(player_ptr, ep_ptr, y, x, project);
-    if (check_result != PROCESS_CONTINUE) {
-        return check_result == PROCESS_TRUE;
+    if (check_result != ProcessResult::PROCESS_CONTINUE) {
+        return check_result == ProcessResult::PROCESS_TRUE;
     }
 
     if (ep_ptr->dam > 1600) {
@@ -204,7 +214,7 @@ bool affect_player(MONSTER_IDX who, PlayerType *player_ptr, concptr who_name, in
         GAME_TEXT m_name_self[MAX_MONSTER_NAME];
         monster_desc(player_ptr, m_name_self, ep_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE | MD_OBJECTIVE);
         msg_format(_("攻撃が%s自身を傷つけた！", "The attack of %s has wounded %s!"), ep_ptr->m_name, m_name_self);
-        (*project)(player_ptr, 0, 0, ep_ptr->m_ptr->fy, ep_ptr->m_ptr->fx, ep_ptr->get_damage, AttributeType::MISSILE, PROJECT_KILL);
+        (*project)(player_ptr, 0, 0, ep_ptr->m_ptr->fy, ep_ptr->m_ptr->fx, ep_ptr->get_damage, AttributeType::MISSILE, PROJECT_KILL, std::nullopt);
         if (player_ptr->tim_eyeeye) {
             set_tim_eyeeye(player_ptr, player_ptr->tim_eyeeye - 5, true);
         }

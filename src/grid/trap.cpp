@@ -60,13 +60,13 @@ static std::vector<int16_t> normal_traps;
  * </pre>
  */
 const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
-    { }, /* empty */
+    {}, /* empty */
     { ChestTrapType::POISON },
     { ChestTrapType::LOSE_STR },
     { ChestTrapType::LOSE_CON },
     { ChestTrapType::LOSE_STR },
     { ChestTrapType::LOSE_CON }, /* 5 == best small wooden */
-    { },
+    {},
     { ChestTrapType::ALARM },
     { ChestTrapType::ALARM },
     { ChestTrapType::LOSE_STR },
@@ -76,7 +76,7 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
     { ChestTrapType::LOSE_STR, ChestTrapType::LOSE_CON },
     { ChestTrapType::LOSE_STR, ChestTrapType::LOSE_CON },
     { ChestTrapType::SUMMON }, /* 15 == best large wooden */
-    { },
+    {},
     { ChestTrapType::ALARM },
     { ChestTrapType::SCATTER },
     { ChestTrapType::PARALYZE },
@@ -86,7 +86,7 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
     { ChestTrapType::LOSE_STR },
     { ChestTrapType::LOSE_CON },
     { ChestTrapType::EXPLODE }, /* 25 == best small iron */
-    { },
+    {},
     { ChestTrapType::E_SUMMON },
     { ChestTrapType::POISON, ChestTrapType::LOSE_CON },
     { ChestTrapType::LOSE_STR, ChestTrapType::LOSE_CON },
@@ -96,7 +96,7 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
     { ChestTrapType::E_SUMMON, ChestTrapType::ALARM },
     { ChestTrapType::EXPLODE },
     { ChestTrapType::EXPLODE, ChestTrapType::SUMMON }, /* 35 == best large iron */
-    { },
+    {},
     { ChestTrapType::SUMMON, ChestTrapType::ALARM },
     { ChestTrapType::EXPLODE },
     { ChestTrapType::EXPLODE, ChestTrapType::SUMMON },
@@ -106,7 +106,7 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
     { ChestTrapType::BIRD_STORM },
     { ChestTrapType::EXPLODE, ChestTrapType::E_SUMMON, ChestTrapType::ALARM },
     { ChestTrapType::H_SUMMON }, /* 45 == best small steel */
-    { },
+    {},
     { ChestTrapType::EXPLODE, ChestTrapType::SUMMON, ChestTrapType::ALARM },
     { ChestTrapType::BIRD_STORM },
     { ChestTrapType::RUNES_OF_EVIL },
@@ -166,21 +166,24 @@ FEAT_IDX choose_random_trap(PlayerType *player_ptr)
     FEAT_IDX feat;
 
     /* Pick a trap */
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     while (true) {
         feat = normal_traps[randint0(normal_traps.size())];
 
         /* Accept non-trapdoors */
-        if (f_info[feat].flags.has_not(FloorFeatureType::MORE))
+        if (f_info[feat].flags.has_not(FloorFeatureType::MORE)) {
             break;
+        }
 
         /* Hack -- no trap doors on special levels */
-        if (floor_ptr->inside_arena || quest_number(player_ptr, floor_ptr->dun_level))
+        if (floor_ptr->inside_arena || inside_quest(quest_number(player_ptr, floor_ptr->dun_level))) {
             continue;
+        }
 
         /* Hack -- no trap doors on the deepest level */
-        if (floor_ptr->dun_level >= d_info[floor_ptr->dungeon_idx].maxdepth)
+        if (floor_ptr->dun_level >= d_info[floor_ptr->dungeon_idx].maxdepth) {
             continue;
+        }
 
         break;
     }
@@ -197,7 +200,7 @@ FEAT_IDX choose_random_trap(PlayerType *player_ptr)
  */
 void disclose_grid(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    grid_type *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
+    auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
 
     if (g_ptr->cave_has_flag(FloorFeatureType::SECRET)) {
         /* No longer hidden */
@@ -223,16 +226,18 @@ void disclose_grid(PlayerType *player_ptr, POSITION y, POSITION x)
  */
 void place_trap(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    grid_type *g_ptr = &floor_ptr->grid_array[y][x];
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *g_ptr = &floor_ptr->grid_array[y][x];
 
     /* Paranoia -- verify location */
-    if (!in_bounds(floor_ptr, y, x))
+    if (!in_bounds(floor_ptr, y, x)) {
         return;
+    }
 
     /* Require empty, clean, floor grid */
-    if (!cave_clean_bold(floor_ptr, y, x))
+    if (!cave_clean_bold(floor_ptr, y, x)) {
         return;
+    }
 
     /* Place an invisible trap */
     g_ptr->mimic = g_ptr->feat;
@@ -257,23 +262,28 @@ static int check_hit_from_monster_to_player(PlayerType *player_ptr, int power)
     k = randint0(100);
 
     /* Hack -- 5% hit, 5% miss */
-    if (k < 10)
-        return (k < 5);
+    if (k < 10) {
+        return k < 5;
+    }
 
-    if (player_ptr->ppersonality == PERSONALITY_LAZY)
-        if (one_in_(20))
+    if (player_ptr->ppersonality == PERSONALITY_LAZY) {
+        if (one_in_(20)) {
             return true;
+        }
+    }
 
     /* Paranoia -- No power */
-    if (power <= 0)
+    if (power <= 0) {
         return false;
+    }
 
     /* Total armor */
     ac = player_ptr->ac + player_ptr->to_a;
 
     /* Power competes against Armor */
-    if (randint1(power) > ((ac * 3) / 4))
+    if (randint1(power) > ((ac * 3) / 4)) {
         return true;
+    }
 
     /* Assume miss */
     return false;
@@ -285,7 +295,7 @@ static int check_hit_from_monster_to_player(PlayerType *player_ptr, int power)
  */
 static void hit_trap_pit(PlayerType *player_ptr, TrapType trap_feat_type)
 {
-    HIT_POINT dam;
+    int dam;
     concptr trap_name = "";
     concptr spike_name = "";
 
@@ -348,8 +358,9 @@ static bool hit_trap_dart(PlayerType *player_ptr)
     if (check_hit_from_monster_to_player(player_ptr, 125)) {
         msg_print(_("小さなダーツが飛んできて刺さった！", "A small dart hits you!"));
         take_hit(player_ptr, DAMAGE_ATTACK, damroll(1, 4), _("ダーツの罠", "a dart trap"));
-        if (!check_multishadow(player_ptr))
+        if (!check_multishadow(player_ptr)) {
             hit = true;
+        }
     } else {
         msg_print(_("小さなダーツが飛んできた！が、運良く当たらなかった。", "A small dart barely misses you."));
     }
@@ -374,7 +385,7 @@ static void hit_trap_lose_stat(PlayerType *player_ptr, int stat)
 static void hit_trap_slow(PlayerType *player_ptr)
 {
     if (hit_trap_dart(player_ptr)) {
-        (void)BadStatusSetter(player_ptr).mod_slowness(randint0(20) + 20, false);
+        (void)BadStatusSetter(player_ptr).mod_deceleration(randint0(20) + 20, false);
     }
 }
 
@@ -388,8 +399,8 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 {
     int i, num, dam;
     POSITION x = player_ptr->x, y = player_ptr->y;
-    grid_type *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-    feature_type *f_ptr = &f_info[g_ptr->feat];
+    auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
+    auto *f_ptr = &f_info[g_ptr->feat];
     TrapType trap_feat_type = f_ptr->flags.has(FloorFeatureType::TRAP) ? i2enum<TrapType>(f_ptr->subtype) : TrapType::NOT_TRAP;
     concptr name = _("トラップ", "a trap");
 
@@ -404,10 +415,11 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
             msg_print(_("落とし戸を飛び越えた。", "You fly over a trap door."));
         } else {
             msg_print(_("落とし戸に落ちた！", "You have fallen through a trap door!"));
-            if (is_echizen(player_ptr))
+            if (is_echizen(player_ptr)) {
                 msg_print(_("くっそ～！", ""));
-            else if (is_chargeman(player_ptr))
+            } else if (is_chargeman(player_ptr)) {
                 msg_print(_("ジュラル星人の仕業に違いない！", ""));
+            }
 
             sound(SOUND_FALL);
             dam = damroll(2, 8);
@@ -416,8 +428,9 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
             take_hit(player_ptr, DAMAGE_NOESCAPE, dam, name);
 
             /* Still alive and autosave enabled */
-            if (autosave_l && (player_ptr->chp >= 0))
+            if (autosave_l && (player_ptr->chp >= 0)) {
                 do_cmd_save_game(player_ptr, true);
+            }
 
             exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, _("落とし戸に落ちた", "fell through a trap door!"));
             prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_DOWN | CFM_RAND_PLACE | CFM_RAND_CONNECT);
@@ -573,15 +586,18 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
                 POSITION x1 = rand_spread(x, 7);
                 POSITION y1 = rand_spread(y, 5);
 
-                if (!in_bounds(player_ptr->current_floor_ptr, y1, x1))
+                if (!in_bounds(player_ptr->current_floor_ptr, y1, x1)) {
                     continue;
+                }
 
                 /* Require line of projection */
-                if (!projectable(player_ptr, player_ptr->y, player_ptr->x, y1, x1))
+                if (!projectable(player_ptr, player_ptr->y, player_ptr->x, y1, x1)) {
                     continue;
+                }
 
-                if (summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET)))
+                if (summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET))) {
                     evil_idx = hack_m_idx_ii;
+                }
 
                 if (summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_GOOD, (PM_NO_PET))) {
                     good_idx = hack_m_idx_ii;

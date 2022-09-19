@@ -12,6 +12,7 @@
 #include "monster-race/race-flags7.h"
 #include "object/object-kind.h"
 #include "pet/pet-util.h"
+#include "player-base/player-class.h"
 #include "player-base/player-race.h"
 #include "player-info/race-info.h"
 #include "player-info/race-types.h"
@@ -20,6 +21,7 @@
 #include "system/floor-type-definition.h"
 #include "system/monster-race-definition.h"
 #include "system/player-type-definition.h"
+#include "util/enum-range.h"
 #include "world/world.h"
 
 /*!
@@ -43,57 +45,61 @@ static void k_info_reset(void)
 void player_wipe_without_name(PlayerType *player_ptr)
 {
     auto tmp = *player_ptr;
-    if (player_ptr->last_message)
+    if (player_ptr->last_message) {
         string_free(player_ptr->last_message);
+    }
 
     *player_ptr = {};
 
     // TODO: キャラ作成からゲーム開始までに  current_floor_ptr を参照しなければならない処理は今後整理して外す。
     player_ptr->current_floor_ptr = &floor_info;
     //! @todo std::make_shared の配列対応版は C++20 から
-    player_ptr->inventory_list = std::shared_ptr<object_type[]>{ new object_type[INVEN_TOTAL] };
-    for (int i = 0; i < 4; i++)
+    player_ptr->inventory_list = std::shared_ptr<ObjectType[]>{ new ObjectType[INVEN_TOTAL] };
+    for (int i = 0; i < 4; i++) {
         strcpy(player_ptr->history[i], "");
+    }
 
-    for (int i = 0; i < max_q_idx; i++) {
-        quest_type *const q_ptr = &quest[i];
-        q_ptr->status = QuestStatusType::UNTAKEN;
-        q_ptr->cur_num = 0;
-        q_ptr->max_num = 0;
-        q_ptr->type = QuestKindType::NONE;
-        q_ptr->level = 0;
-        q_ptr->r_idx = 0;
-        q_ptr->complev = 0;
-        q_ptr->comptime = 0;
+    auto &quest_list = QuestList::get_instance();
+    for (auto &[q_idx, q_ref] : quest_list) {
+        q_ref.status = QuestStatusType::UNTAKEN;
+        q_ref.cur_num = 0;
+        q_ref.max_num = 0;
+        q_ref.type = QuestKindType::NONE;
+        q_ref.level = 0;
+        q_ref.r_idx = MonsterRace::empty_id();
+        q_ref.complev = 0;
+        q_ref.comptime = 0;
     }
 
     player_ptr->inven_cnt = 0;
     player_ptr->equip_cnt = 0;
-    for (int i = 0; i < INVEN_TOTAL; i++)
+    for (int i = 0; i < INVEN_TOTAL; i++) {
         (&player_ptr->inventory_list[i])->wipe();
+    }
 
-    for (auto &a_ref : a_info) {
-        a_ref.cur_num = 0;
+    for (auto &[a_idx, a_ref] : a_info) {
+        a_ref.is_generated = false;
     }
 
     k_info_reset();
-    for (auto &r_ref : r_info) {
-        if (r_ref.idx == 0) {
+    for (auto &[r_idx, r_ref] : r_info) {
+        if (!MonsterRace(r_ref.idx).is_valid()) {
             continue;
         }
         r_ref.cur_num = 0;
         r_ref.max_num = 100;
-        if (r_ref.flags1 & RF1_UNIQUE)
+        if (r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
             r_ref.max_num = 1;
-        else if (r_ref.flags7 & RF7_NAZGUL)
+        } else if (r_ref.population_flags.has(MonsterPopulationType::NAZGUL)) {
             r_ref.max_num = MAX_NAZGUL_NUM;
+        }
 
         r_ref.r_pkills = 0;
         r_ref.r_akills = 0;
     }
 
     player_ptr->food = PY_FOOD_FULL - 1;
-    if (player_ptr->pclass == PlayerClassType::SORCERER) {
+    if (PlayerClass(player_ptr).equals(PlayerClassType::SORCERER)) {
         player_ptr->spell_learned1 = player_ptr->spell_learned2 = 0xffffffffL;
         player_ptr->spell_worked1 = player_ptr->spell_worked2 = 0xffffffffL;
     } else {
@@ -102,8 +108,9 @@ void player_wipe_without_name(PlayerType *player_ptr)
     }
 
     player_ptr->spell_forgotten1 = player_ptr->spell_forgotten2 = 0L;
-    for (int i = 0; i < 64; i++)
+    for (int i = 0; i < 64; i++) {
         player_ptr->spell_order[i] = 99;
+    }
 
     player_ptr->learned_spells = 0;
     player_ptr->add_spells = 0;
@@ -131,8 +138,9 @@ void player_wipe_without_name(PlayerType *player_ptr)
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
 
-    for (const auto &d_ref : d_info)
+    for (const auto &d_ref : d_info) {
         max_dlv[d_ref.idx] = 0;
+    }
 
     player_ptr->visit = 1;
     player_ptr->wild_mode = false;
@@ -140,15 +148,16 @@ void player_wipe_without_name(PlayerType *player_ptr)
     player_ptr->max_plv = player_ptr->lev = 1;
     player_ptr->arena_number = 0;
     player_ptr->current_floor_ptr->inside_arena = false;
-    player_ptr->current_floor_ptr->inside_quest = 0;
+    player_ptr->current_floor_ptr->quest_number = QuestId::NONE;
 
     player_ptr->exit_bldg = true;
-    player_ptr->today_mon = 0;
+    player_ptr->knows_daily_bounty = false;
     update_gambling_monsters(player_ptr);
     player_ptr->muta.clear();
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
         player_ptr->virtues[i] = 0;
+    }
 
     player_ptr->dungeon_idx = 0;
     if (vanilla_town || ironman_downward) {
@@ -176,14 +185,14 @@ void player_wipe_without_name(PlayerType *player_ptr)
  */
 void init_dungeon_quests(PlayerType *player_ptr)
 {
-    int number_of_quests = MAX_RANDOM_QUEST - MIN_RANDOM_QUEST + 1;
     init_flags = INIT_ASSIGN;
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->inside_quest = MIN_RANDOM_QUEST;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto &quest_list = QuestList::get_instance();
+    floor_ptr->quest_number = QuestId::RANDOM_QUEST1;
     parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
-    floor_ptr->inside_quest = 0;
-    for (int i = MIN_RANDOM_QUEST + number_of_quests - 1; i >= MIN_RANDOM_QUEST; i--) {
-        quest_type *q_ptr = &quest[i];
+    floor_ptr->quest_number = QuestId::NONE;
+    for (auto q_idx : EnumRange(QuestId::RANDOM_QUEST1, QuestId::RANDOM_QUEST10)) {
+        auto *q_ptr = &quest_list[q_idx];
         monster_race *quest_r_ptr;
         q_ptr->status = QuestStatusType::TAKEN;
         determine_random_questor(player_ptr, q_ptr);
@@ -193,14 +202,14 @@ void init_dungeon_quests(PlayerType *player_ptr)
     }
 
     init_flags = INIT_ASSIGN;
-    floor_ptr->inside_quest = QUEST_OBERON;
+    floor_ptr->quest_number = QuestId::OBERON;
     parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
-    quest[QUEST_OBERON].status = QuestStatusType::TAKEN;
+    quest_list[QuestId::OBERON].status = QuestStatusType::TAKEN;
 
-    floor_ptr->inside_quest = QUEST_SERPENT;
+    floor_ptr->quest_number = QuestId::SERPENT;
     parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
-    quest[QUEST_SERPENT].status = QuestStatusType::TAKEN;
-    floor_ptr->inside_quest = 0;
+    quest_list[QuestId::SERPENT].status = QuestStatusType::TAKEN;
+    floor_ptr->quest_number = QuestId::NONE;
 }
 
 /*!

@@ -2,6 +2,7 @@
 #include "cmd-building/cmd-building.h"
 #include "dungeon/dungeon.h"
 #include "game-option/birth-options.h"
+#include "player-base/player-class.h"
 #include "player/player-skill.h"
 #include "save/info-writer.h"
 #include "save/player-class-specific-data-writer.h"
@@ -9,11 +10,18 @@
 #include "system/building-type-definition.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-acceleration.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/player-confusion.h"
 #include "timed-effect/player-cut.h"
+#include "timed-effect/player-deceleration.h"
+#include "timed-effect/player-fear.h"
+#include "timed-effect/player-hallucination.h"
+#include "timed-effect/player-paralysis.h"
+#include "timed-effect/player-poison.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "world/world.h"
-
 #include <variant>
 
 /*!
@@ -22,10 +30,11 @@
  */
 static void wr_relams(PlayerType *player_ptr)
 {
-    if (player_ptr->pclass == PlayerClassType::ELEMENTALIST)
+    if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
         wr_byte((byte)player_ptr->element);
-    else
+    } else {
         wr_byte((byte)player_ptr->realm1);
+    }
     wr_byte((byte)player_ptr->realm2);
 }
 
@@ -40,8 +49,9 @@ void wr_player(PlayerType *player_ptr)
     wr_string(player_ptr->last_message ? player_ptr->last_message : "");
 
     save_quick_start();
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
         wr_string(player_ptr->history[i]);
+    }
 
     wr_byte((byte)player_ptr->prace);
     wr_byte((byte)player_ptr->pclass);
@@ -57,17 +67,21 @@ void wr_player(PlayerType *player_ptr)
     wr_s16b(player_ptr->ht);
     wr_s16b(player_ptr->wt);
 
-    for (int i = 0; i < A_MAX; ++i)
+    for (int i = 0; i < A_MAX; ++i) {
         wr_s16b(player_ptr->stat_max[i]);
+    }
 
-    for (int i = 0; i < A_MAX; ++i)
+    for (int i = 0; i < A_MAX; ++i) {
         wr_s16b(player_ptr->stat_max_max[i]);
+    }
 
-    for (int i = 0; i < A_MAX; ++i)
+    for (int i = 0; i < A_MAX; ++i) {
         wr_s16b(player_ptr->stat_cur[i]);
+    }
 
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 12; ++i) {
         wr_s16b(0);
+    }
 
     wr_u32b(player_ptr->au);
     wr_u32b(player_ptr->max_exp);
@@ -76,12 +90,15 @@ void wr_player(PlayerType *player_ptr)
     wr_u32b(player_ptr->exp_frac);
     wr_s16b(player_ptr->lev);
 
-    for (int i = 0; i < 64; i++)
+    for (int i = 0; i < 64; i++) {
         wr_s16b(player_ptr->spell_exp[i]);
+    }
 
-    for (auto tval : TV_WEAPON_RANGE)
-        for (int j = 0; j < 64; j++)
+    for (auto tval : TV_WEAPON_RANGE) {
+        for (int j = 0; j < 64; j++) {
             wr_s16b(player_ptr->weapon_exp[tval][j]);
+        }
+    }
 
     for (auto i : PLAYER_SKILL_KIND_TYPE_RANGE) {
         wr_s16b(player_ptr->skill_exp[i]);
@@ -98,11 +115,13 @@ void wr_player(PlayerType *player_ptr)
     wr_s32b(player_ptr->old_race2);
     wr_s16b(player_ptr->old_realm);
 
-    for (int i = 0; i < MAX_BOUNTY; i++)
-        wr_s16b(w_ptr->bounty_r_idx[i]);
+    for (const auto &[r_idx, is_achieved] : w_ptr->bounties) {
+        wr_s16b(enum2i(r_idx));
+        wr_bool(is_achieved);
+    }
 
     for (int i = 0; i < 4; i++) {
-        wr_s16b(battle_mon[i]);
+        wr_s16b(enum2i(battle_mon_list[i]));
         wr_u32b(mon_odds[i]);
     }
 
@@ -110,7 +129,7 @@ void wr_player(PlayerType *player_ptr)
 
     wr_s16b(player_ptr->arena_number);
     wr_s16b(player_ptr->current_floor_ptr->inside_arena);
-    wr_s16b(player_ptr->current_floor_ptr->inside_quest);
+    wr_s16b(enum2i(player_ptr->current_floor_ptr->quest_number));
     wr_s16b(player_ptr->phase_out);
     wr_byte(player_ptr->exit_bldg);
     wr_byte(0); /* Unused */
@@ -129,8 +148,9 @@ void wr_player(PlayerType *player_ptr)
 
     byte tmp8u = (byte)d_info.size();
     wr_byte(tmp8u);
-    for (int i = 0; i < tmp8u; i++)
+    for (int i = 0; i < tmp8u; i++) {
         wr_s16b((int16_t)max_dlv[i]);
+    }
 
     wr_s16b(0);
     wr_s16b(0);
@@ -140,21 +160,21 @@ void wr_player(PlayerType *player_ptr)
 
     auto effects = player_ptr->effects();
     wr_s16b(0); /* old "rest" */
-    wr_s16b(player_ptr->blind);
-    wr_s16b(player_ptr->paralyzed);
-    wr_s16b(player_ptr->confused);
+    wr_s16b(effects->blindness()->current());
+    wr_s16b(effects->paralysis()->current());
+    wr_s16b(effects->confusion()->current());
     wr_s16b(player_ptr->food);
     wr_s16b(0); /* old "food_digested" */
     wr_s16b(0); /* old "protection" */
     wr_s16b(player_ptr->energy_need);
     wr_s16b(player_ptr->enchant_energy_need);
-    wr_s16b(player_ptr->fast);
-    wr_s16b(player_ptr->slow);
-    wr_s16b(player_ptr->afraid);
+    wr_s16b(effects->acceleration()->current());
+    wr_s16b(effects->deceleration()->current());
+    wr_s16b(effects->fear()->current());
     wr_s16b(effects->cut()->current());
     wr_s16b(effects->stun()->current());
-    wr_s16b(player_ptr->poisoned);
-    wr_s16b(player_ptr->hallucinated);
+    wr_s16b(effects->poison()->current());
+    wr_s16b(effects->hallucination()->current());
     wr_s16b(player_ptr->protevil);
     wr_s16b(player_ptr->invuln);
     wr_s16b(player_ptr->ult_res);
@@ -200,26 +220,29 @@ void wr_player(PlayerType *player_ptr)
     wr_s16b(player_ptr->chaos_patron);
     wr_FlagGroup(player_ptr->muta, wr_byte);
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
         wr_s16b(player_ptr->virtues[i]);
+    }
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
         wr_s16b(player_ptr->vir_types[i]);
+    }
 
     wr_s16b(player_ptr->ele_attack);
     wr_u32b(player_ptr->special_attack);
     wr_s16b(player_ptr->ele_immune);
     wr_u32b(player_ptr->special_defense);
     wr_byte(player_ptr->knowledge);
-    wr_byte(player_ptr->autopick_autoregister);
+    wr_bool(player_ptr->autopick_autoregister);
     wr_byte(0);
     wr_byte((byte)player_ptr->action);
     wr_byte(0);
-    wr_byte(preserve_mode);
-    wr_byte(player_ptr->wait_report_score);
+    wr_bool(preserve_mode);
+    wr_bool(player_ptr->wait_report_score);
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 12; i++) {
         wr_u32b(0L);
+    }
 
     /* Ignore some flags */
     wr_u32b(0L);
@@ -231,15 +254,15 @@ void wr_player(PlayerType *player_ptr)
     wr_u16b(player_ptr->panic_save);
     wr_u16b(w_ptr->total_winner);
     wr_u16b(w_ptr->noscore);
-    wr_byte(player_ptr->is_dead);
+    wr_bool(player_ptr->is_dead);
     wr_byte(player_ptr->feeling);
     wr_s32b(player_ptr->current_floor_ptr->generated_turn);
     wr_s32b(player_ptr->feeling_turn);
     wr_s32b(w_ptr->game_turn);
     wr_s32b(w_ptr->dungeon_turn);
     wr_s32b(w_ptr->arena_start_turn);
-    wr_s16b(w_ptr->today_mon);
-    wr_s16b(player_ptr->today_mon);
+    wr_s16b(enum2i(w_ptr->today_mon));
+    wr_s16b(player_ptr->knows_daily_bounty ? 1 : 0); // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
     wr_s16b(player_ptr->riding);
     wr_s16b(player_ptr->floor_id);
 

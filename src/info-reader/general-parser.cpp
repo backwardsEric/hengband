@@ -1,4 +1,5 @@
 ﻿#include "info-reader/general-parser.h"
+#include "artifact/fixed-art-types.h"
 #include "dungeon/quest.h"
 #include "grid/feature.h"
 #include "info-reader/feature-reader.h"
@@ -37,11 +38,13 @@ errr init_info_txt(FILE *fp, char *buf, angband_header *head, std::function<errr
     errr err;
     while (angband_fgets(fp, buf, 1024) == 0) {
         error_line++;
-        if (!buf[0] || (buf[0] == '#'))
+        if (!buf[0] || (buf[0] == '#')) {
             continue;
+        }
 
-        if (buf[1] != ':')
-            return (PARSE_ERROR_GENERIC);
+        if (buf[1] != ':') {
+            return PARSE_ERROR_GENERIC;
+        }
 
         if (buf[0] == 'V') {
             continue;
@@ -55,8 +58,9 @@ errr init_info_txt(FILE *fp, char *buf, angband_header *head, std::function<errr
             }
         }
 
-        if ((err = parse_info_txt_line(buf, head)) != 0)
-            return (err);
+        if ((err = parse_info_txt_line(buf, head)) != 0) {
+            return err;
+        }
     }
 
     return 0;
@@ -71,20 +75,22 @@ errr init_info_txt(FILE *fp, char *buf, angband_header *head, std::function<errr
  */
 parse_error_type parse_line_feature(floor_type *floor_ptr, char *buf)
 {
-    if (init_flags & INIT_ONLY_BUILDINGS)
+    if (init_flags & INIT_ONLY_BUILDINGS) {
         return PARSE_ERROR_NONE;
+    }
 
     char *zz[9];
     int num = tokenize(buf + 2, 9, zz, 0);
-    if (num <= 1)
+    if (num <= 1) {
         return PARSE_ERROR_GENERIC;
+    }
 
     int index = zz[0][0];
     letter[index].feature = feat_none;
     letter[index].monster = 0;
     letter[index].object = 0;
-    letter[index].ego = 0;
-    letter[index].artifact = 0;
+    letter[index].ego = EgoType::NONE;
+    letter[index].artifact = FixedArtifactId::NONE;
     letter[index].trap = feat_none;
     letter[index].cave_info = 0;
     letter[index].special = 0;
@@ -99,44 +105,50 @@ parse_error_type parse_line_feature(floor_type *floor_ptr, char *buf)
             letter[index].random |= RANDOM_TRAP;
         } else {
             letter[index].trap = f_tag_to_index(zz[7]);
-            if (letter[index].trap < 0)
+            if (letter[index].trap < 0) {
                 return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
+            }
         }
         /* Fall through */
     case 7:
         if (zz[6][0] == '*') {
             letter[index].random |= RANDOM_ARTIFACT;
-            if (zz[6][1])
-                letter[index].artifact = (ARTIFACT_IDX)atoi(zz[6] + 1);
+            if (zz[6][1]) {
+                letter[index].artifact = i2enum<FixedArtifactId>(atoi(zz[6] + 1));
+            }
         } else if (zz[6][0] == '!') {
-            if (floor_ptr->inside_quest) {
-                letter[index].artifact = quest[floor_ptr->inside_quest].k_idx;
+            if (inside_quest(floor_ptr->quest_number)) {
+                const auto &quest_list = QuestList::get_instance();
+                letter[index].artifact = quest_list[floor_ptr->quest_number].reward_artifact_idx;
             }
         } else {
-            letter[index].artifact = (ARTIFACT_IDX)atoi(zz[6]);
+            letter[index].artifact = i2enum<FixedArtifactId>(atoi(zz[6]));
         }
         /* Fall through */
     case 6:
         if (zz[5][0] == '*') {
             letter[index].random |= RANDOM_EGO;
-            if (zz[5][1])
-                letter[index].ego = (EGO_IDX)atoi(zz[5] + 1);
+            if (zz[5][1]) {
+                letter[index].ego = i2enum<EgoType>(atoi(zz[5] + 1));
+            }
         } else {
-            letter[index].ego = (EGO_IDX)atoi(zz[5]);
+            letter[index].ego = i2enum<EgoType>(atoi(zz[5]));
         }
         /* Fall through */
     case 5:
         if (zz[4][0] == '*') {
             letter[index].random |= RANDOM_OBJECT;
-            if (zz[4][1])
+            if (zz[4][1]) {
                 letter[index].object = (OBJECT_IDX)atoi(zz[4] + 1);
+            }
         } else if (zz[4][0] == '!') {
-            if (floor_ptr->inside_quest) {
-                ARTIFACT_IDX a_idx = quest[floor_ptr->inside_quest].k_idx;
-                if (a_idx) {
-                    artifact_type *a_ptr = &a_info[a_idx];
-                    if (a_ptr->gen_flags.has_not(ItemGenerationTraitType::INSTA_ART)) {
-                        letter[index].object = lookup_kind(a_ptr->tval, a_ptr->sval);
+            if (inside_quest(floor_ptr->quest_number)) {
+                const auto &quest_list = QuestList::get_instance();
+                const auto a_idx = quest_list[floor_ptr->quest_number].reward_artifact_idx;
+                if (a_idx != FixedArtifactId::NONE) {
+                    const auto &a_ref = a_info.at(a_idx);
+                    if (a_ref.gen_flags.has_not(ItemGenerationTraitType::INSTA_ART)) {
+                        letter[index].object = lookup_kind(a_ref.tval, a_ref.sval);
                     }
                 }
             }
@@ -147,11 +159,13 @@ parse_error_type parse_line_feature(floor_type *floor_ptr, char *buf)
     case 4:
         if (zz[3][0] == '*') {
             letter[index].random |= RANDOM_MONSTER;
-            if (zz[3][1])
+            if (zz[3][1]) {
                 letter[index].monster = (MONSTER_IDX)atoi(zz[3] + 1);
+            }
         } else if (zz[3][0] == 'c') {
-            if (!zz[3][1])
+            if (!zz[3][1]) {
                 return PARSE_ERROR_GENERIC;
+            }
             letter[index].monster = -atoi(zz[3] + 1);
         } else {
             letter[index].monster = (MONSTER_IDX)atoi(zz[3]);
@@ -165,8 +179,9 @@ parse_error_type parse_line_feature(floor_type *floor_ptr, char *buf)
             letter[index].random |= RANDOM_FEATURE;
         } else {
             letter[index].feature = f_tag_to_index(zz[1]);
-            if (letter[index].feature < 0)
+            if (letter[index].feature < 0) {
                 return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
+            }
         }
 
         break;
@@ -187,22 +202,26 @@ parse_error_type parse_line_building(char *buf)
     char *s;
 
 #ifdef JP
-    if (buf[2] == '$')
+    if (buf[2] == '$') {
         return PARSE_ERROR_NONE;
+    }
     s = buf + 2;
 #else
-    if (buf[2] != '$')
+    if (buf[2] != '$') {
         return PARSE_ERROR_NONE;
+    }
     s = buf + 3;
 #endif
     int index = atoi(s);
     s = angband_strchr(s, ':');
-    if (!s)
+    if (!s) {
         return PARSE_ERROR_GENERIC;
+    }
 
     *s++ = '\0';
-    if (!*s)
+    if (!*s) {
         return PARSE_ERROR_GENERIC;
+    }
 
     switch (s[0]) {
     case 'N': {
@@ -213,7 +232,7 @@ parse_error_type parse_line_building(char *buf)
             break;
         }
 
-        return (PARSE_ERROR_TOO_FEW_ARGUMENTS);
+        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
     }
     case 'A': {
         if (tokenize(s + 2, 8, zz, 0) >= 7) {
@@ -227,7 +246,7 @@ parse_error_type parse_line_building(char *buf)
             break;
         }
 
-        return (PARSE_ERROR_TOO_FEW_ARGUMENTS);
+        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
     }
     case 'C': {
         auto pct_max = PLAYER_CLASS_TYPE_MAX;
@@ -259,7 +278,7 @@ parse_error_type parse_line_building(char *buf)
         break;
     }
     default: {
-        return (PARSE_ERROR_UNDEFINED_DIRECTIVE);
+        return PARSE_ERROR_UNDEFINED_DIRECTIVE;
     }
     }
 

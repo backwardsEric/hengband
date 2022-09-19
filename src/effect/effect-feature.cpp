@@ -16,9 +16,12 @@
 #include "monster/monster-update.h"
 #include "player/special-defense-types.h"
 #include "room/door-definition.h"
+#include "spell-class/spells-mirror-master.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -32,7 +35,7 @@
  */
 static bool cave_naked_bold(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     return cave_clean_bold(floor_ptr, y, x) && (floor_ptr->grid_array[y][x].m_idx == 0) && !player_bold(player_ptr, y, x);
 }
 
@@ -62,11 +65,11 @@ static bool cave_naked_bold(PlayerType *player_ptr, POSITION y, POSITION x)
  * Perhaps we should affect doors?
  * </pre>
  */
-bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y, POSITION x, HIT_POINT dam, AttributeType typ)
+bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y, POSITION x, int dam, AttributeType typ)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    grid_type *g_ptr = &floor_ptr->grid_array[y][x];
-    feature_type *f_ptr = &f_info[g_ptr->feat];
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto *g_ptr = &floor_ptr->grid_array[y][x];
+    auto *f_ptr = &f_info[g_ptr->feat];
 
     bool obvious = false;
     bool known = player_has_los_bold(player_ptr, y, x);
@@ -190,7 +193,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
             }
         }
 
-        if (player_ptr->blind || !player_has_los_bold(player_ptr, y, x)) {
+        if (player_ptr->effects()->blindness()->is_blind() || !player_has_los_bold(player_ptr, y, x)) {
             break;
         }
 
@@ -209,7 +212,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
             cave_alter_feat(player_ptr, y, x, FloorFeatureType::TUNNEL);
         }
 
-        if (player_ptr->blind || !player_has_los_bold(player_ptr, y, x)) {
+        if (player_ptr->effects()->blindness()->is_blind() || !player_has_los_bold(player_ptr, y, x)) {
             break;
         }
 
@@ -414,7 +417,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
         if (g_ptr->is_mirror()) {
             msg_print(_("鏡が割れた！", "The mirror was shattered!"));
             sound(SOUND_GLASS);
-            remove_mirror(player_ptr, y, x);
+            SpellsMirrorMaster(player_ptr).remove_mirror(y, x);
             project(player_ptr, 0, 2, y, x, player_ptr->lev / 2 + 5, AttributeType::SHARDS,
                 (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP | PROJECT_NO_HANGEKI));
         }
@@ -436,7 +439,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
         if (g_ptr->is_mirror() && player_ptr->lev < 40) {
             msg_print(_("鏡が割れた！", "The mirror was shattered!"));
             sound(SOUND_GLASS);
-            remove_mirror(player_ptr, y, x);
+            SpellsMirrorMaster(player_ptr).remove_mirror(y, x);
             project(player_ptr, 0, 2, y, x, player_ptr->lev / 2 + 5, AttributeType::SHARDS,
                 (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP | PROJECT_NO_HANGEKI));
         }
@@ -456,7 +459,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
     }
     case AttributeType::DISINTEGRATE: {
         if (g_ptr->is_mirror() || g_ptr->is_rune_protection() || g_ptr->is_rune_explosion()) {
-            remove_mirror(player_ptr, y, x);
+            SpellsMirrorMaster(player_ptr).remove_mirror(y, x);
         }
 
         if (f_ptr->flags.has_not(FloorFeatureType::HURT_DISI) || f_ptr->flags.has(FloorFeatureType::PERMANENT)) {
@@ -472,5 +475,5 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITIO
     }
 
     lite_spot(player_ptr, y, x);
-    return (obvious);
+    return obvious;
 }

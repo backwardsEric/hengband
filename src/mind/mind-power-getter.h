@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "system/angband.h"
 #include "mind/mind-types.h"
+#include "system/angband.h"
 
 struct mind_power;
 struct mind_type;
@@ -18,7 +18,7 @@ private:
     int num = 0;
     TERM_LEN y = 1;
     TERM_LEN x = 10;
-    bool ask = true;
+    bool should_redraw_cursor = true;
     char choice = 0;
     concptr mind_description = "";
     const mind_type *spell = nullptr;

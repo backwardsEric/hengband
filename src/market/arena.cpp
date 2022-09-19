@@ -18,6 +18,7 @@
 #include "monster-race/race-flags7.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
+#include "player-base/player-class.h"
 #include "status/buff-setter.h"
 #include "system/building-type-definition.h"
 #include "system/floor-type-definition.h"
@@ -27,6 +28,8 @@
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <algorithm>
+#include <numeric>
 
 /*!
  * @brief 優勝時のメッセージを表示し、賞金を与える
@@ -35,8 +38,9 @@
  */
 static bool process_ostensible_arena_victory(PlayerType *player_ptr)
 {
-    if (player_ptr->arena_number != MAX_ARENA_MONS)
+    if (player_ptr->arena_number != MAX_ARENA_MONS) {
         return false;
+    }
 
     clear_bldg(5, 19);
     prt(_("アリーナの優勝者！", "               Arena Victor!"), 5, 0);
@@ -59,8 +63,9 @@ static bool process_ostensible_arena_victory(PlayerType *player_ptr)
  */
 static bool battle_metal_babble(PlayerType *player_ptr)
 {
-    if (player_ptr->arena_number <= MAX_ARENA_MONS)
+    if (player_ptr->arena_number <= MAX_ARENA_MONS) {
         return false;
+    }
 
     if (player_ptr->arena_number >= MAX_ARENA_MONS + 2) {
         msg_print(_("あなたはアリーナに入り、しばらくの間栄光にひたった。", "You enter the arena briefly and bask in your glory."));
@@ -92,13 +97,15 @@ static bool battle_metal_babble(PlayerType *player_ptr)
 
 static void go_to_arena(PlayerType *player_ptr)
 {
-    if (process_ostensible_arena_victory(player_ptr))
+    if (process_ostensible_arena_victory(player_ptr)) {
         return;
+    }
 
-    if (battle_metal_babble(player_ptr))
+    if (battle_metal_babble(player_ptr)) {
         return;
+    }
 
-    if (player_ptr->riding && (player_ptr->pclass != PlayerClassType::BEASTMASTER) && (player_ptr->pclass != PlayerClassType::CAVALRY)) {
+    if (player_ptr->riding && !PlayerClass(player_ptr).is_tamer()) {
         msg_print(_("ペットに乗ったままではアリーナへ入れさせてもらえなかった。", "You don't have permission to enter with pet."));
         msg_print(nullptr);
         return;
@@ -172,8 +179,9 @@ void update_gambling_monsters(PlayerType *player_ptr)
     bool tekitou;
 
     for (const auto &d_ref : d_info) {
-        if (max_dl < max_dlv[d_ref.idx])
+        if (max_dl < max_dlv[d_ref.idx]) {
             max_dl = max_dlv[d_ref.idx];
+        }
     }
 
     mon_level = randint1(std::min(max_dl, 122)) + 5;
@@ -191,53 +199,62 @@ void update_gambling_monsters(PlayerType *player_ptr)
         total = 0;
         tekitou = false;
         for (i = 0; i < 4; i++) {
-            MONRACE_IDX r_idx;
+            MonsterRaceId r_idx;
             int j;
             while (true) {
                 get_mon_num_prep(player_ptr, monster_can_entry_arena, nullptr);
                 r_idx = get_mon_num(player_ptr, 0, mon_level, GMN_ARENA);
-                if (!r_idx)
+                if (!MonsterRace(r_idx).is_valid()) {
                     continue;
-
-                if ((r_info[r_idx].flags1 & RF1_UNIQUE) || (r_info[r_idx].flags7 & RF7_UNIQUE2)) {
-                    if ((r_info[r_idx].level + 10) > mon_level)
-                        continue;
                 }
 
-                for (j = 0; j < i; j++)
-                    if (r_idx == battle_mon[j])
+                if (r_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE) || (r_info[r_idx].flags7 & RF7_UNIQUE2)) {
+                    if ((r_info[r_idx].level + 10) > mon_level) {
+                        continue;
+                    }
+                }
+
+                for (j = 0; j < i; j++) {
+                    if (r_idx == battle_mon_list[j]) {
                         break;
-                if (j < i)
+                    }
+                }
+                if (j < i) {
                     continue;
+                }
 
                 break;
             }
-            battle_mon[i] = r_idx;
-            if (r_info[r_idx].level < 45)
+            battle_mon_list[i] = r_idx;
+            if (r_info[r_idx].level < 45) {
                 tekitou = true;
+            }
         }
 
-        for (i = 0; i < 4; i++) {
-            monster_race *r_ptr = &r_info[battle_mon[i]];
-            power[i] = calc_monrace_power(r_ptr);
-            total += power[i];
-        }
+        std::transform(std::begin(battle_mon_list), std::end(battle_mon_list), std::begin(power),
+            [](MonsterRace r_idx) { return MonsterRace(r_idx).calc_power(); });
+        total += std::reduce(std::begin(power), std::end(power));
 
         for (i = 0; i < 4; i++) {
-            if (power[i] <= 0)
+            if (power[i] <= 0) {
                 break;
+            }
             power[i] = total * 60 / power[i];
-            if (tekitou && ((power[i] < 160) || power[i] > 1500))
+            if (tekitou && ((power[i] < 160) || power[i] > 1500)) {
                 break;
-            if ((power[i] < 160) && randint0(20))
+            }
+            if ((power[i] < 160) && randint0(20)) {
                 break;
-            if (power[i] < 101)
+            }
+            if (power[i] < 101) {
                 power[i] = 100 + randint1(5);
+            }
             mon_odds[i] = power[i];
         }
 
-        if (i == 4)
+        if (i == 4) {
             break;
+        }
     }
 }
 
@@ -273,11 +290,11 @@ bool monster_arena_comm(PlayerType *player_ptr)
     prt(_("モンスター                                                     倍率", "Monsters                                                       Odds"), 4, 4);
     for (int i = 0; i < 4; i++) {
         char buf[MAX_MONSTER_NAME];
-        monster_race *r_ptr = &r_info[battle_mon[i]];
+        auto *r_ptr = &r_info[battle_mon_list[i]];
 
         sprintf(buf, _("%d) %-58s  %4ld.%02ld倍", "%d) %-58s  %4ld.%02ld"), i + 1,
-            _(format("%s%s", r_ptr->name.c_str(), (r_ptr->flags1 & RF1_UNIQUE) ? "もどき" : "      "),
-                format("%s%s", (r_ptr->flags1 & RF1_UNIQUE) ? "Fake " : "", r_ptr->name.c_str())),
+            _(format("%s%s", r_ptr->name.c_str(), r_ptr->kind_flags.has(MonsterKindType::UNIQUE) ? "もどき" : "      "),
+                format("%s%s", r_ptr->kind_flags.has(MonsterKindType::UNIQUE) ? "Fake " : "", r_ptr->name.c_str())),
             (long int)mon_odds[i] / 100, (long int)mon_odds[i] % 100);
         prt(buf, 5 + i, 1);
     }
@@ -297,14 +314,17 @@ bool monster_arena_comm(PlayerType *player_ptr)
             break;
         }
 
-        else
+        else {
             bell();
+        }
     }
 
     clear_bldg(4, 4);
-    for (int i = 0; i < 4; i++)
-        if (i != sel_monster)
+    for (int i = 0; i < 4; i++) {
+        if (i != sel_monster) {
             clear_bldg(i + 5, i + 5);
+        }
+    }
 
     maxbet = player_ptr->lev * 200;
 
@@ -324,8 +344,9 @@ bool monster_arena_comm(PlayerType *player_ptr)
         return false;
     }
 
-    for (p = out_val; *p == ' '; p++)
+    for (p = out_val; *p == ' '; p++) {
         ;
+    }
 
     wager = atol(p);
     if (wager > player_ptr->au) {

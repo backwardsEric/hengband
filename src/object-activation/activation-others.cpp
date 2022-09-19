@@ -10,6 +10,7 @@
 #include "cmd-io/cmd-save.h"
 #include "core/asking-player.h"
 #include "core/player-redraw-types.h"
+#include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "floor/cave.h"
@@ -41,7 +42,6 @@
 #include "spell-kind/spells-world.h"
 #include "spell-realm/spells-hex.h"
 #include "spell-realm/spells-song.h"
-#include "effect/attribute-types.h"
 #include "spell/spells-status.h"
 #include "status/bad-status-setter.h"
 #include "status/body-improvement.h"
@@ -53,10 +53,10 @@
 #include "system/object-type-definition.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
+#include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "target/target-setter.h"
 #include "target/target-types.h"
-#include "target/target-checker.h"
 #include "util/bit-flags-calculator.h"
 #include "util/quarks.h"
 #include "view/display-messages.h"
@@ -64,8 +64,9 @@
 bool activate_sunlight(PlayerType *player_ptr)
 {
     DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir))
+    if (!get_aim_dir(player_ptr, &dir)) {
         return false;
+    }
 
     msg_print(_("太陽光線が放たれた。", "A line of sunlight appears."));
     (void)lite_line(player_ptr, dir, damroll(6, 8));
@@ -76,8 +77,9 @@ bool activate_confusion(PlayerType *player_ptr)
 {
     DIRECTION dir;
     msg_print(_("様々な色の火花を発している...", "It glows in scintillating colours..."));
-    if (!get_aim_dir(player_ptr, &dir))
+    if (!get_aim_dir(player_ptr, &dir)) {
         return false;
+    }
 
     confuse_monster(player_ptr, dir, 20);
     return true;
@@ -85,16 +87,18 @@ bool activate_confusion(PlayerType *player_ptr)
 
 bool activate_banish_evil(PlayerType *player_ptr)
 {
-    if (banish_evil(player_ptr, 100))
+    if (banish_evil(player_ptr, 100)) {
         msg_print(_("アーティファクトの力が邪悪を打ち払った！", "The power of the artifact banishes evil!"));
+    }
 
     return true;
 }
 
 bool activate_scare(PlayerType *player_ptr)
 {
-    if (music_singing_any(player_ptr))
+    if (music_singing_any(player_ptr)) {
         stop_singing(player_ptr);
+    }
 
     if (SpellHex(player_ptr).is_spelling_any()) {
         (void)SpellHex(player_ptr).stop_all_spells();
@@ -105,12 +109,13 @@ bool activate_scare(PlayerType *player_ptr)
     return true;
 }
 
-bool activate_aggravation(PlayerType *player_ptr, object_type *o_ptr, concptr name)
+bool activate_aggravation(PlayerType *player_ptr, ObjectType *o_ptr, concptr name)
 {
-    if (o_ptr->name1 == ART_HYOUSIGI)
+    if (o_ptr->fixed_artifact_idx == FixedArtifactId::HYOUSIGI) {
         msg_print(_("拍子木を打った。", "You beat your wooden clappers."));
-    else
+    } else {
         msg_format(_("%sは不快な物音を立てた。", "The %s sounds an unpleasant noise."), name);
+    }
 
     aggravate_monsters(player_ptr, 0);
     return true;
@@ -120,8 +125,9 @@ bool activate_stone_mud(PlayerType *player_ptr)
 {
     DIRECTION dir;
     msg_print(_("鼓動している...", "It pulsates..."));
-    if (!get_aim_dir(player_ptr, &dir))
+    if (!get_aim_dir(player_ptr, &dir)) {
         return false;
+    }
 
     wall_to_mud(player_ptr, dir, 20 + randint1(30));
     return true;
@@ -141,8 +147,9 @@ bool activate_judgement(PlayerType *player_ptr, concptr name)
     (void)detect_doors(player_ptr, DETECT_RAD_DEFAULT);
     (void)detect_stairs(player_ptr, DETECT_RAD_DEFAULT);
 
-    if (get_check(_("帰還の力を使いますか？", "Activate recall? ")))
+    if (get_check(_("帰還の力を使いますか？", "Activate recall? "))) {
         (void)recall_player(player_ptr, randint0(21) + 15);
+    }
 
     return true;
 }
@@ -150,8 +157,9 @@ bool activate_judgement(PlayerType *player_ptr, concptr name)
 bool activate_telekinesis(PlayerType *player_ptr, concptr name)
 {
     DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir))
+    if (!get_aim_dir(player_ptr, &dir)) {
         return false;
+    }
 
     msg_format(_("%sを伸ばした。", "You stretched your %s."), name);
     fetch_item(player_ptr, dir, 500, true);
@@ -165,15 +173,22 @@ bool activate_unique_detection(PlayerType *player_ptr)
     msg_print(_("奇妙な場所が頭の中に浮かんだ．．．", "Some strange places show up in your mind. And you see ..."));
     for (int i = player_ptr->current_floor_ptr->m_max - 1; i >= 1; i--) {
         m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!monster_is_valid(m_ptr))
+        if (!monster_is_valid(m_ptr)) {
             continue;
+        }
 
         r_ptr = &r_info[m_ptr->r_idx];
-        if (r_ptr->flags1 & RF1_UNIQUE)
+        if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
             msg_format(_("%s． ", "%s. "), r_ptr->name.c_str());
+        }
 
-        if (m_ptr->r_idx == MON_DIO)
+        if (m_ptr->r_idx == MonsterRaceId::DIO) {
             msg_print(_("きさま！　見ているなッ！", "You bastard! You're watching me, well watch this!"));
+        }
+
+        if (m_ptr->r_idx == MonsterRaceId::SAURON) {
+            msg_print(_("あなたは一瞬、瞼なき御目に凝視される感覚に襲われた！", "For a moment, you had the horrible sensation of being stared at by the lidless eye!"));
+        }
     }
 
     return true;
@@ -189,7 +204,7 @@ bool activate_dispel_curse(PlayerType *player_ptr, concptr name)
 
 bool activate_cure_lw(PlayerType *player_ptr)
 {
-    (void)BadStatusSetter(player_ptr).afraidness(0);
+    (void)BadStatusSetter(player_ptr).fear(0);
     (void)hp_player(player_ptr, 30);
     return true;
 }
@@ -324,7 +339,7 @@ bool activate_recharge_extra(PlayerType *player_ptr, concptr name)
 bool activate_shikofumi(PlayerType *player_ptr)
 {
     msg_print(_("力強く四股を踏んだ。", "You stamp. (as if you are in a ring.)"));
-    (void)BadStatusSetter(player_ptr).afraidness(0);
+    (void)BadStatusSetter(player_ptr).fear(0);
     (void)set_hero(player_ptr, randint1(20) + 20, false);
     (void)dispel_evil(player_ptr, player_ptr->lev * 3);
     return true;
@@ -363,8 +378,8 @@ bool activate_protection_elbereth(PlayerType *player_ptr)
     BadStatusSetter bss(player_ptr);
     msg_print(_("エルベレスよ、我を護り給え！", "A Elbereth gilthoniel!"));
     create_rune_protection_one(player_ptr);
-    (void)bss.afraidness(0);
-    (void)bss.blindness(0);
+    (void)bss.fear(0);
+    (void)bss.set_blindness(0);
     (void)bss.hallucination(0);
     set_blessed(player_ptr, randint0(25) + 25, true);
     set_bits(player_ptr->redraw, PR_STATS);
@@ -384,17 +399,18 @@ bool activate_recall(PlayerType *player_ptr)
     return recall_player(player_ptr, randint0(21) + 15);
 }
 
-bool activate_tree_creation(PlayerType *player_ptr, object_type *o_ptr, concptr name)
+bool activate_tree_creation(PlayerType *player_ptr, ObjectType *o_ptr, concptr name)
 {
     msg_format(_("%s%sから明るい緑の光があふれ出た...", "The %s%s wells with clear light..."), name, quark_str(o_ptr->art_name));
     return tree_creation(player_ptr, player_ptr->y, player_ptr->x);
 }
 
-bool activate_animate_dead(PlayerType *player_ptr, object_type *o_ptr)
+bool activate_animate_dead(PlayerType *player_ptr, ObjectType *o_ptr)
 {
     msg_print(_("黄金色の光が溢れ出た...", "It emitted a golden light..."));
-    if (o_ptr->name1 > 0)
+    if (o_ptr->fixed_artifact_idx == FixedArtifactId::EXCALIBORG) {
         msg_print(_("ぴぴるぴるぴるぴぴるぴ～♪", "Pipiru piru piru pipiru pii"));
+    }
 
     return animate_dead(player_ptr, 0, player_ptr->y, player_ptr->x);
 }
@@ -414,12 +430,14 @@ bool activate_create_ammo(PlayerType *player_ptr)
 bool activate_dispel_magic(PlayerType *player_ptr)
 {
     msg_print(_("鈍い色に光った...", "It glowed in a dull color..."));
-    if (!target_set(player_ptr, TARGET_KILL))
+    if (!target_set(player_ptr, TARGET_KILL)) {
         return false;
+    }
 
     auto m_idx = player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx;
-    if ((m_idx == 0) || !player_has_los_bold(player_ptr, target_row, target_col) || !projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col))
+    if ((m_idx == 0) || !player_has_los_bold(player_ptr, target_row, target_col) || !projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col)) {
         return true;
+    }
 
     dispel_monster_status(player_ptr, m_idx);
     return true;

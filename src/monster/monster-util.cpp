@@ -20,6 +20,8 @@
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
+#include <algorithm>
+#include <iterator>
 
 enum dungeon_mode_type {
     DUNGEON_MODE_AND = 1,
@@ -45,202 +47,128 @@ int chameleon_change_m_idx = 0;
  */
 summon_type summon_specific_type = SUMMON_NONE;
 
+/**
+ * @brief モンスターがダンジョンに出現できる条件を満たしているかのフラグ判定関数(AND)
+ *
+ * @param r_flags モンスター側のフラグ
+ * @param d_flags ダンジョン側の判定フラグ
+ * @return 出現可能かどうか
+ */
+template <class T>
+static bool is_possible_monster_and(const EnumClassFlagGroup<T> &r_flags, const EnumClassFlagGroup<T> &d_flags)
+{
+    return r_flags.has_all_of(d_flags);
+}
+
+/**
+ * @brief モンスターがダンジョンに出現できる条件を満たしているかのフラグ判定関数(OR)
+ *
+ * @param r_flags モンスター側のフラグ
+ * @param d_flags ダンジョン側の判定フラグ
+ * @return 出現可能かどうか
+ */
+template <class T>
+static bool is_possible_monster_or(const EnumClassFlagGroup<T> &r_flags, const EnumClassFlagGroup<T> &d_flags)
+{
+    return r_flags.has_any_of(d_flags);
+}
+
 /*!
  * @brief 指定されたモンスター種族がダンジョンの制限にかかるかどうかをチェックする / Some dungeon types restrict the possible monsters.
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param r_idx チェックするモンスター種族ID
  * @return 召喚条件が一致するならtrue / Return TRUE is the monster is OK and FALSE otherwise
  */
-static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MONRACE_IDX r_idx)
+static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     DUNGEON_IDX d_idx = player_ptr->dungeon_idx;
     dungeon_type *d_ptr = &d_info[d_idx];
-    monster_race *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &r_info[r_idx];
 
     if (d_ptr->flags.has(DungeonFeatureType::CHAMELEON)) {
-        if (chameleon_change_m_idx)
+        if (chameleon_change_m_idx) {
             return true;
+        }
     }
 
     if (d_ptr->flags.has(DungeonFeatureType::NO_MAGIC)) {
-        if (r_idx != MON_CHAMELEON && r_ptr->freq_spell && r_ptr->ability_flags.has_none_of(RF_ABILITY_NOMAGIC_MASK))
+        if (r_idx != MonsterRaceId::CHAMELEON && r_ptr->freq_spell && r_ptr->ability_flags.has_none_of(RF_ABILITY_NOMAGIC_MASK)) {
             return false;
+        }
     }
 
     if (d_ptr->flags.has(DungeonFeatureType::NO_MELEE)) {
-        if (r_idx == MON_CHAMELEON)
+        if (r_idx == MonsterRaceId::CHAMELEON) {
             return true;
+        }
         if (r_ptr->ability_flags.has_none_of(RF_ABILITY_BOLT_MASK | RF_ABILITY_BEAM_MASK | RF_ABILITY_BALL_MASK) && r_ptr->ability_flags.has_none_of(
-                                                                                                                        { MonsterAbilityType::CAUSE_1, MonsterAbilityType::CAUSE_2, MonsterAbilityType::CAUSE_3, MonsterAbilityType::CAUSE_4, MonsterAbilityType::MIND_BLAST, MonsterAbilityType::BRAIN_SMASH }))
+                                                                                                                        { MonsterAbilityType::CAUSE_1, MonsterAbilityType::CAUSE_2, MonsterAbilityType::CAUSE_3, MonsterAbilityType::CAUSE_4, MonsterAbilityType::MIND_BLAST, MonsterAbilityType::BRAIN_SMASH })) {
             return false;
+        }
     }
 
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     if (d_ptr->flags.has(DungeonFeatureType::BEGINNER)) {
-        if (r_ptr->level > floor_ptr->dun_level)
+        if (r_ptr->level > floor_ptr->dun_level) {
             return false;
+        }
     }
 
-    if (d_ptr->special_div >= 64)
+    if (d_ptr->special_div >= 64) {
         return true;
-    if (summon_specific_type && d_ptr->flags.has_not(DungeonFeatureType::CHAMELEON))
+    }
+    if (summon_specific_type && d_ptr->flags.has_not(DungeonFeatureType::CHAMELEON)) {
         return true;
+    }
 
-    byte a;
     switch (d_ptr->mode) {
-    case DUNGEON_MODE_AND: {
-        if (d_ptr->mflags1) {
-            if ((d_ptr->mflags1 & r_ptr->flags1) != d_ptr->mflags1)
-                return false;
-        }
-
-        if (d_ptr->mflags2) {
-            if ((d_ptr->mflags2 & r_ptr->flags2) != d_ptr->mflags2)
-                return false;
-        }
-
-        if (d_ptr->mflags3) {
-            if ((d_ptr->mflags3 & r_ptr->flags3) != d_ptr->mflags3)
-                return false;
-        }
-
-        if (d_ptr->mon_ability_flags.any()) {
-            if (!r_ptr->ability_flags.has_all_of(d_ptr->mon_ability_flags))
-                return false;
-        }
-
-        if (d_ptr->mon_behavior_flags.any()) {
-            if (!r_ptr->behavior_flags.has_all_of(d_ptr->mon_behavior_flags))
-                return false;
-        }
-
-        if (d_ptr->mflags7) {
-            if ((d_ptr->mflags7 & r_ptr->flags7) != d_ptr->mflags7)
-                return false;
-        }
-
-        if (d_ptr->mflags8) {
-            if ((d_ptr->mflags8 & r_ptr->flags8) != d_ptr->mflags8)
-                return false;
-        }
-
-        if (d_ptr->mflags9) {
-            if ((d_ptr->mflags9 & r_ptr->flags9) != d_ptr->mflags9)
-                return false;
-        }
-
-        if (d_ptr->mflagsr) {
-            if ((d_ptr->mflagsr & r_ptr->flagsr) != d_ptr->mflagsr)
-                return false;
-        }
-
-        for (a = 0; a < 5; a++)
-            if (d_ptr->r_char[a] && (d_ptr->r_char[a] != r_ptr->d_char))
-                return false;
-
-        return true;
-    }
+    case DUNGEON_MODE_AND:
     case DUNGEON_MODE_NAND: {
-        if (d_ptr->mflags1) {
-            if ((d_ptr->mflags1 & r_ptr->flags1) != d_ptr->mflags1)
-                return true;
-        }
+        std::vector<bool> is_possible = {
+            all_bits(r_ptr->flags1, d_ptr->mflags1),
+            all_bits(r_ptr->flags2, d_ptr->mflags2),
+            all_bits(r_ptr->flags3, d_ptr->mflags3),
+            all_bits(r_ptr->flags7, d_ptr->mflags7),
+            all_bits(r_ptr->flags8, d_ptr->mflags8),
+            is_possible_monster_and(r_ptr->ability_flags, d_ptr->mon_ability_flags),
+            is_possible_monster_and(r_ptr->behavior_flags, d_ptr->mon_behavior_flags),
+            is_possible_monster_and(r_ptr->resistance_flags, d_ptr->mon_resistance_flags),
+            is_possible_monster_and(r_ptr->drop_flags, d_ptr->mon_drop_flags),
+            is_possible_monster_and(r_ptr->kind_flags, d_ptr->mon_kind_flags),
+            is_possible_monster_and(r_ptr->wilderness_flags, d_ptr->mon_wilderness_flags),
+            is_possible_monster_and(r_ptr->feature_flags, d_ptr->mon_feature_flags),
+            is_possible_monster_and(r_ptr->population_flags, d_ptr->mon_population_flags),
+            is_possible_monster_and(r_ptr->speak_flags, d_ptr->mon_speak_flags),
+        };
 
-        if (d_ptr->mflags2) {
-            if ((d_ptr->mflags2 & r_ptr->flags2) != d_ptr->mflags2)
-                return true;
-        }
+        auto result = std::all_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
+        result &= std::all_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->d_char; });
 
-        if (d_ptr->mflags3) {
-            if ((d_ptr->mflags3 & r_ptr->flags3) != d_ptr->mflags3)
-                return true;
-        }
-
-        if (d_ptr->mon_ability_flags.any()) {
-            if (!r_ptr->ability_flags.has_all_of(d_ptr->mon_ability_flags))
-                return true;
-        }
-
-        if (d_ptr->mon_behavior_flags.any()) {
-            if (!r_ptr->behavior_flags.has_all_of(d_ptr->mon_behavior_flags))
-                return true;
-        }
-
-        if (d_ptr->mflags7) {
-            if ((d_ptr->mflags7 & r_ptr->flags7) != d_ptr->mflags7)
-                return true;
-        }
-
-        if (d_ptr->mflags8) {
-            if ((d_ptr->mflags8 & r_ptr->flags8) != d_ptr->mflags8)
-                return true;
-        }
-
-        if (d_ptr->mflags9) {
-            if ((d_ptr->mflags9 & r_ptr->flags9) != d_ptr->mflags9)
-                return true;
-        }
-
-        if (d_ptr->mflagsr) {
-            if ((d_ptr->mflagsr & r_ptr->flagsr) != d_ptr->mflagsr)
-                return true;
-        }
-
-        for (a = 0; a < 5; a++)
-            if (d_ptr->r_char[a] && (d_ptr->r_char[a] != r_ptr->d_char))
-                return true;
-
-        return false;
+        return d_ptr->mode == DUNGEON_MODE_AND ? result : !result;
     }
-    case DUNGEON_MODE_OR: {
-        if (r_ptr->flags1 & d_ptr->mflags1)
-            return true;
-        if (r_ptr->flags2 & d_ptr->mflags2)
-            return true;
-        if (r_ptr->flags3 & d_ptr->mflags3)
-            return true;
-        if (r_ptr->ability_flags.has_any_of(d_ptr->mon_ability_flags))
-            return true;
-        if (r_ptr->behavior_flags.has_any_of(d_ptr->mon_behavior_flags))
-            return true;
-        if (r_ptr->flags7 & d_ptr->mflags7)
-            return true;
-        if (r_ptr->flags8 & d_ptr->mflags8)
-            return true;
-        if (r_ptr->flags9 & d_ptr->mflags9)
-            return true;
-        if (r_ptr->flagsr & d_ptr->mflagsr)
-            return true;
-        for (a = 0; a < 5; a++)
-            if (d_ptr->r_char[a] == r_ptr->d_char)
-                return true;
-
-        return false;
-    }
+    case DUNGEON_MODE_OR:
     case DUNGEON_MODE_NOR: {
-        if (r_ptr->flags1 & d_ptr->mflags1)
-            return false;
-        if (r_ptr->flags2 & d_ptr->mflags2)
-            return false;
-        if (r_ptr->flags3 & d_ptr->mflags3)
-            return false;
-        if (r_ptr->ability_flags.has_any_of(d_ptr->mon_ability_flags))
-            return false;
-        if (r_ptr->behavior_flags.has_any_of(d_ptr->mon_behavior_flags))
-            return false;
-        if (r_ptr->flags7 & d_ptr->mflags7)
-            return false;
-        if (r_ptr->flags8 & d_ptr->mflags8)
-            return false;
-        if (r_ptr->flags9 & d_ptr->mflags9)
-            return false;
-        if (r_ptr->flagsr & d_ptr->mflagsr)
-            return false;
-        for (a = 0; a < 5; a++)
-            if (d_ptr->r_char[a] == r_ptr->d_char)
-                return false;
+        std::vector<bool> is_possible = {
+            any_bits(r_ptr->flags1, d_ptr->mflags1),
+            any_bits(r_ptr->flags2, d_ptr->mflags2),
+            any_bits(r_ptr->flags3, d_ptr->mflags3),
+            any_bits(r_ptr->flags7, d_ptr->mflags7),
+            any_bits(r_ptr->flags8, d_ptr->mflags8),
+            is_possible_monster_or(r_ptr->ability_flags, d_ptr->mon_ability_flags),
+            is_possible_monster_or(r_ptr->behavior_flags, d_ptr->mon_behavior_flags),
+            is_possible_monster_or(r_ptr->resistance_flags, d_ptr->mon_resistance_flags),
+            is_possible_monster_or(r_ptr->drop_flags, d_ptr->mon_drop_flags),
+            is_possible_monster_or(r_ptr->kind_flags, d_ptr->mon_kind_flags),
+            is_possible_monster_or(r_ptr->wilderness_flags, d_ptr->mon_wilderness_flags),
+            is_possible_monster_or(r_ptr->feature_flags, d_ptr->mon_feature_flags),
+            is_possible_monster_or(r_ptr->population_flags, d_ptr->mon_population_flags),
+            is_possible_monster_or(r_ptr->speak_flags, d_ptr->mon_speak_flags),
+        };
 
-        return true;
+        auto result = std::any_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
+        result |= std::any_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->d_char; });
+
+        return d_ptr->mode == DUNGEON_MODE_OR ? result : !result;
     }
     }
 
@@ -254,8 +182,9 @@ static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MONRACE_IDX r_id
  */
 monsterrace_hook_type get_monster_hook(PlayerType *player_ptr)
 {
-    if ((player_ptr->current_floor_ptr->dun_level > 0) || (player_ptr->current_floor_ptr->inside_quest > 0))
+    if ((player_ptr->current_floor_ptr->dun_level > 0) || (inside_quest(player_ptr->current_floor_ptr->quest_number))) {
         return (monsterrace_hook_type)mon_hook_dungeon;
+    }
 
     switch (wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].terrain) {
     case TERRAIN_TOWN:
@@ -288,12 +217,14 @@ monsterrace_hook_type get_monster_hook(PlayerType *player_ptr)
  */
 monsterrace_hook_type get_monster_hook2(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    feature_type *f_ptr = &f_info[player_ptr->current_floor_ptr->grid_array[y][x].feat];
-    if (f_ptr->flags.has(FloorFeatureType::WATER))
+    auto *f_ptr = &f_info[player_ptr->current_floor_ptr->grid_array[y][x].feat];
+    if (f_ptr->flags.has(FloorFeatureType::WATER)) {
         return f_ptr->flags.has(FloorFeatureType::DEEP) ? (monsterrace_hook_type)mon_hook_deep_water : (monsterrace_hook_type)mon_hook_shallow_water;
+    }
 
-    if (f_ptr->flags.has(FloorFeatureType::LAVA))
+    if (f_ptr->flags.has(FloorFeatureType::LAVA)) {
         return (monsterrace_hook_type)mon_hook_lava;
+    }
 
     return (monsterrace_hook_type)mon_hook_floor;
 }
@@ -322,37 +253,44 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
     // モンスター生成テーブルの各要素について重みを修正する。
     for (auto i = 0U; i < alloc_race_table.size(); i++) {
         alloc_entry *const entry = &alloc_race_table[i];
-        const monster_race *const r_ptr = &r_info[entry->index];
+        const auto entry_r_idx = i2enum<MonsterRaceId>(entry->index);
+        const monster_race *const r_ptr = &r_info[entry_r_idx];
 
         // 生成を禁止する要素は重み 0 とする。
         entry->prob2 = 0;
 
         // 基本重みが 0 以下なら生成禁止。
         // テーブル内の無効エントリもこれに該当する(alloc_race_table は生成時にゼロクリアされるため)。
-        if (entry->prob1 <= 0)
+        if (entry->prob1 <= 0) {
             continue;
+        }
 
         // いずれかの生成制約関数が偽を返したら生成禁止。
-        if ((hook1 && !hook1(player_ptr, entry->index)) || (hook2 && !hook2(player_ptr, entry->index)))
+        if ((hook1 && !hook1(player_ptr, entry_r_idx)) || (hook2 && !hook2(player_ptr, entry_r_idx))) {
             continue;
+        }
 
         // 原則生成禁止するものたち(フェイズアウト状態 / カメレオンの変身先 / ダンジョンの主召喚 は例外)。
         if (!player_ptr->phase_out && !chameleon_change_m_idx && summon_specific_type != SUMMON_GUARDIANS) {
             // クエストモンスターは生成禁止。
-            if (r_ptr->flags1 & RF1_QUESTOR)
+            if (r_ptr->flags1 & RF1_QUESTOR) {
                 continue;
+            }
 
             // ダンジョンの主は生成禁止。
-            if (r_ptr->flags7 & RF7_GUARDIAN)
+            if (r_ptr->flags7 & RF7_GUARDIAN) {
                 continue;
+            }
 
             // RF1_FORCE_DEPTH フラグ持ちは指定階未満では生成禁止。
-            if ((r_ptr->flags1 & RF1_FORCE_DEPTH) && (r_ptr->level > floor_ptr->dun_level))
+            if ((r_ptr->flags1 & RF1_FORCE_DEPTH) && (r_ptr->level > floor_ptr->dun_level)) {
                 continue;
+            }
 
             // クエスト内でRES_ALLの生成を禁止する (殲滅系クエストの詰み防止)
-            if (player_ptr->current_floor_ptr->inside_quest && any_bits(r_ptr->flagsr, RFR_RES_ALL))
+            if (inside_quest(player_ptr->current_floor_ptr->quest_number) && r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
                 continue;
+            }
         }
 
         // 生成を許可するものは基本重みをそのまま引き継ぐ。
@@ -365,10 +303,10 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
             //   * フェイズアウト状態でない
             //   * 1階かそれより深いところにいる
             //   * ランダムクエスト中でない
-            const bool in_random_quest = floor_ptr->inside_quest && !quest_type::is_fixed(floor_ptr->inside_quest);
+            const bool in_random_quest = inside_quest(floor_ptr->quest_number) && !quest_type::is_fixed(floor_ptr->quest_number);
             const bool cond = !player_ptr->phase_out && floor_ptr->dun_level > 0 && !in_random_quest;
 
-            if (cond && !restrict_monster_to_dungeon(player_ptr, entry->index)) {
+            if (cond && !restrict_monster_to_dungeon(player_ptr, entry_r_idx)) {
                 // ダンジョンによる制約に掛かった場合、重みを special_div/64 倍する。
                 // 丸めは確率的に行う。
                 const int numer = entry->prob2 * d_info[player_ptr->dungeon_idx].special_div;
@@ -381,17 +319,20 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
         // 統計情報更新。
         if (entry->prob2 > 0) {
             mon_num++;
-            if (lev_min > entry->level)
+            if (lev_min > entry->level) {
                 lev_min = entry->level;
-            if (lev_max < entry->level)
+            }
+            if (lev_max < entry->level) {
                 lev_max = entry->level;
+            }
             prob2_total += entry->prob2;
         }
     }
 
     // チートオプションが有効なら統計情報を出力。
-    if (cheat_hear)
+    if (cheat_hear) {
         msg_format(_("モンスター第2次候補数:%d(%d-%dF)%d ", "monster second selection:%d(%d-%dF)%d "), mon_num, lev_min, lev_max, prob2_total);
+    }
 
     return 0;
 }

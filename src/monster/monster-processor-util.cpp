@@ -45,8 +45,12 @@ old_race_flags *init_old_race_flags(old_race_flags *old_race_flags_ptr)
     old_race_flags_ptr->old_r_flags1 = 0L;
     old_race_flags_ptr->old_r_flags2 = 0L;
     old_race_flags_ptr->old_r_flags3 = 0L;
-    old_race_flags_ptr->old_r_flagsr = 0L;
+    old_race_flags_ptr->old_r_resistance_flags.clear();
     old_race_flags_ptr->old_r_ability_flags.clear();
+    old_race_flags_ptr->old_r_behavior_flags.clear();
+    old_race_flags_ptr->old_r_kind_flags.clear();
+    old_race_flags_ptr->old_r_drop_flags.clear();
+    old_race_flags_ptr->old_r_feature_flags.clear();
 
     old_race_flags_ptr->old_r_blows0 = 0;
     old_race_flags_ptr->old_r_blows1 = 0;
@@ -127,15 +131,18 @@ void store_moves_val(int *mm, int y, int x)
     POSITION ay = std::abs(y);
 
     int move_val = 0;
-    if (y < 0)
+    if (y < 0) {
         move_val += 8;
-    if (x > 0)
+    }
+    if (x > 0) {
         move_val += 4;
+    }
 
-    if (ay > (ax << 1))
+    if (ay > (ax << 1)) {
         move_val += 2;
-    else if (ax > (ay << 1))
+    } else if (ax > (ay << 1)) {
         move_val++;
+    }
 
     switch (move_val) {
     case 0: {
@@ -278,10 +285,11 @@ void store_moves_val(int *mm, int y, int x)
  * @param monster_race_idx モンスターID
  * @param old_race_flags_ptr モンスターフラグへの参照ポインタ
  */
-void save_old_race_flags(MONRACE_IDX monster_race_idx, old_race_flags *old_race_flags_ptr)
+void save_old_race_flags(MonsterRaceId monster_race_idx, old_race_flags *old_race_flags_ptr)
 {
-    if (monster_race_idx == 0)
+    if (!MonsterRace(monster_race_idx).is_valid()) {
         return;
+    }
 
     monster_race *r_ptr;
     r_ptr = &r_info[monster_race_idx];
@@ -289,8 +297,11 @@ void save_old_race_flags(MONRACE_IDX monster_race_idx, old_race_flags *old_race_
     old_race_flags_ptr->old_r_flags1 = r_ptr->r_flags1;
     old_race_flags_ptr->old_r_flags2 = r_ptr->r_flags2;
     old_race_flags_ptr->old_r_flags3 = r_ptr->r_flags3;
-    old_race_flags_ptr->old_r_flagsr = r_ptr->r_flagsr;
+    old_race_flags_ptr->old_r_resistance_flags = r_ptr->r_resistance_flags;
     old_race_flags_ptr->old_r_ability_flags = r_ptr->r_ability_flags;
+    old_race_flags_ptr->old_r_behavior_flags = r_ptr->r_behavior_flags;
+    old_race_flags_ptr->old_r_drop_flags = r_ptr->r_drop_flags;
+    old_race_flags_ptr->old_r_feature_flags = r_ptr->r_feature_flags;
 
     old_race_flags_ptr->old_r_blows0 = r_ptr->r_blows[0];
     old_race_flags_ptr->old_r_blows1 = r_ptr->r_blows[1];
@@ -305,16 +316,19 @@ void save_old_race_flags(MONRACE_IDX monster_race_idx, old_race_flags *old_race_
  * @param m_ptr モンスターへの参照ポインタ
  * return モンスターの加速値
  */
-SPEED decide_monster_speed(monster_type *m_ptr)
+byte decide_monster_speed(monster_type *m_ptr)
 {
-    SPEED speed = m_ptr->mspeed;
-    if (ironman_nightmare)
+    auto speed = m_ptr->mspeed;
+    if (ironman_nightmare) {
         speed += 5;
+    }
 
-    if (monster_fast_remaining(m_ptr))
+    if (monster_fast_remaining(m_ptr)) {
         speed += 10;
-    if (monster_slow_remaining(m_ptr))
+    }
+    if (monster_slow_remaining(m_ptr)) {
         speed -= 10;
+    }
 
     return speed;
 }

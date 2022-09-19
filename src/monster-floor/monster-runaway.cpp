@@ -27,16 +27,27 @@
 #include "view/display-messages.h"
 
 /*!
- * @brief HPが1/3未満になった有効的なユニークモンスターの逃走処理を行う
+ * @brief monspeak.txt において、発話ではなく行動のみが描写されているモンスターであるかを調べる
+ * @param r_idx モンスター種族ID
+ * @return 会話内容が行動のみのモンスターか否か
+ */
+static bool is_acting_monster(const MonsterRaceId r_idx)
+{
+    auto is_acting_monster = r_idx == MonsterRaceId::GRIP;
+    is_acting_monster |= r_idx == MonsterRaceId::WOLF;
+    is_acting_monster |= r_idx == MonsterRaceId::FANG;
+    return is_acting_monster;
+}
+
+/*!
+ * @brief HPが1/3未満になった友好的なユニークモンスターの逃走処理を行う
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param is_riding_mon 騎乗状態ならばTRUE
  * @param m_ptr モンスターへの参照ポインタ
  * @param m_name モンスター名称
- * @param see_m モンスターが視界内にいたらTRUE
  */
 static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, monster_type *m_ptr, GAME_TEXT *m_name)
 {
-    monster_race *r_ptr = &r_info[m_ptr->r_idx];
     if (turn_flags_ptr->is_riding_mon) {
         msg_format(_("%sはあなたの束縛から脱出した。", "%^s succeeded to escape from your restriction!"), m_name);
         if (process_fall_off_horse(player_ptr, -1, false)) {
@@ -45,8 +56,17 @@ static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, m
     }
 
     if (turn_flags_ptr->see_m) {
-        if ((r_ptr->flags2 & RF2_CAN_SPEAK) && (m_ptr->r_idx != MON_GRIP) && (m_ptr->r_idx != MON_WOLF) && (m_ptr->r_idx != MON_FANG)
-            && player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx) && projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x)) {
+        const auto flags = {
+            MonsterSpeakType::SPEAK_ALL,
+            MonsterSpeakType::SPEAK_BATTLE,
+            MonsterSpeakType::SPEAK_FEAR,
+        };
+
+        auto speak = r_info[m_ptr->r_idx].speak_flags.has_any_of(flags);
+        speak &= !is_acting_monster(m_ptr->r_idx);
+        speak &= player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx);
+        speak &= projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
+        if (speak) {
             msg_format(_("%^s「ピンチだ！退却させてもらう！」", "%^s says 'It is the pinch! I will retreat'."), m_name);
         }
 
@@ -69,20 +89,22 @@ static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, m
  */
 bool runaway_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, MONSTER_IDX m_idx)
 {
-    monster_type *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    monster_race *r_ptr = &r_info[m_ptr->r_idx];
+    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
+    auto *r_ptr = &r_info[m_ptr->r_idx];
     bool can_runaway = is_pet(m_ptr) || is_friendly(m_ptr);
-    can_runaway &= ((r_ptr->flags1 & RF1_UNIQUE) != 0) || ((r_ptr->flags7 & RF7_NAZGUL) != 0);
+    can_runaway &= (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) || (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL));
     can_runaway &= !player_ptr->phase_out;
-    if (!can_runaway)
+    if (!can_runaway) {
         return false;
+    }
 
     static int riding_pinch = 0;
 
     if (m_ptr->hp >= m_ptr->maxhp / 3) {
         /* Reset the counter */
-        if (turn_flags_ptr->is_riding_mon)
+        if (turn_flags_ptr->is_riding_mon) {
             riding_pinch = 0;
+        }
 
         return false;
     }

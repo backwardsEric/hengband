@@ -12,7 +12,7 @@
 #include "grid/feature.h"
 #include "inventory/inventory-slot-types.h"
 #include "monster-attack/monster-attack-effect.h"
-#include "monster-attack/monster-attack-types.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-ability-flags.h"
 #include "monster-race/race-flags1.h"
@@ -35,6 +35,8 @@
 #include "system/object-type-definition.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -44,7 +46,7 @@
  * Calculate spell damages
  * @return 警告を行う
  */
-object_type *choose_warning_item(PlayerType *player_ptr)
+ObjectType *choose_warning_item(PlayerType *player_ptr)
 {
     int choices[INVEN_TOTAL - INVEN_MAIN_HAND];
 
@@ -56,7 +58,7 @@ object_type *choose_warning_item(PlayerType *player_ptr)
     /* Search Inventory */
     int number = 0;
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        object_type *o_ptr = &player_ptr->inventory_list[i];
+        auto *o_ptr = &player_ptr->inventory_list[i];
 
         auto flgs = object_flags(o_ptr);
         if (flgs.has(TR_WARNING)) {
@@ -77,9 +79,9 @@ object_type *choose_warning_item(PlayerType *player_ptr)
  * @param dam 基本ダメージ
  * @param max 算出した最大ダメージを返すポインタ
  */
-static void spell_damcalc(PlayerType *player_ptr, monster_type *m_ptr, AttributeType typ, HIT_POINT dam, int *max)
+static void spell_damcalc(PlayerType *player_ptr, monster_type *m_ptr, AttributeType typ, int dam, int *max)
 {
-    monster_race *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &r_info[m_ptr->r_idx];
     int rlev = r_ptr->level;
     bool ignore_wraith_form = false;
 
@@ -123,7 +125,7 @@ static void spell_damcalc(PlayerType *player_ptr, monster_type *m_ptr, Attribute
         break;
 
     case AttributeType::MONSTER_SHOOT:
-        if (!player_ptr->blind && (has_invuln_arrow(player_ptr))) {
+        if (!player_ptr->effects()->blindness()->is_blind() && (has_invuln_arrow(player_ptr))) {
             dam = 0;
             ignore_wraith_form = true;
         }
@@ -232,7 +234,7 @@ static void spell_damcalc(PlayerType *player_ptr, monster_type *m_ptr, Attribute
         break;
 
     case AttributeType::CAUSE_4:
-        if ((100 + rlev / 2 <= player_ptr->skill_sav) && (m_ptr->r_idx != MON_KENSHIROU)) {
+        if ((100 + rlev / 2 <= player_ptr->skill_sav) && (m_ptr->r_idx != MonsterRaceId::KENSHIROU)) {
             dam = 0;
             ignore_wraith_form = true;
         }
@@ -264,8 +266,8 @@ static void spell_damcalc(PlayerType *player_ptr, monster_type *m_ptr, Attribute
  */
 static void spell_damcalc_by_spellnum(PlayerType *player_ptr, MonsterAbilityType ms_type, AttributeType typ, MONSTER_IDX m_idx, int *max)
 {
-    monster_type *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    HIT_POINT dam = monspell_damage(player_ptr, ms_type, m_idx, DAM_MAX);
+    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
+    int dam = monspell_damage(player_ptr, ms_type, m_idx, DAM_MAX);
     spell_damcalc(player_ptr, m_ptr, typ, dam, max);
 }
 
@@ -276,7 +278,7 @@ static void spell_damcalc_by_spellnum(PlayerType *player_ptr, MonsterAbilityType
  * @param blow_ptr モンスターの打撃能力の構造体参照ポインタ
  * @return 算出された最大ダメージを返す。
  */
-static int blow_damcalc(monster_type *m_ptr, PlayerType *player_ptr, monster_blow *blow_ptr)
+static int blow_damcalc(monster_type *m_ptr, PlayerType *player_ptr, MonsterBlow *blow_ptr)
 {
     int dam = blow_ptr->d_dice * blow_ptr->d_side;
     int dummy_max = 0;
@@ -533,7 +535,7 @@ bool process_warning(PlayerType *player_ptr, POSITION xx, POSITION yy)
         old_damage = dam_max * 3 / 2;
 
         if (dam_max > player_ptr->chp / 2) {
-            object_type *o_ptr = choose_warning_item(player_ptr);
+            auto *o_ptr = choose_warning_item(player_ptr);
 
             if (o_ptr) {
                 describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
@@ -556,7 +558,7 @@ bool process_warning(PlayerType *player_ptr, POSITION xx, POSITION yy)
         return true;
     }
 
-    object_type *o_ptr = choose_warning_item(player_ptr);
+    auto *o_ptr = choose_warning_item(player_ptr);
     if (o_ptr != nullptr) {
         describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
     } else {

@@ -3,8 +3,8 @@
 #include "load/angband-version-comparer.h"
 #include "load/load-util.h"
 #include "load/option-loader.h"
-#include "system/angband.h"
 #include "system/angband-version.h"
+#include "system/angband.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 
@@ -18,7 +18,7 @@ void rd_version_info(void)
 {
     auto tmp_major = rd_byte();
     auto is_old_ver = (10 <= tmp_major) && (tmp_major <= 13);
-    auto variant_length = VARIANT_NAME.length();
+    constexpr auto variant_length = VARIANT_NAME.length();
     if (tmp_major == variant_length) {
         strip_bytes(variant_length);
         load_xor_byte = 0;
@@ -60,7 +60,7 @@ void rd_version_info(void)
         }
     }
 
-    load_note(format(_("バージョン %d.%d.%d のセーブデータ(SAVE%lu形式)をロード中...", "Loading a Verison %d.%d.%d savefile (SAVE%lu format)..."),
+    load_note(format(_("バージョン %d.%d.%d のセーブデータ(SAVE%lu形式)をロード中...", "Loading a version %d.%d.%d savefile (SAVE%lu format)..."),
         w_ptr->h_ver_major, w_ptr->h_ver_minor, w_ptr->h_ver_patch,
         loading_savefile_version));
 }

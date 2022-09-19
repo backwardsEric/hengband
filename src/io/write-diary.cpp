@@ -16,6 +16,7 @@
 #include "system/monster-race-definition.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
+#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 
@@ -58,11 +59,12 @@ static bool open_diary_file(FILE **fff, bool *disable_diary)
     char buf[1024];
     path_build(buf, sizeof(buf), ANGBAND_DIR_USER, file_name);
     *fff = angband_fopen(buf, "a");
-    if (*fff)
+    if (*fff) {
         return true;
+    }
 
     msg_format(_("%s を開くことができませんでした。プレイ記録を一時停止します。", "Failed to open %s. Play-Record is disabled temporarily."), buf);
-    msg_format(nullptr);
+    msg_print(nullptr);
     *disable_diary = true;
     return false;
 }
@@ -72,20 +74,21 @@ static bool open_diary_file(FILE **fff, bool *disable_diary)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return クエストID
  */
-static QUEST_IDX write_floor(PlayerType *player_ptr, concptr *note_level, char *note_level_buf)
+static QuestId write_floor(PlayerType *player_ptr, concptr *note_level, char *note_level_buf)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
-    QUEST_IDX q_idx = quest_number(player_ptr, floor_ptr->dun_level);
-    if (!write_level)
+    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto q_idx = quest_number(player_ptr, floor_ptr->dun_level);
+    if (!write_level) {
         return q_idx;
+    }
 
-    if (floor_ptr->inside_arena)
+    if (floor_ptr->inside_arena) {
         *note_level = _("アリーナ:", "Arena:");
-    else if (!floor_ptr->dun_level)
+    } else if (!floor_ptr->dun_level) {
         *note_level = _("地上:", "Surface:");
-    else if (q_idx && quest_type::is_fixed(q_idx) && !((q_idx == QUEST_OBERON) || (q_idx == QUEST_SERPENT)))
+    } else if (inside_quest(q_idx) && quest_type::is_fixed(q_idx) && !((q_idx == QuestId::OBERON) || (q_idx == QuestId::SERPENT))) {
         *note_level = _("クエスト:", "Quest:");
-    else {
+    } else {
 #ifdef JP
         sprintf(note_level_buf, "%d階(%s):", (int)floor_ptr->dun_level, d_info[player_ptr->dungeon_idx].name.c_str());
 #else
@@ -157,6 +160,93 @@ static void write_diary_pet(FILE *fff, int num, concptr note)
     }
 }
 
+/**
+ * @brief 日記にクエストに関するメッセージを追加する
+ *
+ * @param type 日記内容のID
+ * @param num 日記内容のIDに応じた番号
+ * @return エラーコード
+ */
+int exe_write_diary_quest(PlayerType *player_ptr, int type, QuestId num)
+{
+    static bool disable_diary = false;
+
+    int day, hour, min;
+    extract_day_hour_min(player_ptr, &day, &hour, &min);
+
+    if (disable_diary) {
+        return -1;
+    }
+
+    auto old_quest = player_ptr->current_floor_ptr->quest_number;
+    const auto &quest_list = QuestList::get_instance();
+    const auto &q_ref = quest_list[num];
+    player_ptr->current_floor_ptr->quest_number = (q_ref.type == QuestKindType::RANDOM) ? QuestId::NONE : num;
+    init_flags = INIT_NAME_ONLY;
+    parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
+    player_ptr->current_floor_ptr->quest_number = old_quest;
+
+    concptr note_level = "";
+    char note_level_buf[40];
+    write_floor(player_ptr, &note_level, note_level_buf);
+
+    FILE *fff = nullptr;
+    if (!open_diary_file(&fff, &disable_diary)) {
+        return -1;
+    }
+
+    bool do_level = true;
+
+    switch (type) {
+    case DIARY_FIX_QUEST_C: {
+        if (any_bits(q_ref.flags, QUEST_FLAG_SILENT)) {
+            break;
+        }
+
+        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」を達成した。\n", " %2d:%02d %20s completed quest '%s'.\n"), hour, min, note_level, q_ref.name);
+        break;
+    }
+    case DIARY_FIX_QUEST_F: {
+        if (any_bits(q_ref.flags, QUEST_FLAG_SILENT)) {
+            break;
+        }
+
+        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」から命からがら逃げ帰った。\n", " %2d:%02d %20s ran away from quest '%s'.\n"), hour, min, note_level, q_ref.name);
+        break;
+    }
+    case DIARY_RAND_QUEST_C: {
+        GAME_TEXT name[MAX_NLEN];
+        strcpy(name, r_info[q_ref.r_idx].name.c_str());
+        fprintf(fff, _(" %2d:%02d %20s ランダムクエスト(%s)を達成した。\n", " %2d:%02d %20s completed random quest '%s'\n"), hour, min, note_level, name);
+        break;
+    }
+    case DIARY_RAND_QUEST_F: {
+        GAME_TEXT name[MAX_NLEN];
+        strcpy(name, r_info[q_ref.r_idx].name.c_str());
+        fprintf(fff, _(" %2d:%02d %20s ランダムクエスト(%s)から逃げ出した。\n", " %2d:%02d %20s ran away from quest '%s'.\n"), hour, min, note_level, name);
+        break;
+    }
+    case DIARY_TO_QUEST: {
+        if (any_bits(q_ref.flags, QUEST_FLAG_SILENT)) {
+            break;
+        }
+
+        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」へと突入した。\n", " %2d:%02d %20s entered the quest '%s'.\n"),
+            hour, min, note_level, q_ref.name);
+        break;
+    }
+    default:
+        break;
+    }
+
+    angband_fclose(fff);
+    if (do_level) {
+        write_level = false;
+    }
+
+    return 0;
+}
+
 /*!
  * @brief 日記にメッセージを追加する /
  * Take note to the diary.
@@ -172,36 +262,27 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
     int day, hour, min;
     extract_day_hour_min(player_ptr, &day, &hour, &min);
 
-    if (disable_diary)
+    if (disable_diary) {
         return -1;
-
-    if (type == DIARY_FIX_QUEST_C ||
-        type == DIARY_FIX_QUEST_F ||
-        type == DIARY_RAND_QUEST_C ||
-        type == DIARY_RAND_QUEST_F ||
-        type == DIARY_TO_QUEST) {
-        QUEST_IDX old_quest = player_ptr->current_floor_ptr->inside_quest;
-        player_ptr->current_floor_ptr->inside_quest = (quest[num].type == QuestKindType::RANDOM) ? 0 : num;
-        init_flags = INIT_NAME_ONLY;
-        parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
-        player_ptr->current_floor_ptr->inside_quest = old_quest;
     }
 
     FILE *fff = nullptr;
-    if (!open_diary_file(&fff, &disable_diary))
+    if (!open_diary_file(&fff, &disable_diary)) {
         return -1;
+    }
 
     concptr note_level = "";
     char note_level_buf[40];
-    QUEST_IDX q_idx = write_floor(player_ptr, &note_level, note_level_buf);
+    auto q_idx = write_floor(player_ptr, &note_level, note_level_buf);
 
     bool do_level = true;
     switch (type) {
     case DIARY_DIALY: {
-        if (day < MAX_DAYS)
+        if (day < MAX_DAYS) {
             fprintf(fff, _("%d日目\n", "Day %d\n"), day);
-        else
+        } else {
             fputs(_("*****日目\n", "Day *****\n"), fff);
+        }
 
         do_level = false;
         break;
@@ -210,8 +291,9 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
         if (num) {
             fprintf(fff, "%s\n", note);
             do_level = false;
-        } else
+        } else {
             fprintf(fff, " %2d:%02d %20s %s\n", hour, min, note_level, note);
+        }
 
         break;
     }
@@ -227,32 +309,6 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
         fprintf(fff, _(" %2d:%02d %20s %sを倒した。\n", " %2d:%02d %20s defeated %s.\n"), hour, min, note_level, note);
         break;
     }
-    case DIARY_FIX_QUEST_C: {
-        if (quest[num].flags & QUEST_FLAG_SILENT)
-            break;
-
-        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」を達成した。\n", " %2d:%02d %20s completed quest '%s'.\n"), hour, min, note_level, quest[num].name);
-        break;
-    }
-    case DIARY_FIX_QUEST_F: {
-        if (quest[num].flags & QUEST_FLAG_SILENT)
-            break;
-
-        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」から命からがら逃げ帰った。\n", " %2d:%02d %20s ran away from quest '%s'.\n"), hour, min, note_level, quest[num].name);
-        break;
-    }
-    case DIARY_RAND_QUEST_C: {
-        GAME_TEXT name[MAX_NLEN];
-        strcpy(name, r_info[quest[num].r_idx].name.c_str());
-        fprintf(fff, _(" %2d:%02d %20s ランダムクエスト(%s)を達成した。\n", " %2d:%02d %20s completed random quest '%s'\n"), hour, min, note_level, name);
-        break;
-    }
-    case DIARY_RAND_QUEST_F: {
-        GAME_TEXT name[MAX_NLEN];
-        strcpy(name, r_info[quest[num].r_idx].name.c_str());
-        fprintf(fff, _(" %2d:%02d %20s ランダムクエスト(%s)から逃げ出した。\n", " %2d:%02d %20s ran away from quest '%s'.\n"), hour, min, note_level, name);
-        break;
-    }
     case DIARY_MAXDEAPTH: {
         fprintf(fff, _(" %2d:%02d %20s %sの最深階%d階に到達した。\n", " %2d:%02d %20s reached level %d of %s for the first time.\n"), hour, min, note_level,
             _(d_info[player_ptr->dungeon_idx].name.c_str(), num),
@@ -266,7 +322,7 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
         break;
     }
     case DIARY_STAIR: {
-        concptr to = q_idx && (quest_type::is_fixed(q_idx) && !((q_idx == QUEST_OBERON) || (q_idx == QUEST_SERPENT)))
+        concptr to = inside_quest(q_idx) && (quest_type::is_fixed(q_idx) && !((q_idx == QuestId::OBERON) || (q_idx == QuestId::SERPENT)))
                          ? _("地上", "the surface")
                      : !(player_ptr->current_floor_ptr->dun_level + num)
                          ? _("地上", "the surface")
@@ -275,21 +331,14 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
         break;
     }
     case DIARY_RECALL: {
-        if (!num)
+        if (!num) {
             fprintf(fff, _(" %2d:%02d %20s 帰還を使って%sの%d階へ下りた。\n", " %2d:%02d %20s recalled to dungeon level %d of %s.\n"),
                 hour, min, note_level, _(d_info[player_ptr->dungeon_idx].name.c_str(), (int)max_dlv[player_ptr->dungeon_idx]),
                 _((int)max_dlv[player_ptr->dungeon_idx], d_info[player_ptr->dungeon_idx].name.c_str()));
-        else
+        } else {
             fprintf(fff, _(" %2d:%02d %20s 帰還を使って地上へと戻った。\n", " %2d:%02d %20s recalled from dungeon to surface.\n"), hour, min, note_level);
+        }
 
-        break;
-    }
-    case DIARY_TO_QUEST: {
-        if (quest[num].flags & QUEST_FLAG_SILENT)
-            break;
-
-        fprintf(fff, _(" %2d:%02d %20s クエスト「%s」へと突入した。\n", " %2d:%02d %20s entered the quest '%s'.\n"),
-            hour, min, note_level, quest[num].name);
         break;
     }
     case DIARY_TELEPORT_LEVEL: {
@@ -349,10 +398,11 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
     case DIARY_GAMESTART: {
         time_t ct = time((time_t *)0);
         do_level = false;
-        if (num)
+        if (num) {
             fprintf(fff, "%s %s", note, ctime(&ct));
-        else
+        } else {
             fprintf(fff, " %2d:%02d %20s %s %s", hour, min, note_level, note, ctime(&ct));
+        }
 
         break;
     }
@@ -369,8 +419,9 @@ errr exe_write_diary(PlayerType *player_ptr, int type, int num, concptr note)
     }
 
     angband_fclose(fff);
-    if (do_level)
+    if (do_level) {
         write_level = false;
+    }
 
     return 0;
 }

@@ -30,6 +30,7 @@
 #include "monster/monster-status.h"
 #include "monster/monster-util.h"
 #include "pet/pet-util.h"
+#include "player-base/player-class.h"
 #include "player/special-defense-types.h"
 #include "realm/realm-song-numbers.h"
 #include "realm/realm-song.h"
@@ -38,6 +39,7 @@
 #include "system/monster-race-definition.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
+#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world-turn-processor.h"
 #include "world/world.h"
@@ -58,7 +60,7 @@
  */
 void process_dungeon(PlayerType *player_ptr, bool load_game)
 {
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    auto *floor_ptr = player_ptr->current_floor_ptr;
     floor_ptr->base_level = floor_ptr->dun_level;
     w_ptr->is_loading_now = false;
     player_ptr->leaving = false;
@@ -76,18 +78,21 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
 
     disturb(player_ptr, true, true);
     auto quest_num = quest_number(player_ptr, floor_ptr->dun_level);
-    if (quest_num > 0) {
-        r_info[quest[quest_num].r_idx].flags1 |= RF1_QUESTOR;
+    const auto &quest_list = QuestList::get_instance();
+    auto *questor_ptr = &r_info[quest_list[quest_num].r_idx];
+    if (inside_quest(quest_num)) {
+        set_bits(questor_ptr->flags1, RF1_QUESTOR);
     }
 
     if (player_ptr->max_plv < player_ptr->lev) {
         player_ptr->max_plv = player_ptr->lev;
     }
 
-    if ((max_dlv[player_ptr->dungeon_idx] < floor_ptr->dun_level) && !floor_ptr->inside_quest) {
+    if ((max_dlv[player_ptr->dungeon_idx] < floor_ptr->dun_level) && !inside_quest(floor_ptr->quest_number)) {
         max_dlv[player_ptr->dungeon_idx] = floor_ptr->dun_level;
-        if (record_maxdepth)
+        if (record_maxdepth) {
             exe_write_diary(player_ptr, DIARY_MAXDEAPTH, floor_ptr->dun_level, nullptr);
+        }
     }
 
     (void)calculate_upkeep(player_ptr);
@@ -96,20 +101,22 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     msg_erase();
 
     w_ptr->character_xtra = true;
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP | PW_SPELL | PW_PLAYER | PW_MONSTER | PW_OVERHEAD | PW_DUNGEON);
-    player_ptr->redraw |= (PR_WIPE | PR_BASIC | PR_EXTRA | PR_EQUIPPY | PR_MAP);
-    player_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_VIEW | PU_LITE | PU_MON_LITE | PU_TORCH | PU_MONSTERS | PU_DISTANCE | PU_FLOW);
+    set_bits(player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_SPELL | PW_PLAYER | PW_MONSTER | PW_OVERHEAD | PW_DUNGEON);
+    set_bits(player_ptr->redraw, PR_WIPE | PR_BASIC | PR_EXTRA | PR_EQUIPPY | PR_MAP);
+    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_VIEW | PU_LITE | PU_MON_LITE | PU_TORCH | PU_MONSTERS | PU_DISTANCE | PU_FLOW);
     handle_stuff(player_ptr);
 
     w_ptr->character_xtra = false;
-    player_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
+    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_COMBINE | PU_REORDER);
     handle_stuff(player_ptr);
     term_fresh();
 
-    if ((quest_num > 0)
-        && (quest_type::is_fixed(quest_num) && !((quest_num == QUEST_OBERON) || (quest_num == QUEST_SERPENT) || !(quest[quest_num].flags & QUEST_FLAG_PRESET))))
+    auto no_feeling_quest = (quest_num == QuestId::OBERON);
+    no_feeling_quest |= (quest_num == QuestId::SERPENT);
+    no_feeling_quest |= none_bits(quest_list[quest_num].flags, QUEST_FLAG_PRESET);
+    if (inside_quest(quest_num) && quest_type::is_fixed(quest_num) && !no_feeling_quest) {
         do_cmd_feeling(player_ptr);
+    }
 
     if (player_ptr->phase_out) {
         if (load_game) {
@@ -121,72 +128,85 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         }
     }
 
-    if ((player_ptr->pclass == PlayerClassType::BARD) && (get_singing_song_effect(player_ptr) > MUSIC_DETECT))
+    if (PlayerClass(player_ptr).equals(PlayerClassType::BARD) && (get_singing_song_effect(player_ptr) > MUSIC_DETECT)) {
         set_singing_song_effect(player_ptr, MUSIC_DETECT);
-
-    if (!player_ptr->playing || player_ptr->is_dead)
-        return;
-
-    if (!floor_ptr->inside_quest && (player_ptr->dungeon_idx == DUNGEON_ANGBAND)) {
-        quest_discovery(random_quest_number(player_ptr, floor_ptr->dun_level));
-        floor_ptr->inside_quest = random_quest_number(player_ptr, floor_ptr->dun_level);
     }
-    if ((floor_ptr->dun_level == d_info[player_ptr->dungeon_idx].maxdepth) && d_info[player_ptr->dungeon_idx].final_guardian) {
-        if (r_info[d_info[player_ptr->dungeon_idx].final_guardian].max_num)
+
+    if (!player_ptr->playing || player_ptr->is_dead) {
+        return;
+    }
+
+    if (!inside_quest(floor_ptr->quest_number) && (player_ptr->dungeon_idx == DUNGEON_ANGBAND)) {
+        quest_discovery(random_quest_number(player_ptr, floor_ptr->dun_level));
+        floor_ptr->quest_number = random_quest_number(player_ptr, floor_ptr->dun_level);
+    }
+    const auto guardian = d_info[player_ptr->dungeon_idx].final_guardian;
+    if ((floor_ptr->dun_level == d_info[player_ptr->dungeon_idx].maxdepth) && MonsterRace(guardian).is_valid()) {
+        if (r_info[guardian].max_num)
 #ifdef JP
             msg_format("この階には%sの主である%sが棲んでいる。", d_info[player_ptr->dungeon_idx].name.c_str(),
-                r_info[d_info[player_ptr->dungeon_idx].final_guardian].name.c_str());
+                r_info[guardian].name.c_str());
 #else
-            msg_format("%^s lives in this level as the keeper of %s.", r_info[d_info[player_ptr->dungeon_idx].final_guardian].name.c_str(),
+            msg_format("%^s lives in this level as the keeper of %s.", r_info[guardian].name.c_str(),
                 d_info[player_ptr->dungeon_idx].name.c_str());
 #endif
     }
 
-    if (!load_game)
+    if (!load_game) {
         set_superstealth(player_ptr, false);
+    }
 
     floor_ptr->monster_level = floor_ptr->base_level;
     floor_ptr->object_level = floor_ptr->base_level;
     w_ptr->is_loading_now = true;
-    if (player_ptr->energy_need > 0 && !player_ptr->phase_out && (floor_ptr->dun_level || player_ptr->leaving_dungeon || floor_ptr->inside_arena))
+    if (player_ptr->energy_need > 0 && !player_ptr->phase_out && (floor_ptr->dun_level || player_ptr->leaving_dungeon || floor_ptr->inside_arena)) {
         player_ptr->energy_need = 0;
+    }
 
     player_ptr->leaving_dungeon = false;
     mproc_init(floor_ptr);
 
     while (true) {
-        if ((floor_ptr->m_cnt + 32 > w_ptr->max_m_idx) && !player_ptr->phase_out)
+        if ((floor_ptr->m_cnt + 32 > w_ptr->max_m_idx) && !player_ptr->phase_out) {
             compact_monsters(player_ptr, 64);
+        }
 
-        if ((floor_ptr->m_cnt + 32 < floor_ptr->m_max) && !player_ptr->phase_out)
+        if ((floor_ptr->m_cnt + 32 < floor_ptr->m_max) && !player_ptr->phase_out) {
             compact_monsters(player_ptr, 0);
+        }
 
-        if (floor_ptr->o_cnt + 32 > w_ptr->max_o_idx)
+        if (floor_ptr->o_cnt + 32 > w_ptr->max_o_idx) {
             compact_objects(player_ptr, 64);
+        }
 
-        if (floor_ptr->o_cnt + 32 < floor_ptr->o_max)
+        if (floor_ptr->o_cnt + 32 < floor_ptr->o_max) {
             compact_objects(player_ptr, 0);
+        }
 
         process_player(player_ptr);
         process_upkeep_with_speed(player_ptr);
         handle_stuff(player_ptr);
 
         move_cursor_relative(player_ptr->y, player_ptr->x);
-        if (fresh_after)
+        if (fresh_after) {
             term_fresh_force();
+        }
 
-        if (!player_ptr->playing || player_ptr->is_dead)
+        if (!player_ptr->playing || player_ptr->is_dead) {
             break;
+        }
 
         process_monsters(player_ptr);
         handle_stuff(player_ptr);
 
         move_cursor_relative(player_ptr->y, player_ptr->x);
-        if (fresh_after)
+        if (fresh_after) {
             term_fresh_force();
+        }
 
-        if (!player_ptr->playing || player_ptr->is_dead)
+        if (!player_ptr->playing || player_ptr->is_dead) {
             break;
+        }
 
         WorldTurnProcessor(player_ptr).process_world();
         handle_stuff(player_ptr);
@@ -196,28 +216,32 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
             term_fresh_force();
         }
 
-        if (!player_ptr->playing || player_ptr->is_dead)
+        if (!player_ptr->playing || player_ptr->is_dead) {
             break;
+        }
 
         w_ptr->game_turn++;
         if (w_ptr->dungeon_turn < w_ptr->dungeon_turn_limit) {
-            if (!player_ptr->wild_mode || wild_regen)
+            if (!player_ptr->wild_mode || wild_regen) {
                 w_ptr->dungeon_turn++;
-            else if (player_ptr->wild_mode && !(w_ptr->game_turn % ((MAX_HGT + MAX_WID) / 2)))
+            } else if (player_ptr->wild_mode && !(w_ptr->game_turn % ((MAX_HGT + MAX_WID) / 2))) {
                 w_ptr->dungeon_turn++;
+            }
         }
 
         prevent_turn_overflow(player_ptr);
 
-        if (player_ptr->leaving)
+        if (player_ptr->leaving) {
             break;
+        }
 
-        if (wild_regen)
+        if (wild_regen) {
             wild_regen--;
+        }
     }
 
-    if ((quest_num > 0) && !(r_info[quest[quest_num].r_idx].flags1 & RF1_UNIQUE)) {
-        r_info[quest[quest_num].r_idx].flags1 &= ~RF1_QUESTOR;
+    if ((inside_quest(quest_num)) && questor_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
+        reset_bits(questor_ptr->flags1, RF1_QUESTOR);
     }
 
     if (player_ptr->playing && !player_ptr->is_dead) {

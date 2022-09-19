@@ -16,6 +16,7 @@
 #include "store/rumor.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-cut.h"
+#include "timed-effect/player-poison.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
@@ -45,7 +46,8 @@ static bool buy_food(PlayerType *player_ptr)
  */
 static bool is_healthy_stay(PlayerType *player_ptr)
 {
-    if (!player_ptr->poisoned && !player_ptr->effects()->cut()->is_cut()) {
+    const auto effects = player_ptr->effects();
+    if (!effects->poison()->is_poisoned() && !effects->cut()->is_cut()) {
         return true;
     }
 
@@ -87,12 +89,14 @@ static void pass_game_turn_by_stay(void)
 {
     int32_t oldturn = w_ptr->game_turn;
     w_ptr->game_turn = (w_ptr->game_turn / (TURNS_PER_TICK * TOWN_DAWN / 2) + 1) * (TURNS_PER_TICK * TOWN_DAWN / 2);
-    if (w_ptr->dungeon_turn >= w_ptr->dungeon_turn_limit)
+    if (w_ptr->dungeon_turn >= w_ptr->dungeon_turn_limit) {
         return;
+    }
 
     w_ptr->dungeon_turn += std::min<int>((w_ptr->game_turn - oldturn), TURNS_PER_TICK * 250) * INN_DUNGEON_TURN_ADJ;
-    if (w_ptr->dungeon_turn > w_ptr->dungeon_turn_limit)
+    if (w_ptr->dungeon_turn > w_ptr->dungeon_turn_limit) {
         w_ptr->dungeon_turn = w_ptr->dungeon_turn_limit;
+    }
 }
 
 /*!
@@ -102,15 +106,17 @@ static void pass_game_turn_by_stay(void)
  */
 static bool has_a_nightmare(PlayerType *player_ptr)
 {
-    if (!ironman_nightmare)
+    if (!ironman_nightmare) {
         return false;
+    }
 
     msg_print(_("眠りに就くと恐ろしい光景が心をよぎった。", "Horrible visions flit through your mind as you sleep."));
 
     while (true) {
         sanity_blast(player_ptr, nullptr, false);
-        if (!one_in_(3))
+        if (!one_in_(3)) {
             break;
+        }
     }
 
     msg_print(_("あなたは絶叫して目を覚ました。", "You awake screaming."));
@@ -125,8 +131,8 @@ static bool has_a_nightmare(PlayerType *player_ptr)
 static void back_to_health(PlayerType *player_ptr)
 {
     BadStatusSetter bss(player_ptr);
-    (void)bss.blindness(0);
-    (void)bss.confusion(0);
+    (void)bss.set_blindness(0);
+    (void)bss.set_confusion(0);
     player_ptr->effects()->stun()->reset();
     player_ptr->chp = player_ptr->mhp;
     player_ptr->csp = player_ptr->msp;
@@ -185,8 +191,9 @@ static void display_stay_result(PlayerType *player_ptr, int prev_hour)
  */
 static bool stay_inn(PlayerType *player_ptr)
 {
-    if (!is_healthy_stay(player_ptr))
+    if (!is_healthy_stay(player_ptr)) {
         return false;
+    }
 
     int prev_day, prev_hour, prev_min;
     extract_day_hour_min(player_ptr, &prev_day, &prev_hour, &prev_min);
@@ -201,8 +208,9 @@ static bool stay_inn(PlayerType *player_ptr)
     }
 
     player_ptr->chp = player_ptr->mhp;
-    if (has_a_nightmare(player_ptr))
+    if (has_a_nightmare(player_ptr)) {
         return true;
+    }
 
     back_to_health(player_ptr);
     charge_magic_eating_energy(player_ptr);

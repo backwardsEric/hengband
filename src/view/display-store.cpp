@@ -40,9 +40,9 @@ void store_prt_gold(PlayerType *player_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param pos 表示行
  */
-void display_entry(PlayerType *player_ptr, int pos)
+void display_entry(PlayerType *player_ptr, int pos, StoreSaleType store_num)
 {
-    object_type *o_ptr;
+    ObjectType *o_ptr;
     o_ptr = &st_ptr->stock[pos];
     int i = (pos % store_bottom);
 
@@ -53,22 +53,24 @@ void display_entry(PlayerType *player_ptr, int pos)
 
     int cur_col = 3;
     if (show_item_graph) {
-        TERM_COLOR a = object_attr(o_ptr);
-        SYMBOL_CODE c = object_char(o_ptr);
+        const auto a = o_ptr->get_color();
+        const auto c = o_ptr->get_symbol();
 
         term_queue_bigchar(cur_col, i + 6, a, c, 0, 0);
-        if (use_bigtile)
+        if (use_bigtile) {
             cur_col++;
+        }
 
         cur_col += 2;
     }
 
     /* Describe an item in the home */
     int maxwid = 75;
-    if ((cur_store_num == StoreSaleType::HOME) || (cur_store_num == StoreSaleType::MUSEUM)) {
+    if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) {
         maxwid = 75;
-        if (show_weights)
+        if (show_weights) {
             maxwid -= 10;
+        }
 
         GAME_TEXT o_name[MAX_NLEN];
         describe_flavor(player_ptr, o_name, o_ptr, 0);
@@ -84,8 +86,9 @@ void display_entry(PlayerType *player_ptr, int pos)
     }
 
     maxwid = 65;
-    if (show_weights)
+    if (show_weights) {
         maxwid -= 7;
+    }
 
     GAME_TEXT o_name[MAX_NLEN];
     describe_flavor(player_ptr, o_name, o_ptr, 0);
@@ -98,7 +101,7 @@ void display_entry(PlayerType *player_ptr, int pos)
         put_str(out_val, i + 6, _(60, 61));
     }
 
-    const auto price = price_item(player_ptr, o_ptr, ot_ptr->inflate, false);
+    const auto price = price_item(player_ptr, o_ptr, ot_ptr->inflate, false, store_num);
 
     (void)sprintf(out_val, "%9ld  ", (long)price);
     put_str(out_val, i + 6, 68);
@@ -111,18 +114,20 @@ void display_entry(PlayerType *player_ptr, int pos)
  * @details
  * All prices are listed as "per individual object".  -BEN-
  */
-void display_store_inventory(PlayerType *player_ptr)
+void display_store_inventory(PlayerType *player_ptr, StoreSaleType store_num)
 {
     int k;
     for (k = 0; k < store_bottom; k++) {
-        if (store_top + k >= st_ptr->stock_num)
+        if (store_top + k >= st_ptr->stock_num) {
             break;
+        }
 
-        display_entry(player_ptr, store_top + k);
+        display_entry(player_ptr, store_top + k, store_num);
     }
 
-    for (int i = k; i < store_bottom + 1; i++)
+    for (int i = k; i < store_bottom + 1; i++) {
         prt("", i + 6, 0);
+    }
 
     put_str(_("          ", "        "), 5, _(20, 22));
     if (st_ptr->stock_num > store_bottom) {
@@ -130,10 +135,11 @@ void display_store_inventory(PlayerType *player_ptr)
         put_str(format(_("(%dページ)  ", "(Page %d)  "), store_top / store_bottom + 1), 5, _(20, 22));
     }
 
-    if (cur_store_num == StoreSaleType::HOME || cur_store_num == StoreSaleType::MUSEUM) {
+    if (store_num == StoreSaleType::HOME || store_num == StoreSaleType::MUSEUM) {
         k = st_ptr->stock_size;
-        if (cur_store_num == StoreSaleType::HOME && !powerup_home)
+        if (store_num == StoreSaleType::HOME && !powerup_home) {
             k /= 10;
+        }
 
         put_str(format(_("アイテム数:  %4d/%4d", "Objects:  %4d/%4d"), st_ptr->stock_num, k), 19 + xtra_stock, _(27, 30));
     }
@@ -145,10 +151,10 @@ void display_store_inventory(PlayerType *player_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @details
  */
-void display_store(PlayerType *player_ptr)
+void display_store(PlayerType *player_ptr, StoreSaleType store_num)
 {
     term_clear();
-    if (cur_store_num == StoreSaleType::HOME) {
+    if (store_num == StoreSaleType::HOME) {
         put_str(_("我が家", "Your Home"), 3, 31);
         put_str(_("アイテムの一覧", "Item Description"), 5, 4);
         if (show_weights) {
@@ -156,11 +162,11 @@ void display_store(PlayerType *player_ptr)
         }
 
         store_prt_gold(player_ptr);
-        display_store_inventory(player_ptr);
+        display_store_inventory(player_ptr, store_num);
         return;
     }
 
-    if (cur_store_num == StoreSaleType::MUSEUM) {
+    if (store_num == StoreSaleType::MUSEUM) {
         put_str(_("博物館", "Museum"), 3, 31);
         put_str(_("アイテムの一覧", "Item Description"), 5, 4);
         if (show_weights) {
@@ -168,7 +174,7 @@ void display_store(PlayerType *player_ptr)
         }
 
         store_prt_gold(player_ptr);
-        display_store_inventory(player_ptr);
+        display_store_inventory(player_ptr, store_num);
         return;
     }
 
@@ -183,10 +189,11 @@ void display_store(PlayerType *player_ptr)
     prt(buf, 3, 50);
 
     put_str(_("商品の一覧", "Item Description"), 5, 5);
-    if (show_weights)
+    if (show_weights) {
         put_str(_("  重さ", "Weight"), 5, 60);
+    }
 
     put_str(_(" 価格", "Price"), 5, 72);
     store_prt_gold(player_ptr);
-    display_store_inventory(player_ptr);
+    display_store_inventory(player_ptr, store_num);
 }

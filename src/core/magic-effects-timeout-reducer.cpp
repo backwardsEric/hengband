@@ -3,8 +3,8 @@
 #include "mind/mind-force-trainer.h"
 #include "mind/mind-magic-resistance.h"
 #include "mind/mind-mirror-master.h"
-#include "racial/racial-kutar.h"
 #include "player/player-status-table.h"
+#include "racial/racial-kutar.h"
 #include "spell-realm/spells-craft.h"
 #include "spell-realm/spells-crusade.h"
 #include "spell-realm/spells-demon.h"
@@ -17,7 +17,15 @@
 #include "status/sight-setter.h"
 #include "status/temporary-resistance.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-acceleration.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/player-confusion.h"
 #include "timed-effect/player-cut.h"
+#include "timed-effect/player-deceleration.h"
+#include "timed-effect/player-fear.h"
+#include "timed-effect/player-hallucination.h"
+#include "timed-effect/player-paralysis.h"
+#include "timed-effect/player-poison.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 
@@ -32,12 +40,12 @@ void reduce_magic_effects_timeout(PlayerType *player_ptr)
     }
 
     BadStatusSetter bss(player_ptr);
-    auto effects = player_ptr->effects();
-    if (player_ptr->hallucinated) {
+    const auto effects = player_ptr->effects();
+    if (effects->hallucination()->is_hallucinated()) {
         (void)bss.mod_hallucination(-1);
     }
 
-    if (player_ptr->blind) {
+    if (effects->blindness()->is_blind()) {
         (void)bss.mod_blindness(-1);
     }
 
@@ -55,14 +63,16 @@ void reduce_magic_effects_timeout(PlayerType *player_ptr)
 
     if (player_ptr->ele_attack) {
         player_ptr->ele_attack--;
-        if (!player_ptr->ele_attack)
+        if (!player_ptr->ele_attack) {
             set_ele_attack(player_ptr, 0, 0);
+        }
     }
 
     if (player_ptr->ele_immune) {
         player_ptr->ele_immune--;
-        if (!player_ptr->ele_immune)
+        if (!player_ptr->ele_immune) {
             set_ele_immune(player_ptr, 0, 0);
+        }
     }
 
     if (player_ptr->tim_infra) {
@@ -125,24 +135,24 @@ void reduce_magic_effects_timeout(PlayerType *player_ptr)
         (void)set_pass_wall(player_ptr, player_ptr->tim_pass_wall - 1, true);
     }
 
-    if (player_ptr->paralyzed) {
+    if (effects->paralysis()->is_paralyzed()) {
         (void)bss.mod_paralysis(-1);
     }
 
-    if (player_ptr->confused) {
+    if (player_ptr->effects()->confusion()->is_confused()) {
         (void)bss.mod_confusion(-1);
     }
 
-    if (player_ptr->afraid) {
-        (void)bss.mod_afraidness(-1);
+    if (effects->fear()->is_fearful()) {
+        (void)bss.mod_fear(-1);
     }
 
-    if (player_ptr->fast) {
-        (void)set_fast(player_ptr, player_ptr->fast - 1, true);
+    if (effects->acceleration()->is_fast()) {
+        (void)mod_acceleration(player_ptr, -1, true);
     }
 
-    if (player_ptr->slow) {
-        (void)bss.mod_slowness(-1, true);
+    if (effects->deceleration()->is_slow()) {
+        (void)bss.mod_deceleration(-1, true);
     }
 
     if (player_ptr->protevil) {
@@ -209,7 +219,7 @@ void reduce_magic_effects_timeout(PlayerType *player_ptr)
         (void)set_ultimate_res(player_ptr, player_ptr->ult_res - 1, true);
     }
 
-    if (player_ptr->poisoned) {
+    if (effects->poison()->is_poisoned()) {
         int adjust = adj_con_fix[player_ptr->stat_index[A_CON]] + 1;
         (void)bss.mod_poison(-adjust);
     }

@@ -8,6 +8,7 @@
 #include "core/window-redrawer.h"
 #include "game-option/disturbance-options.h"
 #include "monster/monster-status-setter.h"
+#include "player-base/player-class.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
 #include "player/attack-defense-types.h"
@@ -18,7 +19,15 @@
 #include "status/buff-setter.h"
 #include "status/element-resistance.h"
 #include "system/player-type-definition.h"
+#include "timed-effect/player-acceleration.h"
+#include "timed-effect/player-blindness.h"
+#include "timed-effect/player-confusion.h"
 #include "timed-effect/player-cut.h"
+#include "timed-effect/player-deceleration.h"
+#include "timed-effect/player-fear.h"
+#include "timed-effect/player-hallucination.h"
+#include "timed-effect/player-paralysis.h"
+#include "timed-effect/player-poison.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
@@ -29,15 +38,15 @@
 void reset_tim_flags(PlayerType *player_ptr)
 {
     auto effects = player_ptr->effects();
-    player_ptr->fast = 0; /* Timed -- Fast */
+    effects->acceleration()->reset();
     player_ptr->lightspeed = 0;
-    player_ptr->slow = 0; /* Timed -- Slow */
-    player_ptr->blind = 0; /* Timed -- Blindness */
-    player_ptr->paralyzed = 0; /* Timed -- Paralysis */
-    player_ptr->confused = 0; /* Timed -- Confusion */
-    player_ptr->afraid = 0; /* Timed -- Fear */
-    player_ptr->hallucinated = 0; /* Timed -- Hallucination */
-    player_ptr->poisoned = 0; /* Timed -- Poisoned */
+    effects->deceleration()->reset();
+    effects->blindness()->reset();
+    effects->paralysis()->reset();
+    effects->confusion()->reset();
+    effects->fear()->reset();
+    effects->hallucination()->reset();
+    effects->poison()->reset();
     effects->cut()->reset();
     effects->stun()->reset();
 
@@ -66,7 +75,7 @@ void reset_tim_flags(PlayerType *player_ptr)
     player_ptr->tim_res_nether = 0;
     player_ptr->tim_res_time = 0;
     player_ptr->tim_mimic = 0;
-    player_ptr->mimic_form = 0;
+    player_ptr->mimic_form = MimicKindType::NONE;
     player_ptr->tim_reflect = 0;
     player_ptr->multishadow = 0;
     player_ptr->dustrobe = 0;
@@ -87,8 +96,9 @@ void reset_tim_flags(PlayerType *player_ptr)
     player_ptr->special_attack = 0L;
     player_ptr->special_defense = 0L;
 
-    while (player_ptr->energy_need < 0)
+    while (player_ptr->energy_need < 0) {
         player_ptr->energy_need += ENERGY_NEED();
+    }
 
     player_ptr->timewalk = false;
 
@@ -98,7 +108,7 @@ void reset_tim_flags(PlayerType *player_ptr)
         (void)set_monster_invulner(player_ptr, player_ptr->riding, 0, false);
     }
 
-    if (player_ptr->pclass == PlayerClassType::BARD) {
+    if (PlayerClass(player_ptr).equals(PlayerClassType::BARD)) {
         set_singing_song_effect(player_ptr, MUSIC_NONE);
         set_singing_song_id(player_ptr, 0);
     }
@@ -110,18 +120,22 @@ void reset_tim_flags(PlayerType *player_ptr)
  * @param do_dec 現在の継続時間より長い値のみ上書きする
  * @return ステータスに影響を及ぼす変化があった場合TRUEを返す。
  */
-bool set_fast(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
+bool set_acceleration(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
+    auto acceleration = player_ptr->effects()->acceleration();
     if (v) {
-        if (player_ptr->fast && !do_dec) {
-            if (player_ptr->fast > v)
+        if (acceleration->is_fast() && !do_dec) {
+            if (acceleration->current() > v) {
                 return false;
+            }
         } else if (!is_fast(player_ptr) && !player_ptr->lightspeed) {
             msg_print(_("素早く動けるようになった！", "You feel yourself moving much faster!"));
             notice = true;
@@ -129,21 +143,28 @@ bool set_fast(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
             chg_virtue(player_ptr, V_DILIGENCE, 1);
         }
     } else {
-        if (player_ptr->fast && !player_ptr->lightspeed && !music_singing(player_ptr, MUSIC_SPEED) && !music_singing(player_ptr, MUSIC_SHERO)) {
+        if (acceleration->is_fast() && !player_ptr->lightspeed && !music_singing(player_ptr, MUSIC_SPEED) && !music_singing(player_ptr, MUSIC_SHERO)) {
             msg_print(_("動きの素早さがなくなったようだ。", "You feel yourself slow down."));
             notice = true;
         }
     }
 
-    player_ptr->fast = v;
-    if (!notice)
+    acceleration->set(v);
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     handle_stuff(player_ptr);
     return true;
+}
+
+bool mod_acceleration(PlayerType *player_ptr, const TIME_EFFECT v, const bool do_dec)
+{
+    return set_acceleration(player_ptr, player_ptr->effects()->acceleration()->current() + v, do_dec);
 }
 
 /*!
@@ -155,15 +176,18 @@ bool set_fast(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_shield(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->shield && !do_dec) {
-            if (player_ptr->shield > v)
+            if (player_ptr->shield > v) {
                 return false;
+            }
         } else if (!player_ptr->shield) {
             msg_print(_("肌が石になった。", "Your skin turns to stone."));
             notice = true;
@@ -178,11 +202,13 @@ bool set_shield(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->shield = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     handle_stuff(player_ptr);
     return true;
@@ -197,15 +223,18 @@ bool set_shield(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_magicdef(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->magicdef && !do_dec) {
-            if (player_ptr->magicdef > v)
+            if (player_ptr->magicdef > v) {
                 return false;
+            }
         } else if (!player_ptr->magicdef) {
             msg_print(_("魔法の防御力が増したような気がする。", "You feel more resistant to magic."));
             notice = true;
@@ -220,11 +249,13 @@ bool set_magicdef(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->magicdef = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     handle_stuff(player_ptr);
     return true;
@@ -239,15 +270,18 @@ bool set_magicdef(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_blessed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->blessed && !do_dec) {
-            if (player_ptr->blessed > v)
+            if (player_ptr->blessed > v) {
                 return false;
+            }
         } else if (!is_blessed(player_ptr)) {
             msg_print(_("高潔な気分になった！", "You feel righteous!"));
             notice = true;
@@ -262,11 +296,13 @@ bool set_blessed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->blessed = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     handle_stuff(player_ptr);
     return true;
@@ -281,15 +317,18 @@ bool set_blessed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_hero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->hero && !do_dec) {
-            if (player_ptr->hero > v)
+            if (player_ptr->hero > v) {
                 return false;
+            }
         } else if (!is_hero(player_ptr)) {
             msg_print(_("ヒーローになった気がする！", "You feel like a hero!"));
             notice = true;
@@ -304,11 +343,13 @@ bool set_hero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->hero = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     player_ptr->update |= (PU_HP);
     handle_stuff(player_ptr);
@@ -322,18 +363,21 @@ bool set_hero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
  * @param do_dec 現在の継続時間より長い値のみ上書きする
  * @return ステータスに影響を及ぼす変化があった場合TRUEを返す。
  */
-bool set_mimic(PlayerType *player_ptr, TIME_EFFECT v, int16_t mimic_race_idx, bool do_dec)
+bool set_mimic(PlayerType *player_ptr, TIME_EFFECT v, MimicKindType mimic_race_idx, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->tim_mimic && (player_ptr->mimic_form == mimic_race_idx) && !do_dec) {
-            if (player_ptr->tim_mimic > v)
+            if (player_ptr->tim_mimic > v) {
                 return false;
+            }
         } else if ((!player_ptr->tim_mimic) || (player_ptr->mimic_form != mimic_race_idx)) {
             msg_print(_("自分の体が変わってゆくのを感じた。", "You feel that your body changes."));
             player_ptr->mimic_form = mimic_race_idx;
@@ -344,20 +388,23 @@ bool set_mimic(PlayerType *player_ptr, TIME_EFFECT v, int16_t mimic_race_idx, bo
     else {
         if (player_ptr->tim_mimic) {
             msg_print(_("変身が解けた。", "You are no longer transformed."));
-            if (player_ptr->mimic_form == MIMIC_DEMON)
+            if (player_ptr->mimic_form == MimicKindType::DEMON) {
                 set_oppose_fire(player_ptr, 0, true);
-            player_ptr->mimic_form = 0;
+            }
+            player_ptr->mimic_form = MimicKindType::NONE;
             notice = true;
-            mimic_race_idx = 0;
+            mimic_race_idx = MimicKindType::NONE;
         }
     }
 
     player_ptr->tim_mimic = v;
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, true);
+    }
 
     player_ptr->redraw |= (PR_BASIC | PR_STATUS);
     player_ptr->update |= (PU_BONUS | PU_HP);
@@ -375,20 +422,23 @@ bool set_mimic(PlayerType *player_ptr, TIME_EFFECT v, int16_t mimic_race_idx, bo
 bool set_shero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
-    if (player_ptr->pclass == PlayerClassType::BERSERKER) {
+    if (PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER)) {
         v = 1;
         return false;
     }
 
     if (v) {
         if (player_ptr->shero && !do_dec) {
-            if (player_ptr->shero > v)
+            if (player_ptr->shero > v) {
                 return false;
+            }
         } else if (!player_ptr->shero) {
             msg_print(_("殺戮マシーンになった気がする！", "You feel like a killing machine!"));
             notice = true;
@@ -403,11 +453,13 @@ bool set_shero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->shero = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     player_ptr->update |= (PU_HP);
     handle_stuff(player_ptr);
@@ -423,15 +475,18 @@ bool set_shero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_wraith_form(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->wraith_form && !do_dec) {
-            if (player_ptr->wraith_form > v)
+            if (player_ptr->wraith_form > v) {
                 return false;
+            }
         } else if (!player_ptr->wraith_form) {
             msg_print(_("物質界を離れて幽鬼のような存在になった！", "You leave the physical world and turn into a wraith-being!"));
             notice = true;
@@ -460,11 +515,13 @@ bool set_wraith_form(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->wraith_form = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     handle_stuff(player_ptr);
     return true;
@@ -479,15 +536,18 @@ bool set_wraith_form(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 bool set_tsuyoshi(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
 {
     bool notice = false;
-    v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
+    v = (v > 10000) ? 10000 : (v < 0) ? 0
+                                      : v;
 
-    if (player_ptr->is_dead)
+    if (player_ptr->is_dead) {
         return false;
+    }
 
     if (v) {
         if (player_ptr->tsuyoshi && !do_dec) {
-            if (player_ptr->tsuyoshi > v)
+            if (player_ptr->tsuyoshi > v) {
                 return false;
+            }
         } else if (!player_ptr->tsuyoshi) {
             msg_print(_("「オクレ兄さん！」", "Brother OKURE!"));
             notice = true;
@@ -508,11 +568,13 @@ bool set_tsuyoshi(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     player_ptr->tsuyoshi = v;
     player_ptr->redraw |= (PR_STATUS);
 
-    if (!notice)
+    if (!notice) {
         return false;
+    }
 
-    if (disturb_state)
+    if (disturb_state) {
         disturb(player_ptr, false, false);
+    }
     player_ptr->update |= (PU_BONUS);
     player_ptr->update |= (PU_HP);
     handle_stuff(player_ptr);

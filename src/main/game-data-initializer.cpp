@@ -33,16 +33,11 @@
  */
 constexpr int MACRO_MAX = 256;
 
-/*!
- * @brief クエスト情報初期化のメインルーチン /
- * Initialize quest array
- * @return エラーコード
- */
-void init_quests(void)
+static void init_gf_colors()
 {
-    quest.assign(max_q_idx, {});
-    for (auto &q_ref : quest) {
-        q_ref.status = QuestStatusType::UNTAKEN;
+    constexpr ushort default_gf_color = 0;
+    for (auto i = 0; i < enum2i(AttributeType::MAX); i++) {
+        gf_colors.emplace(i2enum<AttributeType>(i), default_gf_color);
     }
 }
 
@@ -63,6 +58,7 @@ void init_other(PlayerType *player_ptr)
 
     max_dlv.assign(d_info.size(), {});
     floor_ptr->grid_array.assign(MAX_HGT, std::vector<grid_type>(MAX_WID));
+    init_gf_colors();
 
     macro__pat.assign(MACRO_MAX, {});
     macro__act.assign(MACRO_MAX, {});
@@ -157,17 +153,17 @@ static void init_object_alloc(void)
 void init_alloc(void)
 {
     std::vector<tag_type> elements(r_info.size());
-    for (const auto &r_ref : r_info) {
-        if (r_ref.idx > 0) {
-            elements[r_ref.idx].tag = r_ref.level;
-            elements[r_ref.idx].index = r_ref.idx;
+    for (const auto &[r_idx, r_ref] : r_info) {
+        if (MonsterRace(r_ref.idx).is_valid()) {
+            elements[enum2i(r_ref.idx)].tag = r_ref.level;
+            elements[enum2i(r_ref.idx)].index = enum2i(r_ref.idx);
         }
     }
 
     tag_sort(elements.data(), elements.size());
     alloc_race_table.assign(r_info.size(), {});
     for (auto i = 1U; i < r_info.size(); i++) {
-        auto *r_ptr = &r_info[elements[i].index];
+        auto *r_ptr = &r_info[i2enum<MonsterRaceId>(elements[i].index)];
         if (r_ptr->rarity == 0) {
             continue;
         }

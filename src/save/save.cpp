@@ -41,6 +41,7 @@
 #include "util/angband-files.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <algorithm>
 
 /*!
  * @brief セーブデータの書き込み /
@@ -48,7 +49,7 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return 成功すればtrue
  */
-static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
+static bool wr_savefile_new(PlayerType *player_ptr, SaveType type)
 {
     compact_objects(player_ptr, 0);
     compact_monsters(player_ptr, 0);
@@ -76,7 +77,7 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
     wr_byte(tmp8u);
     v_stamp = 0L;
     x_stamp = 0L;
- 
+
     wr_u32b(w_ptr->sf_system);
     wr_u32b(w_ptr->sf_when);
     wr_u16b(w_ptr->sf_lives);
@@ -100,70 +101,82 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
     wr_randomizer();
     wr_options(type);
     uint32_t tmp32u = message_num();
-    if ((compress_savefile || (type == SAVE_TYPE_DEBUG)) && (tmp32u > 40))
+    if ((compress_savefile || (type == SaveType::DEBUG)) && (tmp32u > 40)) {
         tmp32u = 40;
+    }
 
     wr_u32b(tmp32u);
-    for (int i = tmp32u - 1; i >= 0; i--)
+    for (int i = tmp32u - 1; i >= 0; i--) {
         wr_string(message_str(i));
+    }
 
     uint16_t tmp16u = static_cast<uint16_t>(r_info.size());
     wr_u16b(tmp16u);
-    for (MONRACE_IDX r_idx = 0; r_idx < tmp16u; r_idx++)
-        wr_lore(r_idx);
+    for (auto r_idx = 0; r_idx < tmp16u; r_idx++) {
+        wr_lore(i2enum<MonsterRaceId>(r_idx));
+    }
 
     tmp16u = static_cast<uint16_t>(k_info.size());
     wr_u16b(tmp16u);
-    for (KIND_OBJECT_IDX k_idx = 0; k_idx < tmp16u; k_idx++)
+    for (KIND_OBJECT_IDX k_idx = 0; k_idx < tmp16u; k_idx++) {
         wr_perception(k_idx);
+    }
 
     tmp16u = max_towns;
     wr_u16b(tmp16u);
 
-    tmp16u = max_q_idx;
+    const auto &quest_list = QuestList::get_instance();
+    tmp16u = static_cast<uint16_t>(quest_list.size());
     wr_u16b(tmp16u);
 
     tmp8u = MAX_RANDOM_QUEST - MIN_RANDOM_QUEST;
     wr_byte(tmp8u);
 
-    for (short i = 0; i < max_q_idx; i++) {
-        auto *const q_ptr = &quest[i];
-        wr_s16b(enum2i(q_ptr->status));
-        wr_s16b((int16_t)q_ptr->level);
-        wr_byte((byte)q_ptr->complev);
-        wr_u32b(q_ptr->comptime);
+    for (const auto &[q_idx, q_ref] : quest_list) {
+        wr_s16b(enum2i(q_idx));
+        wr_s16b(enum2i(q_ref.status));
+        wr_s16b((int16_t)q_ref.level);
+        wr_byte((byte)q_ref.complev);
+        wr_u32b(q_ref.comptime);
 
-        bool is_quest_running = q_ptr->status == QuestStatusType::TAKEN;
-        is_quest_running |= q_ptr->status == QuestStatusType::COMPLETED;
-        is_quest_running |= !quest_type::is_fixed(i);
-        if (!is_quest_running)
+        auto is_quest_running = q_ref.status == QuestStatusType::TAKEN;
+        is_quest_running |= q_ref.status == QuestStatusType::COMPLETED;
+        is_quest_running |= !quest_type::is_fixed(q_idx);
+        if (!is_quest_running) {
             continue;
+        }
 
-        wr_s16b((int16_t)q_ptr->cur_num);
-        wr_s16b((int16_t)q_ptr->max_num);
-        wr_s16b(enum2i(q_ptr->type));
-        wr_s16b(q_ptr->r_idx);
-        wr_s16b(q_ptr->k_idx);
-        wr_byte((byte)q_ptr->flags);
-        wr_byte((byte)q_ptr->dungeon);
+        wr_s16b((int16_t)q_ref.cur_num);
+        wr_s16b((int16_t)q_ref.max_num);
+        wr_s16b(enum2i(q_ref.type));
+        wr_s16b(enum2i(q_ref.r_idx));
+        wr_s16b(enum2i(q_ref.reward_artifact_idx));
+        wr_byte((byte)q_ref.flags);
+        wr_byte((byte)q_ref.dungeon);
     }
 
     wr_s32b(player_ptr->wilderness_x);
     wr_s32b(player_ptr->wilderness_y);
-    wr_byte(player_ptr->wild_mode);
-    wr_byte(player_ptr->ambush_flag);
+    wr_bool(player_ptr->wild_mode);
+    wr_bool(player_ptr->ambush_flag);
     wr_s32b(w_ptr->max_wild_x);
     wr_s32b(w_ptr->max_wild_y);
-    for (int i = 0; i < w_ptr->max_wild_x; i++)
-        for (int j = 0; j < w_ptr->max_wild_y; j++)
+    for (int i = 0; i < w_ptr->max_wild_x; i++) {
+        for (int j = 0; j < w_ptr->max_wild_y; j++) {
             wr_u32b(wilderness[j][i].seed);
+        }
+    }
 
-    tmp16u = static_cast<uint16_t>(a_info.size());
+    auto max_a_num = enum2i(a_info.rbegin()->first);
+    tmp16u = max_a_num + 1;
     wr_u16b(tmp16u);
-    for (int i = 0; i < tmp16u; i++) {
-        artifact_type *a_ptr = &a_info[i];
-        wr_byte(a_ptr->cur_num);
-        wr_s16b(a_ptr->floor_id);
+    ArtifactType dummy;
+    for (auto i = 0U; i < tmp16u; i++) {
+        const auto a_idx = i2enum<FixedArtifactId>(i);
+        const auto it = a_info.find(a_idx);
+        const auto &a_ref = it != a_info.end() ? it->second : dummy;
+        wr_bool(a_ref.is_generated);
+        wr_s16b(a_ref.floor_id);
     }
 
     wr_u32b(w_ptr->sf_play_time);
@@ -173,8 +186,9 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
     wr_player(player_ptr);
     tmp16u = PY_MAX_LEVEL;
     wr_u16b(tmp16u);
-    for (int i = 0; i < tmp16u; i++)
+    for (int i = 0; i < tmp16u; i++) {
         wr_s16b((int16_t)player_ptr->player_hp[i]);
+    }
 
     wr_u32b(player_ptr->spell_learned1);
     wr_u32b(player_ptr->spell_learned2);
@@ -184,13 +198,15 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
     wr_u32b(player_ptr->spell_forgotten2);
     wr_s16b(player_ptr->learned_spells);
     wr_s16b(player_ptr->add_spells);
-    for (int i = 0; i < 64; i++)
+    for (int i = 0; i < 64; i++) {
         wr_byte((byte)player_ptr->spell_order[i]);
+    }
 
     for (int i = 0; i < INVEN_TOTAL; i++) {
-        object_type *o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx)
+        auto *o_ptr = &player_ptr->inventory_list[i];
+        if (!o_ptr->k_idx) {
             continue;
+        }
 
         wr_u16b((uint16_t)i);
         wr_item(o_ptr);
@@ -202,20 +218,24 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
 
     tmp16u = MAX_STORES;
     wr_u16b(tmp16u);
-    for (int i = 1; i < max_towns; i++)
-        for (int j = 0; j < MAX_STORES; j++)
+    for (int i = 1; i < max_towns; i++) {
+        for (int j = 0; j < MAX_STORES; j++) {
             wr_store(&town_info[i].store[j]);
+        }
+    }
 
     wr_s16b(player_ptr->pet_follow_distance);
     wr_s16b(player_ptr->pet_extra_flags);
-    if (screen_dump && (player_ptr->wait_report_score || !player_ptr->is_dead))
+    if (screen_dump && (player_ptr->wait_report_score || !player_ptr->is_dead)) {
         wr_string(screen_dump);
-    else
+    } else {
         wr_string("");
+    }
 
     if (!player_ptr->is_dead) {
-        if (!wr_dungeon(player_ptr))
+        if (!wr_dungeon(player_ptr)) {
             return false;
+        }
 
         wr_ghost();
         wr_s32b(0);
@@ -234,7 +254,7 @@ static bool wr_savefile_new(PlayerType *player_ptr, save_type type)
  * @details
  * Angband 2.8.0 will use "fd" instead of "fff" if possible
  */
-static bool save_player_aux(PlayerType *player_ptr, char *name, save_type type)
+static bool save_player_aux(PlayerType *player_ptr, char *name, SaveType type)
 {
     safe_setuid_grab(player_ptr);
     int file_permission = 0644;
@@ -249,22 +269,26 @@ static bool save_player_aux(PlayerType *player_ptr, char *name, save_type type)
         saving_savefile = angband_fopen(name, "wb");
         safe_setuid_drop();
         if (saving_savefile) {
-            if (wr_savefile_new(player_ptr, type))
+            if (wr_savefile_new(player_ptr, type)) {
                 is_save_successful = true;
+            }
 
-            if (angband_fclose(saving_savefile))
+            if (angband_fclose(saving_savefile)) {
                 is_save_successful = false;
+            }
         }
 
         safe_setuid_grab(player_ptr);
-        if (!is_save_successful)
+        if (!is_save_successful) {
             (void)fd_kill(name);
+        }
 
         safe_setuid_drop();
     }
 
-    if (!is_save_successful)
+    if (!is_save_successful) {
         return false;
+    }
 
     counts_write(player_ptr, 0, w_ptr->play_time);
     w_ptr->character_saved = true;
@@ -277,7 +301,7 @@ static bool save_player_aux(PlayerType *player_ptr, char *name, save_type type)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return 成功すればtrue
  */
-bool save_player(PlayerType *player_ptr, save_type type)
+bool save_player(PlayerType *player_ptr, SaveType type)
 {
     char safe[1024];
     strcpy(safe, savefile);
@@ -295,10 +319,12 @@ bool save_player(PlayerType *player_ptr, save_type type)
         safe_setuid_grab(player_ptr);
         fd_kill(temp);
 
-        if (type == SAVE_TYPE_DEBUG)
+        if (type == SaveType::DEBUG) {
             strcpy(filename, debug_savefile);
-        if (type != SAVE_TYPE_DEBUG)
+        }
+        if (type != SaveType::DEBUG) {
             strcpy(filename, savefile);
+        }
 
         fd_move(filename, temp);
         fd_move(safe, filename);
@@ -308,7 +334,7 @@ bool save_player(PlayerType *player_ptr, save_type type)
         result = true;
     }
 
-    if (type != SAVE_TYPE_CLOSE_GAME) {
+    if (type != SaveType::CLOSE_GAME) {
         w_ptr->is_loading_now = false;
         update_creature(player_ptr);
         mproc_init(player_ptr->current_floor_ptr);

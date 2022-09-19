@@ -23,6 +23,10 @@ bool msg_flag;
 COMMAND_CODE now_message;
 
 namespace {
+
+/*! 表示するメッセージの先頭位置 */
+static int msg_head_pos = 0;
+
 using msg_sp = std::shared_ptr<const std::string>;
 using msg_wp = std::weak_ptr<const std::string>;
 
@@ -78,8 +82,9 @@ int32_t message_num(void)
  */
 concptr message_str(int age)
 {
-    if ((age < 0) || (age >= message_num()))
-        return ("");
+    if ((age < 0) || (age >= message_num())) {
+        return "";
+    }
 
     return message_history[age]->c_str();
 }
@@ -88,8 +93,9 @@ static void message_add_aux(std::string str)
 {
     std::string splitted;
 
-    if (str.empty())
+    if (str.empty()) {
         return;
+    }
 
     // 80桁を超えるメッセージは80桁ずつ分割する
     if (str.length() > 80) {
@@ -102,14 +108,18 @@ static void message_add_aux(std::string str)
         }
 
         /* 最後の文字が漢字半分 */
-        if (n == 81)
+        if (n == 81) {
             n = 79;
+        }
 #else
-        for (n = 80; n > 60; n--)
-            if (str[n] == ' ')
+        for (n = 80; n > 60; n--) {
+            if (str[n] == ' ') {
                 break;
-        if (n == 60)
+            }
+        }
+        if (n == 60) {
             n = 80;
+        }
 #endif
         splitted = str.substr(n);
         str = str.substr(0, n);
@@ -120,12 +130,15 @@ static void message_add_aux(std::string str)
         const char *t;
         std::string_view last_message = *message_history.front();
 #ifdef JP
-        for (t = last_message.data(); *t && (*t != '<' || (*(t + 1) != 'x')); t++)
-            if (iskanji(*t))
+        for (t = last_message.data(); *t && (*t != '<' || (*(t + 1) != 'x')); t++) {
+            if (iskanji(*t)) {
                 t++;
+            }
+        }
 #else
-        for (t = last_message.data(); *t && (*t != '<'); t++)
+        for (t = last_message.data(); *t && (*t != '<'); t++) {
             ;
+        }
 #endif
         int j = 1;
         if (*t && t != last_message.data()) {
@@ -138,8 +151,9 @@ static void message_add_aux(std::string str)
         if (str == last_message && (j < 1000)) {
             str = format("%s <x%d>", str.c_str(), j + 1);
             message_history.pop_front();
-            if (!now_message)
+            if (!now_message) {
                 now_message++;
+            }
         } else {
             /*流れた行の数を数えておく */
             num_more++;
@@ -161,8 +175,9 @@ static void message_add_aux(std::string str)
     // メッセージ履歴に追加
     message_history.push_front(std::move(add_msg));
 
-    if (message_history.size() == MESSAGE_MAX)
+    if (message_history.size() == MESSAGE_MAX) {
         message_history.pop_back();
+    }
 
     if (!splitted.empty()) {
         message_add_aux(std::move(splitted));
@@ -173,25 +188,27 @@ static void message_add_aux(std::string str)
  * @brief ゲームメッセージをログに追加する。 / Add a new message, with great efficiency
  * @param msg 保存したいメッセージ
  */
-void message_add(concptr msg)
+void message_add(std::string_view msg)
 {
-    message_add_aux(msg);
+    message_add_aux(std::string(msg));
 }
 
 bool is_msg_window_flowed(void)
 {
     int i;
     for (i = 0; i < 8; i++) {
-        if (angband_term[i] && (window_flag[i] & PW_MESSAGE))
+        if (angband_term[i] && (window_flag[i] & PW_MESSAGE)) {
             break;
+        }
     }
     if (i < 8) {
-        if (num_more < angband_term[i]->hgt)
+        if (num_more < angband_term[i]->hgt) {
             return false;
+        }
 
-        return (num_more >= 0);
+        return num_more >= 0;
     }
-    return (num_more >= 0);
+    return num_more >= 0;
 }
 
 /*
@@ -202,11 +219,13 @@ static void msg_flush(PlayerType *player_ptr, int x)
     byte a = TERM_L_BLUE;
     bool show_more = (num_more >= 0);
 
-    if (auto_more && !player_ptr->now_damaged)
+    if (auto_more && !player_ptr->now_damaged) {
         show_more = is_msg_window_flowed();
+    }
 
-    if (skip_more)
+    if (skip_more) {
         show_more = false;
+    }
 
     player_ptr->now_damaged = false;
     if (!player_ptr->playing || show_more) {
@@ -227,8 +246,9 @@ static void msg_flush(PlayerType *player_ptr, int x)
                 break;
             }
 
-            if (quick_messages)
+            if (quick_messages) {
                 break;
+            }
             bell();
         }
     }
@@ -239,6 +259,43 @@ static void msg_flush(PlayerType *player_ptr, int x)
 void msg_erase(void)
 {
     msg_print(nullptr);
+}
+
+static int split_length(std::string_view sv, int max)
+{
+    auto split = max;
+
+#ifdef JP
+    auto k_flag = false;
+    auto wordlen = 0;
+    for (auto check = 0; check < max; check++) {
+        if (k_flag) {
+            k_flag = false;
+            continue;
+        }
+
+        if (iskanji(sv[check])) {
+            k_flag = true;
+            split = check;
+        } else if (sv[check] == ' ') {
+            split = check;
+            wordlen = 0;
+        } else {
+            wordlen++;
+            if (wordlen > 20) {
+                split = check;
+            }
+        }
+    }
+#else
+    for (auto check = 40; check < 72; check++) {
+        if (sv[check] == ' ') {
+            split = check;
+        }
+    }
+#endif
+
+    return split;
 }
 
 /*!
@@ -267,108 +324,82 @@ void msg_erase(void)
  * even if no messages are pending.  This is probably a hack.
  * @todo ここのp_ptrを削除するのは破滅的に作業が増えるので保留
  */
-void msg_print(concptr msg)
+void msg_print(std::string_view msg)
 {
-    static int p = 0;
-    char *t;
-    char buf[1024];
-
-    if (w_ptr->timewalk_m_idx)
+    if (w_ptr->timewalk_m_idx) {
         return;
+    }
 
     if (!msg_flag) {
         term_erase(0, 0, 255);
-        p = 0;
+        msg_head_pos = 0;
     }
 
-    int n = (msg ? strlen(msg) : 0);
-    if (p && (!msg || ((p + n) > 72))) {
-        msg_flush(p_ptr, p);
+    std::string msg_includes_turn;
+    if (cheat_turn) {
+        msg = msg_includes_turn = format("T:%d - %s", w_ptr->game_turn, msg.data());
+    }
+
+    if ((msg_head_pos > 0) && ((msg_head_pos + msg.size()) > 72)) {
+        msg_flush(p_ptr, msg_head_pos);
         msg_flag = false;
-        p = 0;
+        msg_head_pos = 0;
     }
 
-    if (!msg)
+    if (msg.size() > 1000) {
         return;
-    if (n > 1000)
-        return;
-
-    if (!cheat_turn) {
-        strcpy(buf, msg);
-    } else {
-        sprintf(buf, ("T:%d - %s"), (int)w_ptr->game_turn, msg);
     }
 
-    n = strlen(buf);
-    if (w_ptr->character_generated)
-        message_add(buf);
+    if (w_ptr->character_generated) {
+        message_add(msg);
+    }
 
-    t = buf;
-    while (n > 72) {
-        int check, split = 72;
-#ifdef JP
-        bool k_flag = false;
-        int wordlen = 0;
-        for (check = 0; check < 72; check++) {
-            if (k_flag) {
-                k_flag = false;
-                continue;
-            }
-
-            if (iskanji(t[check])) {
-                k_flag = true;
-                split = check;
-            } else if (t[check] == ' ') {
-                split = check;
-                wordlen = 0;
-            } else {
-                wordlen++;
-                if (wordlen > 20)
-                    split = check;
-            }
-        }
-
-#else
-        for (check = 40; check < 72; check++) {
-            if (t[check] == ' ')
-                split = check;
-        }
-#endif
-
-        char oops = t[split];
-        t[split] = '\0';
-        term_putstr(0, 0, split, TERM_WHITE, t);
+    while (msg.size() > 72) {
+        auto split = split_length(msg, 72);
+        term_putstr(0, 0, split, TERM_WHITE, msg.data());
         msg_flush(p_ptr, split + 1);
-        t[split] = oops;
-        t[--split] = ' ';
-        t += split;
-        n -= split;
+        msg.remove_prefix(split);
     }
 
-    term_putstr(p, 0, n, TERM_WHITE, t);
+    term_putstr(msg_head_pos, 0, msg.size(), TERM_WHITE, msg.data());
     p_ptr->window_flags |= (PW_MESSAGE);
     window_stuff(p_ptr);
 
     msg_flag = true;
-#ifdef JP
-    p += n;
-#else
-    p += n + 1;
-#endif
+    msg_head_pos += msg.size() + _(0, 1);
 
-    if (fresh_message)
+    if (fresh_message) {
         term_fresh_force();
+    }
+}
+
+void msg_print(std::nullptr_t)
+{
+    if (w_ptr->timewalk_m_idx) {
+        return;
+    }
+
+    if (!msg_flag) {
+        term_erase(0, 0, 255);
+        msg_head_pos = 0;
+    }
+
+    if (msg_head_pos > 0) {
+        msg_flush(p_ptr, msg_head_pos);
+        msg_flag = false;
+        msg_head_pos = 0;
+    }
 }
 
 /*
  * Display a formatted message, using "vstrnfmt()" and "msg_print()".
  */
-void msg_format(concptr fmt, ...)
+void msg_format(std::string_view fmt, ...)
 {
     va_list vp;
     char buf[1024];
     va_start(vp, fmt);
-    (void)vstrnfmt(buf, 1024, fmt, vp);
+    (void)vstrnfmt(buf, sizeof(buf), fmt.data(), vp);
     va_end(vp);
     msg_print(buf);
 }
