@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Clone Project
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
       # by default).
@@ -53,6 +55,12 @@ jobs:
           DEPENDENCY_TRACKING=""
           if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
             DEPENDENCY_TRACKING=--disable-dependency-tracking
+            # Include what configure normally infers for the compiler flags.
+            # Without -O2, the generated executables take painfully long to
+            # read the data files.
+            CFLAGS="$CFLAGS -g -O2"
+            CXXFLAGS="$CXXFLAGS -g -O2"
+            OBJCXXFLAGS="$OBJCXXFLAGS -g -O2"
             for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
               option="-arch $arch"
               CFLAGS="$CFLAGS $option"
@@ -99,6 +107,8 @@ jobs:
     steps:
       - name: Clone Project
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
       # nkf; install those via homebrew (available by default).
@@ -122,6 +132,12 @@ jobs:
           DEPENDENCY_TRACKING=""
           if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
             DEPENDENCY_TRACKING=--disable-dependency-tracking
+            # Include what configure normally infers for the compiler flags.
+            # Without -O2, the generated executables take painfully long to
+            # read the data files.
+            CFLAGS="$CFLAGS -g -O2"
+            CXXFLAGS="$CXXFLAGS -g -O2"
+            OBJCXXFLAGS="$OBJCXXFLAGS -g -O2"
             for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
               option="-arch $arch"
               CFLAGS="$CFLAGS $option"

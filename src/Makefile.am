@@ -1041,7 +1041,7 @@ EXTRA_hengband_SOURCES = \
 	main-win/main-win-tokenizer.cpp main-win/main-win-tokenizer.h \
 	main-win/main-win-utils.cpp main-win/main-win-utils.h \
 	main-win/wav-reader.cpp main-win/wav-reader.h \
-	main-cap.cpp main-xaw.cpp \
+	main-cap.cpp \
 	wall.bmp \
 	stdafx.cpp stdafx.h
 
@@ -1140,9 +1140,10 @@ OBJCXXCOMPILE = $(srcdir)/gcc-wrap $(OBJCXX) $(DEFS) $(DEFAULT_INCLUDES) \
 	$(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_OBJCXXFLAGS) $(OBJCXXFLAGS)
 CXXCOMPILE = $(srcdir)/gcc-wrap $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+
 if PCH
 # Would use CPPFLAGS, but that affects both the C++ and Objective-C++
-# preprocessing:  dont' want to to use the precompiled header for the
+# preprocessing:  don't want to use the precompiled header for the
 # Objective-C++ code.
 CXXCOMPILE += -include ../src/stdafx.h
 
