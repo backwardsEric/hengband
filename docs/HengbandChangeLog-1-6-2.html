@@ -11,6 +11,26 @@
     <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | <A HREF="HengbandChangeLog-3-0-0.html">3.0.0 Changes</A> | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | 1.6.2 Changes
     <H1>Changes</H1>
       <OL>
+        <LI>September 19, 2022.  1.6.2d includes the following changes:
+        <UL>
+          <LI>Port change from Hengband 3.0.0 to avoid accessing before the
+            start of a buffer in plural_aux() and to more generally handle the
+            plurals for nouns ending in a vowel followed by 'y'.
+          <LI>For the GCU front end, port changes from Hengband 3.0.0 and
+            Angband 4.2.4:  avoid assuming a maximum width of 80 columns, fix
+            flickering cursor, and change color handling (avoids white
+            backgrounds in lit areas and parts of the character screen and
+            stats panel when using the default colors on terminals with an
+            extened color range; by default, use custom colors on terminals
+            with an extended colors for more accurate colors; to get the old
+            behavior of looking for the closest matches, use the -K option for
+            the GCU front end; reset the terminal's clearing color when the
+            first color in Hengband's color table is changed).
+          <LI>Port changes from Hengband 3.0.0 for English messages.
+          <LI>The executable was compiled on macOS 12.5.1 rather than 11.5.1.
+            If you encounter problems with versions of macOS prior to 12.5.1,
+            please let me know.
+        </UL>
         <LI>August 30, 2021.  1.6.2c includes the following changes:
         <UL>
           <LI>Fix bug, <A HREF="https://github.com/backwardsEric/hengband/issues/19">Hengband for OS X Issue 19</A>,
