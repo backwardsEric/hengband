@@ -28,9 +28,22 @@
         version based on 1.6.2.
       <P>If you cloned the git repository and want to compile the code, you'll
        first need to create the configure script and some of the files it uses.
-       To do so, run this command in the top-level directory of the directory
-       tree with the source code (you'll need to have autoconf and automake
-       in the path):
+       If you're using the master, develop, or macos-develop branches, you'll
+       need to set up the submodule that's used to handle the lib/xtra
+       directory before creating the configure script.  To do that, run this
+       in the top-level directory of the directory tree with the source code
+       (also note that because the macos-develop branch uses a different
+       version of the submodule and the macos-2-2-1 and macos-1-6-2 branches
+       do not use the submodule, switching to or from those branches or branches
+       based on them can require updating the submodule or moving the existing
+       lib/xtra out of the way):
+       <OL>
+         <LI><CODE>git submodule init</CODE>
+         <LI><CODE>git submodule update</CODE>
+       </OL>
+     <P>Now run this in the top-level directory of the directory tree with the
+       source code to create the configure script (you'll need to have
+       autoconf and automake in the path):
        <OL>
          <LI><CODE>./bootstrap</CODE>
        </OL>
