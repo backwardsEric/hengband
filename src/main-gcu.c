@@ -66,7 +66,7 @@ struct term_data
    WINDOW *win;
 };
 
-#define MAX_TERM_DATA 4
+#define MAX_TERM_DATA 8
 
 static term_data data[MAX_TERM_DATA];
 
