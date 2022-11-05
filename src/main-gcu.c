@@ -919,7 +919,7 @@ static errr Term_xtra_gcu(int n, int v)
       /* Clear screen */
       case TERM_XTRA_CLEAR:
       touchwin(td->win);
-      (void)wclear(td->win);
+      (void)werase(td->win);
       return (0);
 
       /* Make a noise */
