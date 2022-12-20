@@ -5973,7 +5973,14 @@ static void init_windows(void)
     {
         NSInteger requestedGraphicsMode = [[NSUserDefaults standardUserDefaults] integerForKey:AngbandGraphicsDefaultsKey];
         [menuItem setState: (tag == requestedGraphicsMode)];
-        return YES;
+        /*
+         * Only allow changes to the graphics mode when at the splash screen
+         * or in the game proper and at a command prompt.  In other situations
+         * the saved screens for overlayed menus could have tile references
+         * that become outdated when the graphics mode is changed.
+         */
+        return (!game_in_progress
+            || (character_generated && inkey_flag)) ? YES : NO;
     }
     else if( sel == @selector(toggleSound:) )
     {
@@ -5988,7 +5995,13 @@ static void init_windows(void)
 			 boolForKey:AngbandBigTileDefaultsKey];
 
 	[menuItem setState: ((is_on) ? NSOnState : NSOffState)];
-	return YES;
+        /*
+         * Only allow changes to the tile size if tiles are not being used
+         * (then there's no effect on appearance) or, like changes to the
+         * graphics mode, if at the splash screen or command prompt.
+         */
+	return (!graphics_are_enabled() || !game_in_progress
+            || (character_generated && inkey_flag)) ? YES : NO;
     }
     else if( sel == @selector(sendAngbandCommand:) ||
 	     sel == @selector(saveGame:) )
