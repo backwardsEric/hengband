@@ -3527,8 +3527,8 @@ static void display_player_stat_info(void)
 	c_put_str(TERM_WHITE, _("能力", "Stat"), row, stat_col+1);
 	c_put_str(TERM_BLUE, _("  基本", "  Base"), row, stat_col+7);
 	c_put_str(TERM_L_BLUE, _(" 種 職 性 装 ", "RacClaPerMod"), row, stat_col+13);
-	c_put_str(TERM_L_GREEN, _("合計", "Actual"), row, stat_col+28);
-	c_put_str(TERM_YELLOW, _("現在", "Current"), row, stat_col+35);
+	c_put_str(TERM_L_GREEN, _("合計", "Actual"), row, stat_col + _(28, 26));
+	c_put_str(TERM_YELLOW, _("現在", "Current"), row, stat_col + _(35, 33));
 
 	/* Display the stats */
 	for (i = 0; i < A_MAX; i++)
