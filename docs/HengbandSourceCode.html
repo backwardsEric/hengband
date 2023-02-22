@@ -43,7 +43,9 @@
        </OL>
      <P>Now run this in the top-level directory of the directory tree with the
        source code to create the configure script (you'll need to have
-       autoconf and automake in the path):
+       autoconf and automake in the path; at least for macOS 11 or 12 it is
+       recommended to use autoconf 2.69 since the version of m4, GNU M4 1.4.6,
+       included with macOS doesn't work well with autoconf 2.71):
        <OL>
          <LI><CODE>./bootstrap</CODE>
        </OL>
