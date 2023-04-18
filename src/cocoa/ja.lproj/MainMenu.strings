@@ -34,6 +34,9 @@
 /* Class = "NSMenu"; title = "Help"; ObjectID = "F2S-fz-NVQ"; */
 "F2S-fz-NVQ.title" = "ヘルプ";
 
+/* Class = "NSMenuItem"; title = "Sound and Music ..."; ObjectID = "FdG-dF-c6Z"; */
+"FdG-dF-c6Z.title" = "音と音楽…";
+
 /* Class = "NSMenuItem"; title = "Hengband Help"; ObjectID = "FKE-Sm-Kum"; */
 "FKE-Sm-Kum.title" = "変愚蛮怒 ヘルプ";
 
@@ -60,9 +63,6 @@
 
 /* Class = "NSMenuItem"; title = "Bring All to Front"; ObjectID = "LE2-aR-0XJ"; */
 "LE2-aR-0XJ.title" = "すべてを手前に移動";
-
-/* Class = "NSMenuItem"; title = "Toggle Sound"; ObjectID = "mul-VV-UfU"; */
-"mul-VV-UfU.title" = "音変える";
 
 /* Class = "NSMenuItem"; title = "Services"; ObjectID = "NMo-om-nkz"; */
 "NMo-om-nkz.title" = "サービス";

@@ -23,6 +23,8 @@
 #ifdef MACH_O_COCOA
 /* Mac headers */
 #import "cocoa/AppDelegate.h"
+#import "cocoa/SoundAndMusic.h"
+#import "cocoa/AngbandAudio.h"
 //#include <Carbon/Carbon.h> /* For keycodes */
 /* Hack - keycodes to enable compiling in macOS 10.14 */
 #define kVK_Return 0x24
@@ -53,6 +55,7 @@
 #include "term/term-color-types.h"
 #include "view/display-messages.h"
 #include "autopick/autopick-pref-processor.h"
+#include "main/scene-table.h"
 #include "main/sound-definitions-table.h"
 #include "util/angband-files.h"
 #include "util/enum-converter.h"
@@ -74,7 +77,14 @@ static NSString * const AngbandTerminalVisibleDefaultsKey = @"Visible";
 static NSString * const AngbandGraphicsDefaultsKey = @"GraphicsID";
 static NSString * const AngbandBigTileDefaultsKey = @"UseBigTiles";
 static NSString * const AngbandFrameRateDefaultsKey = @"FramesPerSecond";
-static NSString * const AngbandSoundDefaultsKey = @"AllowSound";
+static NSString * const AngbandSoundEnabledDefaultsKey = @"AllowSound";
+static NSString * const AngbandSoundVolumeDefaultsKey = @"SoundVolume";
+static NSString * const AngbandMusicEnabledDefaultsKey = @"AllowMusic";
+static NSString * const AngbandMusicPausedWhenInactiveDefaultsKey =
+	@"MusicPausedWhenInactive";
+static NSString * const AngbandMusicVolumeDefaultsKey = @"MusicVolume";
+static NSString * const AngbandMusicTransitionTimeDefaultsKey =
+	@"MusicTransitionTime";
 static NSInteger const AngbandWindowMenuItemTagBase = 1000;
 static NSInteger const AngbandCommandMenuItemTagBase = 2000;
 
@@ -109,268 +119,6 @@ static bool new_game = false;
 #ifdef JP
 static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 #endif
-
-/**
- * Load sound effects based on sound.cfg within the xtra/sound directory;
- * bridge to Cocoa to use NSSound for simple loading and playback, avoiding
- * I/O latency by caching all sounds at the start.  Inherits full sound
- * format support from Quicktime base/plugins.
- * pelpel favoured a plist-based parser for the future but .cfg support
- * improves cross-platform compatibility.
- */
-@interface AngbandSoundCatalog : NSObject {
-@private
-    /**
-     * Stores instances of NSSound keyed by path so the same sound can be
-     * used for multiple events.
-     */
-    NSMutableDictionary *soundsByPath;
-    /**
-     * Stores arrays of NSSound keyed by event number.
-     */
-    NSMutableDictionary *soundArraysByEvent;
-}
-
-/**
- * If NO, then playSound effectively becomes a do nothing operation.
- */
-@property (getter=isEnabled) BOOL enabled;
-
-/**
- * Set up for lazy initialization in playSound().  Set enabled to NO.
- */
-- (id)init;
-
-/**
- * If self.enabled is YES and the given event has one or more sounds
- * corresponding to it in the catalog, plays one of those sounds, chosen at
- * random.
- */
-- (void)playSound:(int)event;
-
-/**
- * Impose an arbitrary limit on the number of possible samples per event.
- * Currently not declaring this as a class property for compatibility with
- * versions of Xcode prior to 8.
- */
-+ (int)maxSamples;
-
-/**
- * Return the shared sound catalog instance, creating it if it does not
- * exist yet.  Currently not declaring this as a class property for
- * compatibility with versions of Xcode prior to 8.
- */
-+ (AngbandSoundCatalog*)sharedSounds;
-
-/**
- * Release any resources associated with shared sounds.
- */
-+ (void)clearSharedSounds;
-
-@end
-
-@implementation AngbandSoundCatalog
-
-- (id)init {
-    if (self = [super init]) {
-	self->soundsByPath = nil;
-	self->soundArraysByEvent = nil;
-	self->_enabled = NO;
-    }
-    return self;
-}
-
-- (void)playSound:(int)event {
-    if (! self.enabled) {
-	return;
-    }
-
-    /* Initialize when the first sound is played. */
-    if (self->soundArraysByEvent == nil) {
-	/* Build the "sound" path */
-	char sound_dir[1024];
-	path_build(sound_dir, sizeof(sound_dir), ANGBAND_DIR_XTRA, "sound");
-
-	/* Find and open the config file */
-	char path[1024];
-	path_build(path, sizeof(path), sound_dir, "sound.cfg");
-	FILE *fff = angband_fopen(path, "r");
-
-	/* Handle errors */
-	if (!fff) {
-	    NSLog(@"The sound configuration file could not be opened.");
-	    return;
-	}
-
-	self->soundsByPath = [[NSMutableDictionary alloc] init];
-	self->soundArraysByEvent = [[NSMutableDictionary alloc] init];
-	@autoreleasepool {
-	    /*
-	     * This loop may take a while depending on the count and size of
-	     * samples to load.
-	     */
-
-	    /* Parse the file */
-	    /* Lines are always of the form "name = sample [sample ...]" */
-	    char buffer[2048];
-	    while (angband_fgets(fff, buffer, sizeof(buffer)) == 0) {
-		char *msg_name;
-		char *cfg_sample_list;
-		char *search;
-		char *cur_token;
-		char *next_token;
-		int match;
-
-		/* Skip anything not beginning with an alphabetic character */
-		if (!buffer[0] || !isalpha((unsigned char)buffer[0])) continue;
-
-		/* Split the line into two: message name, and the rest */
-		search = strchr(buffer, ' ');
-		cfg_sample_list = strchr(search + 1, ' ');
-		if (!search) continue;
-		if (!cfg_sample_list) continue;
-
-		/* Set the message name, and terminate at first space */
-		msg_name = buffer;
-		search[0] = '\0';
-
-		/* Make sure this is a valid event name */
-		for (match = MSG_MAX - 1; match >= 0; match--) {
-		    if (strcmp(msg_name, angband_sound_name[match]) == 0)
-			break;
-		}
-		if (match < 0) continue;
-
-		/*
-		 * Advance the sample list pointer so it's at the beginning of
-		 * text.
-		 */
-		cfg_sample_list++;
-		if (!cfg_sample_list[0]) continue;
-
-		/* Terminate the current token */
-		cur_token = cfg_sample_list;
-		search = strchr(cur_token, ' ');
-		if (search) {
-		    search[0] = '\0';
-		    next_token = search + 1;
-		} else {
-		    next_token = NULL;
-		}
-
-		/*
-		 * Now we find all the sample names and add them one by one
-		 */
-		while (cur_token) {
-		    NSMutableArray *soundSamples =
-			[self->soundArraysByEvent
-			     objectForKey:[NSNumber numberWithInteger:match]];
-		    if (soundSamples == nil) {
-			soundSamples = [[NSMutableArray alloc] init];
-			[self->soundArraysByEvent
-			     setObject:soundSamples
-			     forKey:[NSNumber numberWithInteger:match]];
-		    }
-		    int num = (int) soundSamples.count;
-
-		    /* Don't allow too many samples */
-		    if (num >= [AngbandSoundCatalog maxSamples]) break;
-
-		    NSString *token_string =
-			[NSString stringWithUTF8String:cur_token];
-		    NSSound *sound =
-			[self->soundsByPath objectForKey:token_string];
-
-		    if (! sound) {
-			/*
-			 * We have to load the sound. Build the path to the
-			 * sample.
-			 */
-			path_build(path, sizeof(path), sound_dir, cur_token);
-			struct stat stb;
-			if (stat(path, &stb) == 0) {
-			    /* Load the sound into memory */
-			    sound = [[NSSound alloc]
-					 initWithContentsOfFile:[NSString stringWithUTF8String:path]
-					 byReference:YES];
-			    if (sound) {
-				[self->soundsByPath setObject:sound
-					    forKey:token_string];
-			    }
-			}
-		    }
-
-		    /* Store it if we loaded it */
-		    if (sound) {
-			[soundSamples addObject:sound];
-		    }
-
-		    /* Figure out next token */
-		    cur_token = next_token;
-		    if (next_token) {
-			 /* Try to find a space */
-			 search = strchr(cur_token, ' ');
-
-			 /*
-			  * If we can find one, terminate, and set new "next".
-			  */
-			 if (search) {
-			     search[0] = '\0';
-			     next_token = search + 1;
-			 } else {
-			     /* Otherwise prevent infinite looping */
-			     next_token = NULL;
-			 }
-		    }
-		}
-	    }
-	}
-	/* Close the file */
-	angband_fclose(fff);
-    }
-
-    @autoreleasepool {
-	NSMutableArray *samples =
-	    [self->soundArraysByEvent
-		 objectForKey:[NSNumber numberWithInteger:event]];
-
-	if (samples == nil || samples.count == 0) {
-	    return;
-	}
-
-	/* Choose a random event. */
-	int s = randint0((int) samples.count);
-	NSSound *sound = samples[s];
-
-	if ([sound isPlaying])
-	    [sound stop];
-
-	/* Play the sound. */
-	[sound play];
-    }
-}
-
-+ (int)maxSamples {
-    return 16;
-}
-
-/**
- * For sharedSounds and clearSharedSounds.
- */
-static __strong AngbandSoundCatalog* gSharedSounds = nil;
-
-+ (AngbandSoundCatalog*)sharedSounds {
-    if (gSharedSounds == nil) {
-	gSharedSounds = [[AngbandSoundCatalog alloc] init];
-    }
-    return gSharedSounds;
-}
-
-+ (void)clearSharedSounds {
-    gSharedSounds = nil;
-}
-
-@end
 
 /**
  * Each location in the terminal either stores a character, a tile,
@@ -2171,7 +1919,6 @@ static NSString* AngbandCorrectedDirectoryPath(NSString *originalPath);
 static void prepare_paths_and_directories(void);
 static void load_prefs(void);
 static void init_windows(void);
-static void play_sound(int event);
 static void send_key(const char key);
 static BOOL check_events(int wait);
 static BOOL send_event(NSEvent *event);
@@ -3949,6 +3696,30 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     [self resizeTerminalWithContentRect: contentRect saveToDefaults: NO];
 }
 
+- (void)windowWillMiniaturize:(NSNotification *)notification
+{
+    NSWindow *window = [notification object];
+
+    if (window != self.primaryWindow
+            || (__bridge AngbandContext*) (angband_terms[0]->data) != self)
+    {
+        return;
+    }
+    [[AngbandAudioManager sharedManager] setupForInactiveApp];
+}
+
+- (void)windowDidDeminiaturize:(NSNotification *)notification
+{
+    NSWindow *window = [notification object];
+
+    if (window != self.primaryWindow
+            || (__bridge AngbandContext*) (angband_terms[0]->data) != self)
+    {
+        return;
+    }
+    [[AngbandAudioManager sharedManager] setupForActiveApp];
+}
+
 - (void)windowDidBecomeMain:(NSNotification *)notification
 {
     NSWindow *window = [notification object];
@@ -4672,13 +4443,41 @@ static errr Term_xtra_cocoa(int n, int v)
 	switch (n) {
 	    /* Make a noise */
         case TERM_XTRA_NOISE:
-	    NSBeep();
+	    [[AngbandAudioManager sharedManager] playBeep];
 	    break;
 
 	    /*  Make a sound */
         case TERM_XTRA_SOUND:
-	    play_sound(v);
+	    [[AngbandAudioManager sharedManager] playSound:v];
 	    break;
+
+            /* Start playing background music. */
+        case TERM_XTRA_MUSIC_BASIC:
+        case TERM_XTRA_MUSIC_DUNGEON:
+        case TERM_XTRA_MUSIC_QUEST:
+        case TERM_XTRA_MUSIC_TOWN:
+        case TERM_XTRA_MUSIC_MONSTER:
+	    [[AngbandAudioManager sharedManager] playMusicType:n ID:v];
+	    break;
+
+        case TERM_XTRA_MUSIC_MUTE:
+	    [[AngbandAudioManager sharedManager] stopAllMusic];
+	    break;
+
+        case TERM_XTRA_SCENE:
+	    {
+		auto &list = get_scene_type_list(v);
+
+		for (auto &item : list) {
+		    if (![[AngbandAudioManager sharedManager]
+			    musicExists:item.type ID:item.val]) {
+			continue;
+		    }
+		    [[AngbandAudioManager sharedManager]
+			playMusicType:item.type ID:item.val];
+		}
+	    }
+            break;
 
 	    /* Process random events */
         case TERM_XTRA_BORED:
@@ -5408,7 +5207,7 @@ static void hook_quit(const char * str)
             term_nuke(angband_terms[i]);
         }
     }
-    [AngbandSoundCatalog clearSharedSounds];
+    [AngbandAudioManager clearSharedManager];
     [AngbandContext setDefaultFont:nil];
     plog(str);
     exit(0);
@@ -5638,7 +5437,12 @@ static void load_prefs(void)
                               FallbackFontName, @"FontName-0",
                               [NSNumber numberWithFloat:FallbackFontSizeMain], @"FontSize-0",
                               [NSNumber numberWithInt:60], AngbandFrameRateDefaultsKey,
-                              [NSNumber numberWithBool:YES], AngbandSoundDefaultsKey,
+                              [NSNumber numberWithBool:YES], AngbandSoundEnabledDefaultsKey,
+                              [NSNumber numberWithInt:30], AngbandSoundVolumeDefaultsKey,
+                              [NSNumber numberWithBool:YES], AngbandMusicEnabledDefaultsKey,
+                              [NSNumber numberWithBool:YES], AngbandMusicPausedWhenInactiveDefaultsKey,
+                              [NSNumber numberWithInt:20], AngbandMusicVolumeDefaultsKey,
+                              [NSNumber numberWithInt:3000], AngbandMusicTransitionTimeDefaultsKey,
                               [NSNumber numberWithInt:GRAPHICS_NONE], AngbandGraphicsDefaultsKey,
                               [NSNumber numberWithBool:YES], AngbandBigTileDefaultsKey,
                               defaultTerms, AngbandTerminalsDefaultsKey,
@@ -5657,13 +5461,32 @@ static void load_prefs(void)
     }
 
     /* Use sounds; set the Angband global */
-    if ([defs boolForKey:AngbandSoundDefaultsKey]) {
+    if ([defs boolForKey:AngbandSoundEnabledDefaultsKey]) {
 	use_sound = true;
-	[AngbandSoundCatalog sharedSounds].enabled = YES;
+	[AngbandAudioManager sharedManager].beepEnabled = YES;
+	[AngbandAudioManager sharedManager].soundEnabled = YES;
     } else {
 	use_sound = false;
-	[AngbandSoundCatalog sharedSounds].enabled = NO;
+	[AngbandAudioManager sharedManager].beepEnabled = NO;
+	[AngbandAudioManager sharedManager].soundEnabled = NO;
     }
+    [AngbandAudioManager sharedManager].soundVolume =
+        [defs integerForKey:AngbandSoundVolumeDefaultsKey];
+
+    /* Use music; set the Angband global */
+    if ([defs boolForKey:AngbandMusicEnabledDefaultsKey]) {
+        use_music = true;
+	[AngbandAudioManager sharedManager].musicEnabled = YES;
+    } else {
+        use_music = false;
+	[AngbandAudioManager sharedManager].musicEnabled = NO;
+    }
+    [AngbandAudioManager sharedManager].musicPausedWhenInactive =
+        [defs boolForKey:AngbandMusicPausedWhenInactiveDefaultsKey];
+    [AngbandAudioManager sharedManager].musicVolume =
+        [defs integerForKey:AngbandMusicVolumeDefaultsKey];
+    [AngbandAudioManager sharedManager].musicTransitionTime =
+        [defs integerForKey:AngbandMusicTransitionTimeDefaultsKey];
 
     /* fps */
     frames_per_second = [defs integerForKey:AngbandFrameRateDefaultsKey];
@@ -5685,15 +5508,6 @@ static void load_prefs(void)
 	    }
 	}
     }
-}
-
-/**
- * Play sound effects asynchronously.  Select a sound from any available
- * for the required event, and bridge to Cocoa to play it.
- */
-static void play_sound(int event)
-{
-    [[AngbandSoundCatalog sharedSounds] playSound:event];
 }
 
 /**
@@ -5890,9 +5704,6 @@ static void init_windows(void)
 	/* Set up game event handlers */
 	/* init_display(); */
 
-	/* Register the sound hook */
-	/* sound_hook = play_sound; */
-
 	/* Initialize some save file stuff */
 	p_ptr->player_euid = geteuid();
 	p_ptr->player_egid = getegid();
@@ -6026,14 +5837,6 @@ static void init_windows(void)
         return (!game_in_progress
             || (w_ptr->character_generated && inkey_flag)) ?  YES : NO;
     }
-    else if( sel == @selector(toggleSound:) )
-    {
-	BOOL is_on = [[NSUserDefaults standardUserDefaults]
-			 boolForKey:AngbandSoundDefaultsKey];
-
-	[menuItem setState: ((is_on) ? NSOnState : NSOffState)];
-	return YES;
-    }
     else if (sel == @selector(toggleWideTiles:)) {
 	BOOL is_on = [[NSUserDefaults standardUserDefaults]
 			 boolForKey:AngbandBigTileDefaultsKey];
@@ -6101,24 +5904,6 @@ static void init_windows(void)
     [context saveWindowVisibleToDefaults: YES];
 }
 
-- (IBAction) toggleSound: (NSMenuItem *) sender
-{
-    BOOL is_on = (sender.state == NSOnState);
-
-    /* Toggle the state and update the Angband global and preferences. */
-    if (is_on) {
-	sender.state = NSOffState;
-	use_sound = false;
-	[AngbandSoundCatalog sharedSounds].enabled = NO;
-    } else {
-	sender.state = NSOnState;
-	use_sound = true;
-	[AngbandSoundCatalog sharedSounds].enabled = YES;
-    }
-    [[NSUserDefaults angbandDefaults] setBool:(! is_on)
-				      forKey:AngbandSoundDefaultsKey];
-}
-
 - (IBAction)toggleWideTiles:(NSMenuItem *) sender
 {
     BOOL is_on = (sender.state == NSOnState);
@@ -6135,6 +5920,88 @@ static void init_windows(void)
 	    redraw_for_tiles_or_term0_font();
 	}
     }
+}
+
+- (IBAction)showSoundAndMusicPanel:(NSMenuItem *)sender
+{
+    if (!self.soundAndMusicPanelController) {
+        self.soundAndMusicPanelController =
+            [[SoundAndMusicPanelController alloc] initWithWindow:nil];
+    } else {
+        self.soundAndMusicPanelController.changeHandler = nil;
+    }
+    self.soundAndMusicPanelController.soundEnabled =
+        [AngbandAudioManager sharedManager].isSoundEnabled;
+    self.soundAndMusicPanelController.soundVolume =
+        [AngbandAudioManager sharedManager].soundVolume;
+    self.soundAndMusicPanelController.musicEnabled =
+        [AngbandAudioManager sharedManager].isMusicEnabled;
+    self.soundAndMusicPanelController.musicPausedWhenInactive =
+        [AngbandAudioManager sharedManager].isMusicPausedWhenInactive;
+    self.soundAndMusicPanelController.musicVolume =
+        [AngbandAudioManager sharedManager].musicVolume;
+    self.soundAndMusicPanelController.musicTransitionTime =
+        [AngbandAudioManager sharedManager].musicTransitionTime;
+    [self.soundAndMusicPanelController showWindow:sender];
+    self.soundAndMusicPanelController.changeHandler = self;
+}
+
+/*
+ * Implement the SoundAndMusicChanges protocol to respond to changes from
+ * the Sound and Music dialog.
+ */
+- (void)changeSoundEnabled:(BOOL)newv
+{
+    use_sound = (newv) ? true : false;
+    [AngbandAudioManager sharedManager].beepEnabled = newv;
+    [AngbandAudioManager sharedManager].soundEnabled = newv;
+    [[NSUserDefaults angbandDefaults] setBool:newv
+        forKey:AngbandSoundEnabledDefaultsKey];
+}
+
+- (void)changeSoundVolume:(NSInteger)newv
+{
+    [AngbandAudioManager sharedManager].soundVolume = newv;
+    [[NSUserDefaults angbandDefaults] setInteger:newv
+        forKey:AngbandSoundVolumeDefaultsKey];
+}
+
+- (void)changeMusicEnabled:(BOOL)newv
+{
+    use_music = (newv) ? true : false;
+    [AngbandAudioManager sharedManager].musicEnabled = newv;
+    [[NSUserDefaults angbandDefaults] setBool:newv
+        forKey:AngbandMusicEnabledDefaultsKey];
+}
+
+- (void)changeMusicPausedWhenInactive:(BOOL)newv
+{
+    [AngbandAudioManager sharedManager].musicPausedWhenInactive = newv;
+    [[NSUserDefaults angbandDefaults] setBool:newv
+        forKey:AngbandMusicPausedWhenInactiveDefaultsKey];
+}
+
+- (void)changeMusicVolume:(NSInteger)newv
+{
+    [AngbandAudioManager sharedManager].musicVolume = newv;
+    [[NSUserDefaults angbandDefaults] setInteger:newv
+        forKey:AngbandMusicVolumeDefaultsKey];
+}
+
+- (void)changeMusicTransitionTime:(NSInteger)newv
+{
+    [AngbandAudioManager sharedManager].musicTransitionTime = newv;
+    [[NSUserDefaults angbandDefaults] setInteger:newv
+        forKey:AngbandMusicTransitionTimeDefaultsKey];
+}
+
+- (void)soundAndMusicPanelWillClose
+{
+    AngbandContext *mainWindow =
+        (__bridge AngbandContext*) (angband_terms[0]->data);
+
+    [mainWindow.primaryWindow makeKeyAndOrderFront: nil];
+    self.soundAndMusicPanelController.changeHandler = nil;
 }
 
 - (void)prepareWindowsMenu
@@ -6270,6 +6137,16 @@ static void init_windows(void)
 	self.commandMenuTagMap = [[NSDictionary alloc]
 				     initWithDictionary: angbandCommands];
     }
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)notification
+{
+    [[AngbandAudioManager sharedManager] setupForActiveApp];
+}
+
+- (void)applicationWillResignActive:(NSNotification *)notification
+{
+    [[AngbandAudioManager sharedManager] setupForInactiveApp];
 }
 
 - (void)awakeFromNib

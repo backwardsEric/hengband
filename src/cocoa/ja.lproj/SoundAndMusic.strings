@@ -1,0 +1,30 @@
+/* Class = "NSSlider"; ibShadowedToolTip = "amount of time to switch from one track to another"; ObjectID = "AkU-q6-TkR"; */
+"AkU-q6-TkR.ibShadowedToolTip" = "あるトラックから別のトラックに切り替える時間";
+
+/* Class = "NSTextFieldCell"; title = "Incidental Sounds"; ObjectID = "aWu-Lm-bgH"; */
+"aWu-Lm-bgH.title" = "付随音";
+
+/* Class = "NSTextFieldCell"; title = "Volume"; ObjectID = "bjo-lV-gRq"; */
+"bjo-lV-gRq.title" = "音量";
+
+/* Class = "NSTextFieldCell"; title = "Volume"; ObjectID = "cYF-nO-lpm"; */
+"cYF-nO-lpm.title" = "音量";
+
+/* Class = "NSTextFieldCell"; title = "Transitions"; ObjectID = "h6K-gp-brC"; */
+"h6K-gp-brC.title" = "移行間隔";
+
+/* Class = "NSButtonCell"; title = "Enabled"; ObjectID = "Hur-85-rfj"; */
+"Hur-85-rfj.title" = "活性化する";
+
+/* Class = "NSWindow"; title = "Sound and Music"; ObjectID = "mVt-nk-Qo0"; */
+"mVt-nk-Qo0.title" = "音と音楽";
+
+/* Class = "NSButtonCell"; title = "Paused when iconified"; ObjectID = "mXt-mL-aNz"; */
+"mXt-mL-aNz.title" = "アイコン化されたときに一時停止";
+
+/* Class = "NSButtonCell"; title = "Enabled"; ObjectID = "u2I-E0-No1"; */
+"u2I-E0-No1.title" = "活性化する";
+
+/* Class = "NSTextFieldCell"; title = "Background Music"; ObjectID = "uDO-28-V03"; */
+"uDO-28-V03.title" = "音楽";
+

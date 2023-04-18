@@ -1048,7 +1048,8 @@ EXTRA_hengband_SOURCES = \
 
 cocoa_xcode_files = \
 	cocoa/AppDelegate.m \
-	cocoa/Base.lproj/MainMenu.xib
+	cocoa/Base.lproj/MainMenu.xib \
+	cocoa/Base.lproj/SoundAndMusic.xib
 cocoa_icon_files = \
 	cocoa/hengband_Icons.icns \
 	cocoa/Save.icns \
@@ -1059,13 +1060,15 @@ cocoa_plist_strings_template = cocoa/Angband-Cocoa.strings
 cocoa_plist_files = \
 	cocoa/CommandMenu.plist
 cocoa_en_nib_files = \
-	cocoa/Base.lproj/MainMenu.nib
+	cocoa/Base.lproj/MainMenu.nib \
+	cocoa/Base.lproj/SoundAndMusic.nib
 cocoa_en_strings_files = \
 	cocoa/en.lproj/Localizable.strings \
 	cocoa/en.lproj/CommandMenu.strings \
 	cocoa/en.lproj/GraphicsMenu.strings
 cocoa_ja_strings_files = \
 	cocoa/ja.lproj/MainMenu.strings \
+	cocoa/ja.lproj/SoundAndMusic.strings \
 	cocoa/ja.lproj/Localizable.strings \
 	cocoa/ja.lproj/CommandMenu.strings \
 	cocoa/ja.lproj/GraphicsMenu.strings
@@ -1086,11 +1089,15 @@ hengband_SOURCES += \
 	main-cocoa.mm \
 	system/grafmode.h \
 	system/grafmode.cpp \
-	cocoa/AppDelegate.h
+	cocoa/AppDelegate.h \
+	cocoa/AngbandAudio.h \
+	cocoa/AngbandAudio.mm \
+	cocoa/SoundAndMusic.h \
+	cocoa/SoundAndMusic.mm
 AM_CFLAGS = -mmacosx-version-min=10.13 -Wunguarded-availability
 AM_OBJCXXFLAGS = -std=c++20 -fobjc-arc -mmacosx-version-min=10.13 -Wunguarded-availability -stdlib=libc++
 AM_CXXFLAGS = -mmacosx-version-min=10.13 -Wunguarded-availability -stdlib=libc++
-hengband_LDFLAGS = -framework cocoa $(AM_LDFLAGS)
+hengband_LDFLAGS = -framework cocoa -framework AVFoundation $(AM_LDFLAGS)
 hengband_LINK = MACOSX_DEPLOYMENT_TARGET=10.13 $(OBJCXXLINK) $(hengband_LDFLAGS) $(LDFLAGS) -o $@
 APPNAME = $(PACKAGE_NAME)
 APPEXE = hengband
@@ -1130,7 +1137,10 @@ EXTRA_hengband_SOURCES += main-cocoa.mm system/grafmode.h system/grafmode.cpp \
 hengband_LINK = $(CXXLINK)
 endif
 
-DEFAULT_INCLUDES = -I$(srcdir) -I$(top_builddir)/src
+# The "-I$(top_builddir)/src/cocoa" is there so can use the same include
+# directives in the cocoa/*.{h,mm} files when building here or rebuilding the
+# nib files in Xcode according to the procedure in cocoa/AppDelegate.m.
+DEFAULT_INCLUDES = -I$(srcdir) -I$(top_builddir)/src -I$(top_builddir)/src/cocoa
 CPPFLAGS += $(XFT_CFLAGS) $(libcurl_CFLAGS)
 LIBS += $(XFT_LIBS) $(libcurl_LIBS)
 COMPILE = $(srcdir)/gcc-wrap $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
