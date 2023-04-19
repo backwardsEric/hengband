@@ -25,7 +25,7 @@
             <rect key="contentRect" x="120" y="64" width="265" height="232"/>
             <rect key="screenRect" x="0.0" y="0.0" width="1280" height="775"/>
             <view key="contentView" id="Nlk-Lb-y90">
-                <rect key="frame" x="0.0" y="0.0" width="265" height="234"/>
+                <rect key="frame" x="0.0" y="0.0" width="337" height="234"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Kei-Lu-1AE">
@@ -37,7 +37,7 @@
                         </textFieldCell>
                     </textField>
                     <slider verticalHuggingPriority="750" id="JfF-pR-frk" userLabel="soundVolumeSlider">
-                        <rect key="frame" x="115" y="155" width="132" height="28"/>
+                        <rect key="frame" x="115" y="155" width="204" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" alignment="left" minValue="1" maxValue="100" doubleValue="30" tickMarkPosition="above" sliderType="linear" id="eKG-5Z-eGo"/>
                         <connections>
@@ -66,8 +66,8 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Z7a-h3-Z6B">
-                        <rect key="frame" x="25" y="69" width="162" height="22"/>
-                        <buttonCell key="cell" type="check" title="Paused when iconified" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="mXt-mL-aNz">
+                        <rect key="frame" x="25" y="69" width="292" height="22"/>
+                        <buttonCell key="cell" type="check" title="Paused when application docked or inactive" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="mXt-mL-aNz">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -76,7 +76,7 @@
                         </connections>
                     </button>
                     <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="r8d-9c-ObP" userLabel="musicVolumeSlider">
-                        <rect key="frame" x="115" y="38" width="132" height="28"/>
+                        <rect key="frame" x="115" y="38" width="204" height="28"/>
                         <sliderCell key="cell" state="on" alignment="left" minValue="1" maxValue="100" doubleValue="20" tickMarkPosition="above" sliderType="linear" id="Xjg-wn-gAD"/>
                         <connections>
                             <action selector="respondToMusicVolumeSlider:" target="-2" id="5ed-hZ-UQO"/>
@@ -100,7 +100,7 @@
                         </textFieldCell>
                     </textField>
                     <slider toolTip="amount of time to switch from one track to another" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="AkU-q6-TkR" userLabel="transitionTimeSlider">
-                        <rect key="frame" x="115" y="14" width="132" height="28"/>
+                        <rect key="frame" x="115" y="14" width="204" height="28"/>
                         <sliderCell key="cell" state="on" alignment="left" maxValue="10000" doubleValue="3000" tickMarkPosition="above" sliderType="linear" id="8Li-wU-4rN"/>
                         <connections>
                             <action selector="respondToMusicTransitionTimeSlider:" target="-2" id="p66-ub-MQ8"/>
@@ -131,7 +131,7 @@
                     <constraint firstItem="Z7a-h3-Z6B" firstAttribute="leading" secondItem="P10-1o-zNT" secondAttribute="leading" id="5qF-wu-rlZ"/>
                     <constraint firstItem="P10-1o-zNT" firstAttribute="leading" secondItem="Kei-Lu-1AE" secondAttribute="leading" constant="20" id="6Yb-ud-D6H"/>
                     <constraint firstItem="irV-Tu-qww" firstAttribute="top" relation="greaterThanOrEqual" secondItem="PS4-bM-MoX" secondAttribute="bottom" priority="600" constant="25" id="CPh-y4-7zH"/>
-                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="JfF-pR-frk" secondAttribute="trailing" constant="-78" id="Ea1-o5-f6n"/>
+                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="JfF-pR-frk" secondAttribute="trailing" constant="20" symbolic="YES" id="Ea1-o5-f6n"/>
                     <constraint firstItem="r8d-9c-ObP" firstAttribute="trailing" secondItem="AkU-q6-TkR" secondAttribute="trailing" id="MvH-5j-fjB"/>
                     <constraint firstItem="r8d-9c-ObP" firstAttribute="leading" secondItem="JfF-pR-frk" secondAttribute="leading" id="Rm8-rT-xet"/>
                     <constraint firstItem="Kei-Lu-1AE" firstAttribute="leading" secondItem="Nlk-Lb-y90" secondAttribute="leading" constant="7" id="Un1-Zm-mKq"/>
