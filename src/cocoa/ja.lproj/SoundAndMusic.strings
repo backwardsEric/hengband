@@ -20,7 +20,7 @@
 "mVt-nk-Qo0.title" = "効果音とＢＧＭ";
 
 /* Class = "NSButtonCell"; title = "Paused when application docked or inactive"; ObjectID = "mXt-mL-aNz"; */
-"mXt-mL-aNz.title" = "ドックにしまったときに一時停止";
+"mXt-mL-aNz.title" = "変愚蛮怒が非アクティブのときにBGMを止める";
 
 /* Class = "NSButtonCell"; title = "Enabled"; ObjectID = "u2I-E0-No1"; */
 "u2I-E0-No1.title" = "ＢＧＭを使用";
