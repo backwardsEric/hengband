@@ -266,9 +266,8 @@ static wchar_t convert_two_byte_eucjp_to_utf32_native(const char *cp);
 			struct stat stb;
 			if (stat(path, &stb) == 0) {
 			    /* Load the sound into memory */
-			    sound = [[NSSound alloc]
-					 initWithContentsOfFile:[NSString stringWithUTF8String:path]
-					 byReference:YES];
+			    NSData *fileData = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:path]];
+			    sound = [[NSSound alloc] initWithData:fileData];
 			    if (sound) {
 				[self->soundsByPath setObject:sound
 					    forKey:token_string];
