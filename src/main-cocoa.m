@@ -4773,6 +4773,8 @@ static errr Term_curs_cocoa(int x, int y)
 static errr Term_bigcurs_cocoa(int x, int y)
 {
     AngbandContext *angbandContext = (__bridge AngbandContext*) (Term->data);
+    /* Out of paranoia, coerce to remain in bounds. */
+    int w = (x + 2 <= angbandContext.cols) ? 2 : angbandContext.cols - x;
 
     [angbandContext.contents setCursorAtColumn:x row:y width:2 height:1];
     [angbandContext.changes markChangedBlockAtColumn:x row:y width:2 height:1];
