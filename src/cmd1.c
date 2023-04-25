@@ -4166,7 +4166,7 @@ void move_player(int dir, int do_pickup, bool break_trap)
 			wiz_dark();
 		}
 
-		if ((p_ptr->pclass == CLASS_NINJA))
+		if (p_ptr->pclass == CLASS_NINJA)
 		{
 			if (c_ptr->info & (CAVE_GLOW)) set_superstealth(FALSE);
 			else if (p_ptr->cur_lite <= 0) set_superstealth(TRUE);
