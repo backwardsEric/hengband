@@ -3,7 +3,7 @@
  * \brief This is a minimal implementation of the OS X front end.
  *
  * Use this file to rebuild the .nib file with Xcode without having to pull
- * in all of the Hengband source.  This is the procedure with Xcode 12:
+ * in all of the Hengband source.  This is the procedure with Xcode 14:
  *
  * 1) Create a new Xcode project for a macOS App.
  * 2) You can set the "Product Name", "Team", "Organization Name",
@@ -40,7 +40,7 @@
  * 7) If you want to change the Japanese strings for the menus, one way to
  *    partly do it in Xcode is to export the localizations:  from the file view
  *    select topmost category ("hengband" with an application icon) and then
- *    select Editor->Export for Localization... in Xcode's menu bar.  That
+ *    select Product->Export Localizations... in Xcode's menu bar.  That
  *    will prompt you for where to save the exported localizations.  That
  *    export is done as a directory tree.  Within it, you'll find a
  *    ja.xcloc/Localized Contents/ja.xliff file.  The strings bracketed with
@@ -58,12 +58,12 @@
  *    is something like
  *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
  *    You can use it to replace the src/cocoa/Base.lproj/MainMenu.nib in the
- *    Hengband source files.  With Xcode 13, the generated .nib files are
- *    directories.  In the build results from that version of Xcode,
- *    copy Contents/Resources/Base.lproj/MainMenu.nib/keyedobjects.nib to
- *    replace src/cocoa/Base.lproj/MainMenu.nib in the Hengband source files
- *    (the keyedobjects-101300.nib file in the build results is for
- *    macOS 10.13 or later).
+ *    Hengband source files.  With Xcode 13 (though seemingly not in Xcode 14),
+ *    the generated .nib files are directories.  In the build results from that
+ *    version of Xcode, copy Contents/Resources/Base.lproj/MainMenu.nib/keyedobjects.nib
+ *    to replace src/cocoa/Base.lproj/MainMenu.nib in the Hengband source files
+ *    (the keyedobjects-101300.nib file in the build results is for macOS 10.13
+ *    or later).
  *
  * This work is free software; you can redistribute it and/or modify it
  * under the terms of either:
