@@ -58,9 +58,10 @@
  *    is something like
  *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
  *    You can use it to replace the src/cocoa/Base.lproj/MainMenu.nib in the
- *    Hengband source files.  With Xcode 13 (though seemingly not in Xcode 14),
- *    the generated .nib files are directories.  In the build results from that
- *    version of Xcode, copy Contents/Resources/Base.lproj/MainMenu.nib/keyedobjects.nib
+ *    Hengband source files.  With Xcode 13 and later and if the development
+ *    target is macOS 10.13 or earlier, the generated .nib files are
+ *    directories.  In that case, copy
+ *    Contents/Resources/Base.lproj/MainMenu.nib/keyedobjects.nib
  *    to replace src/cocoa/Base.lproj/MainMenu.nib in the Hengband source files
  *    (the keyedobjects-101300.nib file in the build results is for macOS 10.13
  *    or later).
