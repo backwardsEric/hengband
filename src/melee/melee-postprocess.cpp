@@ -39,16 +39,17 @@
 #include "player-info/race-types.h"
 #include "player/player-personality-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 
 // Melee-post-process-type
 struct mam_pp_type {
     MONSTER_IDX m_idx;
-    monster_type *m_ptr;
+    MonsterEntity *m_ptr;
     bool seen;
     GAME_TEXT m_name[160];
     int dam;
@@ -66,7 +67,7 @@ mam_pp_type *initialize_mam_pp_type(
     mam_pp_ptr->m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     mam_pp_ptr->seen = is_seen(player_ptr, mam_pp_ptr->m_ptr);
     mam_pp_ptr->dam = dam;
-    mam_pp_ptr->known = mam_pp_ptr->m_ptr->cdis <= MAX_SIGHT;
+    mam_pp_ptr->known = mam_pp_ptr->m_ptr->cdis <= MAX_PLAYER_SIGHT;
     mam_pp_ptr->dead = dead;
     mam_pp_ptr->fear = fear;
     mam_pp_ptr->note = note;
@@ -96,12 +97,12 @@ static void prepare_redraw(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
  */
 static bool process_invulnerability(mam_pp_type *mam_pp_ptr)
 {
-    if (monster_invulner_remaining(mam_pp_ptr->m_ptr) && randint0(PENETRATE_INVULNERABILITY)) {
+    if (mam_pp_ptr->m_ptr->is_invulnerable() && randint0(PENETRATE_INVULNERABILITY)) {
         return false;
     }
 
     if (mam_pp_ptr->seen) {
-        msg_format(_("%^sはダメージを受けない。", "%^s is unharmed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name);
     }
 
     return true;
@@ -114,7 +115,7 @@ static bool process_invulnerability(mam_pp_type *mam_pp_ptr)
  */
 static bool process_all_resistances(mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &r_info[mam_pp_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
     if (r_ptr->resistance_flags.has_not(MonsterResistanceType::RESIST_ALL)) {
         return false;
     }
@@ -131,7 +132,7 @@ static bool process_all_resistances(mam_pp_type *mam_pp_ptr)
     }
 
     if (mam_pp_ptr->seen) {
-        msg_format(_("%^sはダメージを受けない。", "%^s is unharmed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name);
     }
 
     return true;
@@ -151,7 +152,7 @@ static void print_monster_dead_by_monster(PlayerType *player_ptr, mam_pp_type *m
         return;
     }
 
-    monster_desc(player_ptr, mam_pp_ptr->m_name, mam_pp_ptr->m_ptr, MD_TRUE_NAME);
+    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, mam_pp_ptr->m_ptr, MD_TRUE_NAME).data(), sizeof(mam_pp_ptr->m_name));
     if (!mam_pp_ptr->seen) {
         player_ptr->current_floor_ptr->monster_noise = true;
         return;
@@ -160,18 +161,18 @@ static void print_monster_dead_by_monster(PlayerType *player_ptr, mam_pp_type *m
     if (mam_pp_ptr->note) {
         sound_type kill_sound = monster_living(mam_pp_ptr->m_ptr->r_idx) ? SOUND_KILL : SOUND_N_KILL;
         sound(kill_sound);
-        msg_format(_("%^s%s", "%^s%s"), mam_pp_ptr->m_name, mam_pp_ptr->note);
+        msg_format(_("%s^%s", "%s^%s"), mam_pp_ptr->m_name, mam_pp_ptr->note);
         return;
     }
 
     if (!monster_living(mam_pp_ptr->m_ptr->r_idx)) {
         sound(SOUND_N_KILL);
-        msg_format(_("%^sは破壊された。", "%^s is destroyed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^は破壊された。", "%s^ is destroyed."), mam_pp_ptr->m_name);
         return;
     }
 
     sound(SOUND_KILL);
-    msg_format(_("%^sは殺された。", "%^s is killed."), mam_pp_ptr->m_name);
+    msg_format(_("%s^は殺された。", "%s^ is killed."), mam_pp_ptr->m_name);
 }
 
 /*!
@@ -182,7 +183,7 @@ static void print_monster_dead_by_monster(PlayerType *player_ptr, mam_pp_type *m
  */
 static bool check_monster_hp(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &r_info[mam_pp_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
     if (mam_pp_ptr->m_ptr->hp < 0) {
         return false;
     }
@@ -208,7 +209,9 @@ static bool check_monster_hp(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
  */
 static void cancel_fear_by_pain(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    if (!monster_fear_remaining(mam_pp_ptr->m_ptr) || (mam_pp_ptr->dam <= 0) || !set_monster_monfear(player_ptr, mam_pp_ptr->m_idx, monster_fear_remaining(mam_pp_ptr->m_ptr) - randint1(mam_pp_ptr->dam / 4))) {
+    const auto &m_ref = *mam_pp_ptr->m_ptr;
+    const auto dam = mam_pp_ptr->dam;
+    if (!m_ref.is_fearful() || (dam <= 0) || !set_monster_monfear(player_ptr, mam_pp_ptr->m_idx, m_ref.get_remaining_fear() - randint1(dam / 4))) {
         return;
     }
 
@@ -222,8 +225,8 @@ static void cancel_fear_by_pain(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
  */
 static void make_monster_fear(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &r_info[mam_pp_ptr->m_ptr->r_idx];
-    if (monster_fear_remaining(mam_pp_ptr->m_ptr) || ((r_ptr->flags3 & RF3_NO_FEAR) == 0)) {
+    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
+    if (mam_pp_ptr->m_ptr->is_fearful() || ((r_ptr->flags3 & RF3_NO_FEAR) == 0)) {
         return;
     }
 
@@ -249,13 +252,13 @@ static void fall_off_horse_by_melee(PlayerType *player_ptr, mam_pp_type *mam_pp_
         return;
     }
 
-    monster_desc(player_ptr, mam_pp_ptr->m_name, mam_pp_ptr->m_ptr, 0);
+    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, mam_pp_ptr->m_ptr, 0).data(), sizeof(mam_pp_ptr->m_name));
     if (mam_pp_ptr->m_ptr->hp > mam_pp_ptr->m_ptr->maxhp / 3) {
         mam_pp_ptr->dam = (mam_pp_ptr->dam + 1) / 2;
     }
 
     if (process_fall_off_horse(player_ptr, (mam_pp_ptr->dam > 200) ? 200 : mam_pp_ptr->dam, false)) {
-        msg_format(_("%^sに振り落とされた！", "You have been thrown off from %s!"), mam_pp_ptr->m_name);
+        msg_format(_("%s^に振り落とされた！", "You have been thrown off from %s!"), mam_pp_ptr->m_name);
     }
 }
 
@@ -276,7 +279,7 @@ void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *
     auto *m_ptr = &floor_ptr->m_list[m_idx];
     mam_pp_type tmp_mam_pp;
     mam_pp_type *mam_pp_ptr = initialize_mam_pp_type(player_ptr, &tmp_mam_pp, m_idx, dam, dead, fear, note, who);
-    monster_desc(player_ptr, mam_pp_ptr->m_name, m_ptr, 0);
+    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, m_ptr, 0).data(), sizeof(mam_pp_ptr->m_name));
     prepare_redraw(player_ptr, mam_pp_ptr);
     (void)set_monster_csleep(player_ptr, m_idx, 0);
 
@@ -296,9 +299,10 @@ void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *
     *dead = false;
     cancel_fear_by_pain(player_ptr, mam_pp_ptr);
     make_monster_fear(player_ptr, mam_pp_ptr);
-    if ((dam > 0) && !is_pet(m_ptr) && !is_friendly(m_ptr) && (mam_pp_ptr->who != m_idx)) {
-        if (is_pet(&floor_ptr->m_list[mam_pp_ptr->who]) && !player_bold(player_ptr, m_ptr->target_y, m_ptr->target_x)) {
-            set_target(m_ptr, floor_ptr->m_list[mam_pp_ptr->who].fy, floor_ptr->m_list[mam_pp_ptr->who].fx);
+    if ((dam > 0) && !m_ptr->is_pet() && !m_ptr->is_friendly() && (mam_pp_ptr->who != m_idx)) {
+        const auto &m_ref = floor_ptr->m_list[who];
+        if (m_ref.is_pet() && !player_bold(player_ptr, m_ptr->target_y, m_ptr->target_x)) {
+            set_target(m_ptr, m_ref.fy, m_ref.fx);
         }
     }
 

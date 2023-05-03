@@ -13,7 +13,6 @@
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -40,11 +39,13 @@
 #include "spell-kind/spells-floor.h"
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "target/target-checker.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/player-confusion.h"
@@ -84,9 +85,9 @@ static void discover_hidden_things(PlayerType *player_ptr, POSITION y, POSITION 
     }
 
     for (const auto this_o_idx : g_ptr->o_idx_list) {
-        ObjectType *o_ptr;
+        ItemEntity *o_ptr;
         o_ptr = &floor_ptr->o_list[this_o_idx];
-        if (o_ptr->tval != ItemKindType::CHEST) {
+        if (o_ptr->bi_key.tval() != ItemKindType::CHEST) {
             continue;
         }
 
@@ -140,8 +141,8 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *g_ptr = &floor_ptr->grid_array[ny][nx];
     grid_type *oc_ptr = &floor_ptr->grid_array[oy][ox];
-    auto *f_ptr = &f_info[g_ptr->feat];
-    feature_type *of_ptr = &f_info[oc_ptr->feat];
+    auto *f_ptr = &terrains_info[g_ptr->feat];
+    TerrainType *of_ptr = &terrains_info[oc_ptr->feat];
 
     if (!(mpe_mode & MPE_STAYING)) {
         MONSTER_IDX om_idx = oc_ptr->m_idx;
@@ -152,14 +153,14 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
             g_ptr->m_idx = om_idx;
             oc_ptr->m_idx = nm_idx;
             if (om_idx > 0) {
-                monster_type *om_ptr = &floor_ptr->m_list[om_idx];
+                MonsterEntity *om_ptr = &floor_ptr->m_list[om_idx];
                 om_ptr->fy = ny;
                 om_ptr->fx = nx;
                 update_monster(player_ptr, om_idx, true);
             }
 
             if (nm_idx > 0) {
-                monster_type *nm_ptr = &floor_ptr->m_list[nm_idx];
+                MonsterEntity *nm_ptr = &floor_ptr->m_list[nm_idx];
                 nm_ptr->fy = oy;
                 nm_ptr->fx = ox;
                 update_monster(player_ptr, nm_idx, true);
@@ -175,13 +176,13 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
             player_ptr->redraw |= PR_MAP;
         }
 
-        player_ptr->update |= PU_VIEW | PU_LITE | PU_FLOW | PU_MON_LITE | PU_DISTANCE;
+        player_ptr->update |= PU_VIEW | PU_LITE | PU_FLOW | PU_MONSTER_LITE | PU_DISTANCE;
         player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
         if ((!player_ptr->effects()->blindness()->is_blind() && !no_lite(player_ptr)) || !is_trap(player_ptr, g_ptr->feat)) {
             g_ptr->info &= ~(CAVE_UNSAFE);
         }
 
-        if (floor_ptr->dun_level && d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::FORGET)) {
+        if (floor_ptr->dun_level && dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::FORGET)) {
             wiz_dark(player_ptr);
         }
 
@@ -197,13 +198,13 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
             }
         }
 
-        if ((player_ptr->action == ACTION_HAYAGAKE) && (f_ptr->flags.has_not(FloorFeatureType::PROJECT) || (!player_ptr->levitation && f_ptr->flags.has(FloorFeatureType::DEEP)))) {
+        if ((player_ptr->action == ACTION_HAYAGAKE) && (f_ptr->flags.has_not(TerrainCharacteristics::PROJECT) || (!player_ptr->levitation && f_ptr->flags.has(TerrainCharacteristics::DEEP)))) {
             msg_print(_("ここでは素早く動けない。", "You cannot run in here."));
             set_action(player_ptr, ACTION_NONE);
         }
 
         if (PlayerRace(player_ptr).equals(PlayerRaceType::MERFOLK)) {
-            if (f_ptr->flags.has(FloorFeatureType::WATER) ^ of_ptr->flags.has(FloorFeatureType::WATER)) {
+            if (f_ptr->flags.has(TerrainCharacteristics::WATER) ^ of_ptr->flags.has(TerrainCharacteristics::WATER)) {
                 player_ptr->update |= PU_BONUS;
                 update_creature(player_ptr);
             }
@@ -233,24 +234,24 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
 
     if (!player_ptr->running) {
         // 自動拾い/自動破壊により床上のアイテムリストが変化した可能性があるので表示を更新
-        set_bits(player_ptr->window_flags, PW_FLOOR_ITEM_LIST);
+        set_bits(player_ptr->window_flags, PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
         window_stuff(player_ptr);
     }
 
     PlayerEnergy energy(player_ptr);
-    if (f_ptr->flags.has(FloorFeatureType::STORE)) {
+    if (f_ptr->flags.has(TerrainCharacteristics::STORE)) {
         disturb(player_ptr, false, true);
         energy.reset_player_turn();
         command_new = SPECIAL_KEY_STORE;
-    } else if (f_ptr->flags.has(FloorFeatureType::BLDG)) {
+    } else if (f_ptr->flags.has(TerrainCharacteristics::BLDG)) {
         disturb(player_ptr, false, true);
         energy.reset_player_turn();
         command_new = SPECIAL_KEY_BUILDING;
-    } else if (f_ptr->flags.has(FloorFeatureType::QUEST_ENTER)) {
+    } else if (f_ptr->flags.has(TerrainCharacteristics::QUEST_ENTER)) {
         disturb(player_ptr, false, true);
         energy.reset_player_turn();
         command_new = SPECIAL_KEY_QUEST;
-    } else if (f_ptr->flags.has(FloorFeatureType::QUEST_EXIT)) {
+    } else if (f_ptr->flags.has(TerrainCharacteristics::QUEST_EXIT)) {
         const auto &quest_list = QuestList::get_instance();
         if (quest_list[floor_ptr->quest_number].type == QuestKindType::FIND_EXIT) {
             complete_quest(player_ptr, floor_ptr->quest_number);
@@ -264,9 +265,9 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
         player_ptr->oldpx = 0;
         player_ptr->oldpy = 0;
         player_ptr->leaving = true;
-    } else if (f_ptr->flags.has(FloorFeatureType::HIT_TRAP) && !(mpe_mode & MPE_STAYING)) {
+    } else if (f_ptr->flags.has(TerrainCharacteristics::HIT_TRAP) && !(mpe_mode & MPE_STAYING)) {
         disturb(player_ptr, false, true);
-        if (g_ptr->mimic || f_ptr->flags.has(FloorFeatureType::SECRET)) {
+        if (g_ptr->mimic || f_ptr->flags.has(TerrainCharacteristics::SECRET)) {
             msg_print(_("トラップだ！", "You found a trap!"));
             disclose_grid(player_ptr, player_ptr->y, player_ptr->x);
         }
@@ -301,8 +302,8 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
  */
 bool trap_can_be_ignored(PlayerType *player_ptr, FEAT_IDX feat)
 {
-    auto *f_ptr = &f_info[feat];
-    if (f_ptr->flags.has_not(FloorFeatureType::TRAP)) {
+    auto *f_ptr = &terrains_info[feat];
+    if (f_ptr->flags.has_not(TerrainCharacteristics::TRAP)) {
         return true;
     }
 

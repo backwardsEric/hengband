@@ -118,8 +118,8 @@ const concptr window_flag_desc[32] = {
     _("アイテムの詳細", "Display object recall"),
     _("自分の周囲を表示", "Display dungeon view"),
     _("記念撮影", "Display snap-shot"),
-    _("足元/床上のアイテム一覧", "Display items on floor"),
-    nullptr,
+    _("足元/床上のアイテム一覧", "Display items on grid"),
+    _("発見済みのアイテム一覧", "Display found items"),
     nullptr,
     nullptr,
     nullptr,
@@ -345,7 +345,7 @@ const concptr ident_info[] = {
 /*
  * The array of window pointers
  */
-term_type *angband_term[8];
+std::array<term_type *, 8> angband_terms;
 
 /*!
  * スクリーン表示色キャラクタ /
@@ -367,9 +367,9 @@ char misc_to_char[256];
 TERM_COLOR tval_to_attr[128];
 
 /*
- * Default spell color table (quark index)
+ * Default spell color table
  */
-std::map<AttributeType, ushort> gf_colors;
+std::map<AttributeType, std::string> gf_colors;
 
 /*!
  * @brief 万色表現用にランダムな色を選択する関数 /
@@ -501,17 +501,17 @@ static TERM_COLOR spell_color(AttributeType type)
             return mh_attr(2);
         case AttributeType::DISINTEGRATE:
             return 0x05;
-        case AttributeType::PSI: /* fall through */
-        case AttributeType::PSI_DRAIN: /* fall through */
-        case AttributeType::TELEKINESIS: /* fall through */
-        case AttributeType::DOMINATION: /* fall through */
-        case AttributeType::DRAIN_MANA: /* fall through */
-        case AttributeType::MIND_BLAST: /* fall through */
+        case AttributeType::PSI:
+        case AttributeType::PSI_DRAIN:
+        case AttributeType::TELEKINESIS:
+        case AttributeType::DOMINATION:
+        case AttributeType::DRAIN_MANA:
+        case AttributeType::MIND_BLAST:
         case AttributeType::BRAIN_SMASH:
             return 0x09;
-        case AttributeType::CAUSE_1: /* fall through */
-        case AttributeType::CAUSE_2: /* fall through */
-        case AttributeType::CAUSE_3: /* fall through */
+        case AttributeType::CAUSE_1:
+        case AttributeType::CAUSE_2:
+        case AttributeType::CAUSE_3:
         case AttributeType::CAUSE_4:
             return 0x0E;
         case AttributeType::HAND_DOOM:
@@ -533,14 +533,14 @@ static TERM_COLOR spell_color(AttributeType type)
         TERM_COLOR a;
 
         /* Lookup the default colors for this type */
-        concptr s = quark_str(gf_colors[type]);
+        const auto &color = gf_colors[type];
 
-        if (!s) {
+        if (color.empty()) {
             return TERM_WHITE;
         }
 
         /* Pick a random color */
-        auto c = s[randint0(strlen(s))];
+        auto c = color[randint0(color.size())];
 
         /* Lookup this color */
         a = angband_strchr(color_char, c) - color_char;

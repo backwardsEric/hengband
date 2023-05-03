@@ -9,7 +9,6 @@
 #include "core/player-redraw-types.h"
 #include "core/stuff-handler.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-feature.h"
@@ -28,10 +27,12 @@
 #include "monster/monster-update.h"
 #include "pet/pet-util.h"
 #include "spell-kind/spells-teleport.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "target/grid-selector.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
@@ -53,7 +54,7 @@ void SpellsMirrorMaster::remove_mirror(int y, int x)
     auto *g_ptr = &this->player_ptr->current_floor_ptr->grid_array[y][x];
     reset_bits(g_ptr->info, CAVE_OBJECT);
     g_ptr->mimic = 0;
-    if (d_info[this->player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[this->player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         reset_bits(g_ptr->info, CAVE_GLOW);
         if (!view_torch_grids) {
             reset_bits(g_ptr->info, CAVE_MARK);
@@ -169,7 +170,7 @@ bool SpellsMirrorMaster::mirror_concentration()
         this->player_ptr->csp_frac = 0;
     }
 
-    set_bits(this->player_ptr->redraw, PR_MANA);
+    set_bits(this->player_ptr->redraw, PR_MP);
     return true;
 }
 
@@ -471,6 +472,10 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
     std::vector<projection_path> second_path_g_list;
     handle_stuff(this->player_ptr);
 
+    if (path_g.path_num() == 0) {
+        return;
+    }
+
     project_m_n = 0;
     project_m_x = 0;
     project_m_y = 0;
@@ -497,7 +502,7 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
             }
         }
 
-        if (!cave_has_flag_bold(floor_ptr, ny, nx, FloorFeatureType::PROJECT)) {
+        if (!cave_has_flag_bold(floor_ptr, ny, nx, TerrainCharacteristics::PROJECT)) {
             break;
         }
         oy = ny;

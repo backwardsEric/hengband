@@ -4,15 +4,15 @@
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
 #include "save/save-util.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/quarks.h"
 
-static void write_monster_flags(monster_type *m_ptr, BIT_FLAGS *flags)
+static void write_monster_flags(MonsterEntity *m_ptr, BIT_FLAGS *flags)
 {
-    if (!is_original_ap(m_ptr)) {
+    if (!m_ptr->is_original_ap()) {
         set_bits(*flags, SaveDataMonsterFlagType::AP_R_IDX);
     }
 
@@ -20,27 +20,27 @@ static void write_monster_flags(monster_type *m_ptr, BIT_FLAGS *flags)
         set_bits(*flags, SaveDataMonsterFlagType::SUB_ALIGN);
     }
 
-    if (monster_csleep_remaining(m_ptr)) {
+    if (m_ptr->is_asleep()) {
         set_bits(*flags, SaveDataMonsterFlagType::CSLEEP);
     }
 
-    if (monster_fast_remaining(m_ptr)) {
+    if (m_ptr->is_accelerated()) {
         set_bits(*flags, SaveDataMonsterFlagType::FAST);
     }
 
-    if (monster_slow_remaining(m_ptr)) {
+    if (m_ptr->is_decelerated()) {
         set_bits(*flags, SaveDataMonsterFlagType::SLOW);
     }
 
-    if (monster_stunned_remaining(m_ptr)) {
+    if (m_ptr->is_stunned()) {
         set_bits(*flags, SaveDataMonsterFlagType::STUNNED);
     }
 
-    if (monster_confused_remaining(m_ptr)) {
+    if (m_ptr->is_confused()) {
         set_bits(*flags, SaveDataMonsterFlagType::CONFUSED);
     }
 
-    if (monster_fear_remaining(m_ptr)) {
+    if (m_ptr->is_fearful()) {
         set_bits(*flags, SaveDataMonsterFlagType::MONFEAR);
     }
 
@@ -52,7 +52,7 @@ static void write_monster_flags(monster_type *m_ptr, BIT_FLAGS *flags)
         set_bits(*flags, SaveDataMonsterFlagType::TARGET_X);
     }
 
-    if (monster_invulner_remaining(m_ptr)) {
+    if (m_ptr->is_invulnerable()) {
         set_bits(*flags, SaveDataMonsterFlagType::INVULNER);
     }
 
@@ -68,7 +68,7 @@ static void write_monster_flags(monster_type *m_ptr, BIT_FLAGS *flags)
         set_bits(*flags, SaveDataMonsterFlagType::MFLAG2);
     }
 
-    if (m_ptr->nickname) {
+    if (m_ptr->is_named()) {
         set_bits(*flags, SaveDataMonsterFlagType::NICKNAME);
     }
 
@@ -79,7 +79,7 @@ static void write_monster_flags(monster_type *m_ptr, BIT_FLAGS *flags)
     wr_u32b(*flags);
 }
 
-static void write_monster_info(monster_type *m_ptr, const BIT_FLAGS flags)
+static void write_monster_info(MonsterEntity *m_ptr, const BIT_FLAGS flags)
 {
     byte tmp8u;
     if (any_bits(flags, SaveDataMonsterFlagType::FAST)) {
@@ -133,7 +133,7 @@ static void write_monster_info(monster_type *m_ptr, const BIT_FLAGS flags)
     }
 
     if (any_bits(flags, SaveDataMonsterFlagType::NICKNAME)) {
-        wr_string(quark_str(m_ptr->nickname));
+        wr_string(m_ptr->nickname);
     }
 
     if (any_bits(flags, SaveDataMonsterFlagType::PARENT)) {
@@ -145,7 +145,7 @@ static void write_monster_info(monster_type *m_ptr, const BIT_FLAGS flags)
  * @brief モンスター情報を書き込む / Write a "monster" record
  * @param m_ptr モンスター情報保存元ポインタ
  */
-void wr_monster(monster_type *m_ptr)
+void wr_monster(MonsterEntity *m_ptr)
 {
     BIT_FLAGS flags = 0x00000000;
     write_monster_flags(m_ptr, &flags);
@@ -181,7 +181,7 @@ void wr_monster(monster_type *m_ptr)
  */
 void wr_lore(MonsterRaceId r_idx)
 {
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
     wr_s16b((int16_t)r_ptr->r_sights);
     wr_s16b((int16_t)r_ptr->r_deaths);
     wr_s16b((int16_t)r_ptr->r_pkills);

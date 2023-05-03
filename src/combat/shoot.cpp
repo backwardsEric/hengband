@@ -40,13 +40,13 @@
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
+#include "monster/monster-pain-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
 #include "object/object-broken.h"
 #include "object/object-flags.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "object/object-mark-types.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
@@ -57,10 +57,12 @@
 #include "player/player-status-table.h"
 #include "sv-definition/sv-bow-types.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
@@ -78,7 +80,7 @@
  * @param arrow_ptr 矢弾のオブジェクト構造体参照ポインタ
  * @return スナイパーの射撃属性、弓矢の属性を考慮する。デフォルトはGF_PLAYER_SHOOT。
  */
-AttributeFlags shot_attribute(PlayerType *player_ptr, ObjectType *bow_ptr, ObjectType *arrow_ptr, SPELL_IDX snipe_type)
+AttributeFlags shot_attribute(PlayerType *player_ptr, ItemEntity *bow_ptr, ItemEntity *arrow_ptr, SPELL_IDX snipe_type)
 {
     AttributeFlags attribute_flags{};
     attribute_flags.set(AttributeType::PLAYER_SHOOT);
@@ -151,11 +153,11 @@ AttributeFlags shot_attribute(PlayerType *player_ptr, ObjectType *bow_ptr, Objec
  * @return スレイ倍率をかけたダメージ量
  */
 static MULTIPLY calc_shot_damage_with_slay(
-    PlayerType *player_ptr, ObjectType *bow_ptr, ObjectType *arrow_ptr, int tdam, monster_type *monster_ptr, SPELL_IDX snipe_type)
+    PlayerType *player_ptr, ItemEntity *bow_ptr, ItemEntity *arrow_ptr, int tdam, MonsterEntity *monster_ptr, SPELL_IDX snipe_type)
 {
     MULTIPLY mult = 10;
 
-    monster_race *race_ptr = &r_info[monster_ptr->r_idx];
+    MonsterRaceInfo *race_ptr = &monraces_info[monster_ptr->r_idx];
 
     TrFlags flags{};
     auto arrow_flags = object_flags(arrow_ptr);
@@ -164,7 +166,7 @@ static MULTIPLY calc_shot_damage_with_slay(
     flags = bow_flags | arrow_flags;
 
     /* Some "weapons" and "ammo" do extra damage */
-    switch (arrow_ptr->tval) {
+    switch (arrow_ptr->bi_key.tval()) {
     case ItemKindType::SHOT:
     case ItemKindType::ARROW:
     case ItemKindType::BOLT: {
@@ -348,8 +350,8 @@ static MULTIPLY calc_shot_damage_with_slay(
                 mult = 30;
             }
 
-            auto can_eliminate_smaug = arrow_ptr->fixed_artifact_idx == FixedArtifactId::BARD_ARROW;
-            can_eliminate_smaug &= player_ptr->inventory_list[INVEN_BOW].fixed_artifact_idx == FixedArtifactId::BARD;
+            auto can_eliminate_smaug = arrow_ptr->is_specific_artifact(FixedArtifactId::BARD_ARROW);
+            can_eliminate_smaug &= player_ptr->inventory_list[INVEN_BOW].is_specific_artifact(FixedArtifactId::BARD);
             can_eliminate_smaug &= monster_ptr->r_idx == MonsterRaceId::SMAUG;
             if (can_eliminate_smaug) {
                 mult *= 5;
@@ -443,7 +445,7 @@ static MULTIPLY calc_shot_damage_with_slay(
 
         if ((flags.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (player_ptr->msp / 30))) {
             player_ptr->csp -= (1 + (player_ptr->msp / 30));
-            set_bits(player_ptr->redraw, PR_MANA);
+            set_bits(player_ptr->redraw, PR_MP);
             mult = mult * 5 / 2;
         }
         break;
@@ -485,29 +487,18 @@ static MULTIPLY calc_shot_damage_with_slay(
  * Note that Bows of "Extra Shots" give an extra shot.
  * </pre>
  */
-void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPELL_IDX snipe_type)
+void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ItemEntity *j_ptr, SPELL_IDX snipe_type)
 {
-    DIRECTION dir;
-    int i;
     POSITION y, x, ny, nx, ty, tx, prev_y, prev_x;
-    int tdam_base, tdis, thits, tmul;
-    int bonus, chance;
-    int cur_dis, visible;
-    PERCENTAGE j;
-
-    ObjectType forge;
-    ObjectType *q_ptr;
-    ObjectType *o_ptr;
+    ItemEntity forge;
+    ItemEntity *q_ptr;
+    ItemEntity *o_ptr;
 
     AttributeFlags attribute_flags{};
     attribute_flags.set(AttributeType::PLAYER_SHOOT);
 
-    bool hit_body = false;
-
-    GAME_TEXT o_name[MAX_NLEN];
-
-    /* STICK TO */
-    bool stick_to = false;
+    auto hit_body = false;
+    auto stick_to = false;
 
     /* Access the item (if in the pack) */
     if (item >= 0) {
@@ -521,27 +512,38 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
         snipe_type = SP_NONE;
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, OD_OMIT_PREFIX);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_OMIT_PREFIX);
 
     /* Use the proper number of shots */
-    thits = player_ptr->num_fire;
+    auto thits = player_ptr->num_fire;
 
     /* Use a base distance */
-    tdis = 10;
+    auto tdis = 10;
 
     /* Base damage from thrown object plus launcher bonus */
-    tdam_base = damroll(o_ptr->dd, o_ptr->ds) + o_ptr->to_d + j_ptr->to_d;
+    auto tdam_base = damroll(o_ptr->dd, o_ptr->ds) + o_ptr->to_d + j_ptr->to_d;
 
     /* Actually "fire" the object */
-    bonus = (player_ptr->to_h_b + o_ptr->to_h + j_ptr->to_h);
-    if ((j_ptr->sval == SV_LIGHT_XBOW) || (j_ptr->sval == SV_HEAVY_XBOW)) {
-        chance = (player_ptr->skill_thb + (player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] / 400 + bonus) * BTH_PLUS_ADJ);
+    const auto tval = j_ptr->bi_key.tval();
+    const auto median_skill_exp = PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2;
+    const auto bonus = (player_ptr->to_h_b + o_ptr->to_h + j_ptr->to_h);
+    const auto &weapon_exps = player_ptr->weapon_exp[tval];
+    constexpr auto bow_magnification = 200;
+    constexpr auto xbow_magnification = 400;
+    int chance;
+    if (tval == ItemKindType::NONE) {
+        chance = (player_ptr->skill_thb + ((weapon_exps[0] - median_skill_exp) / bow_magnification + bonus) * BTH_PLUS_ADJ);
     } else {
-        chance = (player_ptr->skill_thb + ((player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] - (PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2)) / 200 + bonus) * BTH_PLUS_ADJ);
+        const auto sval = j_ptr->bi_key.sval().value();
+        if (j_ptr->is_cross_bow()) {
+            chance = (player_ptr->skill_thb + (weapon_exps[sval] / xbow_magnification + bonus) * BTH_PLUS_ADJ);
+        } else {
+            chance = (player_ptr->skill_thb + ((weapon_exps[sval] - median_skill_exp) / bow_magnification + bonus) * BTH_PLUS_ADJ);
+        }
     }
 
-    PlayerEnergy(player_ptr).set_player_turn_energy(bow_energy(j_ptr->sval));
-    tmul = bow_tmul(j_ptr->sval);
+    PlayerEnergy(player_ptr).set_player_turn_energy(j_ptr->get_bow_energy());
+    auto tmul = j_ptr->get_arrow_magnification();
 
     /* Get extra "power" from "extra might" */
     if (player_ptr->xtra_might) {
@@ -559,13 +561,14 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
 
     /* Base range */
     tdis = 13 + tmul / 80;
-    if ((j_ptr->sval == SV_LIGHT_XBOW) || (j_ptr->sval == SV_HEAVY_XBOW)) {
+    if (j_ptr->is_cross_bow()) {
         tdis -= (5 - (sniper_concent + 1) / 2);
     }
 
     project_length = tdis + 1;
 
     /* Get a direction (or cancel) */
+    DIRECTION dir;
     if (!get_aim_dir(player_ptr, &dir)) {
         PlayerEnergy(player_ptr).reset_player_turn();
 
@@ -608,7 +611,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
     }
 
     /* Take a (partial) turn */
-    PlayerEnergy(player_ptr).div_player_turn_energy((ENERGY)thits);
+    PlayerEnergy(player_ptr).div_player_turn_energy(thits);
     player_ptr->is_fired = true;
 
     /* Sniper - Difficult to shot twice at 1 turn */
@@ -617,7 +620,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
     }
 
     /* Sniper - Repeat shooting when double shots */
-    for (i = 0; i < ((snipe_type == SP_DOUBLE) ? 2 : 1); i++) {
+    for (auto i = 0; i < ((snipe_type == SP_DOUBLE) ? 2 : 1); i++) {
         /* Start at the player */
         y = player_ptr->y;
         x = player_ptr->x;
@@ -639,7 +642,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
         hit_body = false;
 
         /* Travel until stopped */
-        for (cur_dis = 0; cur_dis <= tdis;) {
+        for (auto cur_dis = 0; cur_dis <= tdis;) {
             grid_type *g_ptr;
 
             /* Hack -- Stop at the target */
@@ -656,16 +659,16 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
             if (snipe_type == SP_KILL_WALL) {
                 g_ptr = &player_ptr->current_floor_ptr->grid_array[ny][nx];
 
-                if (g_ptr->cave_has_flag(FloorFeatureType::HURT_ROCK) && !g_ptr->m_idx) {
+                if (g_ptr->cave_has_flag(TerrainCharacteristics::HURT_ROCK) && !g_ptr->m_idx) {
                     if (any_bits(g_ptr->info, (CAVE_MARK))) {
                         msg_print(_("岩が砕け散った。", "Wall rocks were shattered."));
                     }
                     /* Forget the wall */
                     reset_bits(g_ptr->info, (CAVE_MARK));
-                    set_bits(player_ptr->update, PU_VIEW | PU_LITE | PU_FLOW | PU_MON_LITE);
+                    set_bits(player_ptr->update, PU_VIEW | PU_LITE | PU_FLOW | PU_MONSTER_LITE);
 
                     /* Destroy the wall */
-                    cave_alter_feat(player_ptr, ny, nx, FloorFeatureType::HURT_ROCK);
+                    cave_alter_feat(player_ptr, ny, nx, TerrainCharacteristics::HURT_ROCK);
 
                     hit_body = true;
                     break;
@@ -673,7 +676,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
             }
 
             /* Stopped by walls/doors */
-            if (!cave_has_flag_bold(player_ptr->current_floor_ptr, ny, nx, FloorFeatureType::PROJECT) && !player_ptr->current_floor_ptr->grid_array[ny][nx].m_idx) {
+            if (!cave_has_flag_bold(player_ptr->current_floor_ptr, ny, nx, TerrainCharacteristics::PROJECT) && !player_ptr->current_floor_ptr->grid_array[ny][nx].m_idx) {
                 break;
             }
 
@@ -736,20 +739,20 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                 grid_type *c_mon_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
 
                 auto *m_ptr = &player_ptr->current_floor_ptr->m_list[c_mon_ptr->m_idx];
-                auto *r_ptr = &r_info[m_ptr->r_idx];
+                auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
                 /* Check the visibility */
-                visible = m_ptr->ml;
+                auto visible = m_ptr->ml;
 
                 /* Note the collision */
                 hit_body = true;
 
-                if (monster_csleep_remaining(m_ptr)) {
+                if (m_ptr->is_asleep()) {
                     if (r_ptr->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
-                        chg_virtue(player_ptr, V_COMPASSION, -1);
+                        chg_virtue(player_ptr, Virtue::COMPASSION, -1);
                     }
                     if (r_ptr->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
-                        chg_virtue(player_ptr, V_HONOUR, -1);
+                        chg_virtue(player_ptr, Virtue::HONOUR, -1);
                     }
                 }
 
@@ -762,7 +765,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                 }
 
                 /* Did we hit it (penalize range) */
-                if (test_hit_fire(player_ptr, chance - cur_dis, m_ptr, m_ptr->ml, o_name)) {
+                if (test_hit_fire(player_ptr, chance - cur_dis, m_ptr, m_ptr->ml, item_name.data())) {
                     bool fear = false;
                     auto tdam = tdam_base; //!< @note 実際に与えるダメージ
                     auto base_dam = tdam; //!< @note 補正前の与えるダメージ(無傷、全ての耐性など)
@@ -773,17 +776,15 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                     /* Handle unseen monster */
                     if (!visible) {
                         /* Invisible monster */
-                        msg_format(_("%sが敵を捕捉した。", "The %s finds a mark."), o_name);
+                        msg_format(_("%sが敵を捕捉した。", "The %s finds a mark."), item_name.data());
                     }
 
                     /* Handle visible monster */
                     else {
-                        GAME_TEXT m_name[MAX_NLEN];
-
                         /* Get "the monster" or "it" */
-                        monster_desc(player_ptr, m_name, m_ptr, 0);
+                        const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
-                        msg_format(_("%sが%sに命中した。", "The %s hits %s."), o_name, m_name);
+                        msg_format(_("%sが%sに命中した。", "The %s hits %s."), item_name.data(), m_name.data());
 
                         if (m_ptr->ml) {
                             if (!player_ptr->effects()->hallucination()->is_hallucinated()) {
@@ -795,15 +796,15 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                     }
 
                     if (snipe_type == SP_NEEDLE) {
-                        if ((randint1(randint1(r_ptr->level / (3 + sniper_concent)) + (8 - sniper_concent)) == 1) && r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && none_bits(r_ptr->flags7, RF7_UNIQUE2)) {
-                            GAME_TEXT m_name[MAX_NLEN];
-
+                        const auto is_unique = r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
+                        const auto fatality = randint1(r_ptr->level / (3 + sniper_concent)) + (8 - sniper_concent);
+                        if ((randint1(fatality) == 1) && !is_unique && none_bits(r_ptr->flags7, RF7_UNIQUE2)) {
                             /* Get "the monster" or "it" */
-                            monster_desc(player_ptr, m_name, m_ptr, 0);
+                            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
                             tdam = m_ptr->hp + 1;
                             base_dam = tdam;
-                            msg_format(_("%sの急所に突き刺さった！", "Your shot hit a fatal spot of %s!"), m_name);
+                            msg_format(_("%sの急所に突き刺さった！", "Your shot hit a fatal spot of %s!"), m_name.data());
                         } else {
                             tdam = 1;
                             base_dam = tdam;
@@ -846,7 +847,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
 
                     /* Hit the monster, check for death */
                     MonsterDamageProcessor mdp(player_ptr, c_mon_ptr->m_idx, tdam, &fear, attribute_flags);
-                    if (mdp.mon_take_hit(extract_note_dies(real_r_idx(m_ptr)))) {
+                    if (mdp.mon_take_hit(extract_note_dies(m_ptr->get_real_r_idx()))) {
                         /* Dead monster */
                     }
 
@@ -854,15 +855,16 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                     else {
                         /* STICK TO */
                         if (q_ptr->is_fixed_artifact() && (sniper_concent == 0)) {
-                            GAME_TEXT m_name[MAX_NLEN];
-
-                            monster_desc(player_ptr, m_name, m_ptr, 0);
+                            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
                             stick_to = true;
-                            msg_format(_("%sは%sに突き刺さった！", "%^s is stuck in %s!"), o_name, m_name);
+                            msg_format(_("%sは%sに突き刺さった！", "%s^ is stuck in %s!"), item_name.data(), m_name.data());
                         }
 
-                        message_pain(player_ptr, c_mon_ptr->m_idx, tdam);
+                        if (const auto pain_message = MonsterPainDescriber(player_ptr, c_mon_ptr->m_idx).describe(tdam);
+                            !pain_message.empty()) {
+                            msg_print(pain_message);
+                        }
 
                         /* Anger the monster */
                         if (tdam > 0) {
@@ -870,10 +872,9 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
                         }
 
                         if (fear && m_ptr->ml) {
-                            GAME_TEXT m_name[MAX_NLEN];
+                            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                             sound(SOUND_FLEE);
-                            monster_desc(player_ptr, m_name, m_ptr, 0);
-                            msg_format(_("%^sは恐怖して逃げ出した！", "%^s flees in terror!"), m_name);
+                            msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), m_name.data());
                         }
 
                         set_target(m_ptr, player_ptr->y, player_ptr->x);
@@ -945,7 +946,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
         }
 
         /* Chance of breakage (during attacks) */
-        j = (hit_body ? breakage_chance(player_ptr, q_ptr, PlayerClass(player_ptr).equals(PlayerClassType::ARCHER), snipe_type) : 0);
+        auto j = (hit_body ? breakage_chance(player_ptr, q_ptr, PlayerClass(player_ptr).equals(PlayerClassType::ARCHER), snipe_type) : 0);
 
         if (stick_to) {
             MONSTER_IDX m_idx = player_ptr->current_floor_ptr->grid_array[y][x].m_idx;
@@ -953,9 +954,9 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
             OBJECT_IDX o_idx = o_pop(player_ptr->current_floor_ptr);
 
             if (!o_idx) {
-                msg_format(_("%sはどこかへ行った。", "The %s went somewhere."), o_name);
+                msg_format(_("%sはどこかへ行った。", "The %s went somewhere."), item_name.data());
                 if (q_ptr->is_fixed_artifact()) {
-                    a_info.at(j_ptr->fixed_artifact_idx).is_generated = false;
+                    ArtifactsInfo::get_instance().get_artifact(j_ptr->fixed_artifact_idx).is_generated = false;
                 }
                 return;
             }
@@ -964,7 +965,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
             o_ptr->copy_from(q_ptr);
 
             /* Forget mark */
-            reset_bits(o_ptr->marked, OM_TOUCHED);
+            o_ptr->marked.reset(OmType::TOUCHED);
 
             /* Forget location */
             o_ptr->iy = o_ptr->ix = 0;
@@ -974,7 +975,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
 
             /* Carry object */
             m_ptr->hold_o_idx_list.add(player_ptr->current_floor_ptr, o_idx);
-        } else if (cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, FloorFeatureType::PROJECT)) {
+        } else if (cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT)) {
             /* Drop (or break) near that location */
             (void)drop_near(player_ptr, q_ptr, j, y, x);
         } else {
@@ -990,20 +991,19 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX item, ObjectType *j_ptr, SPE
 }
 
 /*!
- * @brief プレイヤーからモンスターへの射撃命中判定 /
- * Determine if the player "hits" a monster (normal combat).
+ * @brief プレイヤーからモンスターへの射撃命中判定
  * @param chance 基本命中値
  * @param monster_ptr モンスターの構造体参照ポインタ
  * @param vis 目標を視界に捕らえているならばTRUEを指定
- * @param o_name メッセージ表示時のモンスター名
+ * @param item_name 石川五右衛門専用メッセージ：無効化した矢弾の名前
  * @return 命中と判定された場合TRUEを返す
- * @note Always miss 5%, always hit 5%, otherwise random.
+ * @note 最低命中率5%、最大命中率95%
  */
-bool test_hit_fire(PlayerType *player_ptr, int chance, monster_type *m_ptr, int vis, char *o_name)
+bool test_hit_fire(PlayerType *player_ptr, int chance, MonsterEntity *m_ptr, int vis, std::string_view item_name)
 {
     int k;
     ARMOUR_CLASS ac;
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
     /* Percentile dice */
     k = randint1(100);
@@ -1036,7 +1036,7 @@ bool test_hit_fire(PlayerType *player_ptr, int chance, monster_type *m_ptr, int 
     ac = r_ptr->ac;
     ac = ac * (8 - sniper_concent) / 8;
 
-    if (m_ptr->r_idx == MonsterRaceId::GOEMON && !monster_csleep_remaining(m_ptr)) {
+    if (m_ptr->r_idx == MonsterRaceId::GOEMON && !m_ptr->is_asleep()) {
         ac *= 3;
     }
 
@@ -1047,10 +1047,9 @@ bool test_hit_fire(PlayerType *player_ptr, int chance, monster_type *m_ptr, int 
 
     /* Power competes against armor */
     if (randint0(chance) < (ac * 3 / 4)) {
-        if (m_ptr->r_idx == MonsterRaceId::GOEMON && !monster_csleep_remaining(m_ptr)) {
-            GAME_TEXT m_name[MAX_NLEN];
-            monster_desc(player_ptr, m_name, m_ptr, 0);
-            msg_format(_("%sは%sを斬り捨てた！", "%s cuts down %s!"), m_name, o_name);
+        if (m_ptr->r_idx == MonsterRaceId::GOEMON && !m_ptr->is_asleep()) {
+            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+            msg_format(_("%sは%sを斬り捨てた！", "%s cuts down %s!"), m_name.data(), item_name.data());
         }
         return false;
     }
@@ -1060,8 +1059,7 @@ bool test_hit_fire(PlayerType *player_ptr, int chance, monster_type *m_ptr, int 
 }
 
 /*!
- * @brief プレイヤーからモンスターへの射撃クリティカル判定 /
- * Critical hits (from objects thrown by player) Factor in item weight, total plusses, and player level.
+ * @brief プレイヤーからモンスターへの射撃クリティカル判定
  * @param weight 矢弾の重量
  * @param plus_ammo 矢弾の命中修正
  * @param plus_bow 弓の命中修正
@@ -1070,148 +1068,55 @@ bool test_hit_fire(PlayerType *player_ptr, int chance, monster_type *m_ptr, int 
  */
 int critical_shot(PlayerType *player_ptr, WEIGHT weight, int plus_ammo, int plus_bow, int dam)
 {
-    int i, k;
-    auto *j_ptr = &player_ptr->inventory_list[INVEN_BOW];
-
-    /* Extract "shot" power */
-    i = player_ptr->to_h_b + plus_ammo;
-
-    if (player_ptr->tval_ammo == ItemKindType::BOLT) {
-        i = (player_ptr->skill_thb + (player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] / 400 + i) * BTH_PLUS_ADJ);
+    const auto &item = player_ptr->inventory_list[INVEN_BOW];
+    const auto bonus = player_ptr->to_h_b + plus_ammo;
+    const auto tval = item.bi_key.tval();
+    const auto median_skill_exp = PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2;
+    const auto &weapon_exps = player_ptr->weapon_exp[tval];
+    constexpr auto bow_magnification = 200;
+    constexpr auto xbow_magnification = 400;
+    int power;
+    if (tval == ItemKindType::NONE) {
+        power = player_ptr->skill_thb + ((weapon_exps[0] - median_skill_exp) / bow_magnification + bonus) * BTH_PLUS_ADJ;
     } else {
-        i = (player_ptr->skill_thb + ((player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] - (PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2)) / 200 + i) * BTH_PLUS_ADJ);
-    }
-
-    PlayerClass pc(player_ptr);
-    auto sniper_data = pc.get_specific_data<sniper_data_type>();
-    auto sniper_concent = sniper_data ? sniper_data->concent : 0;
-
-    /* Snipers can shot more critically with crossbows */
-    i += ((i * sniper_concent) / 5);
-    if (pc.equals(PlayerClassType::SNIPER) && (player_ptr->tval_ammo == ItemKindType::BOLT)) {
-        i *= 2;
-    }
-
-    /* Good bow makes more critical */
-    i += plus_bow * 8 * (sniper_concent + 5);
-
-    /* Critical hit */
-    if (randint1(10000) <= i) {
-        k = weight * randint1(500);
-
-        if (k < 900) {
-            msg_print(_("手ごたえがあった！", "It was a good hit!"));
-            dam += (dam / 2);
-        } else if (k < 1350) {
-            msg_print(_("かなりの手ごたえがあった！", "It was a great hit!"));
-            dam *= 2;
+        const auto sval = item.bi_key.sval().value();
+        const auto weapon_exp = weapon_exps[sval];
+        if (player_ptr->tval_ammo == ItemKindType::BOLT) {
+            power = (player_ptr->skill_thb + (weapon_exp / xbow_magnification + bonus) * BTH_PLUS_ADJ);
         } else {
-            msg_print(_("会心の一撃だ！", "It was a superb hit!"));
-            dam *= 3;
+            power = player_ptr->skill_thb + ((weapon_exp - median_skill_exp) / bow_magnification + bonus) * BTH_PLUS_ADJ;
         }
     }
 
+    PlayerClass pc(player_ptr);
+    const auto sniper_data = pc.get_specific_data<sniper_data_type>();
+    const auto sniper_concent = sniper_data ? sniper_data->concent : 0;
+
+    /* Snipers can shot more critically with crossbows */
+    power += ((power * sniper_concent) / 5);
+    if (pc.equals(PlayerClassType::SNIPER) && (player_ptr->tval_ammo == ItemKindType::BOLT)) {
+        power *= 2;
+    }
+
+    /* Good bow makes more critical */
+    power += plus_bow * 8 * (sniper_concent + 5);
+    if (randint1(10000) > power) {
+        return dam;
+    }
+
+    const auto k = weight * randint1(500);
+    if (k < 900) {
+        msg_print(_("手ごたえがあった！", "It was a good hit!"));
+        dam += (dam / 2);
+    } else if (k < 1350) {
+        msg_print(_("かなりの手ごたえがあった！", "It was a great hit!"));
+        dam *= 2;
+    } else {
+        msg_print(_("会心の一撃だ！", "It was a superb hit!"));
+        dam *= 3;
+    }
+
     return dam;
-}
-
-/*!
- * @brief 射撃武器の攻撃に必要な基本消費エネルギーを返す/Return bow energy
- * @param sval 射撃武器のアイテム副分類ID
- * @return 消費する基本エネルギー
- */
-ENERGY bow_energy(OBJECT_SUBTYPE_VALUE sval)
-{
-    ENERGY energy = 10000;
-
-    /* Analyze the launcher */
-    switch (sval) {
-        /* Sling and ammo */
-    case SV_SLING: {
-        energy = 8000;
-        break;
-    }
-
-    /* Short Bow and Arrow */
-    case SV_SHORT_BOW: {
-        energy = 10000;
-        break;
-    }
-
-    /* Long Bow and Arrow */
-    case SV_LONG_BOW: {
-        energy = 10000;
-        break;
-    }
-
-    /* Bow of irresponsiblity and Arrow */
-    case SV_NAMAKE_BOW: {
-        energy = 7777;
-        break;
-    }
-
-    /* Light Crossbow and Bolt */
-    case SV_LIGHT_XBOW: {
-        energy = 12000;
-        break;
-    }
-
-    /* Heavy Crossbow and Bolt */
-    case SV_HEAVY_XBOW: {
-        energy = 13333;
-        break;
-    }
-    }
-
-    return energy;
-}
-
-/*
- * Return bow tmul
- */
-int bow_tmul(OBJECT_SUBTYPE_VALUE sval)
-{
-    int tmul = 0;
-
-    /* Analyze the launcher */
-    switch (sval) {
-        /* Sling and ammo */
-    case SV_SLING: {
-        tmul = 2;
-        break;
-    }
-
-    /* Short Bow and Arrow */
-    case SV_SHORT_BOW: {
-        tmul = 2;
-        break;
-    }
-
-    /* Long Bow and Arrow */
-    case SV_LONG_BOW: {
-        tmul = 3;
-        break;
-    }
-
-    /* Bow of irresponsiblity and Arrow */
-    case SV_NAMAKE_BOW: {
-        tmul = 3;
-        break;
-    }
-
-    /* Light Crossbow and Bolt */
-    case SV_LIGHT_XBOW: {
-        tmul = 3;
-        break;
-    }
-
-    /* Heavy Crossbow and Bolt */
-    case SV_HEAVY_XBOW: {
-        tmul = 4;
-        break;
-    }
-    }
-
-    return tmul;
 }
 
 /*!
@@ -1224,16 +1129,16 @@ int bow_tmul(OBJECT_SUBTYPE_VALUE sval)
  */
 int calc_crit_ratio_shot(PlayerType *player_ptr, int plus_ammo, int plus_bow)
 {
-    int i;
     auto *j_ptr = &player_ptr->inventory_list[INVEN_BOW];
 
     /* Extract "shot" power */
-    i = player_ptr->to_h_b + plus_ammo;
-
+    auto i = player_ptr->to_h_b + plus_ammo;
+    const auto tval = j_ptr->bi_key.tval();
+    const auto sval = j_ptr->bi_key.sval().value();
     if (player_ptr->tval_ammo == ItemKindType::BOLT) {
-        i = (player_ptr->skill_thb + (player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] / 400 + i) * BTH_PLUS_ADJ);
+        i = (player_ptr->skill_thb + (player_ptr->weapon_exp[tval][sval] / 400 + i) * BTH_PLUS_ADJ);
     } else {
-        i = (player_ptr->skill_thb + ((player_ptr->weapon_exp[j_ptr->tval][j_ptr->sval] - (PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2)) / 200 + i) * BTH_PLUS_ADJ);
+        i = (player_ptr->skill_thb + ((player_ptr->weapon_exp[tval][sval] - (PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER) / 2)) / 200 + i) * BTH_PLUS_ADJ);
     }
 
     PlayerClass pc(player_ptr);

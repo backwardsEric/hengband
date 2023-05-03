@@ -27,8 +27,8 @@
 #include "player/special-defense-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "timed-effect/player-confusion.h"
@@ -45,7 +45,7 @@
  */
 static int calc_stun_resistance(player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     int resist_stun = 0;
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
         resist_stun += 88;
@@ -140,7 +140,7 @@ static int select_blow(PlayerType *player_ptr, player_attack_type *pa_ptr, int m
 static int process_monk_additional_effect(player_attack_type *pa_ptr, int *stun_effect)
 {
     int special_effect = 0;
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if (pa_ptr->ma_ptr->effect == MA_KNEE) {
         if (r_ptr->flags1 & RF1_MALE) {
             msg_format(_("%sに金的膝蹴りをくらわした！", "You hit %s in the groin with your knee!"), pa_ptr->m_name);
@@ -202,17 +202,18 @@ static WEIGHT calc_monk_attack_weight(PlayerType *player_ptr)
  */
 static void process_attack_vital_spot(PlayerType *player_ptr, player_attack_type *pa_ptr, int *stun_effect, int *resist_stun, const int special_effect)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if ((special_effect == MA_KNEE) && ((pa_ptr->attack_damage + player_ptr->to_d[pa_ptr->hand]) < pa_ptr->m_ptr->hp)) {
-        msg_format(_("%^sは苦痛にうめいている！", "%^s moans in agony!"), pa_ptr->m_name);
+        msg_format(_("%s^は苦痛にうめいている！", "%s^ moans in agony!"), pa_ptr->m_name);
         *stun_effect = 7 + randint1(13);
         *resist_stun /= 3;
         return;
     }
 
     if ((special_effect == MA_SLOW) && ((pa_ptr->attack_damage + player_ptr->to_d[pa_ptr->hand]) < pa_ptr->m_ptr->hp)) {
-        if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && (randint1(player_ptr->lev) > r_ptr->level) && pa_ptr->m_ptr->mspeed > 60) {
-            msg_format(_("%^sは足をひきずり始めた。", "You've hobbled %s."), pa_ptr->m_name);
+        const auto is_unique = r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE);
+        if (is_unique && (randint1(player_ptr->lev) > r_ptr->level) && (pa_ptr->m_ptr->mspeed > STANDARD_SPEED - 50)) {
+            msg_format(_("%s^は足をひきずり始めた。", "You've hobbled %s."), pa_ptr->m_name);
             pa_ptr->m_ptr->mspeed -= 10;
         }
     }
@@ -228,13 +229,13 @@ static void process_attack_vital_spot(PlayerType *player_ptr, player_attack_type
  */
 static void print_stun_effect(PlayerType *player_ptr, player_attack_type *pa_ptr, const int stun_effect, const int resist_stun)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if (stun_effect && ((pa_ptr->attack_damage + player_ptr->to_d[pa_ptr->hand]) < pa_ptr->m_ptr->hp)) {
         if (player_ptr->lev > randint1(r_ptr->level + resist_stun + 10)) {
-            if (set_monster_stunned(player_ptr, pa_ptr->g_ptr->m_idx, stun_effect + monster_stunned_remaining(pa_ptr->m_ptr))) {
-                msg_format(_("%^sはフラフラになった。", "%^s is stunned."), pa_ptr->m_name);
+            if (set_monster_stunned(player_ptr, pa_ptr->g_ptr->m_idx, stun_effect + pa_ptr->m_ptr->get_remaining_stun())) {
+                msg_format(_("%s^はフラフラになった。", "%s^ is stunned."), pa_ptr->m_name);
             } else {
-                msg_format(_("%^sはさらにフラフラになった。", "%^s is more stunned."), pa_ptr->m_name);
+                msg_format(_("%s^はさらにフラフラになった。", "%s^ is more stunned."), pa_ptr->m_name);
             }
         }
     }

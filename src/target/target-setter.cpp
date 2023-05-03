@@ -21,8 +21,10 @@
 #include "target/target-preparation.h"
 #include "target/target-types.h"
 #include "term/screen-processor.h"
+#include "term/z-form.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
+#include "util/string-processor.h"
 #include "window/display-sub-windows.h"
 #include "window/main-window-util.h"
 #include <vector>
@@ -175,9 +177,9 @@ static void describe_projectablity(PlayerType *player_ptr, ts_type *ts_ptr)
 
     ts_ptr->g_ptr = &player_ptr->current_floor_ptr->grid_array[ts_ptr->y][ts_ptr->x];
     if (target_able(player_ptr, ts_ptr->g_ptr->m_idx)) {
-        strcpy(ts_ptr->info, _("q止 t決 p自 o現 +次 -前", "q,t,p,o,+,-,<dir>"));
+        angband_strcpy(ts_ptr->info, _("q止 t決 p自 o現 +次 -前", "q,t,p,o,+,-,<dir>"), sizeof(ts_ptr->info));
     } else {
-        strcpy(ts_ptr->info, _("q止 p自 o現 +次 -前", "q,p,o,+,-,<dir>"));
+        angband_strcpy(ts_ptr->info, _("q止 p自 o現 +次 -前", "q,p,o,+,-,<dir>"), sizeof(ts_ptr->info));
     }
 
     if (!cheat_sight) {
@@ -185,9 +187,11 @@ static void describe_projectablity(PlayerType *player_ptr, ts_type *ts_ptr)
     }
 
     char cheatinfo[30];
-    sprintf(cheatinfo, " X:%d Y:%d LOS:%d LOP:%d", ts_ptr->x, ts_ptr->y, los(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x),
+    strnfmt(cheatinfo, sizeof(cheatinfo), " X:%d Y:%d LOS:%d LOP:%d", ts_ptr->x,
+        ts_ptr->y,
+        los(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x),
         projectable(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x));
-    strcat(ts_ptr->info, cheatinfo);
+    angband_strcat(ts_ptr->info, cheatinfo, sizeof(ts_ptr->info));
 }
 
 static void menu_target(ts_type *ts_ptr)
@@ -250,7 +254,7 @@ static void switch_target_input(PlayerType *player_ptr, ts_type *ts_ptr)
         return;
     case 'p': {
         verify_panel(player_ptr);
-        player_ptr->update |= PU_MONSTERS;
+        player_ptr->update |= PU_MONSTER_STATUSES;
         player_ptr->redraw |= PR_MAP;
         player_ptr->window_flags |= PW_OVERHEAD;
         handle_stuff(player_ptr);
@@ -258,7 +262,7 @@ static void switch_target_input(PlayerType *player_ptr, ts_type *ts_ptr)
         ts_ptr->y = player_ptr->y;
         ts_ptr->x = player_ptr->x;
     }
-        /* Fall through */
+        [[fallthrough]];
     case 'o':
         ts_ptr->flag = false;
         return;
@@ -347,7 +351,7 @@ static void sweep_targets(PlayerType *player_ptr, ts_type *ts_ptr)
         panel_row_min = ts_ptr->y2;
         panel_col_min = ts_ptr->x2;
         panel_bounds_center();
-        player_ptr->update |= PU_MONSTERS;
+        player_ptr->update |= PU_MONSTER_STATUSES;
         player_ptr->redraw |= PR_MAP;
         player_ptr->window_flags |= PW_OVERHEAD;
         handle_stuff(player_ptr);
@@ -424,9 +428,9 @@ static void describe_grid_wizard(PlayerType *player_ptr, ts_type *ts_ptr)
     }
 
     char cheatinfo[100];
-    sprintf(cheatinfo, " X:%d Y:%d LOS:%d LOP:%d SPECIAL:%d", ts_ptr->x, ts_ptr->y, los(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x),
+    strnfmt(cheatinfo, sizeof(cheatinfo), " X:%d Y:%d LOS:%d LOP:%d SPECIAL:%d", ts_ptr->x, ts_ptr->y, los(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x),
         projectable(player_ptr, player_ptr->y, player_ptr->x, ts_ptr->y, ts_ptr->x), ts_ptr->g_ptr->special);
-    strcat(ts_ptr->info, cheatinfo);
+    angband_strcat(ts_ptr->info, cheatinfo, sizeof(ts_ptr->info));
 }
 
 static void switch_next_grid_command(PlayerType *player_ptr, ts_type *ts_ptr)
@@ -447,15 +451,17 @@ static void switch_next_grid_command(PlayerType *player_ptr, ts_type *ts_ptr)
         break;
     case 'p':
         verify_panel(player_ptr);
-        player_ptr->update |= PU_MONSTERS;
+        player_ptr->update |= PU_MONSTER_STATUSES;
         player_ptr->redraw |= PR_MAP;
         player_ptr->window_flags |= PW_OVERHEAD;
         handle_stuff(player_ptr);
         target_set_prepare(player_ptr, ys_interest, xs_interest, ts_ptr->mode);
         ts_ptr->y = player_ptr->y;
         ts_ptr->x = player_ptr->x;
+        break;
     case 'o':
-        //!< @todo ↑元からbreakしていないがFall Throughを付けてよいか不明なので保留
+        // ターゲット時の「m近」「o現」の切り替え
+        // すでに「o現」の時にoを押してもなにも起きない
         break;
     case ' ':
     case '*':
@@ -584,9 +590,9 @@ bool target_set(PlayerType *player_ptr, target_type mode)
     sweep_target_grids(player_ptr, ts_ptr);
     prt("", 0, 0);
     verify_panel(player_ptr);
-    set_bits(player_ptr->update, PU_MONSTERS);
+    set_bits(player_ptr->update, PU_MONSTER_STATUSES);
     set_bits(player_ptr->redraw, PR_MAP);
-    set_bits(player_ptr->window_flags, PW_OVERHEAD | PW_FLOOR_ITEM_LIST);
+    set_bits(player_ptr->window_flags, PW_OVERHEAD | PW_FLOOR_ITEMS);
     handle_stuff(player_ptr);
     return target_who != 0;
 }

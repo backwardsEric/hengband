@@ -28,26 +28,24 @@
 #include "object/object-mark-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
+#include <sstream>
 
 /*!
  * @brief Auto-destroy marked item
  */
 static void autopick_delayed_alter_aux(PlayerType *player_ptr, INVENTORY_IDX item)
 {
-    ObjectType *o_ptr;
-    o_ptr = ref_item(player_ptr, item);
-
-    if (o_ptr->k_idx == 0 || !(o_ptr->marked & OM_AUTODESTROY)) {
+    const auto *o_ptr = ref_item(player_ptr, item);
+    if (!o_ptr->is_valid() || o_ptr->marked.has_not(OmType::AUTODESTROY)) {
         return;
     }
 
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
     if (item >= 0) {
         inven_item_increase(player_ptr, item, -(o_ptr->number));
         inven_item_optimize(player_ptr, item);
@@ -55,7 +53,7 @@ static void autopick_delayed_alter_aux(PlayerType *player_ptr, INVENTORY_IDX ite
         delete_object_idx(player_ptr, 0 - item);
     }
 
-    msg_format(_("%sを自動破壊します。", "Auto-destroying %s."), o_name);
+    msg_format(_("%sを自動破壊します。", "Auto-destroying %s."), item_name.data());
 }
 
 /*!
@@ -88,7 +86,7 @@ void autopick_delayed_alter(PlayerType *player_ptr)
  */
 void autopick_alter_item(PlayerType *player_ptr, INVENTORY_IDX item, bool destroy)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = ref_item(player_ptr, item);
     int idx = find_autopick_list(player_ptr, o_ptr);
     auto_inscribe_item(player_ptr, o_ptr, idx);
@@ -114,10 +112,9 @@ void autopick_pickup_items(PlayerType *player_ptr, grid_type *g_ptr)
 
         disturb(player_ptr, false, false);
         if (!check_store_item_to_inventory(player_ptr, o_ptr)) {
-            GAME_TEXT o_name[MAX_NLEN];
-            describe_flavor(player_ptr, o_name, o_ptr, 0);
-            msg_format(_("ザックには%sを入れる隙間がない。", "You have no room for %s."), o_name);
-            o_ptr->marked |= OM_NOMSG;
+            const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+            msg_format(_("ザックには%sを入れる隙間がない。", "You have no room for %s."), item_name.data());
+            o_ptr->marked.set(OmType::SUPRESS_MESSAGE);
             continue;
         }
 
@@ -126,16 +123,15 @@ void autopick_pickup_items(PlayerType *player_ptr, grid_type *g_ptr)
             continue;
         }
 
-        char out_val[MAX_NLEN + 20];
-        GAME_TEXT o_name[MAX_NLEN];
-        if (o_ptr->marked & OM_NO_QUERY) {
+        if (o_ptr->marked.has(OmType::NO_QUERY)) {
             continue;
         }
 
-        describe_flavor(player_ptr, o_name, o_ptr, 0);
-        sprintf(out_val, _("%sを拾いますか? ", "Pick up %s? "), o_name);
-        if (!get_check(out_val)) {
-            o_ptr->marked |= OM_NOMSG | OM_NO_QUERY;
+        const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+        std::stringstream ss;
+        ss << _(item_name, "Pick up ") << _("を拾いますか", item_name) << "? ";
+        if (!get_check(ss.str())) {
+            o_ptr->marked.set({ OmType::SUPRESS_MESSAGE, OmType::NO_QUERY });
             continue;
         }
 

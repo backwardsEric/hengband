@@ -8,11 +8,12 @@
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-flags7.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/sort.h"
 #include "util/string-processor.h"
@@ -37,7 +38,6 @@
 void do_cmd_query_symbol(PlayerType *player_ptr)
 {
     char sym, query;
-    char buf[256];
 
     bool all = false;
     bool uniq = false;
@@ -62,34 +62,35 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
         }
     }
 
+    std::string buf;
     if (sym == KTRL('A')) {
         all = true;
-        strcpy(buf, _("全モンスターのリスト", "Full monster list."));
+        buf = _("全モンスターのリスト", "Full monster list.");
     } else if (sym == KTRL('U')) {
         all = uniq = true;
-        strcpy(buf, _("ユニーク・モンスターのリスト", "Unique monster list."));
+        buf = _("ユニーク・モンスターのリスト", "Unique monster list.");
     } else if (sym == KTRL('N')) {
         all = norm = true;
-        strcpy(buf, _("ユニーク外モンスターのリスト", "Non-unique monster list."));
+        buf = _("ユニーク外モンスターのリスト", "Non-unique monster list.");
     } else if (sym == KTRL('R')) {
         all = ride = true;
-        strcpy(buf, _("乗馬可能モンスターのリスト", "Ridable monster list."));
+        buf = _("乗馬可能モンスターのリスト", "Ridable monster list.");
     } else if (sym == KTRL('M')) {
         all = true;
         if (!get_string(_("名前(英語の場合小文字で可)", "Enter name:"), temp, 70)) {
             temp[0] = 0;
             return;
         }
-        sprintf(buf, _("名前:%sにマッチ", "Monsters' names with \"%s\""), temp);
+        buf = format(_("名前:%sにマッチ", "Monsters' names with \"%s\""), temp);
     } else if (ident_info[ident_i]) {
-        sprintf(buf, "%c - %s.", sym, ident_info[ident_i] + 2);
+        buf = format("%c - %s.", sym, ident_info[ident_i] + 2);
     } else {
-        sprintf(buf, "%c - %s", sym, _("無効な文字", "Unknown Symbol"));
+        buf = format("%c - %s", sym, _("無効な文字", "Unknown Symbol"));
     }
 
     prt(buf, 0, 0);
     std::vector<MonsterRaceId> who;
-    for (const auto &[r_idx, r_ref] : r_info) {
+    for (const auto &[r_idx, r_ref] : monraces_info) {
         if (!cheat_know && !r_ref.r_sights) {
             continue;
         }
@@ -123,9 +124,9 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
             }
 
 #ifdef JP
-            strcpy(temp2, r_ref.E_name.c_str());
+            strcpy(temp2, r_ref.E_name.data());
 #else
-            strcpy(temp2, r_ref.name.c_str());
+            strcpy(temp2, r_ref.name.data());
 #endif
             for (xx = 0; temp2[xx] && xx < MAX_MONSTER_NAME; xx++) {
                 if (isupper(temp2[xx])) {
@@ -134,7 +135,7 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
             }
 
 #ifdef JP
-            if (angband_strstr(temp2, temp) || angband_strstr(r_ref.name.c_str(), temp))
+            if (angband_strstr(temp2, temp) || angband_strstr(r_ref.name.data(), temp))
 #else
             if (angband_strstr(temp2, temp))
 #endif

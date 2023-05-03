@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="15705" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="21507" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <development version="8000" identifier="xcode"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="15705"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="21507"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -148,10 +147,10 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Toggle Sound" state="on" id="mul-VV-UfU">
+                            <menuItem title="Sound and Music ..." id="FdG-dF-c6Z" userLabel="Sound and Music ...">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
-                                    <action selector="toggleSound:" target="Voe-Tx-rLC" id="y1f-OG-ExO"/>
+                                    <action selector="showSoundAndMusicPanel:" target="Voe-Tx-rLC" id="8zL-wI-O0R"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Toggle Wide Tiles" state="on" id="tR9-z3-4SZ" userLabel="Toggle Wide Tiles">

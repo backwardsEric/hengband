@@ -27,7 +27,6 @@
 #include "object-enchant/activation-info-table.h"
 #include "object-enchant/object-ego.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "player-base/player-class.h"
 #include "player-status/player-energy.h"
 #include "racial/racial-android.h"
@@ -39,9 +38,10 @@
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-ring-types.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -55,7 +55,7 @@
 static void decide_activation_level(ae_type *ae_ptr)
 {
     if (ae_ptr->o_ptr->is_fixed_artifact()) {
-        ae_ptr->lev = a_info.at(ae_ptr->o_ptr->fixed_artifact_idx).level;
+        ae_ptr->lev = ae_ptr->o_ptr->get_fixed_artifact().level;
         return;
     }
 
@@ -68,8 +68,9 @@ static void decide_activation_level(ae_type *ae_ptr)
         return;
     }
 
-    if (((ae_ptr->o_ptr->tval == ItemKindType::RING) || (ae_ptr->o_ptr->tval == ItemKindType::AMULET)) && ae_ptr->o_ptr->is_ego()) {
-        ae_ptr->lev = e_info[ae_ptr->o_ptr->ego_idx].level;
+    const auto tval = ae_ptr->o_ptr->bi_key.tval();
+    if (((tval == ItemKindType::RING) || (tval == ItemKindType::AMULET)) && ae_ptr->o_ptr->is_ego()) {
+        ae_ptr->lev = ae_ptr->o_ptr->get_ego().level;
     }
 }
 
@@ -152,7 +153,7 @@ static bool check_activation_conditions(PlayerType *player_ptr, ae_type *ae_ptr)
  * @param o_ptr 対象のオブジェクト構造体ポインタ
  * @return 発動実行の是非を返す。
  */
-static bool activate_artifact(PlayerType *player_ptr, ObjectType *o_ptr)
+static bool activate_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     auto tmp_act_ptr = find_activation_info(o_ptr);
     if (!tmp_act_ptr.has_value()) {
@@ -161,9 +162,8 @@ static bool activate_artifact(PlayerType *player_ptr, ObjectType *o_ptr)
     }
 
     auto *act_ptr = tmp_act_ptr.value();
-    GAME_TEXT name[MAX_NLEN];
-    describe_flavor(player_ptr, name, o_ptr, OD_NAME_ONLY | OD_OMIT_PREFIX | OD_BASE_NAME);
-    if (!switch_activation(player_ptr, &o_ptr, act_ptr, name)) {
+    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY | OD_OMIT_PREFIX | OD_BASE_NAME);
+    if (!switch_activation(player_ptr, &o_ptr, act_ptr, item_name.data())) {
         return false;
     }
 
@@ -178,10 +178,10 @@ static bool activate_artifact(PlayerType *player_ptr, ObjectType *o_ptr)
 
     switch (act_ptr->index) {
     case RandomArtActType::BR_FIRE:
-        o_ptr->timeout = ((o_ptr->tval == ItemKindType::RING) && (o_ptr->sval == SV_RING_FLAMES)) ? 200 : 250;
+        o_ptr->timeout = o_ptr->bi_key == BaseitemKey(ItemKindType::RING, SV_RING_FLAMES) ? 200 : 250;
         return true;
     case RandomArtActType::BR_COLD:
-        o_ptr->timeout = ((o_ptr->tval == ItemKindType::RING) && (o_ptr->sval == SV_RING_ICE)) ? 200 : 250;
+        o_ptr->timeout = o_ptr->bi_key == BaseitemKey(ItemKindType::RING, SV_RING_ICE) ? 200 : 250;
         return true;
     case RandomArtActType::TERROR:
         o_ptr->timeout = 3 * (player_ptr->lev + 10);
@@ -189,14 +189,14 @@ static bool activate_artifact(PlayerType *player_ptr, ObjectType *o_ptr)
     case RandomArtActType::MURAMASA:
         return true;
     default:
-        msg_format("Special timeout is not implemented: %d.", act_ptr->index);
+        msg_format("Special timeout is not implemented: %d.", enum2i(act_ptr->index));
         return false;
     }
 }
 
 static bool activate_whistle(PlayerType *player_ptr, ae_type *ae_ptr)
 {
-    if (ae_ptr->o_ptr->tval != ItemKindType::WHISTLE) {
+    if (ae_ptr->o_ptr->bi_key.tval() != ItemKindType::WHISTLE) {
         return false;
     }
 
@@ -210,7 +210,8 @@ static bool activate_whistle(PlayerType *player_ptr, ae_type *ae_ptr)
 
     std::vector<MONSTER_IDX> who;
     for (MONSTER_IDX pet_ctr = player_ptr->current_floor_ptr->m_max - 1; pet_ctr >= 1; pet_ctr--) {
-        if (is_pet(&player_ptr->current_floor_ptr->m_list[pet_ctr]) && (player_ptr->riding != pet_ctr)) {
+        const auto &m_ref = player_ptr->current_floor_ptr->m_list[pet_ctr];
+        if (m_ref.is_pet() && (player_ptr->riding != pet_ctr)) {
             who.push_back(pet_ctr);
         }
     }
@@ -258,7 +259,7 @@ void exe_activate(PlayerType *player_ptr, INVENTORY_IDX item)
     sound(SOUND_ZAP);
     if (activation_index(ae_ptr->o_ptr) > RandomArtActType::NONE) {
         (void)activate_artifact(player_ptr, ae_ptr->o_ptr);
-        player_ptr->window_flags |= PW_INVEN | PW_EQUIP;
+        player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT;
         return;
     }
 
@@ -266,7 +267,7 @@ void exe_activate(PlayerType *player_ptr, INVENTORY_IDX item)
         return;
     }
 
-    if (exe_monster_capture(player_ptr, ae_ptr)) {
+    if (exe_monster_capture(player_ptr, *ae_ptr->o_ptr)) {
         return;
     }
 

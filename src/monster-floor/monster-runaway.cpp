@@ -20,8 +20,8 @@
 #include "monster/monster-processor-util.h"
 #include "pet/pet-fall-off.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "view/display-messages.h"
@@ -46,10 +46,10 @@ static bool is_acting_monster(const MonsterRaceId r_idx)
  * @param m_ptr モンスターへの参照ポインタ
  * @param m_name モンスター名称
  */
-static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, monster_type *m_ptr, GAME_TEXT *m_name)
+static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, MonsterEntity *m_ptr, concptr m_name)
 {
     if (turn_flags_ptr->is_riding_mon) {
-        msg_format(_("%sはあなたの束縛から脱出した。", "%^s succeeded to escape from your restriction!"), m_name);
+        msg_format(_("%sはあなたの束縛から脱出した。", "%s^ succeeded to escape from your restriction!"), m_name);
         if (process_fall_off_horse(player_ptr, -1, false)) {
             msg_print(_("地面に落とされた。", "You have fallen from the pet you were riding."));
         }
@@ -62,16 +62,16 @@ static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, m
             MonsterSpeakType::SPEAK_FEAR,
         };
 
-        auto speak = r_info[m_ptr->r_idx].speak_flags.has_any_of(flags);
+        auto speak = monraces_info[m_ptr->r_idx].speak_flags.has_any_of(flags);
         speak &= !is_acting_monster(m_ptr->r_idx);
         speak &= player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx);
         speak &= projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
         if (speak) {
-            msg_format(_("%^s「ピンチだ！退却させてもらう！」", "%^s says 'It is the pinch! I will retreat'."), m_name);
+            msg_format(_("%s^「ピンチだ！退却させてもらう！」", "%s^ says 'It is the pinch! I will retreat'."), m_name);
         }
 
-        msg_format(_("%^sがテレポート・レベルの巻物を読んだ。", "%^s reads a scroll of teleport level."), m_name);
-        msg_format(_("%^sが消え去った。", "%^s disappears."), m_name);
+        msg_format(_("%s^がテレポート・レベルの巻物を読んだ。", "%s^ reads a scroll of teleport level."), m_name);
+        msg_format(_("%s^が消え去った。", "%s^ disappears."), m_name);
     }
 
     if (turn_flags_ptr->is_riding_mon && process_fall_off_horse(player_ptr, -1, false)) {
@@ -90,8 +90,8 @@ static void escape_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, m
 bool runaway_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, MONSTER_IDX m_idx)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &r_info[m_ptr->r_idx];
-    bool can_runaway = is_pet(m_ptr) || is_friendly(m_ptr);
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    bool can_runaway = m_ptr->is_pet() || m_ptr->is_friendly();
     can_runaway &= (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) || (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL));
     can_runaway &= !player_ptr->phase_out;
     if (!can_runaway) {
@@ -109,17 +109,16 @@ bool runaway_monster(PlayerType *player_ptr, turn_flags *turn_flags_ptr, MONSTER
         return false;
     }
 
-    GAME_TEXT m_name[MAX_NLEN];
-    monster_desc(player_ptr, m_name, m_ptr, 0);
+    const auto m_name = monster_desc(player_ptr, m_ptr, 0);
     if (turn_flags_ptr->is_riding_mon && riding_pinch < 2) {
         msg_format(
-            _("%sは傷の痛さの余りあなたの束縛から逃れようとしている。", "%^s seems to be in so much pain and tries to escape from your restriction."), m_name);
+            _("%sは傷の痛さの余りあなたの束縛から逃れようとしている。", "%s^ seems to be in so much pain and tries to escape from your restriction."), m_name.data());
         riding_pinch++;
         disturb(player_ptr, true, true);
         return false;
     }
 
-    escape_monster(player_ptr, turn_flags_ptr, m_ptr, m_name);
+    escape_monster(player_ptr, turn_flags_ptr, m_ptr, m_name.data());
     QuestCompletionChecker(player_ptr, m_ptr).complete();
     delete_monster_idx(player_ptr, m_idx);
     return true;

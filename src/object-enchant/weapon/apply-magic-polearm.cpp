@@ -8,7 +8,7 @@
 #include "floor/floor-base-definitions.h"
 #include "inventory/inventory-slot-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 
 /*!
  * @brief 長柄/斧強化クラスのコンストラクタ
@@ -17,7 +17,7 @@
  * @param level 生成基準階
  * @param power 生成ランク
  */
-PolearmEnchanter::PolearmEnchanter(PlayerType *player_ptr, ObjectType *o_ptr, DEPTH level, int power)
+PolearmEnchanter::PolearmEnchanter(PlayerType *player_ptr, ItemEntity *o_ptr, DEPTH level, int power)
     : MeleeWeaponEnchanter(player_ptr, o_ptr, level, power)
 {
 }
@@ -32,7 +32,7 @@ void PolearmEnchanter::apply_magic()
 void PolearmEnchanter::decide_skip()
 {
     AbstractWeaponEnchanter::decide_skip();
-    this->should_skip |= this->o_ptr->sval == SV_DEATH_SCYTHE;
+    this->should_skip |= this->o_ptr->bi_key.sval() == SV_DEATH_SCYTHE;
 }
 
 void PolearmEnchanter::give_ego_index()

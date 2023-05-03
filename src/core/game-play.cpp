@@ -26,7 +26,6 @@
 #include "core/visuals-reseter.h"
 #include "core/window-redrawer.h"
 #include "dungeon/dungeon-processor.h"
-#include "flavor/object-flavor.h"
 #include "floor/cave.h"
 #include "floor/floor-changer.h"
 #include "floor/floor-events.h"
@@ -51,6 +50,7 @@
 #include "io/screen-util.h"
 #include "io/signal-handlers.h"
 #include "io/write-diary.h"
+#include "item-info/flavor-initializer.h"
 #include "load/load.h"
 #include "main/sound-of-music.h"
 #include "market/arena-info-table.h"
@@ -83,13 +83,14 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/angband-version.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
+#include "term/z-form.h"
 #include "util/angband-files.h"
 #include "view/display-messages.h"
 #include "view/display-player.h"
@@ -101,11 +102,11 @@ static void restore_windows(PlayerType *player_ptr)
 {
     player_ptr->hack_mutation = false;
     w_ptr->character_icky_depth = 1;
-    term_activate(angband_term[0]);
-    angband_term[0]->resize_hook = resize_map;
-    for (MONSTER_IDX i = 1; i < 8; i++) {
-        if (angband_term[i]) {
-            angband_term[i]->resize_hook = redraw_window;
+    term_activate(angband_terms[0]);
+    angband_terms[0]->resize_hook = resize_map;
+    for (auto i = 1U; i < angband_terms.size(); ++i) {
+        if (angband_terms[i]) {
+            angband_terms[i]->resize_hook = redraw_window;
         }
     }
 
@@ -123,7 +124,7 @@ static void send_waiting_record(PlayerType *player_ptr)
         quit(0);
     }
 
-    player_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+    player_ptr->update |= (PU_BONUS | PU_HP | PU_MP | PU_SPELLS);
     update_creature(player_ptr);
     player_ptr->is_dead = true;
     w_ptr->start_time = (uint32_t)time(nullptr);
@@ -133,7 +134,7 @@ static void send_waiting_record(PlayerType *player_ptr)
     highscore_fd = fd_open(buf, O_RDWR);
 
     /* 町名消失バグ対策(#38205)のためここで世界マップ情報を読み出す */
-    parse_fixed_map(player_ptr, "w_info.txt", 0, 0, w_ptr->max_wild_y, w_ptr->max_wild_x);
+    parse_fixed_map(player_ptr, WILDERNESS_DEFINITION, 0, 0, w_ptr->max_wild_y, w_ptr->max_wild_x);
     bool success = send_world_score(player_ptr, true);
     if (!success && !get_check_strict(player_ptr, _("スコア登録を諦めますか？", "Do you give up score registration? "), CHECK_NO_HISTORY)) {
         prt(_("引き続き待機します。", "standing by for future registration..."), 0, 0);
@@ -235,9 +236,9 @@ static void generate_wilderness(PlayerType *player_ptr)
         return;
     }
 
-    parse_fixed_map(player_ptr, "w_info.txt", 0, 0, w_ptr->max_wild_y, w_ptr->max_wild_x);
+    parse_fixed_map(player_ptr, WILDERNESS_DEFINITION, 0, 0, w_ptr->max_wild_y, w_ptr->max_wild_x);
     init_flags = INIT_ONLY_BUILDINGS;
-    parse_fixed_map(player_ptr, "t_info.txt", 0, 0, MAX_HGT, MAX_WID);
+    parse_fixed_map(player_ptr, TOWN_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID);
     select_floor_music(player_ptr);
 }
 
@@ -272,7 +273,7 @@ static void generate_world(PlayerType *player_ptr, bool new_game)
     panel_col_min = floor_ptr->width;
 
     set_floor_and_wall(player_ptr->dungeon_idx);
-    flavor_init();
+    initialize_items_flavor();
     prt(_("お待ち下さい...", "Please wait..."), 0, 0);
     term_fresh();
     generate_wilderness(player_ptr);
@@ -284,7 +285,7 @@ static void generate_world(PlayerType *player_ptr, bool new_game)
     }
 
     char buf[80];
-    sprintf(buf, _("%sに降り立った。", "arrived in %s."), map_name(player_ptr));
+    strnfmt(buf, sizeof(buf), _("%sに降り立った。", "arrived in %s."), map_name(player_ptr));
     exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, buf);
 }
 
@@ -310,7 +311,7 @@ static void init_riding_pet(PlayerType *player_ptr, bool new_game)
     }
 
     MonsterRaceId pet_r_idx = pc.equals(PlayerClassType::CAVALRY) ? MonsterRaceId::HORSE : MonsterRaceId::YASE_HORSE;
-    auto *r_ptr = &r_info[pet_r_idx];
+    auto *r_ptr = &monraces_info[pet_r_idx];
     place_monster_aux(player_ptr, 0, player_ptr->y, player_ptr->x - 1, pet_r_idx, (PM_FORCE_PET | PM_NO_KAGE));
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[hack_m_idx_ii];
     m_ptr->mspeed = r_ptr->speed;

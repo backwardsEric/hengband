@@ -11,7 +11,7 @@
 #include "object/object-value.h"
 #include "player-info/equipment-info.h"
 #include "spell-realm/spells-craft.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/object-sort.h"
 #include "view/display-messages.h"
@@ -55,9 +55,9 @@ void inven_item_increase(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER
 
     o_ptr->number += num;
     player_ptr->update |= (PU_BONUS);
-    player_ptr->update |= (PU_MANA);
-    player_ptr->update |= (PU_COMBINE);
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+    player_ptr->update |= (PU_MP);
+    player_ptr->update |= (PU_COMBINATION);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
 
     if (o_ptr->number || !player_ptr->ele_attack) {
         return;
@@ -65,7 +65,7 @@ void inven_item_increase(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER
     if (!(item == INVEN_MAIN_HAND) && !(item == INVEN_SUB_HAND)) {
         return;
     }
-    if (has_melee_weapon(player_ptr, INVEN_MAIN_HAND + INVEN_SUB_HAND - item)) {
+    if (has_melee_weapon(player_ptr, enum2i(INVEN_MAIN_HAND + INVEN_SUB_HAND) - item)) {
         return;
     }
 
@@ -81,7 +81,7 @@ void inven_item_increase(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER
 void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX item)
 {
     auto *o_ptr = &player_ptr->inventory_list[item];
-    if (!o_ptr->k_idx) {
+    if (!o_ptr->is_valid()) {
         return;
     }
     if (o_ptr->number) {
@@ -93,9 +93,9 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX item)
         (&player_ptr->inventory_list[item])->wipe();
         player_ptr->update |= PU_BONUS;
         player_ptr->update |= PU_TORCH;
-        player_ptr->update |= PU_MANA;
+        player_ptr->update |= PU_MP;
 
-        player_ptr->window_flags |= PW_EQUIP;
+        player_ptr->window_flags |= PW_EQUIPMENT;
         player_ptr->window_flags |= PW_SPELL;
         return;
     }
@@ -107,7 +107,7 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX item)
     }
 
     (&player_ptr->inventory_list[i])->wipe();
-    player_ptr->window_flags |= PW_INVEN;
+    player_ptr->window_flags |= PW_INVENTORY;
     player_ptr->window_flags |= PW_SPELL;
 }
 
@@ -122,11 +122,9 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX item)
  */
 void drop_from_inventory(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER amt)
 {
-    ObjectType forge;
-    ObjectType *q_ptr;
-    ObjectType *o_ptr;
-    GAME_TEXT o_name[MAX_NLEN];
-    o_ptr = &player_ptr->inventory_list[item];
+    ItemEntity forge;
+    ItemEntity *q_ptr;
+    auto *o_ptr = &player_ptr->inventory_list[item];
     if (amt <= 0) {
         return;
     }
@@ -145,8 +143,8 @@ void drop_from_inventory(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER
     distribute_charges(o_ptr, q_ptr, amt);
 
     q_ptr->number = amt;
-    describe_flavor(player_ptr, o_name, q_ptr, 0);
-    msg_format(_("%s(%c)を落とした。", "You drop %s (%c)."), o_name, index_to_label(item));
+    const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
+    msg_format(_("%s(%c)を落とした。", "You drop %s (%c)."), item_name.data(), index_to_label(item));
     (void)drop_near(player_ptr, q_ptr, 0, player_ptr->y, player_ptr->x);
     vary_item(player_ptr, item, -amt);
 }
@@ -167,15 +165,15 @@ void combine_pack(PlayerType *player_ptr)
         combined = false;
 
         for (int i = INVEN_PACK; i > 0; i--) {
-            ObjectType *o_ptr;
+            ItemEntity *o_ptr;
             o_ptr = &player_ptr->inventory_list[i];
-            if (!o_ptr->k_idx) {
+            if (!o_ptr->is_valid()) {
                 continue;
             }
             for (int j = 0; j < i; j++) {
-                ObjectType *j_ptr;
+                ItemEntity *j_ptr;
                 j_ptr = &player_ptr->inventory_list[j];
-                if (!j_ptr->k_idx) {
+                if (!j_ptr->is_valid()) {
                     continue;
                 }
 
@@ -205,17 +203,18 @@ void combine_pack(PlayerType *player_ptr)
                     int remain = j_ptr->number + o_ptr->number - max_num;
                     object_absorb(j_ptr, o_ptr);
                     o_ptr->number = remain;
-                    if (o_ptr->tval == ItemKindType::ROD) {
+                    const auto tval = o_ptr->bi_key.tval();
+                    if (tval == ItemKindType::ROD) {
                         o_ptr->pval = o_ptr->pval * remain / old_num;
                         o_ptr->timeout = o_ptr->timeout * remain / old_num;
                     }
 
-                    if (o_ptr->tval == ItemKindType::WAND) {
+                    if (tval == ItemKindType::WAND) {
                         o_ptr->pval = o_ptr->pval * remain / old_num;
                     }
                 }
 
-                player_ptr->window_flags |= (PW_INVEN);
+                player_ptr->window_flags |= (PW_INVENTORY);
                 combined = true;
                 break;
             }
@@ -238,9 +237,9 @@ void reorder_pack(PlayerType *player_ptr)
 {
     int i, j, k;
     int32_t o_value;
-    ObjectType forge;
-    ObjectType *q_ptr;
-    ObjectType *o_ptr;
+    ItemEntity forge;
+    ItemEntity *q_ptr;
+    ItemEntity *o_ptr;
     bool flag = false;
 
     for (i = 0; i < INVEN_PACK; i++) {
@@ -249,11 +248,11 @@ void reorder_pack(PlayerType *player_ptr)
         }
 
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        o_value = object_value(o_ptr);
+        o_value = o_ptr->get_price();
         for (j = 0; j < INVEN_PACK; j++) {
             if (object_sort_comp(player_ptr, o_ptr, o_value, &player_ptr->inventory_list[j])) {
                 break;
@@ -272,7 +271,7 @@ void reorder_pack(PlayerType *player_ptr)
         }
 
         (&player_ptr->inventory_list[j])->copy_from(q_ptr);
-        player_ptr->window_flags |= (PW_INVEN);
+        player_ptr->window_flags |= (PW_INVENTORY);
     }
 
     if (flag) {
@@ -300,15 +299,15 @@ void reorder_pack(PlayerType *player_ptr)
  * Note that this code must remove any location/stack information\n
  * from the object once it is placed into the inventory.\n
  */
-int16_t store_item_to_inventory(PlayerType *player_ptr, ObjectType *o_ptr)
+int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     INVENTORY_IDX i, j, k;
     INVENTORY_IDX n = -1;
 
-    ObjectType *j_ptr;
+    ItemEntity *j_ptr;
     for (j = 0; j < INVEN_PACK; j++) {
         j_ptr = &player_ptr->inventory_list[j];
-        if (!j_ptr->k_idx) {
+        if (!j_ptr->is_valid()) {
             continue;
         }
 
@@ -317,7 +316,7 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ObjectType *o_ptr)
             object_absorb(j_ptr, o_ptr);
 
             player_ptr->update |= (PU_BONUS);
-            player_ptr->window_flags |= (PW_INVEN | PW_PLAYER);
+            player_ptr->window_flags |= (PW_INVENTORY | PW_PLAYER);
             return j;
         }
     }
@@ -328,14 +327,14 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ObjectType *o_ptr)
 
     for (j = 0; j <= INVEN_PACK; j++) {
         j_ptr = &player_ptr->inventory_list[j];
-        if (!j_ptr->k_idx) {
+        if (!j_ptr->is_valid()) {
             break;
         }
     }
 
     i = j;
     if (i < INVEN_PACK) {
-        int32_t o_value = object_value(o_ptr);
+        const auto o_value = o_ptr->get_price();
         for (j = 0; j < INVEN_PACK; j++) {
             if (object_sort_comp(player_ptr, o_ptr, o_value, &player_ptr->inventory_list[j])) {
                 break;
@@ -354,11 +353,11 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ObjectType *o_ptr)
     j_ptr = &player_ptr->inventory_list[i];
     j_ptr->held_m_idx = 0;
     j_ptr->iy = j_ptr->ix = 0;
-    j_ptr->marked = OM_TOUCHED;
+    j_ptr->marked.clear().set(OmType::TOUCHED);
 
     player_ptr->inven_cnt++;
-    player_ptr->update |= (PU_BONUS | PU_COMBINE | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVEN | PW_PLAYER);
+    player_ptr->update |= (PU_BONUS | PU_COMBINATION | PU_REORDER);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_PLAYER);
 
     return i;
 }
@@ -370,7 +369,7 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ObjectType *o_ptr)
  * @param o_ptr 拾いたいオブジェクトの構造体参照ポインタ
  * @return 溢れずに済むならTRUEを返す
  */
-bool check_store_item_to_inventory(PlayerType *player_ptr, const ObjectType *o_ptr)
+bool check_store_item_to_inventory(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
     if (player_ptr->inven_cnt < INVEN_PACK) {
         return true;
@@ -378,7 +377,7 @@ bool check_store_item_to_inventory(PlayerType *player_ptr, const ObjectType *o_p
 
     for (int j = 0; j < INVEN_PACK; j++) {
         auto *j_ptr = &player_ptr->inventory_list[j];
-        if (!j_ptr->k_idx) {
+        if (!j_ptr->is_valid()) {
             continue;
         }
 
@@ -406,11 +405,10 @@ bool check_store_item_to_inventory(PlayerType *player_ptr, const ObjectType *o_p
 INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUMBER amt)
 {
     INVENTORY_IDX slot;
-    ObjectType forge;
-    ObjectType *q_ptr;
-    ObjectType *o_ptr;
+    ItemEntity forge;
+    ItemEntity *q_ptr;
+    ItemEntity *o_ptr;
     concptr act;
-    GAME_TEXT o_name[MAX_NLEN];
     o_ptr = &player_ptr->inventory_list[item];
     if (amt <= 0) {
         return -1;
@@ -422,7 +420,7 @@ INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUM
     q_ptr = &forge;
     q_ptr->copy_from(o_ptr);
     q_ptr->number = amt;
-    describe_flavor(player_ptr, o_name, q_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
     if (((item == INVEN_MAIN_HAND) || (item == INVEN_SUB_HAND)) && o_ptr->is_melee_weapon()) {
         act = _("を装備からはずした", "You were wielding");
     } else if (item == INVEN_BOW) {
@@ -438,9 +436,9 @@ INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX item, ITEM_NUM
 
     slot = store_item_to_inventory(player_ptr, q_ptr);
 #ifdef JP
-    msg_format("%s(%c)%s。", o_name, index_to_label(slot), act);
+    msg_format("%s(%c)%s。", item_name.data(), index_to_label(slot), act);
 #else
-    msg_format("%s %s (%c).", act, o_name, index_to_label(slot));
+    msg_format("%s %s (%c).", act, item_name.data(), index_to_label(slot));
 #endif
 
     return slot;

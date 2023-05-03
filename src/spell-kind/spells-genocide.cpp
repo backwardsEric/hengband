@@ -25,8 +25,8 @@
 #include "monster/monster-status.h"
 #include "player/player-damage.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -43,8 +43,8 @@
 bool genocide_aux(PlayerType *player_ptr, MONSTER_IDX m_idx, int power, bool player_cast, int dam_side, concptr spell_name)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &r_info[m_ptr->r_idx];
-    if (is_pet(m_ptr) && !player_cast) {
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    if (m_ptr->is_pet() && !player_cast) {
         return false;
     }
 
@@ -62,10 +62,9 @@ bool genocide_aux(PlayerType *player_ptr, MONSTER_IDX m_idx, int power, bool pla
     } else if (player_cast && m_ptr->mflag2.has(MonsterConstantFlagType::NOGENO)) {
         resist = true;
     } else {
-        if (record_named_pet && is_pet(m_ptr) && m_ptr->nickname) {
-            GAME_TEXT m_name[MAX_NLEN];
-            monster_desc(player_ptr, m_name, m_ptr, MD_INDEF_VISIBLE);
-            exe_write_diary(player_ptr, DIARY_NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name);
+        if (record_named_pet && m_ptr->is_named_pet()) {
+            const auto m_name = monster_desc(player_ptr, m_ptr, MD_INDEF_VISIBLE);
+            exe_write_diary(player_ptr, DIARY_NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name.data());
         }
 
         delete_monster_idx(player_ptr, m_idx);
@@ -73,22 +72,21 @@ bool genocide_aux(PlayerType *player_ptr, MONSTER_IDX m_idx, int power, bool pla
 
     if (resist && player_cast) {
         bool see_m = is_seen(player_ptr, m_ptr);
-        GAME_TEXT m_name[MAX_NLEN];
-        monster_desc(player_ptr, m_name, m_ptr, 0);
+        const auto m_name = monster_desc(player_ptr, m_ptr, 0);
         if (see_m) {
-            msg_format(_("%^sには効果がなかった。", "%^s is unaffected."), m_name);
+            msg_format(_("%s^には効果がなかった。", "%s^ is unaffected."), m_name.data());
         }
 
-        if (monster_csleep_remaining(m_ptr)) {
+        if (m_ptr->is_asleep()) {
             (void)set_monster_csleep(player_ptr, m_idx, 0);
             if (m_ptr->ml) {
-                msg_format(_("%^sが目を覚ました。", "%^s wakes up."), m_name);
+                msg_format(_("%s^が目を覚ました。", "%s^ wakes up."), m_name.data());
             }
         }
 
-        if (is_friendly(m_ptr) && !is_pet(m_ptr)) {
+        if (m_ptr->is_friendly() && !m_ptr->is_pet()) {
             if (see_m) {
-                msg_format(_("%sは怒った！", "%^s gets angry!"), m_name);
+                msg_format(_("%sは怒った！", "%s^ gets angry!"), m_name.data());
             }
 
             set_hostile(player_ptr, m_ptr);
@@ -100,7 +98,7 @@ bool genocide_aux(PlayerType *player_ptr, MONSTER_IDX m_idx, int power, bool pla
     }
 
     if (player_cast) {
-        take_hit(player_ptr, DAMAGE_GENO, randint1(dam_side), format(_("%^sの呪文を唱えた疲労", "the strain of casting %^s"), spell_name));
+        take_hit(player_ptr, DAMAGE_GENO, randint1(dam_side), format(_("%s^の呪文を唱えた疲労", "the strain of casting %s^"), spell_name).data());
     }
 
     move_cursor_relative(player_ptr->y, player_ptr->x);
@@ -138,8 +136,8 @@ bool symbol_genocide(PlayerType *player_ptr, int power, bool player_cast)
     bool result = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
         if (r_ptr->d_char != typ) {
@@ -150,8 +148,8 @@ bool symbol_genocide(PlayerType *player_ptr, int power, bool player_cast)
     }
 
     if (result) {
-        chg_virtue(player_ptr, V_VITALITY, -2);
-        chg_virtue(player_ptr, V_CHANCE, -1);
+        chg_virtue(player_ptr, Virtue::VITALITY, -2);
+        chg_virtue(player_ptr, Virtue::CHANCE, -1);
     }
 
     return result;
@@ -176,10 +174,10 @@ bool mass_genocide(PlayerType *player_ptr, int power, bool player_cast)
     bool result = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
-        if (m_ptr->cdis > MAX_SIGHT) {
+        if (m_ptr->cdis > MAX_PLAYER_SIGHT) {
             continue;
         }
 
@@ -187,8 +185,8 @@ bool mass_genocide(PlayerType *player_ptr, int power, bool player_cast)
     }
 
     if (result) {
-        chg_virtue(player_ptr, V_VITALITY, -2);
-        chg_virtue(player_ptr, V_CHANCE, -1);
+        chg_virtue(player_ptr, Virtue::VITALITY, -2);
+        chg_virtue(player_ptr, Virtue::CHANCE, -1);
     }
 
     return result;
@@ -213,14 +211,14 @@ bool mass_genocide_undead(PlayerType *player_ptr, int power, bool player_cast)
     bool result = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
         if (r_ptr->kind_flags.has_not(MonsterKindType::UNDEAD)) {
             continue;
         }
-        if (m_ptr->cdis > MAX_SIGHT) {
+        if (m_ptr->cdis > MAX_PLAYER_SIGHT) {
             continue;
         }
 
@@ -228,8 +226,8 @@ bool mass_genocide_undead(PlayerType *player_ptr, int power, bool player_cast)
     }
 
     if (result) {
-        chg_virtue(player_ptr, V_UNLIFE, -2);
-        chg_virtue(player_ptr, V_CHANCE, -1);
+        chg_virtue(player_ptr, Virtue::UNLIFE, -2);
+        chg_virtue(player_ptr, Virtue::CHANCE, -1);
     }
 
     return result;

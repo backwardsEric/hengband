@@ -49,7 +49,7 @@ void do_poly_wounds(PlayerType *player_ptr)
 
     msg_print(_("新たな傷ができた！", "A new wound was created!"));
     take_hit(player_ptr, DAMAGE_LOSELIFE, change / 2, _("変化した傷", "a polymorphed wound"));
-    (void)bss.cut(change);
+    (void)bss.set_cut(change);
 }
 
 /*
@@ -65,7 +65,7 @@ void change_race(PlayerType *player_ptr, PlayerRaceType new_race, concptr effect
     msg_format("You turn into %s %s%s!", (is_a_vowel((effect_msg[0]) ? effect_msg[0] : title[0]) ? "an" : "a"), effect_msg, title);
 #endif
 
-    chg_virtue(player_ptr, V_CHANCE, 2);
+    chg_virtue(player_ptr, Virtue::CHANCE, 2);
     if (enum2i(player_ptr->prace) < 32) {
         player_ptr->old_race1 |= 1UL << enum2i(player_ptr->prace);
     } else {
@@ -113,12 +113,12 @@ void do_poly_self(PlayerType *player_ptr)
     int power = player_ptr->lev;
 
     msg_print(_("あなたは変化の訪れを感じた...", "You feel a change coming over you..."));
-    chg_virtue(player_ptr, V_CHANCE, 1);
+    chg_virtue(player_ptr, Virtue::CHANCE, 1);
 
     PlayerRace pr(player_ptr);
     if ((power > randint0(20)) && one_in_(3) && !pr.equals(PlayerRaceType::ANDROID)) {
-        char effect_msg[80] = "";
-        char sex_msg[32] = "";
+        std::string effect_msg;
+        std::string_view sex_msg;
         PlayerRaceType new_race;
 
         power -= 10;
@@ -127,11 +127,11 @@ void do_poly_self(PlayerType *player_ptr)
             if (player_ptr->psex == SEX_MALE) {
                 player_ptr->psex = SEX_FEMALE;
                 sp_ptr = &sex_info[player_ptr->psex];
-                sprintf(sex_msg, _("女性の", "female"));
+                sex_msg = _("女性の", "female");
             } else {
                 player_ptr->psex = SEX_MALE;
                 sp_ptr = &sex_info[player_ptr->psex];
-                sprintf(sex_msg, _("男性の", "male"));
+                sex_msg = _("男性の", "male");
             }
         }
 
@@ -148,10 +148,9 @@ void do_poly_self(PlayerType *player_ptr)
 
             (void)dec_stat(player_ptr, A_CHR, randint1(6), true);
 
-            if (sex_msg[0]) {
-                sprintf(effect_msg, _("奇形の%s", "deformed %s "), sex_msg);
-            } else {
-                sprintf(effect_msg, _("奇形の", "deformed "));
+            effect_msg = _("奇形の", "deformed ");
+            if (!sex_msg.empty()) {
+                effect_msg.append(sex_msg).append(_("", " "));
             }
         }
 
@@ -167,13 +166,13 @@ void do_poly_self(PlayerType *player_ptr)
             new_race = (PlayerRaceType)randint0(MAX_RACES);
         } while (pr.equals(new_race) || (new_race == PlayerRaceType::ANDROID));
 
-        change_race(player_ptr, new_race, effect_msg);
+        change_race(player_ptr, new_race, effect_msg.data());
     }
 
     if ((power > randint0(30)) && one_in_(6)) {
         int tmp = 0;
         power -= 20;
-        msg_format(_("%sの構成が変化した！", "Your internal organs are rearranged!"), pr.equals(PlayerRaceType::ANDROID) ? "機械" : "内臓");
+        msg_print(_(format("%sの構成が変化した！", pr.equals(PlayerRaceType::ANDROID) ? "機械" : "内臓"), "Your internal organs are rearranged!"));
 
         while (tmp < A_MAX) {
             (void)dec_stat(player_ptr, tmp, randint1(6) + 6, one_in_(3));

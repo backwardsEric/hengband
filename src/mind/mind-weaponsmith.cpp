@@ -19,14 +19,15 @@
 #include "player-status/player-energy.h"
 #include "smith/object-smith.h"
 #include "smith/smith-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/bit-flags-calculator.h"
-#include "util/buffer-shaper.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
+#include "view/display-util.h"
 #include <algorithm>
 #include <sstream>
 
@@ -113,15 +114,14 @@ static void drain_essence(PlayerType *player_ptr)
     auto s = _("抽出できるアイテムがありません。", "You have nothing you can extract from.");
 
     OBJECT_IDX item;
-    auto o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), FuncItemTester(&ObjectType::is_weapon_armour_ammo));
+    auto o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), FuncItemTester(&ItemEntity::is_weapon_armour_ammo));
     if (!o_ptr) {
         return;
     }
 
     if (o_ptr->is_known() && !o_ptr->is_nameless()) {
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-        if (!get_check(format(_("本当に%sから抽出してよろしいですか？", "Really extract from %s? "), o_name))) {
+        const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+        if (!get_check(format(_("本当に%sから抽出してよろしいですか？", "Really extract from %s? "), item_name.data()))) {
             return;
         }
     }
@@ -144,8 +144,8 @@ static void drain_essence(PlayerType *player_ptr)
 
     /* Apply autodestroy/inscription to the drained item */
     autopick_alter_item(player_ptr, item, true);
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVEN);
+    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
+    player_ptr->window_flags |= (PW_INVENTORY);
 }
 
 /*!
@@ -288,9 +288,9 @@ static void display_smith_effect_list(const Smith &smith, const std::vector<Smit
         if (need_essences.size() == 1) {
             auto essence = need_essences.front();
             auto amount = smith.get_essence_num_of_posessions(essence);
-            snprintf(str, sizeof(str), "%-49s %5d/%d", title.str().c_str(), amount, consumption);
+            snprintf(str, sizeof(str), "%-49s %5d/%d", title.str().data(), amount, consumption);
         } else {
-            snprintf(str, sizeof(str), "%-49s  (\?\?)/%d", title.str().c_str(), consumption);
+            snprintf(str, sizeof(str), "%-49s  (\?\?)/%d", title.str().data(), consumption);
         }
 
         auto col = (smith.get_addable_count(effect) > 0) ? TERM_WHITE : TERM_RED;
@@ -308,9 +308,8 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
     bool flag;
     char choice;
     concptr q, s;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     char out_val[160];
-    GAME_TEXT o_name[MAX_NLEN];
     int menu_line = (use_menu ? 1 : 0);
 
     Smith smith(player_ptr);
@@ -332,7 +331,7 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
         while (!flag) {
             if (page_max > 1) {
                 std::string page_str = format("%d/%d", page + 1, page_max);
-                strnfmt(out_val, 78, _("(SPACEで次ページ, ESCで中断) どの能力を付加しますか？ %s", "(SPACE=next, ESC=exit) Add which ability? %s"), page_str.c_str());
+                strnfmt(out_val, 78, _("(SPACEで次ページ, ESCで中断) どの能力を付加しますか？ %s", "(SPACE=next, ESC=exit) Add which ability? %s"), page_str.data());
             } else {
                 strnfmt(out_val, 78, _("(ESCで中断) どの能力を付加しますか？", "(ESC=exit) Add which ability? "));
             }
@@ -447,8 +446,7 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
         return;
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
     const auto use_essence = Smith::get_essence_consumption(effect, o_ptr);
     if (o_ptr->number > 1) {
         msg_format(_("%d個あるのでエッセンスは%d必要です。", "For %d items, it will take %d essences."), o_ptr->number, use_essence);
@@ -471,14 +469,10 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
             }
             o_ptr->pval = 1;
         } else if (o_ptr->pval == 0) {
-            char tmp[80];
-            char tmp_val[8];
+            char tmp_val[8] = "1";
             auto limit = std::min(5, smith.get_addable_count(effect, o_ptr));
 
-            sprintf(tmp, _("いくつ付加しますか？ (1-%d): ", "Enchant how many? (1-%d): "), limit);
-            strcpy(tmp_val, "1");
-
-            if (!get_string(tmp, tmp_val, 1)) {
+            if (!get_string(format(_("いくつ付加しますか？ (1-%d): ", "Enchant how many? (1-%d): "), limit), tmp_val, 1)) {
                 return;
             }
             o_ptr->pval = static_cast<PARAMETER_VALUE>(std::clamp(atoi(tmp_val), 1, limit));
@@ -510,9 +504,9 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
 
     auto effect_name = Smith::get_effect_name(effect);
 
-    _(msg_format("%sに%sの能力を付加しました。", o_name, effect_name), msg_format("You have added ability of %s to %s.", effect_name, o_name));
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVEN);
+    _(msg_format("%sに%sの能力を付加しました。", item_name.data(), effect_name), msg_format("You have added ability of %s to %s.", effect_name, item_name.data()));
+    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
+    player_ptr->window_flags |= (PW_INVENTORY);
 }
 
 /*!
@@ -520,21 +514,16 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
  */
 static void erase_essence(PlayerType *player_ptr)
 {
+    const auto q = _("どのアイテムのエッセンスを消去しますか？", "Remove from which item? ");
+    const auto s = _("エッセンスを付加したアイテムがありません。", "You have nothing with added essence to remove.");
     OBJECT_IDX item;
-    concptr q, s;
-    ObjectType *o_ptr;
-    GAME_TEXT o_name[MAX_NLEN];
-
-    q = _("どのアイテムのエッセンスを消去しますか？", "Remove from which item? ");
-    s = _("エッセンスを付加したアイテムがありません。", "You have nothing with added essence to remove.");
-
-    o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ObjectType::is_smith));
+    auto *o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::is_smith));
     if (!o_ptr) {
         return;
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    if (!get_check(format(_("よろしいですか？ [%s]", "Are you sure? [%s]"), o_name))) {
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+    if (!get_check(format(_("よろしいですか？ [%s]", "Are you sure? [%s]"), item_name.data()))) {
         return;
     }
 
@@ -543,8 +532,8 @@ static void erase_essence(PlayerType *player_ptr)
     Smith(player_ptr).erase_essence(o_ptr);
 
     msg_print(_("エッセンスを取り去った。", "You removed all essence you have added."));
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVEN);
+    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
+    player_ptr->window_flags |= (PW_INVENTORY);
 }
 
 /*!
@@ -667,9 +656,6 @@ void do_cmd_kaji(PlayerType *player_ptr, bool only_browse)
             }
 
             if (only_browse) {
-                char temp[62 * 5];
-                int line, j;
-
                 /* Clear lines, position cursor  (really should use strlen here) */
                 term_erase(14, 21, 255);
                 term_erase(14, 20, 255);
@@ -678,11 +664,7 @@ void do_cmd_kaji(PlayerType *player_ptr, bool only_browse)
                 term_erase(14, 17, 255);
                 term_erase(14, 16, 255);
 
-                shape_buffer(kaji_tips[mode - 1], 62, temp, sizeof(temp));
-                for (j = 0, line = 17; temp[j]; j += (1 + strlen(&temp[j]))) {
-                    prt(&temp[j], line, 15);
-                    line++;
-                }
+                display_wrap_around(kaji_tips[mode - 1], 62, 17, 15);
                 mode = 0;
             }
             if (!only_browse) {

@@ -27,8 +27,8 @@
 #include "player-info/race-types.h"
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -39,28 +39,30 @@
  * @param o_ptr アイテムへの参照ポインタ
  * @return 特別なクラス、かつそのクラス特有のアイテムであればFALSE、それ以外はTRUE
  */
-static bool is_leave_special_item(PlayerType *player_ptr, ObjectType *o_ptr)
+static bool is_leave_special_item(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     if (!leave_special) {
         return true;
     }
 
     PlayerClass pc(player_ptr);
+    const auto &bi_key = o_ptr->bi_key;
+    const auto tval = bi_key.tval();
     if (PlayerRace(player_ptr).equals(PlayerRaceType::BALROG)) {
         auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        if (o_ptr->tval == ItemKindType::CORPSE && o_ptr->sval == SV_CORPSE && angband_strchr("pht", r_info[r_idx].d_char)) {
+        if (bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE) && angband_strchr("pht", monraces_info[r_idx].d_char)) {
             return false;
         }
     } else if (pc.equals(PlayerClassType::ARCHER)) {
-        if (o_ptr->tval == ItemKindType::SKELETON || (o_ptr->tval == ItemKindType::CORPSE && o_ptr->sval == SV_SKELETON)) {
+        if ((tval == ItemKindType::SKELETON) || (bi_key == BaseitemKey(ItemKindType::CORPSE, SV_SKELETON))) {
             return false;
         }
     } else if (pc.equals(PlayerClassType::NINJA)) {
-        if (o_ptr->tval == ItemKindType::LITE && o_ptr->ego_idx == EgoType::LITE_DARKNESS && o_ptr->is_known()) {
+        if (tval == ItemKindType::LITE && o_ptr->ego_idx == EgoType::LITE_DARKNESS && o_ptr->is_known()) {
             return false;
         }
     } else if (pc.is_tamer()) {
-        if (o_ptr->tval == ItemKindType::WAND && o_ptr->sval == SV_WAND_HEAL_MONSTER && o_ptr->is_aware()) {
+        if (bi_key == BaseitemKey(ItemKindType::WAND, SV_WAND_HEAL_MONSTER) && o_ptr->is_aware()) {
             return false;
         }
     }
@@ -71,14 +73,14 @@ static bool is_leave_special_item(PlayerType *player_ptr, ObjectType *o_ptr)
 /*!
  * @brief Automatically destroy items in this grid.
  */
-static bool is_opt_confirm_destroy(PlayerType *player_ptr, ObjectType *o_ptr)
+static bool is_opt_confirm_destroy(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     if (!destroy_items) {
         return false;
     }
 
     if (leave_worth) {
-        if (object_value(o_ptr) > 0) {
+        if (o_ptr->get_price() > 0) {
             return false;
         }
     }
@@ -89,8 +91,9 @@ static bool is_opt_confirm_destroy(PlayerType *player_ptr, ObjectType *o_ptr)
         }
     }
 
+    const auto tval = o_ptr->bi_key.tval();
     if (leave_chest) {
-        if ((o_ptr->tval == ItemKindType::CHEST) && o_ptr->pval) {
+        if ((tval == ItemKindType::CHEST) && o_ptr->pval) {
             return false;
         }
     }
@@ -102,13 +105,13 @@ static bool is_opt_confirm_destroy(PlayerType *player_ptr, ObjectType *o_ptr)
     }
 
     if (leave_corpse) {
-        if (o_ptr->tval == ItemKindType::CORPSE) {
+        if (tval == ItemKindType::CORPSE) {
             return false;
         }
     }
 
     if (leave_junk) {
-        if ((o_ptr->tval == ItemKindType::SKELETON) || (o_ptr->tval == ItemKindType::BOTTLE) || (o_ptr->tval == ItemKindType::JUNK) || (o_ptr->tval == ItemKindType::STATUE)) {
+        if (o_ptr->is_junk()) {
             return false;
         }
     }
@@ -117,14 +120,14 @@ static bool is_opt_confirm_destroy(PlayerType *player_ptr, ObjectType *o_ptr)
         return false;
     }
 
-    if (o_ptr->tval == ItemKindType::GOLD) {
+    if (tval == ItemKindType::GOLD) {
         return false;
     }
 
     return true;
 }
 
-void auto_destroy_item(PlayerType *player_ptr, ObjectType *o_ptr, int autopick_idx)
+void auto_destroy_item(PlayerType *player_ptr, ItemEntity *o_ptr, int autopick_idx)
 {
     bool destroy = false;
     if (is_opt_confirm_destroy(player_ptr, o_ptr)) {
@@ -147,13 +150,12 @@ void auto_destroy_item(PlayerType *player_ptr, ObjectType *o_ptr, int autopick_i
 
     disturb(player_ptr, false, false);
     if (!can_player_destroy_object(player_ptr, o_ptr)) {
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, o_ptr, 0);
-        msg_format(_("%sは破壊不能だ。", "You cannot auto-destroy %s."), o_name);
+        const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+        msg_format(_("%sは破壊不能だ。", "You cannot auto-destroy %s."), item_name.data());
         return;
     }
 
     autopick_last_destroyed_object = *o_ptr;
-    o_ptr->marked |= OM_AUTODESTROY;
-    player_ptr->update |= PU_AUTODESTROY;
+    o_ptr->marked.set(OmType::AUTODESTROY);
+    player_ptr->update |= PU_AUTO_DESTRUCTION;
 }

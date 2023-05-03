@@ -46,9 +46,9 @@ void do_cmd_knowledge_autopick(PlayerType *player_ptr)
             static_cast<int>(autopick_list.size()));
     }
 
-    for (auto &item : autopick_list) {
+    for (const auto &entry : autopick_list) {
         concptr tmp;
-        byte act = item.action;
+        byte act = entry.action;
         if (act & DONT_AUTOPICK) {
             tmp = _("放置", "Leave");
         } else if (act & DO_AUTODESTROY) {
@@ -60,12 +60,12 @@ void do_cmd_knowledge_autopick(PlayerType *player_ptr)
         }
 
         if (act & DO_DISPLAY) {
-            fprintf(fff, "%11s", format("[%s]", tmp));
+            fprintf(fff, "%11s", format("[%s]", tmp).data());
         } else {
-            fprintf(fff, "%11s", format("(%s)", tmp));
+            fprintf(fff, "%11s", format("(%s)", tmp).data());
         }
 
-        tmp = autopick_line_from_entry(&item);
+        tmp = autopick_line_from_entry(entry);
         fprintf(fff, " %s", tmp);
         string_free(tmp);
         fprintf(fff, "\n");

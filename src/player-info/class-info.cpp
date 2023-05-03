@@ -8,13 +8,13 @@
 #include "core/player-redraw-types.h"
 #include "inventory/inventory-slot-types.h"
 #include "player-info/race-info.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 
 /*
  * The magic info
  */
 const player_magic *mp_ptr;
-std::vector<player_magic> m_info;
+std::vector<player_magic> class_magics_info;
 
 const player_class_info *cp_ptr;
 

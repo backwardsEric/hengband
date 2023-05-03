@@ -3,14 +3,14 @@
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-indice-types.h"
 #include "monster-race/race-resistance-mask.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "util/probability-table.h"
 #include "world/world.h"
 #include <algorithm>
 #include <vector>
 
 /* The monster race arrays */
-std::map<MonsterRaceId, monster_race> r_info;
+std::map<MonsterRaceId, MonsterRaceInfo> monraces_info;
 
 MonsterRace::MonsterRace(MonsterRaceId r_idx)
     : r_idx(r_idx)
@@ -40,7 +40,7 @@ MonsterRaceId MonsterRace::pick_one_at_random()
     static ProbabilityTable<MonsterRaceId> table;
 
     if (table.empty()) {
-        for (const auto &[r_idx, r_ref] : r_info) {
+        for (const auto &[r_idx, r_ref] : monraces_info) {
             if (MonsterRace(r_idx).is_valid()) {
                 table.entry_item(r_idx, 1);
             }
@@ -52,7 +52,7 @@ MonsterRaceId MonsterRace::pick_one_at_random()
 
 /*!
  * @brief コンストラクタに渡された MonsterRaceId が正当なもの（実際に存在するモンスター種族IDである）かどうかを調べる
- * @details モンスター種族IDが r_info に実在するもの(MonsterRaceId::PLAYERは除く)であるかどうかの用途の他、
+ * @details モンスター種族IDが MonsterRaceDefinitions に実在するもの(MonsterRaceId::PLAYERは除く)であるかどうかの用途の他、
  * m_list 上の要素などの r_idx にMonsterRaceId::PLAYER を入れることで死亡扱いとして使われるのでその判定に使用する事もある
  * @return 正当なものであれば true、そうでなければ false
  */
@@ -93,7 +93,7 @@ bool MonsterRace::is_bounty(bool unachieved_only) const
 int MonsterRace::calc_power() const
 {
     int ret = 0;
-    const auto *r_ptr = &r_info[this->r_idx];
+    const auto *r_ptr = &monraces_info[this->r_idx];
     auto num_resistances = EnumClassFlagGroup<MonsterResistanceType>(r_ptr->resistance_flags & RFR_EFF_IMMUNE_ELEMENT_MASK).count();
 
     if (r_ptr->flags1 & RF1_FORCE_MAXHP) {
@@ -102,10 +102,10 @@ int MonsterRace::calc_power() const
         ret = r_ptr->hdice * (r_ptr->hside + 1);
     }
     ret = ret * (100 + r_ptr->level) / 100;
-    if (r_ptr->speed > 110) {
+    if (r_ptr->speed > STANDARD_SPEED) {
         ret = ret * (r_ptr->speed * 2 - 110) / 100;
     }
-    if (r_ptr->speed < 110) {
+    if (r_ptr->speed < STANDARD_SPEED) {
         ret = ret * (r_ptr->speed - 20) / 100;
     }
     if (num_resistances > 2) {

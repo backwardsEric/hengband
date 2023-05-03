@@ -15,8 +15,10 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import "SoundAndMusic.h"
 
-@interface AngbandAppDelegate : NSObject <NSApplicationDelegate> {
+@interface AngbandAppDelegate : NSObject <NSApplicationDelegate,
+        SoundAndMusicChanges> {
     NSMenu *_graphicsMenu;
     NSMenu *_commandMenu;
     NSDictionary *_commandMenuTagMap;
@@ -24,13 +26,15 @@
 @property (nonatomic, retain) IBOutlet NSMenu *graphicsMenu;
 @property (strong, nonatomic, retain) IBOutlet NSMenu *commandMenu;
 @property (strong, nonatomic, retain) NSDictionary *commandMenuTagMap;
+@property (strong, nonatomic) SoundAndMusicPanelController
+    *soundAndMusicPanelController;
 - (IBAction)newGame:(id)sender;
 - (IBAction)editFont:(id)sender;
 - (IBAction)openGame:(id)sender;
 - (IBAction)saveGame:(id)sender;
 - (IBAction)setRefreshRate:(NSMenuItem *)sender;
-- (IBAction)toggleSound:(NSMenuItem *)menuItem;
 - (IBAction)toggleWideTiles:(NSMenuItem *)sender;
+- (IBAction)showSoundAndMusicPanel:(NSMenuItem *)sender;
 - (void)setGraphicsMode:(NSMenuItem *)sender;
 - (void)selectWindow:(id)sender;
 - (void)beginGame;

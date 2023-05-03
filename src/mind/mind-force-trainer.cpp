@@ -15,6 +15,7 @@
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-mask.h"
 #include "monster-race/race-flags7.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status.h"
@@ -30,8 +31,8 @@
 #include "status/temporary-resistance.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
@@ -88,7 +89,7 @@ bool clear_mind(PlayerType *player_ptr)
         player_ptr->csp_frac = 0;
     }
 
-    player_ptr->redraw |= (PR_MANA);
+    player_ptr->redraw |= (PR_MP);
     return true;
 }
 
@@ -119,8 +120,8 @@ void set_lightspeed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         } else if (!player_ptr->lightspeed) {
             msg_print(_("非常に素早く動けるようになった！", "You feel yourself moving extremely fast!"));
             notice = true;
-            chg_virtue(player_ptr, V_PATIENCE, -1);
-            chg_virtue(player_ptr, V_DILIGENCE, 1);
+            chg_virtue(player_ptr, Virtue::PATIENCE, -1);
+            chg_virtue(player_ptr, Virtue::DILIGENCE, 1);
         }
     } else {
         if (player_ptr->lightspeed) {
@@ -175,7 +176,7 @@ bool set_tim_sh_force(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->tim_sh_touki = v;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (!notice) {
         return false;
@@ -219,12 +220,11 @@ bool shock_power(PlayerType *player_ptr)
     POSITION oy = y, ox = x;
     MONSTER_IDX m_idx = player_ptr->current_floor_ptr->grid_array[y][x].m_idx;
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &r_info[m_ptr->r_idx];
-    GAME_TEXT m_name[MAX_NLEN];
-    monster_desc(player_ptr, m_name, m_ptr, 0);
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
     if (randint1(r_ptr->level * 3 / 2) > randint0(dam / 2) + dam / 2) {
-        msg_format(_("%sは飛ばされなかった。", "%^s was not blown away."), m_name);
+        msg_format(_("%sは飛ばされなかった。", "%s^ was not blown away."), m_name.data());
         return true;
     }
 
@@ -245,7 +245,7 @@ bool shock_power(PlayerType *player_ptr)
         return true;
     }
 
-    msg_format(_("%sを吹き飛ばした！", "You blow %s away!"), m_name);
+    msg_format(_("%sを吹き飛ばした！", "You blow %s away!"), m_name.data());
     player_ptr->current_floor_ptr->grid_array[oy][ox].m_idx = 0;
     player_ptr->current_floor_ptr->grid_array[ty][tx].m_idx = m_idx;
     m_ptr->fy = ty;
@@ -255,8 +255,8 @@ bool shock_power(PlayerType *player_ptr)
     lite_spot(player_ptr, oy, ox);
     lite_spot(player_ptr, ty, tx);
 
-    if (r_ptr->flags7 & (RF7_LITE_MASK | RF7_DARK_MASK)) {
-        player_ptr->update |= (PU_MON_LITE);
+    if (r_ptr->brightness_flags.has_any_of(ld_mask)) {
+        player_ptr->update |= (PU_MONSTER_LITE);
     }
 
     return true;

@@ -239,7 +239,9 @@ struct ego_generate_type {
  * Information about "ego-items".
  */
 enum class RandomArtActType : short;
-struct ego_item_type {
+class EgoItemDefinition {
+public:
+    EgoItemDefinition() = default;
     EgoType idx{};
 
     std::string name; //!< エゴの名前
@@ -270,9 +272,9 @@ struct ego_item_type {
     RandomArtActType act_idx{}; //!< 発動番号 / Activative ability index
 };
 
-extern std::map<EgoType, ego_item_type> e_info;
+extern std::map<EgoType, EgoItemDefinition> egos_info;
 
-class ObjectType;
+class ItemEntity;
 class PlayerType;
 EgoType get_random_ego(byte slot, bool good);
-void apply_ego(ObjectType *o_ptr, DEPTH lev);
+void apply_ego(ItemEntity *o_ptr, DEPTH lev);

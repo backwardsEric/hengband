@@ -13,9 +13,9 @@
 #include "monster/monster-util.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "util/bit-flags-calculator.h"
@@ -31,7 +31,7 @@
  */
 static MonsterRaceId poly_r_idx(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || any_bits(r_ptr->flags1, RF1_QUESTOR)) {
         return r_idx;
     }
@@ -45,7 +45,7 @@ static MonsterRaceId poly_r_idx(PlayerType *player_ptr, MonsterRaceId r_idx)
             break;
         }
 
-        r_ptr = &r_info[r];
+        r_ptr = &monraces_info[r];
         if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
             continue;
         }
@@ -85,7 +85,7 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
         return false;
     }
 
-    monster_type back_m = *m_ptr;
+    MonsterEntity back_m = *m_ptr;
     new_r_idx = poly_r_idx(player_ptr, old_r_idx);
     if (new_r_idx == old_r_idx) {
         return false;
@@ -94,10 +94,10 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     bool preserve_hold_objects = !back_m.hold_o_idx_list.empty();
 
     BIT_FLAGS mode = 0L;
-    if (is_friendly(m_ptr)) {
+    if (m_ptr->is_friendly()) {
         mode |= PM_FORCE_FRIENDLY;
     }
-    if (is_pet(m_ptr)) {
+    if (m_ptr->is_pet()) {
         mode |= PM_FORCE_PET;
     }
     if (m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {

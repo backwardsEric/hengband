@@ -465,7 +465,7 @@ bool init_graphics_modes(void) {
     gps.dir_len = strlen(line);
     path_build(buf, sizeof(buf), line, "list.txt");
 
-    f = angband_fopen(buf, "r");
+    f = angband_fopen(buf, FileOpenMode::READ);
     if (!f) {
 	msg_format("Cannot open '%s'.", buf);
 	gps.result = 1;

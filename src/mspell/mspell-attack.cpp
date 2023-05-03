@@ -3,7 +3,6 @@
 #include "core/disturbance.h"
 #include "core/player-redraw-types.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "floor/cave.h"
 #include "monster-floor/monster-move.h"
@@ -29,13 +28,15 @@
 #include "player/attack-defense-types.h"
 #include "spell-kind/spells-world.h"
 #include "spell-realm/spells-hex.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #ifdef JP
@@ -57,7 +58,7 @@ static void set_no_magic_mask(msa_type *msa_ptr)
 static void check_mspell_stupid(PlayerType *player_ptr, msa_type *msa_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    msa_ptr->in_no_magic_dungeon = d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MAGIC) && floor_ptr->dun_level && (!inside_quest(floor_ptr->quest_number) || quest_type::is_fixed(floor_ptr->quest_number));
+    msa_ptr->in_no_magic_dungeon = dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MAGIC) && floor_ptr->dun_level && (!inside_quest(floor_ptr->quest_number) || QuestType::is_fixed(floor_ptr->quest_number));
     if (!msa_ptr->in_no_magic_dungeon || (msa_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID))) {
         return;
     }
@@ -129,14 +130,7 @@ static void set_mspell_list(msa_type *msa_ptr)
 
 static void describe_mspell_monster(PlayerType *player_ptr, msa_type *msa_ptr)
 {
-    monster_desc(player_ptr, msa_ptr->m_name, msa_ptr->m_ptr, 0x00);
-
-#ifdef JP
-#else
-    /* Get the monster possessive ("his"/"her"/"its") */
-    char m_poss[80];
-    monster_desc(player_ptr, m_poss, msa_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE);
-#endif
+    angband_strcpy(msa_ptr->m_name, monster_desc(player_ptr, msa_ptr->m_ptr, 0x00).data(), sizeof(msa_ptr->m_name));
 }
 
 static bool switch_do_spell(PlayerType *player_ptr, msa_type *msa_ptr)
@@ -199,14 +193,14 @@ static bool check_mspell_unexploded(PlayerType *player_ptr, msa_type *msa_ptr)
         fail_rate = 0;
     }
 
-    if (!spell_is_inate(msa_ptr->thrown_spell) && (msa_ptr->in_no_magic_dungeon || (monster_stunned_remaining(msa_ptr->m_ptr) && one_in_(2)) || (randint0(100) < fail_rate))) {
+    if (!spell_is_inate(msa_ptr->thrown_spell) && (msa_ptr->in_no_magic_dungeon || (msa_ptr->m_ptr->get_remaining_stun() && one_in_(2)) || (randint0(100) < fail_rate))) {
         disturb(player_ptr, true, true);
-        msg_format(_("%^sは呪文を唱えようとしたが失敗した。", "%^s tries to cast a spell, but fails."), msa_ptr->m_name);
+        msg_format(_("%s^は呪文を唱えようとしたが失敗した。", "%s^ tries to cast a spell, but fails."), msa_ptr->m_name);
         return true;
     }
 
     if (!spell_is_inate(msa_ptr->thrown_spell) && SpellHex(player_ptr).check_hex_barrier(msa_ptr->m_idx, HEX_ANTI_MAGIC)) {
-        msg_format(_("反魔法バリアが%^sの呪文をかき消した。", "Anti magic barrier cancels the spell which %^s casts."), msa_ptr->m_name);
+        msg_format(_("反魔法バリアが%s^の呪文をかき消した。", "Anti magic barrier cancels the spell which %s^ casts."), msa_ptr->m_name);
         return true;
     }
 
@@ -320,12 +314,13 @@ bool make_attack_spell(PlayerType *player_ptr, MONSTER_IDX m_idx)
 {
     msa_type tmp_msa;
     msa_type *msa_ptr = initialize_msa_type(player_ptr, &tmp_msa, m_idx);
-    if (monster_confused_remaining(msa_ptr->m_ptr)) {
+    if (msa_ptr->m_ptr->is_confused()) {
         reset_target(msa_ptr->m_ptr);
         return false;
     }
 
-    if (msa_ptr->m_ptr->mflag.has(MonsterTemporaryFlagType::PREVENT_MAGIC) || !is_hostile(msa_ptr->m_ptr) || ((msa_ptr->m_ptr->cdis > get_max_range(player_ptr)) && !msa_ptr->m_ptr->target_y)) {
+    const auto &m_ref = *msa_ptr->m_ptr;
+    if (m_ref.mflag.has(MonsterTemporaryFlagType::PREVENT_MAGIC) || !m_ref.is_hostile() || ((m_ref.cdis > get_max_range(player_ptr)) && !m_ref.target_y)) {
         return false;
     }
 

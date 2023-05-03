@@ -5,8 +5,8 @@
 #include "monster/monster-info.h"
 #include "monster/smart-learn-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -43,11 +43,11 @@ monster_death_type *initialize_monster_death_type(PlayerType *player_ptr, monste
     auto *floor_ptr = player_ptr->current_floor_ptr;
     md_ptr->m_idx = m_idx;
     md_ptr->m_ptr = &floor_ptr->m_list[m_idx];
-    md_ptr->r_ptr = &r_info[md_ptr->m_ptr->r_idx];
+    md_ptr->r_ptr = &monraces_info[md_ptr->m_ptr->r_idx];
     md_ptr->do_gold = (md_ptr->r_ptr->drop_flags.has_none_of({ MonsterDropType::ONLY_ITEM, MonsterDropType::DROP_GOOD, MonsterDropType::DROP_GREAT }));
     md_ptr->do_item = (md_ptr->r_ptr->drop_flags.has_not(MonsterDropType::ONLY_GOLD) || md_ptr->r_ptr->drop_flags.has_any_of({ MonsterDropType::DROP_GOOD, MonsterDropType::DROP_GREAT }));
     md_ptr->cloned = md_ptr->m_ptr->mflag2.has(MonsterConstantFlagType::CLONED);
     md_ptr->force_coin = get_coin_type(md_ptr->m_ptr->r_idx);
-    md_ptr->drop_chosen_item = drop_item && !md_ptr->cloned && !floor_ptr->inside_arena && !player_ptr->phase_out && !is_pet(md_ptr->m_ptr);
+    md_ptr->drop_chosen_item = drop_item && !md_ptr->cloned && !floor_ptr->inside_arena && !player_ptr->phase_out && !md_ptr->m_ptr->is_pet();
     return md_ptr;
 }

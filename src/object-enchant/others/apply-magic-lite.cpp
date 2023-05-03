@@ -3,28 +3,25 @@
 #include "inventory/inventory-slot-types.h"
 #include "object-enchant/object-ego.h"
 #include "sv-definition/sv-lite-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 
-LiteEnchanter::LiteEnchanter(PlayerType *player_ptr, ObjectType *o_ptr, int power)
+LiteEnchanter::LiteEnchanter(PlayerType *player_ptr, ItemEntity *o_ptr, int power)
     : player_ptr(player_ptr)
     , o_ptr(o_ptr)
     , power(power)
 {
-    switch (o_ptr->sval) {
-    case SV_LITE_TORCH:
-        if (o_ptr->pval > 0) {
-            o_ptr->fuel = randint1(o_ptr->pval);
-        }
+    const auto sval = this->o_ptr->bi_key.sval();
+    if (!sval.has_value()) {
+        return;
+    }
 
-        o_ptr->pval = 0;
+    switch (sval.value()) {
+    case SV_LITE_TORCH:
+        o_ptr->fuel = randint1(FUEL_TORCH / 2);
         return;
     case SV_LITE_LANTERN:
-        if (o_ptr->pval > 0) {
-            o_ptr->fuel = randint1(o_ptr->pval);
-        }
-
-        o_ptr->pval = 0;
+        o_ptr->fuel = randint1(FUEL_LAMP / 2);
         return;
     default:
         return;
@@ -58,7 +55,7 @@ void LiteEnchanter::give_ego_index()
         this->o_ptr->ego_idx = get_random_ego(INVEN_LITE, true);
         switch (this->o_ptr->ego_idx) {
         case EgoType::LITE_LONG:
-            if (this->o_ptr->sval == SV_LITE_FEANOR) {
+            if (this->o_ptr->bi_key.sval() == SV_LITE_FEANOR) {
                 okay_flag = false;
             }
 
@@ -88,7 +85,12 @@ void LiteEnchanter::give_cursed()
 
 void LiteEnchanter::add_dark_flag()
 {
-    switch (this->o_ptr->sval) {
+    const auto sval = this->o_ptr->bi_key.sval();
+    if (!sval.has_value()) {
+        return;
+    }
+
+    switch (sval.value()) {
     case SV_LITE_TORCH:
         this->o_ptr->art_flags.set(TR_LITE_M1);
         return;

@@ -14,14 +14,14 @@
 #include "main/sound-of-music.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-status/player-energy.h"
 #include "status/experience.h"
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-rod-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -53,7 +53,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
         return;
     }
 
-    if (((o_ptr->sval >= SV_ROD_MIN_DIRECTION) && (o_ptr->sval != SV_ROD_HAVOC) && (o_ptr->sval != SV_ROD_AGGRAVATE) && (o_ptr->sval != SV_ROD_PESTICIDE)) || !o_ptr->is_aware()) {
+    if (o_ptr->is_aiming_rod() || !o_ptr->is_aware()) {
         if (!get_aim_dir(this->player_ptr, &dir)) {
             return;
         }
@@ -64,7 +64,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
         return;
     }
 
-    auto lev = k_info[o_ptr->k_idx].level;
+    auto lev = o_ptr->get_baseitem().level;
     auto chance = this->player_ptr->skill_dev;
     if (this->player_ptr->effects()->confusion()->is_confused()) {
         chance = chance / 2;
@@ -104,7 +104,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
         return;
     }
 
-    auto *k_ptr = &k_info[o_ptr->k_idx];
+    const auto &baseitem = o_ptr->get_baseitem();
     if ((o_ptr->number == 1) && (o_ptr->timeout)) {
         if (flush_failure) {
             flush();
@@ -112,7 +112,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
 
         msg_print(_("このロッドはまだ魔力を充填している最中だ。", "The rod is still charging."));
         return;
-    } else if ((o_ptr->number > 1) && (o_ptr->timeout > k_ptr->pval * (o_ptr->number - 1))) {
+    } else if ((o_ptr->number > 1) && (o_ptr->timeout > baseitem.pval * (o_ptr->number - 1))) {
         if (flush_failure) {
             flush();
         }
@@ -122,16 +122,16 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
     }
 
     sound(SOUND_ZAP);
-    auto ident = rod_effect(this->player_ptr, o_ptr->sval, dir, &use_charge, false);
+    auto ident = rod_effect(this->player_ptr, o_ptr->bi_key.sval().value(), dir, &use_charge, false);
     if (use_charge) {
-        o_ptr->timeout += k_ptr->pval;
+        o_ptr->timeout += baseitem.pval;
     }
 
-    this->player_ptr->update |= PU_COMBINE | PU_REORDER;
+    this->player_ptr->update |= PU_COMBINATION | PU_REORDER;
     if (!(o_ptr->is_aware())) {
-        chg_virtue(this->player_ptr, V_PATIENCE, -1);
-        chg_virtue(this->player_ptr, V_CHANCE, 1);
-        chg_virtue(this->player_ptr, V_KNOWLEDGE, -1);
+        chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
+        chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
+        chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
     object_tried(o_ptr);
@@ -140,7 +140,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX item)
         gain_exp(this->player_ptr, (lev + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 
-    set_bits(this->player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_PLAYER | PW_FLOOR_ITEM_LIST);
+    set_bits(this->player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
 }
 
 bool ObjectZapRodEntity::check_can_zap()

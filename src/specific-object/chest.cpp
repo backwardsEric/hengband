@@ -23,7 +23,7 @@
 #include "status/element-resistance.h"
 #include "sv-definition/sv-other-types.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -56,24 +56,18 @@ Chest::Chest(PlayerType *player_ptr)
  */
 void Chest::chest_death(bool scatter, POSITION y, POSITION x, OBJECT_IDX o_idx)
 {
-    int number;
-
-    bool small;
     BIT_FLAGS mode = AM_GOOD | AM_FORBID_CHEST;
-
-    ObjectType forge;
-    ObjectType *q_ptr;
-
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
     auto *o_ptr = &floor_ptr->o_list[o_idx];
 
     /* Small chests often hold "gold" */
-    small = (o_ptr->sval < SV_CHEST_MIN_LARGE);
+    const auto sval = o_ptr->bi_key.sval().value();
+    auto small = sval < SV_CHEST_MIN_LARGE;
 
     /* Determine how much to drop (see above) */
-    number = (o_ptr->sval % SV_CHEST_MIN_LARGE) * 2;
+    auto number = (sval % SV_CHEST_MIN_LARGE) * 2;
 
-    if (o_ptr->sval == SV_CHEST_KANDUME) {
+    if (sval == SV_CHEST_KANDUME) {
         number = 5;
         small = false;
         mode |= AM_GREAT;
@@ -89,6 +83,8 @@ void Chest::chest_death(bool scatter, POSITION y, POSITION x, OBJECT_IDX o_idx)
     }
 
     /* Drop some objects (non-chests) */
+    ItemEntity forge;
+    ItemEntity *q_ptr;
     for (; number > 0; --number) {
         q_ptr = &forge;
         q_ptr->wipe();
@@ -275,7 +271,7 @@ void Chest::chest_trap(POSITION y, POSITION x, OBJECT_IDX o_idx)
     }
 
     /* Dispel player. */
-    if ((trap.has(ChestTrapType::RUNES_OF_EVIL)) && o_ptr->k_idx) {
+    if ((trap.has(ChestTrapType::RUNES_OF_EVIL)) && o_ptr->is_valid()) {
         msg_print(_("恐ろしい声が響いた:  「暗闇が汝をつつまん！」", "Hideous voices bid:  'Let the darkness have thee!'"));
         for (auto count = 4 + randint0(3); count > 0; count--) {
             if (randint1(100 + o_ptr->pval * 2) <= this->player_ptr->skill_sav) {
@@ -329,7 +325,7 @@ void Chest::chest_trap(POSITION y, POSITION x, OBJECT_IDX o_idx)
     }
 
     /* Explode */
-    if ((trap.has(ChestTrapType::EXPLODE)) && o_ptr->k_idx) {
+    if ((trap.has(ChestTrapType::EXPLODE)) && o_ptr->is_valid()) {
         msg_print(_("突然、箱が爆発した！", "There is a sudden explosion!"));
         msg_print(_("箱の中の物はすべて粉々に砕け散った！", "Everything inside the chest is destroyed!"));
         o_ptr->pval = 0;
@@ -337,7 +333,7 @@ void Chest::chest_trap(POSITION y, POSITION x, OBJECT_IDX o_idx)
         take_hit(this->player_ptr, DAMAGE_ATTACK, damroll(5, 8), _("爆発する箱", "an exploding chest"));
     }
     /* Scatter contents. */
-    if ((trap.has(ChestTrapType::SCATTER)) && o_ptr->k_idx) {
+    if ((trap.has(ChestTrapType::SCATTER)) && o_ptr->is_valid()) {
         msg_print(_("宝箱の中身はダンジョンじゅうに散乱した！", "The contents of the chest scatter all over the dungeon!"));
         this->chest_death(true, y, x, o_idx);
         o_ptr->pval = 0;

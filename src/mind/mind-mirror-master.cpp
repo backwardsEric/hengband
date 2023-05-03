@@ -221,7 +221,7 @@ bool set_multishadow(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->multishadow = v;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (!notice) {
         return false;
@@ -268,7 +268,7 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->dustrobe = v;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (!notice) {
         return false;
@@ -286,7 +286,7 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
  * @brief 現在フロアに存在している鏡の数を数える / calculate mirrors
  * @return 鏡の枚数
  */
-static int number_of_mirrors(floor_type *floor_ptr)
+static int number_of_mirrors(FloorType *floor_ptr)
 {
     int val = 0;
     for (POSITION x = 0; x < floor_ptr->width; x++) {

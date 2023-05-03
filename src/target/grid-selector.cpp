@@ -51,11 +51,11 @@ static bool tgt_pt_accept(PlayerType *player_ptr, POSITION y, POSITION x)
         return false;
     }
 
-    if (g_ptr->cave_has_flag(FloorFeatureType::LESS) || g_ptr->cave_has_flag(FloorFeatureType::MORE) || g_ptr->cave_has_flag(FloorFeatureType::QUEST_ENTER) || g_ptr->cave_has_flag(FloorFeatureType::QUEST_EXIT)) {
+    if (g_ptr->cave_has_flag(TerrainCharacteristics::LESS) || g_ptr->cave_has_flag(TerrainCharacteristics::MORE) || g_ptr->cave_has_flag(TerrainCharacteristics::QUEST_ENTER) || g_ptr->cave_has_flag(TerrainCharacteristics::QUEST_EXIT)) {
         return true;
     }
 
-    if (g_ptr->cave_has_flag(FloorFeatureType::STORE) || g_ptr->cave_has_flag(FloorFeatureType::BLDG)) {
+    if (g_ptr->cave_has_flag(TerrainCharacteristics::STORE) || g_ptr->cave_has_flag(TerrainCharacteristics::BLDG)) {
         return true;
     }
 
@@ -91,19 +91,19 @@ static void tgt_pt_prepare(PlayerType *player_ptr, std::vector<POSITION> &ys, st
  * @brief 指定したシンボルのマスかどうかを判定するための条件式コールバック
  */
 std::unordered_map<int, std::function<bool(grid_type *)>> tgt_pt_symbol_call_back = {
-    { '<', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STAIRS) && g_ptr->cave_has_flag(FloorFeatureType::LESS); } },
-    { '>', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STAIRS) && g_ptr->cave_has_flag(FloorFeatureType::MORE); } },
-    { '+', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::BLDG); } },
-    { '0', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('0'); } },
-    { '!', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('1'); } },
-    { '"', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('2'); } },
-    { '#', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('3'); } },
-    { '$', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('4'); } },
-    { '%', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('5'); } },
-    { '&', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('6'); } },
-    { '\'', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('7'); } },
-    { '(', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('8'); } },
-    { ')', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(FloorFeatureType::STORE) && g_ptr->is_symbol('9'); } },
+    { '<', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STAIRS) && g_ptr->cave_has_flag(TerrainCharacteristics::LESS); } },
+    { '>', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STAIRS) && g_ptr->cave_has_flag(TerrainCharacteristics::MORE); } },
+    { '+', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::BLDG); } },
+    { '0', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('0'); } },
+    { '!', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('1'); } },
+    { '"', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('2'); } },
+    { '#', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('3'); } },
+    { '$', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('4'); } },
+    { '%', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('5'); } },
+    { '&', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('6'); } },
+    { '\'', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('7'); } },
+    { '(', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('8'); } },
+    { ')', [](grid_type *g_ptr) { return g_ptr->cave_has_flag(TerrainCharacteristics::STORE) && g_ptr->is_symbol('9'); } },
 };
 
 /*!
@@ -161,7 +161,7 @@ void tgt_pt_info::move_to_symbol(PlayerType *player_ptr)
         this->y = player_ptr->y;
         this->x = player_ptr->x;
         verify_panel(player_ptr);
-        player_ptr->update |= PU_MONSTERS;
+        player_ptr->update |= PU_MONSTER_STATUSES;
         player_ptr->redraw |= PR_MAP;
         player_ptr->window_flags |= PW_OVERHEAD;
         handle_stuff(player_ptr);
@@ -304,7 +304,7 @@ bool tgt_pt(PlayerType *player_ptr, POSITION *x_ptr, POSITION *y_ptr)
 
     prt("", 0, 0);
     verify_panel(player_ptr);
-    player_ptr->update |= PU_MONSTERS;
+    player_ptr->update |= PU_MONSTER_STATUSES;
     player_ptr->redraw |= PR_MAP;
     player_ptr->window_flags |= PW_OVERHEAD;
     handle_stuff(player_ptr);

@@ -14,7 +14,6 @@
 #include "core/player-redraw-types.h"
 #include "core/player-update-types.h"
 #include "core/stuff-handler.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "effect/effect-characteristics.h"
 #include "effect/spells-effect-util.h"
@@ -27,6 +26,7 @@
 #include "io/input-key-acceptor.h"
 #include "monster/monster-update.h"
 #include "player-info/mimic-info-table.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
@@ -55,10 +55,10 @@ void resize_map()
     panel_col_min = p_ptr->current_floor_ptr->width;
     verify_panel(p_ptr);
 
-    p_ptr->update |= (PU_TORCH | PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+    p_ptr->update |= (PU_TORCH | PU_BONUS | PU_HP | PU_MP | PU_SPELLS);
     p_ptr->update |= (PU_UN_VIEW | PU_UN_LITE);
-    p_ptr->update |= (PU_VIEW | PU_LITE | PU_MON_LITE);
-    p_ptr->update |= (PU_MONSTERS);
+    p_ptr->update |= (PU_VIEW | PU_LITE | PU_MONSTER_LITE);
+    p_ptr->update |= (PU_MONSTER_STATUSES);
     p_ptr->redraw |= (PR_WIPE | PR_BASIC | PR_EXTRA | PR_MAP | PR_EQUIPPY);
 
     handle_stuff(p_ptr);

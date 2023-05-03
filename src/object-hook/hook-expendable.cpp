@@ -5,15 +5,15 @@
 #include "monster-race/monster-race.h"
 #include "object-enchant/item-feeling.h"
 #include "object-enchant/special-object-flags.h"
-#include "object/object-kind.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "player-base/player-race.h"
 #include "player-info/mimic-info-table.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 
@@ -23,20 +23,21 @@
  * @param o_ptr 判定したいオブジェクトの構造体参照ポインタ
  * @return 食べることが可能ならばTRUEを返す
  */
-bool item_tester_hook_eatable(PlayerType *player_ptr, const ObjectType *o_ptr)
+bool item_tester_hook_eatable(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
-    if (o_ptr->tval == ItemKindType::FOOD) {
+    const auto tval = o_ptr->bi_key.tval();
+    if (tval == ItemKindType::FOOD) {
         return true;
     }
 
     auto food_type = PlayerRace(player_ptr).food();
     if (food_type == PlayerRaceFoodType::MANA) {
-        if (o_ptr->tval == ItemKindType::STAFF || o_ptr->tval == ItemKindType::WAND) {
+        if (o_ptr->is_wand_staff()) {
             return true;
         }
     } else if (food_type == PlayerRaceFoodType::CORPSE) {
         auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        if (o_ptr->tval == ItemKindType::CORPSE && o_ptr->sval == SV_CORPSE && angband_strchr("pht", r_info[corpse_r_idx].d_char)) {
+        if ((o_ptr->bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE)) && angband_strchr("pht", monraces_info[corpse_r_idx].d_char)) {
             return true;
         }
     }
@@ -50,17 +51,14 @@ bool item_tester_hook_eatable(PlayerType *player_ptr, const ObjectType *o_ptr)
  * @param o_ptr 判定したいオブジェクトの構造体参照ポインタ
  * @return 飲むことが可能ならばTRUEを返す
  */
-bool item_tester_hook_quaff(PlayerType *player_ptr, const ObjectType *o_ptr)
+bool item_tester_hook_quaff(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
-    if (o_ptr->tval == ItemKindType::POTION) {
+    const auto &bi_key = o_ptr->bi_key;
+    if (bi_key.tval() == ItemKindType::POTION) {
         return true;
     }
 
-    if (PlayerRace(player_ptr).food() == PlayerRaceFoodType::OIL && o_ptr->tval == ItemKindType::FLASK && o_ptr->sval == SV_FLASK_OIL) {
-        return true;
-    }
-
-    return false;
+    return (PlayerRace(player_ptr).food() == PlayerRaceFoodType::OIL) && (bi_key == BaseitemKey(ItemKindType::FLASK, SV_FLASK_OIL));
 }
 
 /*!
@@ -69,10 +67,10 @@ bool item_tester_hook_quaff(PlayerType *player_ptr, const ObjectType *o_ptr)
  * @param o_ptr 破壊可能かを確認したいオブジェクトの構造体参照ポインタ
  * @return オブジェクトが破壊可能ならばTRUEを返す
  */
-bool can_player_destroy_object(PlayerType *player_ptr, ObjectType *o_ptr)
+bool can_player_destroy_object(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     /* Artifacts cannot be destroyed */
-    if (!o_ptr->is_artifact()) {
+    if (!o_ptr->is_fixed_or_random_artifact()) {
         return true;
     }
 
@@ -84,8 +82,8 @@ bool can_player_destroy_object(PlayerType *player_ptr, ObjectType *o_ptr)
 
         o_ptr->feeling = feel;
         o_ptr->ident |= IDENT_SENSE;
-        player_ptr->update |= (PU_COMBINE);
-        player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+        player_ptr->update |= (PU_COMBINATION);
+        player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
         return false;
     }
 

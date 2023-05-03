@@ -5,7 +5,7 @@
 #include "main/angband-headers.h"
 #include "monster-race/monster-race.h"
 #include "player-ability/player-ability-types.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "term/gameterm.h"
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
@@ -13,12 +13,12 @@
 
 /*!
  * @brief テキストトークンを走査してフラグを一つ得る(モンスター用1) /
- * Grab one (basic) flag in a monster_race from a textual string
+ * Grab one (basic) flag in a MonsterRaceInfo from a textual string
  * @param r_ptr 保管先のモンスター種族構造体参照ポインタ
  * @param what 参照元の文字列ポインタ
  * @return 見つけたらtrue
  */
-static bool grab_one_basic_flag(monster_race *r_ptr, std::string_view what)
+static bool grab_one_basic_flag(MonsterRaceInfo *r_ptr, std::string_view what)
 {
     if (info_grab_one_flag(r_ptr->flags1, r_info_flags1, what)) {
         return true;
@@ -80,18 +80,22 @@ static bool grab_one_basic_flag(monster_race *r_ptr, std::string_view what)
         return true;
     }
 
+    if (EnumClassFlagGroup<MonsterBrightnessType>::grab_one_flag(r_ptr->brightness_flags, r_info_brightness_flags, what)) {
+        return true;
+    }
+
     msg_format(_("未知のモンスター・フラグ '%s'。", "Unknown monster flag '%s'."), what.data());
     return false;
 }
 
 /*!
  * @brief テキストトークンを走査してフラグを一つ得る(モンスター用2) /
- * Grab one (spell) flag in a monster_race from a textual string
+ * Grab one (spell) flag in a MonsterRaceInfo from a textual string
  * @param r_ptr 保管先のモンスター種族構造体参照ポインタ
  * @param what 参照元の文字列ポインタ
  * @return 見つけたらtrue
  */
-static bool grab_one_spell_flag(monster_race *r_ptr, std::string_view what)
+static bool grab_one_spell_flag(MonsterRaceInfo *r_ptr, std::string_view what)
 {
     if (EnumClassFlagGroup<MonsterAbilityType>::grab_one_flag(r_ptr->ability_flags, r_info_ability_flags, what)) {
         return true;
@@ -102,15 +106,14 @@ static bool grab_one_spell_flag(monster_race *r_ptr, std::string_view what)
 }
 
 /*!
- * @brief モンスター種族情報(r_info)のパース関数 /
- * Initialize the "r_info" array, by parsing an ascii "template" file
+ * @brief モンスター種族情報(MonsterRaceDefinition)のパース関数
  * @param buf テキスト列
  * @param head ヘッダ構造体
  * @return エラーコード
  */
-errr parse_r_info(std::string_view buf, angband_header *)
+errr parse_monraces_info(std::string_view buf, angband_header *)
 {
-    static monster_race *r_ptr = nullptr;
+    static MonsterRaceInfo *r_ptr = nullptr;
     const auto &tokens = str_split(buf, ':', true, 10);
 
     if (tokens[0] == "N") {
@@ -125,7 +128,7 @@ errr parse_r_info(std::string_view buf, angband_header *)
         }
 
         error_idx = i;
-        r_ptr = &(r_info.emplace_hint(r_info.end(), i2enum<MonsterRaceId>(i), monster_race{})->second);
+        r_ptr = &(monraces_info.emplace_hint(monraces_info.end(), i2enum<MonsterRaceId>(i), MonsterRaceInfo{})->second);
         r_ptr->idx = i2enum<MonsterRaceId>(i);
 #ifdef JP
         r_ptr->name = tokens[2];
@@ -190,22 +193,21 @@ errr parse_r_info(std::string_view buf, angband_header *)
         info_set_value(r_ptr->ac, tokens[4]);
         info_set_value(r_ptr->sleep, tokens[5]);
     } else if (tokens[0] == "W") {
-        // W:level:ratity:extra:exp:next_exp:next_id
-        if (tokens.size() < 5 || tokens.size() == 6) {
+        // W:level:ratity:exp:next_exp:next_id
+        if ((tokens.size() < 4) || (tokens.size() == 5)) {
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 
         info_set_value(r_ptr->level, tokens[1]);
         info_set_value(r_ptr->rarity, tokens[2]);
-        info_set_value(r_ptr->extra, tokens[3]);
-        info_set_value(r_ptr->mexp, tokens[4]);
+        info_set_value(r_ptr->mexp, tokens[3]);
 
-        if (tokens.size() < 6) {
+        if (tokens.size() < 5) {
             return PARSE_ERROR_NONE;
         }
 
-        info_set_value(r_ptr->next_exp, tokens[5]);
-        info_set_value(r_ptr->next_r_idx, tokens[6]);
+        info_set_value(r_ptr->next_exp, tokens[4]);
+        info_set_value(r_ptr->next_r_idx, tokens[5]);
     } else if (tokens[0] == "R") {
         // R:reinforcer_idx:number_dice
         if (tokens.size() < 3) {

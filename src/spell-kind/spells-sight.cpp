@@ -25,8 +25,8 @@
 #include "monster/monster-status.h"
 #include "monster/smart-learn-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "term/screen-processor.h"
@@ -49,7 +49,7 @@ bool project_all_los(PlayerType *player_ptr, AttributeType typ, int dam)
 {
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -130,7 +130,7 @@ bool turn_undead(PlayerType *player_ptr)
 {
     bool tester = (project_all_los(player_ptr, AttributeType::TURN_UNDEAD, player_ptr->lev));
     if (tester) {
-        chg_virtue(player_ptr, V_UNLIFE, -1);
+        chg_virtue(player_ptr, Virtue::UNLIFE, -1);
     }
     return tester;
 }
@@ -144,7 +144,7 @@ bool dispel_undead(PlayerType *player_ptr, int dam)
 {
     bool tester = (project_all_los(player_ptr, AttributeType::DISP_UNDEAD, dam));
     if (tester) {
-        chg_virtue(player_ptr, V_UNLIFE, -2);
+        chg_virtue(player_ptr, Virtue::UNLIFE, -2);
     }
     return tester;
 }
@@ -220,27 +220,27 @@ void aggravate_monsters(PlayerType *player_ptr, MONSTER_IDX who)
     bool speed = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
         if (i == who) {
             continue;
         }
 
-        if (m_ptr->cdis < MAX_SIGHT * 2) {
-            if (monster_csleep_remaining(m_ptr)) {
+        if (m_ptr->cdis < MAX_PLAYER_SIGHT * 2) {
+            if (m_ptr->is_asleep()) {
                 (void)set_monster_csleep(player_ptr, i, 0);
                 sleep = true;
             }
 
-            if (!is_pet(m_ptr)) {
+            if (!m_ptr->is_pet()) {
                 m_ptr->mflag2.set(MonsterConstantFlagType::NOPET);
             }
         }
 
         if (player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx)) {
-            if (!is_pet(m_ptr)) {
-                (void)set_monster_fast(player_ptr, i, monster_fast_remaining(m_ptr) + 100);
+            if (!m_ptr->is_pet()) {
+                (void)set_monster_fast(player_ptr, i, m_ptr->get_remaining_acceleration() + 100);
                 speed = true;
             }
         }
@@ -370,10 +370,11 @@ bool deathray_monsters(PlayerType *player_ptr)
  * @param player_ptr プレイヤー情報への参照ポインタ
  * @param m_ptr モンスター情報への参照ポインタ
  * @param r_ptr モンスター種族への参照ポインタ
+ * @return 調査結果 善悪アライメント、最大HP、残りHP、AC、速度、ステータス
  */
-void probed_monster_info(char *buf, PlayerType *player_ptr, monster_type *m_ptr, monster_race *r_ptr)
+std::string probed_monster_info(PlayerType *player_ptr, MonsterEntity *m_ptr, MonsterRaceInfo *r_ptr)
 {
-    if (!is_original_ap(m_ptr)) {
+    if (!m_ptr->is_original_ap()) {
         if (m_ptr->mflag2.has(MonsterConstantFlagType::KAGE)) {
             m_ptr->mflag2.reset(MonsterConstantFlagType::KAGE);
         }
@@ -382,19 +383,7 @@ void probed_monster_info(char *buf, PlayerType *player_ptr, monster_type *m_ptr,
         lite_spot(player_ptr, m_ptr->fy, m_ptr->fx);
     }
 
-    GAME_TEXT m_name[MAX_NLEN];
-    monster_desc(player_ptr, m_name, m_ptr, MD_IGNORE_HALLU | MD_INDEF_HIDDEN);
-
-    auto speed = m_ptr->mspeed - 110;
-    if (monster_fast_remaining(m_ptr)) {
-        speed += 10;
-    }
-    if (monster_slow_remaining(m_ptr)) {
-        speed -= 10;
-    }
-    if (ironman_nightmare) {
-        speed += 5;
-    }
+    const auto m_name = monster_desc(player_ptr, m_ptr, MD_IGNORE_HALLU | MD_INDEF_HIDDEN);
 
     concptr align;
     if (r_ptr->kind_flags.has_all_of(alignment_mask)) {
@@ -413,31 +402,32 @@ void probed_monster_info(char *buf, PlayerType *player_ptr, monster_type *m_ptr,
         align = _("中立", "neutral");
     }
 
-    sprintf(buf, _("%s ... 属性:%s HP:%d/%d AC:%d 速度:%s%d 経験:", "%s ... align:%s HP:%d/%d AC:%d speed:%s%d exp:"), m_name, align, (int)m_ptr->hp,
+    const auto speed = m_ptr->get_temporary_speed() - STANDARD_SPEED;
+    std::string result = format(_("%s ... 属性:%s HP:%d/%d AC:%d 速度:%s%d 経験:", "%s ... align:%s HP:%d/%d AC:%d speed:%s%d exp:"), m_name.data(), align, (int)m_ptr->hp,
         (int)m_ptr->maxhp, r_ptr->ac, (speed > 0) ? "+" : "", speed);
 
     if (MonsterRace(r_ptr->next_r_idx).is_valid()) {
-        strcat(buf, format("%d/%d ", m_ptr->exp, r_ptr->next_exp));
+        result.append(format("%d/%d ", m_ptr->exp, r_ptr->next_exp));
     } else {
-        strcat(buf, "xxx ");
+        result.append("xxx ");
     }
 
-    if (monster_csleep_remaining(m_ptr)) {
-        strcat(buf, _("睡眠 ", "sleeping "));
+    if (m_ptr->is_asleep()) {
+        result.append(_("睡眠 ", "sleeping "));
     }
-    if (monster_stunned_remaining(m_ptr)) {
-        strcat(buf, _("朦朧 ", "stunned "));
+    if (m_ptr->is_stunned()) {
+        result.append(_("朦朧 ", "stunned "));
     }
-    if (monster_fear_remaining(m_ptr)) {
-        strcat(buf, _("恐怖 ", "scared "));
+    if (m_ptr->is_fearful()) {
+        result.append(_("恐怖 ", "scared "));
     }
-    if (monster_confused_remaining(m_ptr)) {
-        strcat(buf, _("混乱 ", "confused "));
+    if (m_ptr->is_confused()) {
+        result.append(_("混乱 ", "confused "));
     }
-    if (monster_invulner_remaining(m_ptr)) {
-        strcat(buf, _("無敵 ", "invulnerable "));
+    if (m_ptr->is_invulnerable()) {
+        result.append(_("無敵 ", "invulnerable "));
     }
-    buf[strlen(buf) - 1] = '\0';
+    return result;
 }
 
 /*!
@@ -452,11 +442,10 @@ bool probing(PlayerType *player_ptr)
     game_term->scr->cv = 1;
 
     bool probe = false;
-    char buf[256];
     for (int i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
         if (!player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx)) {
@@ -471,22 +460,24 @@ bool probing(PlayerType *player_ptr)
         }
         msg_print(nullptr);
 
-        probed_monster_info(buf, player_ptr, m_ptr, r_ptr);
-        prt(buf, 0, 0);
+        const auto probe_result = probed_monster_info(player_ptr, m_ptr, r_ptr);
+        prt(probe_result.data(), 0, 0);
 
-        message_add(buf);
+        message_add(probe_result);
         player_ptr->window_flags |= (PW_MESSAGE);
         handle_stuff(player_ptr);
         move_cursor_relative(m_ptr->fy, m_ptr->fx);
         inkey();
         term_erase(0, 0, 255);
         if (lore_do_probe(player_ptr, m_ptr->r_idx)) {
-            strcpy(buf, (r_ptr->name.c_str()));
 #ifdef JP
-            msg_format("%sについてさらに詳しくなった気がする。", buf);
+            msg_format("%sについてさらに詳しくなった気がする。", r_ptr->name.data());
 #else
-            plural_aux(buf);
-            msg_format("You now know more about %s.", buf);
+            std::string nm = r_ptr->name;
+            /* Leave room for making it plural. */
+            nm.resize(r_ptr->name.length() + 16);
+            plural_aux(nm.data());
+            msg_format("You now know more about %s.", nm.data());
 #endif
             msg_print(nullptr);
         }
@@ -499,7 +490,7 @@ bool probing(PlayerType *player_ptr)
     term_fresh();
 
     if (probe) {
-        chg_virtue(player_ptr, V_KNOWLEDGE, 1);
+        chg_virtue(player_ptr, Virtue::KNOWLEDGE, 1);
         msg_print(_("これで全部です。", "That's all."));
     }
 

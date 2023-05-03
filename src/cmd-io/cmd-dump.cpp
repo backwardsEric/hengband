@@ -12,7 +12,6 @@
 #include "cmd-io/cmd-dump.h"
 #include "cmd-io/feeling-table.h"
 #include "core/asking-player.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "floor/floor-town.h"
 #include "io-dump/dump-remover.h"
@@ -28,6 +27,7 @@
 #include "player/player-status-flags.h"
 #include "player/player-status.h"
 #include "system/angband-version.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
@@ -84,7 +84,7 @@ void do_cmd_colors(PlayerType *player_ptr)
         if (i == '1') {
             prt(_("コマンド: ユーザー設定ファイルをロードします", "Command: Load a user pref file"), 8, 0);
             prt(_("ファイル: ", "File: "), 10, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
@@ -93,10 +93,10 @@ void do_cmd_colors(PlayerType *player_ptr)
             term_xtra(TERM_XTRA_REACT, 0);
             term_redraw();
         } else if (i == '2') {
-            static concptr mark = "Colors";
+            constexpr auto mark = "Colors";
             prt(_("コマンド: カラーの設定をファイルに書き出します", "Command: Dump colors"), 8, 0);
             prt(_("ファイル: ", "File: "), 10, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
@@ -113,7 +113,7 @@ void do_cmd_colors(PlayerType *player_ptr)
                 int gv = angband_color_table[i][2];
                 int bv = angband_color_table[i][3];
 
-                concptr name = _("未知", "unknown");
+                auto name = _("未知", "unknown");
                 if (!kv && !rv && !gv && !bv) {
                     continue;
                 }
@@ -216,9 +216,7 @@ void do_cmd_note(void)
  */
 void do_cmd_version(void)
 {
-    char buf[120];
-    put_version(buf);
-    msg_print(buf);
+    msg_print(get_version());
 }
 
 /*
@@ -231,13 +229,14 @@ void do_cmd_feeling(PlayerType *player_ptr)
         return;
     }
 
-    if (inside_quest(player_ptr->current_floor_ptr->quest_number) && !inside_quest(random_quest_number(player_ptr, player_ptr->current_floor_ptr->dun_level))) {
+    const auto &floor_ref = *player_ptr->current_floor_ptr;
+    if (inside_quest(floor_ref.quest_number) && !inside_quest(random_quest_number(player_ptr, floor_ref.dun_level))) {
         msg_print(_("典型的なクエストのダンジョンのようだ。", "Looks like a typical quest level."));
         return;
     }
 
-    if (player_ptr->town_num && !player_ptr->current_floor_ptr->dun_level) {
-        if (!strcmp(town_info[player_ptr->town_num].name, _("荒野", "wilderness"))) {
+    if (player_ptr->town_num && !floor_ref.is_in_dungeon()) {
+        if (!strcmp(towns_info[player_ptr->town_num].name, _("荒野", "wilderness"))) {
             msg_print(_("何かありそうな荒野のようだ。", "Looks like a strange wilderness."));
             return;
         }
@@ -246,7 +245,7 @@ void do_cmd_feeling(PlayerType *player_ptr)
         return;
     }
 
-    if (!is_in_dungeon(player_ptr)) {
+    if (!floor_ref.is_in_dungeon()) {
         msg_print(_("典型的な荒野のようだ。", "Looks like a typical wilderness."));
         return;
     }
@@ -268,20 +267,10 @@ void do_cmd_time(PlayerType *player_ptr)
 {
     int day, hour, min;
     extract_day_hour_min(player_ptr, &day, &hour, &min);
-
-    char desc[1024];
-    strcpy(desc, _("変な時刻だ。", "It is a strange time."));
-
-    char day_buf[20];
-    if (day < MAX_DAYS) {
-        sprintf(day_buf, "%d", day);
-    } else {
-        strcpy(day_buf, "*****");
-    }
-
-    msg_format(_("%s日目, 時刻は%d:%02d %sです。", "This is day %s. The time is %d:%02d %s."), day_buf, (hour % 12 == 0) ? 12 : (hour % 12), min,
-        (hour < 12) ? "AM" : "PM");
-
+    std::string desc = _("変な時刻だ。", "It is a strange time.");
+    std::string day_buf = (day < MAX_DAYS) ? std::to_string(day) : "*****";
+    constexpr auto mes = _("%s日目, 時刻は%d:%02d %sです。", "This is day %s. The time is %d:%02d %s.");
+    msg_format(mes, day_buf.data(), (hour % 12 == 0) ? 12 : (hour % 12), min, (hour < 12) ? "AM" : "PM");
     char buf[1024];
     if (!randint0(10) || player_ptr->effects()->hallucination()->is_hallucinated()) {
         path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, _("timefun_j.txt", "timefun.txt"));
@@ -289,17 +278,15 @@ void do_cmd_time(PlayerType *player_ptr)
         path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, _("timenorm_j.txt", "timenorm.txt"));
     }
 
-    FILE *fff;
-    fff = angband_fopen(buf, "rt");
-
+    auto *fff = angband_fopen(buf, FileOpenMode::READ);
     if (!fff) {
         return;
     }
 
-    int full = hour * 100 + min;
-    int start = 9999;
-    int end = -9999;
-    int num = 0;
+    auto full = hour * 100 + min;
+    auto start = 9999;
+    auto end = -9999;
+    auto num = 0;
     while (!angband_fgets(fff, buf, sizeof(buf))) {
         if (!buf[0] || (buf[0] == '#')) {
             continue;
@@ -326,7 +313,7 @@ void do_cmd_time(PlayerType *player_ptr)
         if (buf[0] == 'D') {
             num++;
             if (!randint0(num)) {
-                strcpy(desc, buf + 2);
+                desc = buf + 2;
             }
 
             continue;

@@ -95,9 +95,6 @@
     <ClCompile Include="..\..\src\knowledge\knowledge-experiences.cpp">
       <Filter>knowledge</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\object\object-kind.cpp">
-      <Filter>object</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\object\object-kind-hook.cpp">
       <Filter>object</Filter>
     </ClCompile>
@@ -345,9 +342,6 @@
       <Filter>world</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\dungeon\dungeon-processor.cpp">
-      <Filter>dungeon</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\dungeon\dungeon.cpp">
       <Filter>dungeon</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\core\game-play.cpp">
@@ -818,9 +812,6 @@
     <ClCompile Include="..\..\src\spell\range-calc.cpp">
       <Filter>spell</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\specific-object\bow.cpp">
-      <Filter>specific-object</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\specific-object\chest.cpp">
       <Filter>specific-object</Filter>
     </ClCompile>
@@ -959,7 +950,7 @@
     <ClCompile Include="..\..\src\info-reader\race-info-tokens-table.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\info-reader\kind-info-tokens-table.cpp">
+    <ClCompile Include="..\..\src\info-reader\baseitem-tokens-table.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\info-reader\dungeon-info-tokens-table.cpp">
@@ -977,7 +968,7 @@
     <ClCompile Include="..\..\src\info-reader\vault-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\info-reader\kind-reader.cpp">
+    <ClCompile Include="..\..\src\info-reader\baseitem-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\info-reader\artifact-reader.cpp">
@@ -1225,9 +1216,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\game-option\keymap-directory-getter.cpp">
       <Filter>game-option</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\util\tag-sorter.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\util\buffer-shaper.cpp">
       <Filter>util</Filter>
@@ -1538,13 +1526,7 @@
     <ClCompile Include="..\..\src\window\main-window-equipments.cpp">
       <Filter>window</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\window\display-sub-window-items.cpp">
-      <Filter>window</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\window\display-sub-windows.cpp">
-      <Filter>window</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\window\display-sub-window-spells.cpp">
       <Filter>window</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\window\main-window-left-frame.cpp">
@@ -2208,7 +2190,7 @@
     <ClCompile Include="..\..\src\view\display-scores.cpp">
       <Filter>view</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\system\object-type-definition.cpp">
+    <ClCompile Include="..\..\src\system\item-entity.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\object\object-index-list.cpp">
@@ -2466,6 +2448,39 @@
     <ClCompile Include="..\..\src\timed-effect\player-blindness.cpp">
       <Filter>timed-effect</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\system\monster-entity.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem-info.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\floor-type-definition.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon-info.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\terrain-type-definition.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\window\main-window-row-column.cpp">
+      <Filter>window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\monster-race\race-brightness-mask.cpp">
+      <Filter>monster-race</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\monster\monster-pain-describer.cpp">
+      <Filter>monster</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\item-info\flavor-initializer.cpp">
+      <Filter>item-info</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\monster-race-info.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\redrawing-flags-updater.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\combat\shoot.h">
@@ -2560,9 +2575,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\knowledge\knowledge-experiences.h">
       <Filter>knowledge</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\object\object-kind.h">
-      <Filter>object</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\object\object-kind-hook.h">
       <Filter>object</Filter>
@@ -2838,9 +2850,6 @@
       <Filter>world</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\dungeon\dungeon-processor.h">
-      <Filter>dungeon</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\dungeon\dungeon.h">
       <Filter>dungeon</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\core\game-play.h">
@@ -3410,9 +3419,6 @@
     <ClInclude Include="..\..\src\realm\realm-song-numbers.h">
       <Filter>realm</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\specific-object\bow.h">
-      <Filter>specific-object</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\specific-object\chest.h">
       <Filter>specific-object</Filter>
     </ClInclude>
@@ -3557,7 +3563,7 @@
     <ClInclude Include="..\..\src\info-reader\race-info-tokens-table.h">
       <Filter>info-reader</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\info-reader\kind-info-tokens-table.h">
+    <ClInclude Include="..\..\src\info-reader\baseitem-tokens-table.h">
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\dungeon-info-tokens-table.h">
@@ -3581,7 +3587,7 @@
     <ClInclude Include="..\..\src\info-reader\vault-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\info-reader\kind-reader.h">
+    <ClInclude Include="..\..\src\info-reader\baseitem-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\artifact-reader.h">
@@ -3668,7 +3674,7 @@
     <ClInclude Include="..\..\src\player\eldritch-horror.h">
       <Filter>player</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\system\monster-type-definition.h">
+    <ClInclude Include="..\..\src\system\monster-entity.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\monster\monster-processor-util.h">
@@ -3680,7 +3686,7 @@
     <ClInclude Include="..\..\src\core\speed-table.h">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\system\object-type-definition.h">
+    <ClInclude Include="..\..\src\system\item-entity.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\monster\monster-util.h">
@@ -3857,7 +3863,7 @@
     <ClInclude Include="..\..\src\player-info\class-types.h">
       <Filter>player-info</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\system\monster-race-definition.h">
+    <ClInclude Include="..\..\src\system\monster-race-info.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\realm\realm-types.h">
@@ -3901,9 +3907,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\io\command-repeater.h">
       <Filter>io</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\util\tag-sorter.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\game-option\cheat-types.h">
       <Filter>game-option</Filter>
@@ -4256,13 +4259,7 @@
     <ClInclude Include="..\..\src\window\main-window-equipments.h">
       <Filter>window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\window\display-sub-window-items.h">
-      <Filter>window</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\window\display-sub-windows.h">
-      <Filter>window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\window\display-sub-window-spells.h">
       <Filter>window</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\window\main-window-left-frame.h">
@@ -4362,9 +4359,6 @@
       <Filter>racial</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\floor\floor-base-definitions.h">
-      <Filter>floor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\floor\sight-definitions.h">
       <Filter>floor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\system\floor-type-definition.h">
@@ -5361,6 +5355,30 @@
     <ClInclude Include="..\..\src\timed-effect\player-blindness.h">
       <Filter>timed-effect</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem-info.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon-info.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\terrain-type-definition.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\monster-race\race-brightness-flags.h">
+      <Filter>monster-race</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\monster-race\race-brightness-mask.h">
+      <Filter>monster-race</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\monster\monster-pain-describer.h">
+      <Filter>monster</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\item-info\flavor-initializer.h">
+      <Filter>item-info</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\redrawing-flags-updater.h">
+      <Filter>system</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\wall.bmp" />
@@ -5615,6 +5633,9 @@
     </Filter>
     <Filter Include="mspell\mspell-attack">
       <UniqueIdentifier>{ab971e7b-4a9e-4f88-a557-eb89840abd61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="item-info">
+      <UniqueIdentifier>{3aefd2e8-8dd8-41dd-bc6b-7dadd75dfd6b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

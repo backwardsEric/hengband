@@ -14,7 +14,7 @@
 #include "cmd-io/cmd-save.h"
 #include "io/input-key-acceptor.h"
 #include "io/read-pref-file.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "term/screen-processor.h"
 #include "util/int-char-converter.h"
 #include "world/world.h"
@@ -101,7 +101,6 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     static int cx_save = 0;
     static int cy_save = 0;
     autopick_type an_entry, *entry = &an_entry;
-    char buf[MAX_LINELEN];
     int i;
     int key = -1;
     static int32_t old_autosave_turn = 0L;
@@ -140,9 +139,9 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
 
     update_playtime();
     init_autopick();
-    if (autopick_last_destroyed_object.k_idx) {
+    if (autopick_last_destroyed_object.is_valid()) {
         autopick_entry_from_object(player_ptr, entry, &autopick_last_destroyed_object);
-        tb->last_destroyed = autopick_line_from_entry_kill(entry);
+        tb->last_destroyed = autopick_line_from_entry(*entry);
     }
 
     tb->lines_list = read_pickpref_text_lines(player_ptr, &tb->filename_mode);
@@ -152,6 +151,8 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
             break;
         }
     }
+
+    TermCenteredOffsetSetter tcos(std::nullopt, std::nullopt);
 
     screen_save();
     while (quit == APE_QUIT) {
@@ -200,10 +201,10 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     }
 
     screen_load();
-    strcpy(buf, pickpref_filename(player_ptr, tb->filename_mode));
+    const auto filename = pickpref_filename(player_ptr, tb->filename_mode);
 
     if (quit == APE_QUIT_AND_SAVE) {
-        write_text_lines(buf, tb->lines_list.data());
+        write_text_lines(filename.data(), tb->lines_list);
     }
 
     free_text_lines(tb->lines_list);
@@ -211,7 +212,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     string_free(tb->last_destroyed);
     kill_yank_chain(tb);
 
-    process_autopick_file(player_ptr, buf);
+    process_autopick_file(player_ptr, filename.data());
     w_ptr->start_time = (uint32_t)time(nullptr);
     cx_save = tb->cx;
     cy_save = tb->cy;

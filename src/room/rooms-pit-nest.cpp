@@ -1,5 +1,4 @@
 ﻿#include "room/rooms-pit-nest.h"
-#include "dungeon/dungeon.h"
 #include "floor/floor-generator.h"
 #include "game-option/cheat-options.h"
 #include "game-option/cheat-types.h"
@@ -20,10 +19,11 @@
 #include "monster/monster-util.h"
 #include "room/door-definition.h"
 #include "room/space-finder.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/probability-table.h"
 #include "util/sort.h"
@@ -38,7 +38,7 @@
  * @param allow_flag_mask 生成が許されるpit/nestのビット配列
  * @return 選択されたpit/nestのID、選択失敗した場合-1を返す。
  */
-static int pick_vault_type(floor_type *floor_ptr, std::vector<nest_pit_type> &l_ptr, BIT_FLAGS16 allow_flag_mask)
+static int pick_vault_type(FloorType *floor_ptr, std::vector<nest_pit_type> &l_ptr, BIT_FLAGS16 allow_flag_mask)
 {
     ProbabilityTable<int> table;
     for (size_t i = 0; i < l_ptr.size(); i++) {
@@ -67,50 +67,46 @@ static int pick_vault_type(floor_type *floor_ptr, std::vector<nest_pit_type> &l_
  * Hack -- Get the string describing subtype of pit/nest
  * Determined in prepare function (some pit/nest only)
  */
-static concptr pit_subtype_string(int type, bool nest)
+static std::string pit_subtype_string(int type, bool nest)
 {
-    static char inner_buf[256] = "";
-    inner_buf[0] = '\0';
     if (nest) {
         switch (type) {
         case NEST_TYPE_CLONE:
-            sprintf(inner_buf, "(%s)", r_info[vault_aux_race].name.c_str());
-            break;
+            return std::string("(").append(monraces_info[vault_aux_race].name).append(1, ')');
         case NEST_TYPE_SYMBOL_GOOD:
         case NEST_TYPE_SYMBOL_EVIL:
-            sprintf(inner_buf, "(%c)", vault_aux_char);
-            break;
+            return std::string("(").append(1, vault_aux_char).append(1, ')');
         }
 
-        return inner_buf;
+        return std::string();
     }
 
     /* Pits */
     switch (type) {
     case PIT_TYPE_SYMBOL_GOOD:
     case PIT_TYPE_SYMBOL_EVIL:
-        sprintf(inner_buf, "(%c)", vault_aux_char);
+        return std::string("(").append(1, vault_aux_char).append(1, ')');
         break;
     case PIT_TYPE_DRAGON:
         if (vault_aux_dragon_mask4.has_all_of({ MonsterAbilityType::BR_ACID, MonsterAbilityType::BR_ELEC, MonsterAbilityType::BR_FIRE, MonsterAbilityType::BR_COLD, MonsterAbilityType::BR_POIS })) {
-            strcpy(inner_buf, _("(万色)", "(multi-hued)"));
+            return _("(万色)", "(multi-hued)");
         } else if (vault_aux_dragon_mask4.has(MonsterAbilityType::BR_ACID)) {
-            strcpy(inner_buf, _("(酸)", "(acid)"));
+            return _("(酸)", "(acid)");
         } else if (vault_aux_dragon_mask4.has(MonsterAbilityType::BR_ELEC)) {
-            strcpy(inner_buf, _("(稲妻)", "(lightning)"));
+            return _("(稲妻)", "(lightning)");
         } else if (vault_aux_dragon_mask4.has(MonsterAbilityType::BR_FIRE)) {
-            strcpy(inner_buf, _("(火炎)", "(fire)"));
+            return _("(火炎)", "(fire)");
         } else if (vault_aux_dragon_mask4.has(MonsterAbilityType::BR_COLD)) {
-            strcpy(inner_buf, _("(冷気)", "(frost)"));
+            return _("(冷気)", "(frost)");
         } else if (vault_aux_dragon_mask4.has(MonsterAbilityType::BR_POIS)) {
-            strcpy(inner_buf, _("(毒)", "(poison)"));
+            return _("(毒)", "(poison)");
         } else {
-            strcpy(inner_buf, _("(未定義)", "(undefined)"));
+            return _("(未定義)", "(undefined)");
         }
         break;
     }
 
-    return inner_buf;
+    return std::string();
 }
 
 /*
@@ -131,8 +127,8 @@ static bool ang_sort_comp_nest_mon_info(PlayerType *player_ptr, vptr u, vptr v, 
     nest_mon_info_type *nest_mon_info = (nest_mon_info_type *)u;
     auto w1 = nest_mon_info[a].r_idx;
     auto w2 = nest_mon_info[b].r_idx;
-    monster_race *r1_ptr = &r_info[w1];
-    monster_race *r2_ptr = &r_info[w2];
+    MonsterRaceInfo *r1_ptr = &monraces_info[w1];
+    MonsterRaceInfo *r2_ptr = &monraces_info[w2];
     int z1 = nest_mon_info[a].used;
     int z2 = nest_mon_info[b].used;
 
@@ -231,12 +227,12 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
     int i;
     nest_mon_info_type nest_mon_info[NUM_NEST_MON_TYPE];
 
-    monster_type align;
+    MonsterEntity align;
 
     grid_type *g_ptr;
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    int cur_nest_type = pick_vault_type(floor_ptr, nest_types, d_info[floor_ptr->dungeon_idx].nest);
+    int cur_nest_type = pick_vault_type(floor_ptr, nest_types, dungeons_info[floor_ptr->dungeon_idx].nest);
     nest_pit_type *n_ptr;
 
     /* No type available */
@@ -260,7 +256,7 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
             for (auto attempts = 100; attempts > 0; attempts--) {
                 /* Get a (hard) monster type */
                 auto r_idx = get_mon_num(player_ptr, 0, floor_ptr->dun_level + 11, 0);
-                auto *r_ptr = &r_info[r_idx];
+                auto *r_ptr = &monraces_info[r_idx];
 
                 /* Decline incorrect alignment */
                 if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
@@ -283,7 +279,7 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
             return false;
         }
 
-        const auto *r_ptr = &r_info[r_idx.value()];
+        const auto *r_ptr = &monraces_info[r_idx.value()];
 
         /* Note the alignment */
         if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
@@ -374,7 +370,7 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
     }
 
     msg_format_wizard(
-        player_ptr, CHEAT_DUNGEON, _("モンスター部屋(nest)(%s%s)を生成します。", "Monster nest (%s%s)"), n_ptr->name, pit_subtype_string(cur_nest_type, true));
+        player_ptr, CHEAT_DUNGEON, _("モンスター部屋(nest)(%s%s)を生成します。", "Monster nest (%s%s)"), n_ptr->name, pit_subtype_string(cur_nest_type, true).data());
 
     /* Place some monsters */
     for (y = yval - 2; y <= yval + 2; y++) {
@@ -408,7 +404,7 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
                 }
             }
 
-            msg_format_wizard(player_ptr, CHEAT_DUNGEON, "Nest構成モンスターNo.%d:%s", i, r_info[nest_mon_info[i].r_idx].name.c_str());
+            msg_format_wizard(player_ptr, CHEAT_DUNGEON, "Nest構成モンスターNo.%d:%s", i, monraces_info[nest_mon_info[i].r_idx].name.data());
         }
     }
 
@@ -474,12 +470,12 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
     MonsterRaceId what[16];
 
-    monster_type align;
+    MonsterEntity align;
 
     grid_type *g_ptr;
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    int cur_pit_type = pick_vault_type(floor_ptr, pit_types, d_info[floor_ptr->dungeon_idx].pit);
+    int cur_pit_type = pick_vault_type(floor_ptr, pit_types, dungeons_info[floor_ptr->dungeon_idx].pit);
     nest_pit_type *n_ptr;
 
     /* No type available */
@@ -501,12 +497,12 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
     for (i = 0; i < 16; i++) {
         auto r_idx = MonsterRace::empty_id();
         int attempts = 100;
-        monster_race *r_ptr = nullptr;
+        MonsterRaceInfo *r_ptr = nullptr;
 
         while (attempts--) {
             /* Get a (hard) monster type */
             r_idx = get_mon_num(player_ptr, 0, floor_ptr->dun_level + 11, 0);
-            r_ptr = &r_info[r_idx];
+            r_ptr = &monraces_info[r_idx];
 
             /* Decline incorrect alignment */
             if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
@@ -615,8 +611,8 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
             int i1 = j;
             int i2 = j + 1;
 
-            int p1 = r_info[what[i1]].level;
-            int p2 = r_info[what[i2]].level;
+            int p1 = monraces_info[what[i1]].level;
+            int p2 = monraces_info[what[i2]].level;
 
             /* Bubble */
             if (p1 > p2) {
@@ -628,13 +624,13 @@ bool build_type6(PlayerType *player_ptr, dun_data_type *dd_ptr)
     }
 
     msg_format_wizard(
-        player_ptr, CHEAT_DUNGEON, _("モンスター部屋(pit)(%s%s)を生成します。", "Monster pit (%s%s)"), n_ptr->name, pit_subtype_string(cur_pit_type, false));
+        player_ptr, CHEAT_DUNGEON, _("モンスター部屋(pit)(%s%s)を生成します。", "Monster pit (%s%s)"), n_ptr->name, pit_subtype_string(cur_pit_type, false).data());
 
     /* Select the entries */
     for (i = 0; i < 8; i++) {
         /* Every other entry */
         what[i] = what[i * 2];
-        msg_format_wizard(player_ptr, CHEAT_DUNGEON, _("Nest構成モンスター選択No.%d:%s", "Nest Monster Select No.%d:%s"), i, r_info[what[i]].name.c_str());
+        msg_format_wizard(player_ptr, CHEAT_DUNGEON, _("Nest構成モンスター選択No.%d:%s", "Nest Monster Select No.%d:%s"), i, monraces_info[what[i]].name.data());
     }
 
     /* Top and bottom rows */
@@ -719,7 +715,7 @@ static bool vault_aux_trapped_pit(PlayerType *player_ptr, MonsterRaceId r_idx)
     /* Unused */
     (void)player_ptr;
 
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
 
     if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
@@ -784,12 +780,12 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
     MonsterRaceId what[16];
 
-    monster_type align;
+    MonsterEntity align;
 
     grid_type *g_ptr;
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    int cur_pit_type = pick_vault_type(floor_ptr, pit_types, d_info[floor_ptr->dungeon_idx].pit);
+    int cur_pit_type = pick_vault_type(floor_ptr, pit_types, dungeons_info[floor_ptr->dungeon_idx].pit);
     nest_pit_type *n_ptr;
 
     /* Only in Angband */
@@ -816,12 +812,12 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
     for (i = 0; i < 16; i++) {
         auto r_idx = MonsterRace::empty_id();
         int attempts = 100;
-        monster_race *r_ptr = nullptr;
+        MonsterRaceInfo *r_ptr = nullptr;
 
         while (attempts--) {
             /* Get a (hard) monster type */
             r_idx = get_mon_num(player_ptr, 0, floor_ptr->dun_level + 0, 0);
-            r_ptr = &r_info[r_idx];
+            r_ptr = &monraces_info[r_idx];
 
             /* Decline incorrect alignment */
             if (monster_has_hostile_align(player_ptr, &align, 0, 0, r_ptr)) {
@@ -946,8 +942,8 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
             int i1 = j;
             int i2 = j + 1;
 
-            int p1 = r_info[what[i1]].level;
-            int p2 = r_info[what[i2]].level;
+            int p1 = monraces_info[what[i1]].level;
+            int p2 = monraces_info[what[i2]].level;
 
             /* Bubble */
             if (p1 > p2) {
@@ -959,7 +955,7 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
     }
 
     msg_format_wizard(
-        player_ptr, CHEAT_DUNGEON, _("%s%sの罠ピットが生成されました。", "Trapped monster pit (%s%s)"), n_ptr->name, pit_subtype_string(cur_pit_type, false));
+        player_ptr, CHEAT_DUNGEON, _("%s%sの罠ピットが生成されました。", "Trapped monster pit (%s%s)"), n_ptr->name, pit_subtype_string(cur_pit_type, false).data());
 
     /* Select the entries */
     for (i = 0; i < 8; i++) {
@@ -967,7 +963,7 @@ bool build_type13(PlayerType *player_ptr, dun_data_type *dd_ptr)
         what[i] = what[i * 2];
 
         if (cheat_hear) {
-            msg_print(r_info[what[i]].name);
+            msg_print(monraces_info[what[i]].name);
         }
     }
 

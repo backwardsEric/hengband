@@ -6,16 +6,17 @@
 
 #include "object-enchant/item-magic-applier.h"
 #include "artifact/fixed-art-generator.h"
-#include "dungeon/dungeon.h"
 #include "object-enchant/enchanter-base.h"
 #include "object-enchant/enchanter-factory.h"
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/object-curse.h"
 #include "object-enchant/special-object-flags.h"
-#include "object/object-kind.h"
 #include "player/player-status-flags.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "world/world.h"
@@ -27,7 +28,7 @@
  * @param lev 生成基準階
  * @param mode 生成オプション
  */
-ItemMagicApplier::ItemMagicApplier(PlayerType *player_ptr, ObjectType *o_ptr, DEPTH lev, BIT_FLAGS mode)
+ItemMagicApplier::ItemMagicApplier(PlayerType *player_ptr, ItemEntity *o_ptr, DEPTH lev, BIT_FLAGS mode)
     : player_ptr(player_ptr)
     , o_ptr(o_ptr)
     , lev(lev)
@@ -73,13 +74,13 @@ void ItemMagicApplier::execute()
 std::tuple<int, int> ItemMagicApplier::calculate_chances()
 {
     auto chance_good = this->lev + 10;
-    if (chance_good > d_info[this->player_ptr->dungeon_idx].obj_good) {
-        chance_good = d_info[this->player_ptr->dungeon_idx].obj_good;
+    if (chance_good > dungeons_info[this->player_ptr->dungeon_idx].obj_good) {
+        chance_good = dungeons_info[this->player_ptr->dungeon_idx].obj_good;
     }
 
     auto chance_great = chance_good * 2 / 3;
-    if ((this->player_ptr->ppersonality != PERSONALITY_MUNCHKIN) && (chance_great > d_info[this->player_ptr->dungeon_idx].obj_great)) {
-        chance_great = d_info[this->player_ptr->dungeon_idx].obj_great;
+    if ((this->player_ptr->ppersonality != PERSONALITY_MUNCHKIN) && (chance_great > dungeons_info[this->player_ptr->dungeon_idx].obj_great)) {
+        chance_great = dungeons_info[this->player_ptr->dungeon_idx].obj_great;
     }
 
     if (has_good_luck(this->player_ptr)) {
@@ -182,12 +183,7 @@ bool ItemMagicApplier::set_fixed_artifact_generation_info()
     }
 
     apply_artifact(this->player_ptr, this->o_ptr);
-    auto &a_ref = a_info.at(this->o_ptr->fixed_artifact_idx);
-    a_ref.is_generated = true;
-    if (w_ptr->character_dungeon) {
-        a_ref.floor_id = this->player_ptr->floor_id;
-    }
-
+    this->o_ptr->get_fixed_artifact().is_generated = true;
     return true;
 }
 
@@ -196,36 +192,36 @@ bool ItemMagicApplier::set_fixed_artifact_generation_info()
  */
 void ItemMagicApplier::apply_cursed()
 {
-    if (this->o_ptr->k_idx == 0) {
+    if (!this->o_ptr->is_valid()) {
         return;
     }
 
-    const auto *k_ptr = &k_info[this->o_ptr->k_idx];
-    if (!k_info[this->o_ptr->k_idx].cost) {
+    const auto &baseitem = this->o_ptr->get_baseitem();
+    if (!baseitem.cost) {
         set_bits(this->o_ptr->ident, IDENT_BROKEN);
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::CURSED)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::CURSED)) {
         this->o_ptr->curse_flags.set(CurseTraitType::CURSED);
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
         this->o_ptr->curse_flags.set(CurseTraitType::HEAVY_CURSE);
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
         this->o_ptr->curse_flags.set(CurseTraitType::PERMA_CURSE);
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE0)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE0)) {
         this->o_ptr->curse_flags.set(get_curse(0, this->o_ptr));
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE1)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE1)) {
         this->o_ptr->curse_flags.set(get_curse(1, this->o_ptr));
     }
 
-    if (k_ptr->gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE2)) {
+    if (baseitem.gen_flags.has(ItemGenerationTraitType::RANDOM_CURSE2)) {
         this->o_ptr->curse_flags.set(get_curse(2, this->o_ptr));
     }
 }

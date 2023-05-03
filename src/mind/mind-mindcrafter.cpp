@@ -33,7 +33,7 @@
 #include "status/buff-setter.h"
 #include "status/element-resistance.h"
 #include "status/sight-setter.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "util/bit-flags-calculator.h"
@@ -55,7 +55,7 @@ bool psychometry(PlayerType *player_ptr)
 {
     concptr q = _("どのアイテムを調べますか？", "Meditate on which item? ");
     concptr s = _("調べるアイテムがありません。", "You have nothing appropriate.");
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     OBJECT_IDX item;
     o_ptr = choose_object(player_ptr, &item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
     if (!o_ptr) {
@@ -68,29 +68,27 @@ bool psychometry(PlayerType *player_ptr)
     }
 
     item_feel_type feel = pseudo_value_check_heavy(o_ptr);
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
     if (!feel) {
-        msg_format(_("%sからは特に変わった事は感じとれなかった。", "You do not perceive anything unusual about the %s."), o_name);
+        msg_format(_("%sからは特に変わった事は感じとれなかった。", "You do not perceive anything unusual about the %s."), item_name.data());
         return true;
     }
 
 #ifdef JP
-    msg_format("%sは%sという感じがする...", o_name, game_inscriptions[feel]);
+    msg_format("%sは%sという感じがする...", item_name.data(), game_inscriptions[feel]);
 #else
-    msg_format("You feel that the %s %s %s...", o_name, ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
+    msg_format("You feel that the %s %s %s...", item_name.data(), ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
 #endif
 
     set_bits(o_ptr->ident, IDENT_SENSE);
     o_ptr->feeling = feel;
-    set_bits(o_ptr->marked, OM_TOUCHED);
+    o_ptr->marked.set(OmType::TOUCHED);
 
-    set_bits(player_ptr->update, PU_COMBINE | PU_REORDER);
-    set_bits(player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_PLAYER | PW_FLOOR_ITEM_LIST);
+    set_bits(player_ptr->update, PU_COMBINATION | PU_REORDER);
+    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
 
     bool okay = false;
-    switch (o_ptr->tval) {
+    switch (o_ptr->bi_key.tval()) {
     case ItemKindType::SHOT:
     case ItemKindType::ARROW:
     case ItemKindType::BOLT:
@@ -140,8 +138,8 @@ bool cast_mindcrafter_spell(PlayerType *player_ptr, MindMindcrafterType spell)
     switch (spell) {
     case MindMindcrafterType::PRECOGNITION:
         if (plev > 44) {
-            chg_virtue(player_ptr, V_KNOWLEDGE, 1);
-            chg_virtue(player_ptr, V_ENLIGHTEN, 1);
+            chg_virtue(player_ptr, Virtue::KNOWLEDGE, 1);
+            chg_virtue(player_ptr, Virtue::ENLIGHTEN, 1);
             wiz_lite(player_ptr, false);
         } else if (plev > 19) {
             map_area(player_ptr, DETECT_RAD_MAP);
@@ -241,8 +239,8 @@ bool cast_mindcrafter_spell(PlayerType *player_ptr, MindMindcrafterType spell)
         break;
     case MindMindcrafterType::ADRENALINE_CHANNELING: {
         BadStatusSetter bss(player_ptr);
-        (void)bss.fear(0);
-        (void)bss.stun(0);
+        (void)bss.set_fear(0);
+        (void)bss.set_stun(0);
         if (!is_fast(player_ptr) || !is_hero(player_ptr)) {
             hp_player(player_ptr, plev);
         }

@@ -1,6 +1,7 @@
-dnl Process this file with autoconf to produce a configure script.
+,dnl Process this file with autoconf to produce a configure script.
 AC_INIT(hengband, 3.0.0.0)
 
+AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS(src/autoconf.h)
 AC_CONFIG_SRCDIR(src/main.cpp)
 AM_INIT_AUTOMAKE
@@ -17,7 +18,7 @@ AM_CONDITIONAL(SET_GID, test "$GAMEGROUP" != "")
 
 dnl generate the installation path for the ./lib/ folder
 if test "$GAMEGROUP" != ""; then
-  MY_EXPAND_DIR(game_libpath, "$datadir/games/$PACKAGE/lib/")
+  MY_EXPAND_DIR(game_libpath, "$datarootdir/games/$PACKAGE/lib/")
 else
   MY_EXPAND_DIR(game_libpath, "./lib/")
   bindir="`pwd`"
@@ -44,11 +45,9 @@ AC_SUBST(DEFAULT_VAR_PATH)
 dnl Checks for programs.
 AC_LANG(C++)
 AC_PROG_CXX
-m4_ifdef([AX_CXX_COMPILE_STDCXX_17], [
-  AX_CXX_COMPILE_STDCXX_17
-], [
-  AC_MSG_WARN([AX_CXX_COMPILE_STDCXX_17 macro is not defined. That is part of autoconf-archive . Without it, you may need to manually specify CXXFLAGS with the necessary options for compiling for the 2017 C++ standard.])
-])
+dnl Note that the -std= option for Objective-C++ is hardwired in
+dnl src/Makefile.am so that should be changed if this is.
+AX_CXX_COMPILE_STDCXX(20, [ext], [mandatory])
 PKG_PROG_PKG_CONFIG
 
 AC_ARG_ENABLE(japanese,
@@ -66,7 +65,7 @@ AC_ARG_ENABLE(chuukei,
 [  --enable-chuukei        enable internet chuukei support], AC_DEFINE(CHUUKEI, 1, [Chuukei mode]))
 AC_ARG_ENABLE([cocoa],
 [  --enable-cocoa          enable a Cocoa user interface (OS X only)],
-AC_DEFINE([MACH_O_COCOA], [1], [Use a Cocoa interface (OS X only)]), [])
+[AC_DEFINE([MACH_O_COCOA], [1], [Use a Cocoa interface (OS X only)])], [])
 AM_CONDITIONAL([COCOA], [test x$enable_cocoa = xyes])
 dnl Since AC_PROG_OBJCXX has the side effect of setting this conditional,
 dnl guarantee that is is always set, regardless of what happens in the if
@@ -122,7 +121,7 @@ AC_PATH_XTRA
 AS_IF([test "$have_x" = yes && test x"$enable_cocoa" != xyes], [
   LIBS="$LIBS -lX11"
   AC_DEFINE(USE_X11, 1, [Allow -mX11 environment])
-  CFLAGS="$X_CFLAGS $CFLAGS"
+  CXXFLAGS="$X_CFLAGS $CXXFLAGS"
   LDFLAGS="$X_LIBS $LDFLAGS"
 
   if test "$use_fontset" = yes; then
@@ -159,6 +158,14 @@ if test "$use_japanese" != no; then
   fi
 fi
 
+if test "$enable_pch" != no; then
+  dnl md5sum, sha224sum, sha256sum, sha384sum, sha512sum and b2sum are
+  dnl frequently available on Linux.  md5 is available on macOS and OpenBSD.
+  dnl sha1, sha256, and sha512 are available on OpenBSD.
+  AC_PATH_PROGS(PCH_CHECKSUMMER, [md5sum md5 sha1sum sha1 sha224sum sha256sum sha256 sha384sum sha512sum sha512 b2sum], [none])
+  AC_ARG_VAR([PCH_CHECKSUMMER], [full path to a utility to compute the checksum for the precompiled header; checksum is for ccache's pch_external_checksum])
+fi
+
 AC_CHECK_HEADERS(fcntl.h sys/file.h sys/ioctl.h sys/time.h termio.h unistd.h stdint.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -174,5 +181,5 @@ AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(gethostname mkdir select socket strtol vsnprintf mkstemp usleep)
 
-AC_CONFIG_FILES(Makefile src/Makefile lib/Makefile lib/apex/Makefile lib/bone/Makefile lib/data/Makefile lib/edit/Makefile lib/file/Makefile lib/help/Makefile lib/info/Makefile lib/pref/Makefile lib/save/Makefile lib/script/Makefile lib/user/Makefile lib/xtra/Makefile lib/xtra/graf/Makefile lib/xtra/music/Makefile lib/xtra/sound/Makefile)
+AC_CONFIG_FILES(Makefile src/Makefile lib/Makefile lib/apex/Makefile lib/bone/Makefile lib/data/Makefile lib/edit/Makefile lib/edit/quests/Makefile lib/edit/towns/Makefile lib/file/Makefile lib/help/Makefile lib/info/Makefile lib/pref/Makefile lib/save/Makefile lib/script/Makefile lib/user/Makefile lib/xtra/Makefile lib/xtra/graf/Makefile lib/xtra/music/Makefile lib/xtra/sound/Makefile)
 AC_OUTPUT()

@@ -27,9 +27,10 @@
 #include "store/store-util.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-scroll-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
+#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/quarks.h"
 #include "view/display-messages.h"
@@ -102,9 +103,9 @@ static int check_free_space(StoreSaleType store_num)
  *  1 : Cannot be combined but there are empty spaces.
  * </pre>
  */
-int store_check_num(ObjectType *o_ptr, StoreSaleType store_num)
+int store_check_num(ItemEntity *o_ptr, StoreSaleType store_num)
 {
-    ObjectType *j_ptr;
+    ItemEntity *j_ptr;
     if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) {
         bool old_stack_force_notes = stack_force_notes;
         bool old_stack_force_costs = stack_force_costs;
@@ -164,9 +165,9 @@ int get_stock(COMMAND_CODE *com_val, concptr pmt, int i, int j, [[maybe_unused]]
     char hi = (j > 25) ? toupper(I2A(j - 26)) : I2A(j);
     char out_val[160];
 #ifdef JP
-    (void)sprintf(out_val, "(%s:%c-%c, ESCで中断) %s", (((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) ? "アイテム" : "商品"), lo, hi, pmt);
+    strnfmt(out_val, sizeof(out_val), "(%s:%c-%c, ESCで中断) %s", (((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) ? "アイテム" : "商品"), lo, hi, pmt);
 #else
-    (void)sprintf(out_val, "(Items %c-%c, ESC to exit) %s", lo, hi, pmt);
+    strnfmt(out_val, sizeof(out_val), "(Items %c-%c, ESC to exit) %s", lo, hi, pmt);
 #endif
 
     char command;
@@ -223,24 +224,20 @@ void store_examine(PlayerType *player_ptr, StoreSaleType store_num)
         i = store_bottom;
     }
 
-    char out_val[160];
-    sprintf(out_val, _("どれを調べますか？", "Which item do you want to examine? "));
-
     COMMAND_CODE item;
-    if (!get_stock(&item, out_val, 0, i - 1, store_num)) {
+    if (!get_stock(&item, _("どれを調べますか？", "Which item do you want to examine? "), 0, i - 1, store_num)) {
         return;
     }
     item = item + store_top;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = &st_ptr->stock[item];
     if (!o_ptr->is_fully_known()) {
         msg_print(_("このアイテムについて特に知っていることはない。", "You have no special knowledge about that item."));
         return;
     }
 
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, 0);
-    msg_format(_("%sを調べている...", "Examining %s..."), o_name);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+    msg_format(_("%sを調べている...", "Examining %s..."), item_name.data());
     if (!screen_object(player_ptr, o_ptr, SCROBJ_FORCE_DETAIL)) {
         msg_print(_("特に変わったところはないようだ。", "You see nothing special."));
     }
@@ -255,11 +252,11 @@ void store_examine(PlayerType *player_ptr, StoreSaleType store_num)
 void store_shuffle(PlayerType *player_ptr, StoreSaleType store_num)
 {
     auto owner_num = owners.at(store_num).size();
-    if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM) || (owner_num <= (uint16_t)max_towns)) {
+    if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM) || (owner_num <= (uint16_t)towns_info.size())) {
         return;
     }
 
-    st_ptr = &town_info[player_ptr->town_num].store[enum2i(store_num)];
+    st_ptr = &towns_info[player_ptr->town_num].store[enum2i(store_num)];
     int j = st_ptr->owner;
     while (true) {
         st_ptr->owner = (byte)randint0(owner_num);
@@ -269,17 +266,18 @@ void store_shuffle(PlayerType *player_ptr, StoreSaleType store_num)
         }
 
         int i;
-        for (i = 1; i < max_towns; i++) {
+        const int towns_size = towns_info.size();
+        for (i = 1; i < towns_size; i++) {
             if (i == player_ptr->town_num) {
                 continue;
             }
 
-            if (st_ptr->owner == town_info[i].store[enum2i(store_num)].owner) {
+            if (st_ptr->owner == towns_info[i].store[enum2i(store_num)].owner) {
                 break;
             }
         }
 
-        if (i == max_towns) {
+        if (i == towns_size) {
             break;
         }
     }
@@ -290,14 +288,14 @@ void store_shuffle(PlayerType *player_ptr, StoreSaleType store_num)
     st_ptr->good_buy = 0;
     st_ptr->bad_buy = 0;
     for (int i = 0; i < st_ptr->stock_num; i++) {
-        ObjectType *o_ptr;
+        ItemEntity *o_ptr;
         o_ptr = &st_ptr->stock[i];
-        if (o_ptr->is_artifact()) {
+        if (o_ptr->is_fixed_or_random_artifact()) {
             continue;
         }
 
         o_ptr->discount = 50;
-        o_ptr->inscription = quark_add(_("売出中", "on sale"));
+        o_ptr->inscription.emplace(_("売出中", "on sale"));
     }
 }
 
@@ -315,7 +313,7 @@ void store_shuffle(PlayerType *player_ptr, StoreSaleType store_num)
  * Should we check for "permission" to have the given item?
  * </pre>
  */
-static void store_create(PlayerType *player_ptr, KIND_OBJECT_IDX fix_k_idx, StoreSaleType store_num)
+static void store_create(PlayerType *player_ptr, short fix_k_idx, StoreSaleType store_num)
 {
     if (st_ptr->stock_num >= st_ptr->stock_size) {
         return;
@@ -324,26 +322,26 @@ static void store_create(PlayerType *player_ptr, KIND_OBJECT_IDX fix_k_idx, Stor
     const owner_type *ow_ptr = &owners.at(store_num)[st_ptr->owner];
 
     for (int tries = 0; tries < 4; tries++) {
-        KIND_OBJECT_IDX k_idx;
+        short bi_id;
         DEPTH level;
         if (store_num == StoreSaleType::BLACK) {
             level = 25 + randint0(25);
-            k_idx = get_obj_num(player_ptr, level, 0x00000000);
-            if (k_idx == 0) {
+            bi_id = get_obj_index(player_ptr, level, 0x00000000);
+            if (bi_id == 0) {
                 continue;
             }
         } else if (fix_k_idx > 0) {
-            k_idx = fix_k_idx;
+            bi_id = fix_k_idx;
             level = rand_range(1, ow_ptr->level);
         } else {
-            k_idx = st_ptr->table[randint0(st_ptr->table.size())];
+            bi_id = st_ptr->table[randint0(st_ptr->table.size())];
             level = rand_range(1, ow_ptr->level);
         }
 
-        ObjectType forge;
-        ObjectType *q_ptr;
+        ItemEntity forge;
+        ItemEntity *q_ptr;
         q_ptr = &forge;
-        q_ptr->prep(k_idx);
+        q_ptr->prep(bi_id);
         ItemMagicApplier(player_ptr, q_ptr, level, AM_NO_FIXED_ART).execute();
         if (!store_will_buy(player_ptr, q_ptr, store_num)) {
             continue;
@@ -355,33 +353,35 @@ static void store_create(PlayerType *player_ptr, KIND_OBJECT_IDX fix_k_idx, Stor
             q_ptr->pval = pval;
         }
 
-        if (q_ptr->tval == ItemKindType::LITE) {
-            if (q_ptr->sval == SV_LITE_TORCH) {
+        const auto tval = q_ptr->bi_key.tval();
+        const auto sval = q_ptr->bi_key.sval();
+        if (tval == ItemKindType::LITE) {
+            if (sval == SV_LITE_TORCH) {
                 q_ptr->fuel = FUEL_TORCH / 2;
             }
 
-            if (q_ptr->sval == SV_LITE_LANTERN) {
+            if (sval == SV_LITE_LANTERN) {
                 q_ptr->fuel = FUEL_LAMP / 2;
             }
         }
 
         object_known(q_ptr);
         q_ptr->ident |= IDENT_STORE;
-        if (q_ptr->tval == ItemKindType::CHEST) {
+        if (tval == ItemKindType::CHEST) {
             continue;
         }
 
         if (store_num == StoreSaleType::BLACK) {
-            if (black_market_crap(player_ptr, q_ptr) || (object_value(q_ptr) < 10)) {
+            if (black_market_crap(player_ptr, q_ptr) || (q_ptr->get_price() < 10)) {
                 continue;
             }
         } else {
-            if (object_value(q_ptr) <= 0) {
+            if (q_ptr->get_price() <= 0) {
                 continue;
             }
         }
 
-        mass_produce(player_ptr, q_ptr, store_num);
+        mass_produce(q_ptr, store_num);
         (void)store_carry(q_ptr);
         break;
     }
@@ -401,7 +401,7 @@ void store_maintenance(PlayerType *player_ptr, int town_num, StoreSaleType store
         return;
     }
 
-    st_ptr = &town_info[town_num].store[enum2i(store_num)];
+    st_ptr = &towns_info[town_num].store[enum2i(store_num)];
     ot_ptr = &owners.at(store_num)[st_ptr->owner];
     st_ptr->insult_cur = 0;
     if (store_num == StoreSaleType::BLACK) {
@@ -474,27 +474,27 @@ void store_maintenance(PlayerType *player_ptr, int town_num, StoreSaleType store
  */
 void store_init(int town_num, StoreSaleType store_num)
 {
-    auto owner_num = owners.at(store_num).size();
-    st_ptr = &town_info[town_num].store[enum2i(store_num)];
+    int owner_num = owners.at(store_num).size();
+    st_ptr = &towns_info[town_num].store[enum2i(store_num)];
+    const int towns_size = towns_info.size();
     while (true) {
         st_ptr->owner = (byte)randint0(owner_num);
 
-        if (owner_num <= (uint16_t)max_towns) {
+        if (owner_num <= towns_size) {
             break;
         }
 
         int i;
-
-        for (i = 1; i < (uint16_t)max_towns; i++) {
+        for (i = 1; i < towns_size; i++) {
             if (i == town_num) {
                 continue;
             }
-            if (st_ptr->owner == town_info[i].store[enum2i(store_num)].owner) {
+            if (st_ptr->owner == towns_info[i].store[enum2i(store_num)].owner) {
                 break;
             }
         }
 
-        if (i == max_towns) {
+        if (i == towns_size) {
             break;
         }
     }

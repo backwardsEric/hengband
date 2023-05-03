@@ -25,8 +25,8 @@
 #include "status/bad-status-setter.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -49,21 +49,21 @@ static void effect_monster_charm_resist(PlayerType *player_ptr, effect_monster_t
         em_ptr->note = _("は突然友好的になったようだ！", " suddenly seems friendly!");
         set_pet(player_ptr, em_ptr->m_ptr);
 
-        chg_virtue(player_ptr, V_INDIVIDUALISM, -1);
+        chg_virtue(player_ptr, Virtue::INDIVIDUALISM, -1);
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL)) {
-            chg_virtue(player_ptr, V_NATURE, 1);
+            chg_virtue(player_ptr, Virtue::NATURE, 1);
         }
     }
 }
 
 ProcessResult effect_monster_charm(PlayerType *player_ptr, effect_monster_type *em_ptr)
 {
-    int vir = virtue_number(player_ptr, V_HARMONY);
+    int vir = virtue_number(player_ptr, Virtue::HARMONY);
     if (vir) {
         em_ptr->dam += player_ptr->virtues[vir - 1] / 10;
     }
 
-    vir = virtue_number(player_ptr, V_INDIVIDUALISM);
+    vir = virtue_number(player_ptr, Virtue::INDIVIDUALISM);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 20;
     }
@@ -83,12 +83,12 @@ ProcessResult effect_monster_control_undead(PlayerType *player_ptr, effect_monst
         em_ptr->obvious = true;
     }
 
-    int vir = virtue_number(player_ptr, V_UNLIFE);
+    int vir = virtue_number(player_ptr, Virtue::UNLIFE);
     if (vir) {
         em_ptr->dam += player_ptr->virtues[vir - 1] / 10;
     }
 
-    vir = virtue_number(player_ptr, V_INDIVIDUALISM);
+    vir = virtue_number(player_ptr, Virtue::INDIVIDUALISM);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 20;
     }
@@ -119,12 +119,12 @@ ProcessResult effect_monster_control_demon(PlayerType *player_ptr, effect_monste
         em_ptr->obvious = true;
     }
 
-    int vir = virtue_number(player_ptr, V_UNLIFE);
+    int vir = virtue_number(player_ptr, Virtue::UNLIFE);
     if (vir) {
         em_ptr->dam += player_ptr->virtues[vir - 1] / 10;
     }
 
-    vir = virtue_number(player_ptr, V_INDIVIDUALISM);
+    vir = virtue_number(player_ptr, Virtue::INDIVIDUALISM);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 20;
     }
@@ -155,12 +155,12 @@ ProcessResult effect_monster_control_animal(PlayerType *player_ptr, effect_monst
         em_ptr->obvious = true;
     }
 
-    int vir = virtue_number(player_ptr, V_NATURE);
+    int vir = virtue_number(player_ptr, Virtue::NATURE);
     if (vir) {
         em_ptr->dam += player_ptr->virtues[vir - 1] / 10;
     }
 
-    vir = virtue_number(player_ptr, V_INDIVIDUALISM);
+    vir = virtue_number(player_ptr, Virtue::INDIVIDUALISM);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 20;
     }
@@ -180,7 +180,7 @@ ProcessResult effect_monster_control_animal(PlayerType *player_ptr, effect_monst
         em_ptr->note = _("はなついた。", " is tamed!");
         set_pet(player_ptr, em_ptr->m_ptr);
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL)) {
-            chg_virtue(player_ptr, V_NATURE, 1);
+            chg_virtue(player_ptr, Virtue::NATURE, 1);
         }
     }
 
@@ -190,17 +190,17 @@ ProcessResult effect_monster_control_animal(PlayerType *player_ptr, effect_monst
 
 ProcessResult effect_monster_charm_living(PlayerType *player_ptr, effect_monster_type *em_ptr)
 {
-    int vir = virtue_number(player_ptr, V_UNLIFE);
+    int vir = virtue_number(player_ptr, Virtue::UNLIFE);
     if (em_ptr->seen) {
         em_ptr->obvious = true;
     }
 
-    vir = virtue_number(player_ptr, V_UNLIFE);
+    vir = virtue_number(player_ptr, Virtue::UNLIFE);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 10;
     }
 
-    vir = virtue_number(player_ptr, V_INDIVIDUALISM);
+    vir = virtue_number(player_ptr, Virtue::INDIVIDUALISM);
     if (vir) {
         em_ptr->dam -= player_ptr->virtues[vir - 1] / 20;
     }
@@ -222,7 +222,7 @@ ProcessResult effect_monster_charm_living(PlayerType *player_ptr, effect_monster
         em_ptr->note = _("を支配した。", " is tamed!");
         set_pet(player_ptr, em_ptr->m_ptr);
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL)) {
-            chg_virtue(player_ptr, V_NATURE, 1);
+            chg_virtue(player_ptr, Virtue::NATURE, 1);
         }
     }
 
@@ -262,8 +262,8 @@ static void effect_monster_domination_corrupted(PlayerType *player_ptr, effect_m
     }
 
     em_ptr->note = nullptr;
-    msg_format(_("%^sの堕落した精神は攻撃を跳ね返した！",
-                   (em_ptr->seen ? "%^s's corrupted mind backlashes your attack!" : "%^ss corrupted mind backlashes your attack!")),
+    msg_format(_("%s^の堕落した精神は攻撃を跳ね返した！",
+                   (em_ptr->seen ? "%s^'s corrupted mind backlashes your attack!" : "%s^s corrupted mind backlashes your attack!")),
         em_ptr->m_name);
     if (randint0(100 + em_ptr->r_ptr->level / 2) < player_ptr->skill_sav) {
         msg_print(_("しかし効力を跳ね返した！", "You resist the effects!"));
@@ -289,7 +289,7 @@ static void effect_monster_domination_addition(effect_monster_type *em_ptr)
 
 ProcessResult effect_monster_domination(PlayerType *player_ptr, effect_monster_type *em_ptr)
 {
-    if (!is_hostile(em_ptr->m_ptr)) {
+    if (!em_ptr->m_ptr->is_hostile()) {
         return ProcessResult::PROCESS_CONTINUE;
     }
 
@@ -297,7 +297,10 @@ ProcessResult effect_monster_domination(PlayerType *player_ptr, effect_monster_t
         em_ptr->obvious = true;
     }
 
-    if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR) || (em_ptr->r_ptr->flags3 & RF3_NO_CONF) || (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10)) {
+    const auto is_unique = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
+    const auto is_questor = any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
+    const auto is_no_confusion = any_bits(em_ptr->r_ptr->flags3, RF3_NO_CONF);
+    if (is_unique || is_questor || is_no_confusion || (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10)) {
         if (((em_ptr->r_ptr->flags3 & RF3_NO_CONF) != 0) && is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
             em_ptr->r_ptr->r_flags3 |= (RF3_NO_CONF);
         }
@@ -333,9 +336,9 @@ static bool effect_monster_crusade_domination(PlayerType *player_ptr, effect_mon
         em_ptr->dam = 1;
     }
 
-    if (is_pet(em_ptr->m_ptr)) {
+    if (em_ptr->m_ptr->is_pet()) {
         em_ptr->note = _("の動きが速くなった。", " starts moving faster.");
-        (void)set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, monster_fast_remaining(em_ptr->m_ptr) + 100);
+        (void)set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_acceleration() + 100);
         return true;
     }
 
@@ -355,7 +358,7 @@ static bool effect_monster_crusade_domination(PlayerType *player_ptr, effect_mon
 
     em_ptr->note = _("を支配した。", " is tamed!");
     set_pet(player_ptr, em_ptr->m_ptr);
-    (void)set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, monster_fast_remaining(em_ptr->m_ptr) + 100);
+    (void)set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_acceleration() + 100);
     if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
         em_ptr->r_ptr->r_kind_flags.set(MonsterKindType::GOOD);
     }
@@ -391,9 +394,9 @@ ProcessResult effect_monster_crusade(PlayerType *player_ptr, effect_monster_type
  * @param hp 計算対象のHP
  * @return 捕まえられる最大HP
  */
-static int calcutate_capturable_hp(PlayerType *player_ptr, monster_type *m_ptr, int hp)
+static int calcutate_capturable_hp(PlayerType *player_ptr, MonsterEntity *m_ptr, int hp)
 {
-    if (is_pet(m_ptr)) {
+    if (m_ptr->is_pet()) {
         return hp * 4L;
     }
 
@@ -415,7 +418,7 @@ static void effect_monster_captured(PlayerType *player_ptr, effect_monster_type 
         choose_new_monster(player_ptr, em_ptr->g_ptr->m_idx, false, MonsterRaceId::CHAMELEON);
     }
 
-    msg_format(_("%sを捕えた！", "You capture %^s!"), em_ptr->m_name);
+    msg_format(_("%sを捕えた！", "You capture %s^!"), em_ptr->m_name);
     auto cap_mon_ptr = tmp_cap_mon_ptr.value();
     cap_mon_ptr->r_idx = em_ptr->m_ptr->r_idx;
     cap_mon_ptr->speed = em_ptr->m_ptr->mspeed;
@@ -423,7 +426,7 @@ static void effect_monster_captured(PlayerType *player_ptr, effect_monster_type 
     cap_mon_ptr->max_hp = static_cast<short>(em_ptr->m_ptr->max_maxhp);
     cap_mon_ptr->nickname = em_ptr->m_ptr->nickname;
     if ((em_ptr->g_ptr->m_idx == player_ptr->riding) && process_fall_off_horse(player_ptr, -1, false)) {
-        msg_format(_("地面に落とされた。", "You have fallen from %s."), em_ptr->m_name);
+        msg_print(_("地面に落とされた。", format("You have fallen from %s.", em_ptr->m_name)));
     }
 
     delete_monster_idx(player_ptr, em_ptr->g_ptr->m_idx);
@@ -443,7 +446,7 @@ ProcessResult effect_monster_capture(PlayerType *player_ptr, effect_monster_type
 
     auto quest_monster = inside_quest(floor_ptr->quest_number);
     quest_monster &= (quest_list[floor_ptr->quest_number].type == QuestKindType::KILL_ALL);
-    quest_monster &= !is_pet(em_ptr->m_ptr);
+    quest_monster &= !em_ptr->m_ptr->is_pet();
 
     auto cannot_capture = quest_monster;
     cannot_capture |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
@@ -462,7 +465,7 @@ ProcessResult effect_monster_capture(PlayerType *player_ptr, effect_monster_type
     auto capturable_hp = std::max(2, calcutate_capturable_hp(player_ptr, em_ptr->m_ptr, em_ptr->m_ptr->max_maxhp));
 
     if (threshold_hp < 2 || em_ptr->m_ptr->hp >= capturable_hp) {
-        msg_format(_("もっと弱らせないと。", "You need to weaken %s more."), em_ptr->m_name);
+        msg_print(_("もっと弱らせないと。", format("You need to weaken %s more.", em_ptr->m_name)));
         em_ptr->skipped = true;
         return ProcessResult::PROCESS_CONTINUE;
     }
@@ -472,7 +475,7 @@ ProcessResult effect_monster_capture(PlayerType *player_ptr, effect_monster_type
         return ProcessResult::PROCESS_TRUE;
     }
 
-    msg_format(_("うまく捕まえられなかった。", "You failed to capture %s."), em_ptr->m_name);
+    msg_print(_("うまく捕まえられなかった。", format("You failed to capture %s.", em_ptr->m_name)));
     em_ptr->skipped = true;
     return ProcessResult::PROCESS_CONTINUE;
 }

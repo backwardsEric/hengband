@@ -31,8 +31,8 @@
 #include "player/player-damage.h"
 #include "spell-kind/spells-genocide.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -178,7 +178,7 @@ ProcessResult effect_monster_engetsu(PlayerType *player_ptr, effect_monster_type
         return ProcessResult::PROCESS_CONTINUE;
     }
 
-    if (monster_csleep_remaining(em_ptr->m_ptr)) {
+    if (em_ptr->m_ptr->is_asleep()) {
         em_ptr->note = _("には効果がなかった。", " is unaffected.");
         em_ptr->dam = 0;
         em_ptr->skipped = true;
@@ -199,7 +199,7 @@ ProcessResult effect_monster_engetsu(PlayerType *player_ptr, effect_monster_type
         switch (randint0(4)) {
         case 0:
             if (em_ptr->r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
-                if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, monster_slow_remaining(em_ptr->m_ptr) + 50)) {
+                if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_deceleration() + 50)) {
                     em_ptr->note = _("の動きが遅くなった。", " starts moving slower.");
                 }
                 done = true;
@@ -268,9 +268,9 @@ ProcessResult effect_monster_genocide(PlayerType *player_ptr, effect_monster_typ
     std::string_view spell_name(_("モンスター消滅", "Genocide One"));
     if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, !em_ptr->who, (em_ptr->r_ptr->level + 1) / 2, spell_name.data())) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%sは消滅した！", "%^s disappeared!"), em_ptr->m_name);
+            msg_format(_("%sは消滅した！", "%s^ disappeared!"), em_ptr->m_name);
         }
-        chg_virtue(player_ptr, V_VITALITY, -1);
+        chg_virtue(player_ptr, Virtue::VITALITY, -1);
         return ProcessResult::PROCESS_TRUE;
     }
 

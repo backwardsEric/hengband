@@ -9,7 +9,7 @@
 #include "object-hook/hook-armor.h"
 #include "object-hook/hook-weapon.h"
 #include "object/object-flags.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
@@ -26,7 +26,7 @@ const EnumClassFlagGroup<CurseTraitType> TRC_HEAVY_MASK({ CurseTraitType::TY_CUR
  * @param o_ptr 呪いをかけられる装備オブジェクトの構造体参照ポインタ
  * @return 与える呪いのID
  */
-CurseTraitType get_curse(int power, ObjectType *o_ptr)
+CurseTraitType get_curse(int power, ItemEntity *o_ptr)
 {
     CurseTraitType new_curse;
 
@@ -49,7 +49,7 @@ CurseTraitType get_curse(int power, ObjectType *o_ptr)
         if (new_curse == CurseTraitType::LOW_MELEE && !o_ptr->is_weapon()) {
             continue;
         }
-        if (new_curse == CurseTraitType::LOW_AC && !o_ptr->is_armour()) {
+        if (new_curse == CurseTraitType::LOW_AC && !o_ptr->is_protector()) {
             continue;
         }
         break;
@@ -71,19 +71,19 @@ void curse_equipment(PlayerType *player_ptr, PERCENTAGE chance, PERCENTAGE heavy
     }
 
     auto *o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND + randint0(12)];
-    if (!o_ptr->k_idx) {
+    if (!o_ptr->is_valid()) {
         return;
     }
-    auto oflgs = object_flags(o_ptr);
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+
+    auto oflags = object_flags(o_ptr);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 
     /* Extra, biased saving throw for blessed items */
-    if (oflgs.has(TR_BLESSED)) {
+    if (oflags.has(TR_BLESSED)) {
 #ifdef JP
-        msg_format("祝福された%sは呪いを跳ね返した！", o_name);
+        msg_format("祝福された%sは呪いを跳ね返した！", item_name.data());
 #else
-        msg_format("Your blessed %s resist%s cursing!", o_name, ((o_ptr->number > 1) ? "" : "s"));
+        msg_format("Your blessed %s resist%s cursing!", item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
 #endif
         /* Hmmm -- can we wear multiple items? If not, this is unnecessary */
         return;
@@ -91,7 +91,7 @@ void curse_equipment(PlayerType *player_ptr, PERCENTAGE chance, PERCENTAGE heavy
 
     bool changed = false;
     int curse_power = 0;
-    if ((randint1(100) <= heavy_chance) && (o_ptr->is_artifact() || o_ptr->is_ego())) {
+    if ((randint1(100) <= heavy_chance) && (o_ptr->is_fixed_or_random_artifact() || o_ptr->is_ego())) {
         if (o_ptr->curse_flags.has_not(CurseTraitType::HEAVY_CURSE)) {
             changed = true;
         }
@@ -116,7 +116,7 @@ void curse_equipment(PlayerType *player_ptr, PERCENTAGE chance, PERCENTAGE heavy
     }
 
     if (changed) {
-        msg_format(_("悪意に満ちた黒いオーラが%sをとりまいた...", "There is a malignant black aura surrounding %s..."), o_name);
+        msg_format(_("悪意に満ちた黒いオーラが%sをとりまいた...", "There is a malignant black aura surrounding %s..."), item_name.data());
         o_ptr->feeling = FEEL_NONE;
     }
 

@@ -8,8 +8,10 @@
 #include "io/input-key-requester.h" //!< @todo 相互依存している、後で何とかする.
 #include "main/sound-of-music.h"
 #include "system/player-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -38,48 +40,47 @@
  * ESCAPE clears the buffer and the window and returns FALSE.
  * RETURN accepts the current buffer contents and returns TRUE.
  */
-bool askfor_aux(char *buf, int len, bool numpad_cursor)
+bool askfor(char *buf, int len, bool numpad_cursor)
 {
     /*
      * Text color
      * TERM_YELLOW : Overwrite mode
      * TERM_WHITE : Insert mode
      */
-    byte color = TERM_YELLOW;
+    auto color = TERM_YELLOW;
 
     int y, x;
     term_locate(&x, &y);
     if (len < 1) {
         len = 1;
     }
-    if ((x < 0) || (x >= 80)) {
+
+    if ((x < 0) || (x >= MAIN_TERM_MIN_COLS)) {
         x = 0;
     }
-    if (x + len > 80) {
-        len = 80 - x;
+
+    if (x + len > MAIN_TERM_MIN_COLS) {
+        len = MAIN_TERM_MIN_COLS - x;
     }
 
     buf[len] = '\0';
-
-    int pos = 0;
+    auto pos = 0;
     while (true) {
         term_erase(x, y, len);
         term_putstr(x, y, -1, color, buf);
-
         term_gotoxy(x + pos, y);
-        int skey = inkey_special(numpad_cursor);
-
+        const auto skey = inkey_special(numpad_cursor);
         switch (skey) {
         case SKEY_LEFT:
         case KTRL('b'): {
-            int i = 0;
+            auto i = 0;
             color = TERM_WHITE;
-
             if (0 == pos) {
                 break;
             }
+
             while (true) {
-                int next_pos = i + 1;
+                auto next_pos = i + 1;
 #ifdef JP
                 if (iskanji(buf[i])) {
                     next_pos++;
@@ -95,7 +96,6 @@ bool askfor_aux(char *buf, int len, bool numpad_cursor)
             pos = i;
             break;
         }
-
         case SKEY_RIGHT:
         case KTRL('f'):
             color = TERM_WHITE;
@@ -113,23 +113,21 @@ bool askfor_aux(char *buf, int len, bool numpad_cursor)
             pos++;
 #endif
             break;
-
         case ESCAPE:
             buf[0] = '\0';
             return false;
-
         case '\n':
         case '\r':
             return true;
-
         case '\010': {
-            int i = 0;
+            auto i = 0;
             color = TERM_WHITE;
-            if (0 == pos) {
+            if (pos == 0) {
                 break;
             }
+
             while (true) {
-                int next_pos = i + 1;
+                auto next_pos = i + 1;
 #ifdef JP
                 if (iskanji(buf[i])) {
                     next_pos++;
@@ -144,35 +142,34 @@ bool askfor_aux(char *buf, int len, bool numpad_cursor)
 
             pos = i;
         }
-            /* Fall through */
-
+            [[fallthrough]];
         case 0x7F:
         case KTRL('d'): {
             color = TERM_WHITE;
-            if ('\0' == buf[pos]) {
+            if (buf[pos] == '\0') {
                 break;
             }
-            int src = pos + 1;
+
+            auto src = pos + 1;
 #ifdef JP
             if (iskanji(buf[pos])) {
                 src++;
             }
 #endif
-
-            int dst = pos;
+            auto dst = pos;
             while ('\0' != (buf[dst++] = buf[src++])) {
                 ;
             }
+
             break;
         }
-
         default: {
             char tmp[100];
             if (skey & SKEY_MASK) {
                 break;
             }
-            char c = (char)skey;
 
+            const auto c = static_cast<char>(skey);
             if (color == TERM_YELLOW) {
                 buf[0] = '\0';
                 color = TERM_WHITE;
@@ -192,12 +189,8 @@ bool askfor_aux(char *buf, int len, bool numpad_cursor)
             } else
 #endif
             {
-#ifdef JP
-                if (pos < len && (isprint(c) || iskana(c)))
-#else
-                if (pos < len && isprint(c))
-#endif
-                {
+                const auto is_print = _(isprint(c) || iskana(c), isprint(c));
+                if (pos < len && is_print) {
                     buf[pos++] = c;
                 } else {
                     bell();
@@ -206,21 +199,10 @@ bool askfor_aux(char *buf, int len, bool numpad_cursor)
 
             buf[pos] = '\0';
             angband_strcat(buf, tmp, len + 1);
-
             break;
         }
         }
     }
-}
-
-/*
- * Get some string input at the cursor location.
- *
- * Allow to use numpad keys as cursor keys.
- */
-bool askfor(char *buf, int len)
-{
-    return askfor_aux(buf, len, true);
 }
 
 /*
@@ -233,7 +215,7 @@ bool askfor(char *buf, int len)
  *
  * We clear the input, and return FALSE, on "ESCAPE".
  */
-bool get_string(concptr prompt, char *buf, int len)
+bool get_string(std::string_view prompt, char *buf, int len)
 {
     bool res;
     msg_print(nullptr);
@@ -250,7 +232,7 @@ bool get_string(concptr prompt, char *buf, int len)
  *
  * Note that "[y/n]" is appended to the prompt.
  */
-bool get_check(concptr prompt)
+bool get_check(std::string_view prompt)
 {
     return get_check_strict(p_ptr, prompt, 0);
 }
@@ -263,23 +245,22 @@ bool get_check(concptr prompt)
  * mode & CHECK_NO_HISTORY  : no message_add
  * mode & CHECK_DEFAULT_Y   : accept any key as y, except n and Esc.
  */
-bool get_check_strict(PlayerType *player_ptr, concptr prompt, BIT_FLAGS mode)
+bool get_check_strict(PlayerType *player_ptr, std::string_view prompt, BIT_FLAGS mode)
 {
-    char buf[80];
     if (!rogue_like_commands) {
         mode &= ~CHECK_OKAY_CANCEL;
     }
 
+    std::stringstream ss;
+    ss << prompt;
     if (mode & CHECK_OKAY_CANCEL) {
-        angband_strcpy(buf, prompt, sizeof(buf) - 15);
-        strcat(buf, "[(O)k/(C)ancel]");
+        ss << "[(O)k/(C)ancel]";
     } else if (mode & CHECK_DEFAULT_Y) {
-        angband_strcpy(buf, prompt, sizeof(buf) - 5);
-        strcat(buf, "[Y/n]");
+        ss << "[Y/n]";
     } else {
-        angband_strcpy(buf, prompt, sizeof(buf) - 5);
-        strcat(buf, "[y/n]");
+        ss << "[y/n]";
     }
+    const auto buf = ss.str();
 
     if (auto_more) {
         player_ptr->window_flags |= PW_MESSAGE;
@@ -344,7 +325,7 @@ bool get_check_strict(PlayerType *player_ptr, concptr prompt, BIT_FLAGS mode)
  *
  * Returns TRUE unless the character is "Escape"
  */
-bool get_com(concptr prompt, char *command, bool z_escape)
+bool get_com(std::string_view prompt, char *command, bool z_escape)
 {
     msg_print(nullptr);
     prt(prompt, 0, 0);
@@ -370,7 +351,7 @@ bool get_com(concptr prompt, char *command, bool z_escape)
  *
  * Hack -- allow "command_arg" to specify a quantity
  */
-QUANTITY get_quantity(concptr prompt, QUANTITY max)
+QUANTITY get_quantity(std::optional<std::string_view> prompt_opt, QUANTITY max)
 {
     // FIXME : QUANTITY、COMMAND_CODE、その他の型サイズがまちまちな変数とのやり取りが多数ある。この処理での数の入力を0からSHRT_MAXに制限することで不整合の発生を回避する。
     max = std::clamp<QUANTITY>(max, 0, SHRT_MAX);
@@ -404,21 +385,24 @@ QUANTITY get_quantity(concptr prompt, QUANTITY max)
         return amt;
     }
 
-    if (!prompt) {
-        sprintf(tmp, _("いくつですか (1-%d): ", "Quantity (1-%d): "), max);
+    std::string_view prompt;
+    if (prompt_opt.has_value()) {
+        prompt = prompt_opt.value();
+    } else {
+        strnfmt(tmp, sizeof(tmp), _("いくつですか (1-%d): ", "Quantity (1-%d): "), max);
         prompt = tmp;
     }
 
     msg_print(nullptr);
     prt(prompt, 0, 0);
     amt = 1;
-    sprintf(buf, "%d", amt);
+    strnfmt(buf, sizeof(buf), "%d", amt);
 
     /*
      * Ask for a quantity
      * Don't allow to use numpad as cursor key.
      */
-    res = askfor_aux(buf, 6, false);
+    res = askfor(buf, 6, false);
 
     prt("", 0, 0);
     if (!res) {
@@ -450,7 +434,7 @@ void pause_line(int row)
     prt("", row, 0);
 }
 
-bool get_value(const char *text, int min, int max, int *value)
+bool get_value(std::string_view prompt, int min, int max, int *value)
 {
     std::stringstream st;
     int val;
@@ -461,10 +445,10 @@ bool get_value(const char *text, int min, int max, int *value)
 #else
     snprintf(tmp_val, sizeof(tmp_val), "%d", *value);
 #endif
-    st << text << "(" << min << "-" << max << "): ";
+    st << prompt << "(" << min << "-" << max << "): ";
     int digit = std::max(std::to_string(min).length(), std::to_string(max).length());
     while (true) {
-        if (!get_string(st.str().c_str(), tmp_val, digit)) {
+        if (!get_string(st.str().data(), tmp_val, digit)) {
             return false;
         }
 

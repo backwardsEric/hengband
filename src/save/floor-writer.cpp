@@ -15,7 +15,8 @@
 #include "save/save-util.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "term/z-form.h"
 #include "util/angband-files.h"
 #include "util/sort.h"
 
@@ -155,8 +156,8 @@ bool wr_dungeon(PlayerType *player_ptr)
     forget_lite(player_ptr->current_floor_ptr);
     forget_view(player_ptr->current_floor_ptr);
     clear_mon_lite(player_ptr->current_floor_ptr);
-    player_ptr->update |= PU_VIEW | PU_LITE | PU_MON_LITE;
-    player_ptr->update |= PU_MONSTERS | PU_DISTANCE | PU_FLOW;
+    player_ptr->update |= PU_VIEW | PU_LITE | PU_MONSTER_LITE;
+    player_ptr->update |= PU_MONSTER_STATUSES | PU_DISTANCE | PU_FLOW;
     wr_s16b(max_floor_id);
     wr_byte((byte)player_ptr->dungeon_idx);
     if (!player_ptr->floor_id) {
@@ -239,7 +240,6 @@ bool save_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, BIT_FLAGS mode
     uint32_t old_v_stamp = 0;
     uint32_t old_x_stamp = 0;
 
-    char floor_savefile[sizeof(savefile) + 32];
     if ((mode & SLF_SECOND) != 0) {
         old_fff = saving_savefile;
         old_xor_byte = save_xor_byte;
@@ -247,20 +247,23 @@ bool save_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, BIT_FLAGS mode
         old_x_stamp = x_stamp;
     }
 
-    sprintf(floor_savefile, "%s.F%02d", savefile, (int)sf_ptr->savefile_id);
+    std::string floor_savefile = savefile;
+    char ext[32];
+    strnfmt(ext, sizeof(ext), ".F%02d", (int)sf_ptr->savefile_id);
+    floor_savefile.append(ext);
     safe_setuid_grab(player_ptr);
-    fd_kill(floor_savefile);
+    fd_kill(floor_savefile.data());
     safe_setuid_drop();
     saving_savefile = nullptr;
     safe_setuid_grab(player_ptr);
 
-    int fd = fd_make(floor_savefile, 0644);
+    auto fd = fd_make(floor_savefile.data());
     safe_setuid_drop();
     bool is_save_successful = false;
     if (fd >= 0) {
         (void)fd_close(fd);
         safe_setuid_grab(player_ptr);
-        saving_savefile = angband_fopen(floor_savefile, "wb");
+        saving_savefile = angband_fopen(floor_savefile.data(), FileOpenMode::WRITE, true);
         safe_setuid_drop();
         if (saving_savefile) {
             if (save_floor_aux(player_ptr, sf_ptr)) {
@@ -274,7 +277,7 @@ bool save_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, BIT_FLAGS mode
 
         if (!is_save_successful) {
             safe_setuid_grab(player_ptr);
-            (void)fd_kill(floor_savefile);
+            (void)fd_kill(floor_savefile.data());
             safe_setuid_drop();
         }
     }

@@ -8,7 +8,6 @@
 #include "core/speed-table.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
-#include "dungeon/dungeon.h"
 #include "floor/floor-save-util.h"
 #include "floor/floor-util.h"
 #include "floor/geometry.h"
@@ -51,9 +50,10 @@
 #include "spell-realm/spells-hex.h"
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-blindness.h"
@@ -75,22 +75,20 @@ static void process_fishing(PlayerType *player_ptr)
 {
     term_xtra(TERM_XTRA_DELAY, 10);
     if (one_in_(1000)) {
-        MonsterRaceId r_idx;
         bool success = false;
         get_mon_num_prep(player_ptr, monster_is_fishing_target, nullptr);
-        r_idx = get_mon_num(player_ptr, 0,
-            is_in_dungeon(player_ptr) ? player_ptr->current_floor_ptr->dun_level
-                                      : wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level,
-            0);
+        auto *floor_ptr = player_ptr->current_floor_ptr;
+        const auto wild_level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
+        const auto level = floor_ptr->is_in_dungeon() ? floor_ptr->dun_level : wild_level;
+        const auto r_idx = get_mon_num(player_ptr, 0, level, 0);
         msg_print(nullptr);
         if (MonsterRace(r_idx).is_valid() && one_in_(2)) {
             POSITION y, x;
             y = player_ptr->y + ddy[player_ptr->fishing_dir];
             x = player_ptr->x + ddx[player_ptr->fishing_dir];
             if (place_monster_aux(player_ptr, 0, y, x, r_idx, PM_NO_KAGE)) {
-                GAME_TEXT m_name[MAX_NLEN];
-                monster_desc(player_ptr, m_name, &player_ptr->current_floor_ptr->m_list[player_ptr->current_floor_ptr->grid_array[y][x].m_idx], 0);
-                msg_format(_("%sが釣れた！", "You have a good catch!"), m_name);
+                const auto m_name = monster_desc(player_ptr, &floor_ptr->m_list[floor_ptr->grid_array[y][x].m_idx], 0);
+                msg_print(_(format("%sが釣れた！", m_name.data()), "You have a good catch!"));
                 success = true;
             }
         }
@@ -132,7 +130,7 @@ void process_player(PlayerType *player_ptr)
     if (player_ptr->phase_out) {
         for (MONSTER_IDX m_idx = 1; m_idx < player_ptr->current_floor_ptr->m_max; m_idx++) {
             auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-            if (!monster_is_valid(m_ptr)) {
+            if (!m_ptr->is_valid()) {
                 continue;
             }
 
@@ -186,38 +184,34 @@ void process_player(PlayerType *player_ptr)
     const auto effects = player_ptr->effects();
     if (player_ptr->riding && !effects->confusion()->is_confused() && !effects->blindness()->is_blind()) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (monster_csleep_remaining(m_ptr)) {
-            GAME_TEXT m_name[MAX_NLEN];
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (m_ptr->is_asleep()) {
+            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
             (void)set_monster_csleep(player_ptr, player_ptr->riding, 0);
-            monster_desc(player_ptr, m_name, m_ptr, 0);
-            msg_format(_("%^sを起こした。", "You have woken %s up."), m_name);
+            msg_format(_("%s^を起こした。", "You have woken %s up."), m_name.data());
         }
 
-        if (monster_stunned_remaining(m_ptr)) {
+        if (m_ptr->is_stunned()) {
             if (set_monster_stunned(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster_stunned_remaining(m_ptr) - 1))) {
-                GAME_TEXT m_name[MAX_NLEN];
-                monster_desc(player_ptr, m_name, m_ptr, 0);
-                msg_format(_("%^sを朦朧状態から立ち直らせた。", "%^s is no longer stunned."), m_name);
+                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_stun() - 1))) {
+                const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+                msg_format(_("%s^を朦朧状態から立ち直らせた。", "%s^ is no longer stunned."), m_name.data());
             }
         }
 
-        if (monster_confused_remaining(m_ptr)) {
+        if (m_ptr->is_confused()) {
             if (set_monster_confused(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster_confused_remaining(m_ptr) - 1))) {
-                GAME_TEXT m_name[MAX_NLEN];
-                monster_desc(player_ptr, m_name, m_ptr, 0);
-                msg_format(_("%^sを混乱状態から立ち直らせた。", "%^s is no longer confused."), m_name);
+                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_confusion() - 1))) {
+                const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+                msg_format(_("%s^を混乱状態から立ち直らせた。", "%s^ is no longer confused."), m_name.data());
             }
         }
 
-        if (monster_fear_remaining(m_ptr)) {
+        if (m_ptr->is_fearful()) {
             if (set_monster_monfear(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster_fear_remaining(m_ptr) - 1))) {
-                GAME_TEXT m_name[MAX_NLEN];
-                monster_desc(player_ptr, m_name, m_ptr, 0);
-                msg_format(_("%^sを恐怖から立ち直らせた。", "%^s is no longer fearful."), m_name);
+                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_fear() - 1))) {
+                const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+                msg_format(_("%s^を恐怖から立ち直らせた。", "%s^ is no longer fearful."), m_name.data());
             }
         }
 
@@ -250,7 +244,7 @@ void process_player(PlayerType *player_ptr)
             s64b_sub(&(player_ptr->csp), &(player_ptr->csp_frac), cost, cost_frac);
         }
 
-        player_ptr->redraw |= PR_MANA;
+        player_ptr->redraw |= PR_MP;
     }
 
     if (PlayerClass(player_ptr).samurai_stance_is(SamuraiStanceType::MUSOU)) {
@@ -258,7 +252,7 @@ void process_player(PlayerType *player_ptr)
             set_action(player_ptr, ACTION_NONE);
         } else {
             player_ptr->csp -= 2;
-            player_ptr->redraw |= (PR_MANA);
+            player_ptr->redraw |= (PR_MP);
         }
     }
 
@@ -297,7 +291,7 @@ void process_player(PlayerType *player_ptr)
                 if (!player_ptr->resting) {
                     set_action(player_ptr, ACTION_NONE);
                 }
-                player_ptr->redraw |= (PR_STATE);
+                player_ptr->redraw |= (PR_ACTION);
             }
 
             energy.set_player_turn_energy(100);
@@ -309,7 +303,7 @@ void process_player(PlayerType *player_ptr)
             travel_step(player_ptr);
         } else if (command_rep) {
             command_rep--;
-            player_ptr->redraw |= (PR_STATE);
+            player_ptr->redraw |= (PR_ACTION);
             handle_stuff(player_ptr);
             msg_flag = false;
             prt("", 0, 0);
@@ -317,7 +311,7 @@ void process_player(PlayerType *player_ptr)
         } else {
             move_cursor_relative(player_ptr->y, player_ptr->x);
 
-            player_ptr->window_flags |= PW_MONSTER_LIST;
+            player_ptr->window_flags |= PW_SIGHT_MONSTERS;
             window_stuff(player_ptr);
 
             can_save = true;
@@ -339,14 +333,14 @@ void process_player(PlayerType *player_ptr)
             }
 
             for (MONSTER_IDX m_idx = 1; m_idx < player_ptr->current_floor_ptr->m_max; m_idx++) {
-                monster_type *m_ptr;
-                monster_race *r_ptr;
+                MonsterEntity *m_ptr;
+                MonsterRaceInfo *r_ptr;
                 m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-                if (!monster_is_valid(m_ptr)) {
+                if (!m_ptr->is_valid()) {
                     continue;
                 }
 
-                r_ptr = &r_info[m_ptr->ap_r_idx];
+                r_ptr = &monraces_info[m_ptr->ap_r_idx];
 
                 // モンスターのシンボル/カラーの更新
                 if (m_ptr->ml && r_ptr->visual_flags.has_any_of({ MonsterVisualType::MULTI_COLOR, MonsterVisualType::SHAPECHANGER })) {
@@ -398,12 +392,12 @@ void process_player(PlayerType *player_ptr)
             if (player_ptr->action == ACTION_LEARN) {
                 auto mane_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
                 mane_data->new_magic_learned = false;
-                player_ptr->redraw |= (PR_STATE);
+                player_ptr->redraw |= (PR_ACTION);
             }
 
             if (player_ptr->timewalk && (player_ptr->energy_need > -1000)) {
                 player_ptr->redraw |= (PR_MAP);
-                player_ptr->update |= (PU_MONSTERS);
+                player_ptr->update |= (PU_MONSTER_STATUSES);
                 player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
 
                 msg_print(_("「時は動きだす…」", "You feel time flowing around you once more."));

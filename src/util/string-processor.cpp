@@ -701,6 +701,29 @@ std::vector<std::string> str_split(std::string_view str, char delim, bool trim, 
 }
 
 /**
+ * @brief 文字列を指定した文字数で分割する
+ *
+ * 文字列 str を len で指定した文字数で分割し、分割した文字列を要素とする配列を
+ * std::vector<std::string> 型のオブジェクトとして返す。
+ * 全角文字は2文字分として扱い、全角文字の前半で分割されてしまわないように処理される。
+ *
+ * @param str 操作の対象とする文字列
+ * @param len 分割する文字数
+ * @return std::vector<std::string> 分割した文字列を要素とする配列
+ */
+std::vector<std::string> str_separate(std::string_view str, size_t len)
+{
+    std::vector<std::string> result;
+
+    while (!str.empty()) {
+        result.push_back(str_substr(str, 0, len));
+        str.remove_prefix(result.back().size());
+    }
+
+    return result;
+}
+
+/**
  * @brief 文字列から指定した文字を取り除く
  *
  * 文字列 str から文字列 erase_chars に含まれる文字をすべて削除し、
@@ -726,4 +749,81 @@ std::string str_erase(std::string str, std::string_view erase_chars)
     }
 
     return str;
+}
+
+static std::pair<size_t, size_t> adjust_substr_pos(std::string_view sv, size_t pos, size_t n)
+{
+    const auto start = std::min(pos, sv.length());
+    const auto end = n == std::string_view::npos ? sv.length() : std::min(pos + n, sv.length());
+
+#ifdef JP
+    auto seek_pos = 0U;
+    while (seek_pos < start) {
+        if (iskanji(sv[seek_pos])) {
+            ++seek_pos;
+        }
+        ++seek_pos;
+    }
+    const auto mb_pos = seek_pos;
+
+    while (seek_pos < end) {
+        if (iskanji(sv[seek_pos])) {
+            if (seek_pos == end - 1) {
+                break;
+            }
+            ++seek_pos;
+        }
+        ++seek_pos;
+    }
+    const auto mb_n = seek_pos - mb_pos;
+
+    return { mb_pos, mb_n };
+#else
+    return { start, end - start };
+#endif
+}
+
+/*!
+ * @brief 2バイト文字を考慮して部分文字列を取得する
+ *
+ * 引数で与えられた文字列から pos バイト目から n バイトの部分文字列を取得する。
+ * 但し、以下の通り2バイト文字の途中で分断されないようにする。
+ * - 開始位置 pos バイト目が2バイト文字の後半バイトの場合は pos+1 バイト目を開始位置とする。
+ * - 終了位置 pos+n バイト目が2バイト文字の前半バイトの場合は pos+n-1 バイト目を終了位置とする。
+ *
+ * @param sv 文字列
+ * @param pos 部分文字列の開始位置
+ * @param n 部分文字列の長さ
+ * @return 部分文字列
+ */
+std::string str_substr(std::string_view sv, size_t pos, size_t n)
+{
+    const auto [mb_pos, mb_n] = adjust_substr_pos(sv, pos, n);
+    return std::string(sv.substr(mb_pos, mb_n));
+}
+
+/*!
+ * @brief 2バイト文字を考慮して部分文字列を取得する
+ *
+ * 引数で与えられた文字列を pos バイト目から n バイトの部分文字列にして返す。
+ * 但し、以下の通り2バイト文字の途中で分断されないようにする。
+ * - 開始位置 pos バイト目が2バイト文字の後半バイトの場合は pos+1 バイト目を開始位置とする。
+ * - 終了位置 pos+n バイト目が2バイト文字の前半バイトの場合は pos+n-1 バイト目を終了位置とする。
+ *
+ * @param str 文字列
+ * @param pos 部分文字列の開始位置
+ * @param n 部分文字列の長さ
+ * @return 部分文字列
+ */
+std::string str_substr(std::string &&str, size_t pos, size_t n)
+{
+    const auto [mb_pos, mb_n] = adjust_substr_pos(str, pos, n);
+    str.erase(mb_pos + mb_n);
+    str.erase(0, mb_pos);
+    return std::move(str);
+}
+
+std::string str_substr(const char *str, size_t pos, size_t n)
+{
+    return str_substr(std::string_view(str), pos, n);
 }

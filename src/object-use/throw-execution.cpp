@@ -36,6 +36,7 @@
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
+#include "monster/monster-pain-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "object-enchant/tr-types.h"
@@ -46,7 +47,6 @@
 #include "object/object-broken.h"
 #include "object/object-flags.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "object/object-stack.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
@@ -54,10 +54,11 @@
 #include "player/player-status-table.h"
 #include "racial/racial-android.h"
 #include "specific-object/torch.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -66,11 +67,12 @@
 #include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "view/object-describer.h"
 #include "wizard/wizard-messages.h"
 
-ObjectThrowEntity::ObjectThrowEntity(PlayerType *player_ptr, ObjectType *q_ptr, const int delay_factor_val, const int mult, const bool boomerang, const OBJECT_IDX shuriken)
+ObjectThrowEntity::ObjectThrowEntity(PlayerType *player_ptr, ItemEntity *q_ptr, const int delay_factor_val, const int mult, const bool boomerang, const OBJECT_IDX shuriken)
     : q_ptr(q_ptr)
     , player_ptr(player_ptr)
     , shuriken(shuriken)
@@ -91,7 +93,8 @@ bool ObjectThrowEntity::check_can_throw()
         return false;
     }
 
-    if (this->player_ptr->current_floor_ptr->inside_arena && !this->boomerang && (this->o_ptr->tval != ItemKindType::SPIKE)) {
+    const auto is_spike = this->o_ptr->bi_key.tval() == ItemKindType::SPIKE;
+    if (this->player_ptr->current_floor_ptr->inside_arena && !this->boomerang && !is_spike) {
         msg_print(_("アリーナではアイテムを使えない！", "You're in the arena now. This is hand-to-hand!"));
         msg_print(nullptr);
         return false;
@@ -107,7 +110,7 @@ void ObjectThrowEntity::calc_throw_range()
     torch_flags(this->q_ptr, this->obj_flags);
     distribute_charges(this->o_ptr, this->q_ptr, 1);
     this->q_ptr->number = 1;
-    describe_flavor(this->player_ptr, this->o_name, this->q_ptr, OD_OMIT_PREFIX);
+    this->o_name = describe_flavor(this->player_ptr, this->q_ptr, OD_OMIT_PREFIX);
     if (this->player_ptr->mighty_throw) {
         this->mult += 3;
     }
@@ -151,7 +154,7 @@ bool ObjectThrowEntity::calc_throw_grid()
 
 void ObjectThrowEntity::reflect_inventory_by_throw()
 {
-    if ((this->q_ptr->fixed_artifact_idx == FixedArtifactId::MJOLLNIR) || (this->q_ptr->fixed_artifact_idx == FixedArtifactId::AEGISFANG) || this->boomerang) {
+    if (this->q_ptr->is_specific_artifact(FixedArtifactId::MJOLLNIR) || this->q_ptr->is_specific_artifact(FixedArtifactId::AEGISFANG) || this->boomerang) {
         this->return_when_thrown = true;
     }
 
@@ -181,7 +184,10 @@ void ObjectThrowEntity::set_class_specific_throw_params()
     this->y = this->player_ptr->y;
     this->x = this->player_ptr->x;
     handle_stuff(this->player_ptr);
-    this->shuriken = pc.equals(PlayerClassType::NINJA) && ((this->q_ptr->tval == ItemKindType::SPIKE) || ((this->obj_flags.has(TR_THROW)) && (this->q_ptr->tval == ItemKindType::SWORD)));
+    const auto tval = this->q_ptr->bi_key.tval();
+    const auto is_spike = tval == ItemKindType::SPIKE;
+    const auto is_sword = tval == ItemKindType::SWORD;
+    this->shuriken = pc.equals(PlayerClassType::NINJA) && (is_spike || ((this->obj_flags.has(TR_THROW)) && is_sword));
 }
 
 void ObjectThrowEntity::set_racial_chance()
@@ -213,7 +219,7 @@ void ObjectThrowEntity::exe_throw()
         auto *floor_ptr = this->player_ptr->current_floor_ptr;
         this->g_ptr = &floor_ptr->grid_array[this->y][this->x];
         this->m_ptr = &floor_ptr->m_list[this->g_ptr->m_idx];
-        monster_name(this->player_ptr, this->g_ptr->m_idx, this->m_name);
+        this->m_name = monster_name(this->player_ptr, this->g_ptr->m_idx);
         this->visible = this->m_ptr->ml;
         this->hit_body = true;
         this->attack_racial_power();
@@ -223,7 +229,7 @@ void ObjectThrowEntity::exe_throw()
 
 void ObjectThrowEntity::display_figurine_throw()
 {
-    if ((this->q_ptr->tval != ItemKindType::FIGURINE) || this->player_ptr->current_floor_ptr->inside_arena) {
+    if ((this->q_ptr->bi_key.tval() != ItemKindType::FIGURINE) || this->player_ptr->current_floor_ptr->inside_arena) {
         return;
     }
 
@@ -250,22 +256,21 @@ void ObjectThrowEntity::display_potion_throw()
         return;
     }
 
-    msg_format(_("%sは砕け散った！", "The %s shatters!"), this->o_name);
-    if (!potion_smash_effect(this->player_ptr, 0, this->y, this->x, this->q_ptr->k_idx)) {
+    msg_format(_("%sは砕け散った！", "The %s shatters!"), this->o_name.data());
+    if (!potion_smash_effect(this->player_ptr, 0, this->y, this->x, this->q_ptr->bi_id)) {
         this->do_drop = false;
         return;
     }
 
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
     auto *angry_m_ptr = &floor_ptr->m_list[floor_ptr->grid_array[this->y][this->x].m_idx];
-    if ((floor_ptr->grid_array[this->y][this->x].m_idx == 0) || !is_friendly(angry_m_ptr) || monster_invulner_remaining(angry_m_ptr)) {
+    if ((floor_ptr->grid_array[this->y][this->x].m_idx == 0) || !angry_m_ptr->is_friendly() || angry_m_ptr->is_invulnerable()) {
         this->do_drop = false;
         return;
     }
 
-    GAME_TEXT angry_m_name[MAX_NLEN];
-    monster_desc(this->player_ptr, angry_m_name, angry_m_ptr, 0);
-    msg_format(_("%sは怒った！", "%^s gets angry!"), angry_m_name);
+    const auto angry_m_name = monster_desc(this->player_ptr, angry_m_ptr, 0);
+    msg_format(_("%sは怒った！", "%s^ gets angry!"), angry_m_name.data());
     set_hostile(this->player_ptr, &floor_ptr->m_list[floor_ptr->grid_array[this->y][this->x].m_idx]);
     this->do_drop = false;
 }
@@ -277,7 +282,7 @@ void ObjectThrowEntity::check_boomerang_throw()
     }
 
     this->back_chance = randint1(30) + 20 + ((int)(adj_dex_th[this->player_ptr->stat_index[A_DEX]]) - 128);
-    this->super_boomerang = (((this->q_ptr->fixed_artifact_idx == FixedArtifactId::MJOLLNIR) || (this->q_ptr->fixed_artifact_idx == FixedArtifactId::AEGISFANG)) && this->boomerang);
+    this->super_boomerang = ((this->q_ptr->is_specific_artifact(FixedArtifactId::MJOLLNIR) || this->q_ptr->is_specific_artifact(FixedArtifactId::AEGISFANG)) && this->boomerang);
     this->corruption_possibility = -1;
     if (this->boomerang) {
         this->back_chance += 4 + randint1(5);
@@ -287,7 +292,7 @@ void ObjectThrowEntity::check_boomerang_throw()
         this->back_chance += 100;
     }
 
-    describe_flavor(this->player_ptr, this->o2_name, this->q_ptr, OD_OMIT_PREFIX | OD_NAME_ONLY);
+    this->o2_name = describe_flavor(this->player_ptr, this->q_ptr, OD_OMIT_PREFIX | OD_NAME_ONLY);
     this->process_boomerang_throw();
 }
 
@@ -303,8 +308,8 @@ void ObjectThrowEntity::process_boomerang_back()
         this->o_ptr = &player_ptr->inventory_list[this->item];
         this->o_ptr->copy_from(this->q_ptr);
         player_ptr->equip_cnt++;
-        player_ptr->update |= PU_BONUS | PU_TORCH | PU_MANA;
-        player_ptr->window_flags |= PW_EQUIP;
+        player_ptr->update |= PU_BONUS | PU_TORCH | PU_MP;
+        player_ptr->window_flags |= PW_EQUIPMENT;
         this->do_drop = false;
         return;
     }
@@ -321,7 +326,7 @@ void ObjectThrowEntity::drop_thrown_item()
         return;
     }
 
-    auto is_bold = cave_has_flag_bold(this->player_ptr->current_floor_ptr, this->y, this->x, FloorFeatureType::PROJECT);
+    auto is_bold = cave_has_flag_bold(this->player_ptr->current_floor_ptr, this->y, this->x, TerrainCharacteristics::PROJECT);
     auto drop_y = is_bold ? this->y : this->prev_y;
     auto drop_x = is_bold ? this->x : this->prev_x;
     (void)drop_near(this->player_ptr, this->q_ptr, this->corruption_possibility, drop_y, drop_x);
@@ -357,7 +362,7 @@ bool ObjectThrowEntity::check_throw_boomerang()
         concptr q, s;
         q = _("どの武器を投げますか? ", "Throw which item? ");
         s = _("投げる武器がない。", "You have nothing to throw.");
-        this->o_ptr = choose_object(this->player_ptr, &this->item, q, s, USE_EQUIP, FuncItemTester(&ObjectType::is_throwable));
+        this->o_ptr = choose_object(this->player_ptr, &this->item, q, s, USE_EQUIP, FuncItemTester(&ItemEntity::is_throwable));
         if (!this->o_ptr) {
             flush();
             return false;
@@ -383,12 +388,13 @@ bool ObjectThrowEntity::check_racial_target_bold()
     this->nx[this->cur_dis] = this->x;
     mmove2(&this->ny[this->cur_dis], &this->nx[this->cur_dis], this->player_ptr->y, this->player_ptr->x, this->ty, this->tx);
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    if (cave_has_flag_bold(floor_ptr, this->ny[this->cur_dis], this->nx[this->cur_dis], FloorFeatureType::PROJECT)) {
+    if (cave_has_flag_bold(floor_ptr, this->ny[this->cur_dis], this->nx[this->cur_dis], TerrainCharacteristics::PROJECT)) {
         return false;
     }
 
     this->hit_wall = true;
-    return (this->q_ptr->tval == ItemKindType::FIGURINE) || this->q_ptr->is_potion() || (floor_ptr->grid_array[this->ny[this->cur_dis]][this->nx[this->cur_dis]].m_idx == 0);
+    const auto is_figurine = this->q_ptr->bi_key.tval() == ItemKindType::FIGURINE;
+    return is_figurine || this->q_ptr->is_potion() || (floor_ptr->grid_array[this->ny[this->cur_dis]][this->nx[this->cur_dis]].m_idx == 0);
 }
 
 void ObjectThrowEntity::check_racial_target_seen()
@@ -441,29 +447,33 @@ void ObjectThrowEntity::attack_racial_power()
     }
 
     MonsterDamageProcessor mdp(this->player_ptr, this->g_ptr->m_idx, this->tdam, &fear, attribute_flags);
-    if (mdp.mon_take_hit(extract_note_dies(real_r_idx(this->m_ptr)))) {
+    if (mdp.mon_take_hit(extract_note_dies(this->m_ptr->get_real_r_idx()))) {
         return;
     }
 
-    message_pain(this->player_ptr, this->g_ptr->m_idx, this->tdam);
+    if (const auto pain_message = MonsterPainDescriber(player_ptr, this->g_ptr->m_idx).describe(this->tdam);
+        !pain_message.empty()) {
+        msg_print(pain_message);
+    }
+
     if ((this->tdam > 0) && !this->q_ptr->is_potion()) {
         anger_monster(this->player_ptr, this->m_ptr);
     }
 
     if (fear && this->m_ptr->ml) {
         sound(SOUND_FLEE);
-        msg_format(_("%^sは恐怖して逃げ出した！", "%^s flees in terror!"), this->m_name);
+        msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), this->m_name.data());
     }
 }
 
 void ObjectThrowEntity::display_attack_racial_power()
 {
     if (!this->visible) {
-        msg_format(_("%sが敵を捕捉した。", "The %s finds a mark."), this->o_name);
+        msg_format(_("%sが敵を捕捉した。", "The %s finds a mark."), this->o_name.data());
         return;
     }
 
-    msg_format(_("%sが%sに命中した。", "The %s hits %s."), this->o_name, this->m_name);
+    msg_format(_("%sが%sに命中した。", "The %s hits %s."), this->o_name.data(), this->m_name.data());
     if (!this->m_ptr->ml) {
         return;
     }
@@ -508,7 +518,7 @@ void ObjectThrowEntity::calc_racial_power_damage()
 void ObjectThrowEntity::process_boomerang_throw()
 {
     if ((this->back_chance <= 30) || (one_in_(100) && !this->super_boomerang)) {
-        msg_format(_("%sが返ってこなかった！", "%s doesn't come back!"), this->o2_name);
+        msg_format(_("%sが返ってこなかった！", "%s doesn't come back!"), this->o2_name.data());
         return;
     }
 
@@ -539,13 +549,13 @@ void ObjectThrowEntity::display_boomerang_throw()
 {
     const auto is_blind = this->player_ptr->effects()->blindness()->is_blind();
     if ((this->back_chance > 37) && !is_blind && (this->item >= 0)) {
-        msg_format(_("%sが手元に返ってきた。", "%s comes back to you."), this->o2_name);
+        msg_format(_("%sが手元に返ってきた。", "%s comes back to you."), this->o2_name.data());
         this->come_back = true;
         return;
     }
 
     auto back_message = this->item >= 0 ? _("%sを受け損ねた！", "%s comes back, but you can't catch!") : _("%sが返ってきた。", "%s comes back.");
-    msg_format(back_message, this->o2_name);
+    msg_format(back_message, this->o2_name.data());
     this->y = this->player_ptr->y;
     this->x = this->player_ptr->x;
 }

@@ -9,13 +9,14 @@
 #include "object-enchant/object-ego.h"
 #include "object-enchant/special-object-flags.h"
 #include "object-enchant/trc-types.h"
-#include "object/object-kind.h"
 #include "object/object-value.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "smith/object-smith.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
+#include "util/bit-flags-calculator.h"
 
 /*!
  * @brief 魔法棒やロッドのスロット分割時に使用回数を分配する /
@@ -29,9 +30,9 @@
  * are being dropped, it makes for a neater message to leave the original\n
  * stack's pval alone. -LM-\n
  */
-void distribute_charges(ObjectType *o_ptr, ObjectType *q_ptr, int amt)
+void distribute_charges(ItemEntity *o_ptr, ItemEntity *q_ptr, int amt)
 {
-    if ((o_ptr->tval != ItemKindType::WAND) && (o_ptr->tval != ItemKindType::ROD)) {
+    if (!o_ptr->is_wand_rod()) {
         return;
     }
 
@@ -40,7 +41,7 @@ void distribute_charges(ObjectType *o_ptr, ObjectType *q_ptr, int amt)
         o_ptr->pval -= q_ptr->pval;
     }
 
-    if ((o_ptr->tval != ItemKindType::ROD) || !o_ptr->timeout) {
+    if ((o_ptr->bi_key.tval() != ItemKindType::ROD) || !o_ptr->timeout) {
         return;
     }
 
@@ -64,9 +65,9 @@ void distribute_charges(ObjectType *o_ptr, ObjectType *q_ptr, int amt)
  * charges of the stack needs to be reduced, unless all the items are\n
  * being destroyed. -LM-\n
  */
-void reduce_charges(ObjectType *o_ptr, int amt)
+void reduce_charges(ItemEntity *o_ptr, int amt)
 {
-    if (((o_ptr->tval == ItemKindType::WAND) || (o_ptr->tval == ItemKindType::ROD)) && (amt < o_ptr->number)) {
+    if (o_ptr->is_wand_rod() && (amt < o_ptr->number)) {
         o_ptr->pval -= o_ptr->pval * amt / o_ptr->number;
     }
 }
@@ -78,44 +79,41 @@ void reduce_charges(ObjectType *o_ptr, int amt)
  * @param j_ptr 検証したいオブジェクトの構造体参照ポインタ2
  * @return 重ね合わせ可能なアイテム数
  */
-int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
+int object_similar_part(const ItemEntity *o_ptr, const ItemEntity *j_ptr)
 {
-    const int max_stack_size = 99;
-    int max_num = max_stack_size;
-    if (o_ptr->k_idx != j_ptr->k_idx) {
+    if (o_ptr->bi_id != j_ptr->bi_id) {
         return 0;
     }
 
-    switch (o_ptr->tval) {
+    constexpr auto max_stack_size = 99;
+    auto max_num = max_stack_size;
+    switch (o_ptr->bi_key.tval()) {
     case ItemKindType::CHEST:
     case ItemKindType::CARD:
-    case ItemKindType::CAPTURE: {
+    case ItemKindType::CAPTURE:
         return 0;
-    }
     case ItemKindType::STATUE: {
-        if ((o_ptr->sval != SV_PHOTO) || (j_ptr->sval != SV_PHOTO)) {
+        const auto o_sval = o_ptr->bi_key.sval();
+        const auto j_sval = j_ptr->bi_key.sval();
+        if ((o_sval != SV_PHOTO) || (j_sval != SV_PHOTO) || (o_ptr->pval != j_ptr->pval)) {
             return 0;
         }
-        if (o_ptr->pval != j_ptr->pval) {
-            return 0;
-        }
+
         break;
     }
     case ItemKindType::FIGURINE:
-    case ItemKindType::CORPSE: {
+    case ItemKindType::CORPSE:
         if (o_ptr->pval != j_ptr->pval) {
             return 0;
         }
 
         break;
-    }
     case ItemKindType::FOOD:
     case ItemKindType::POTION:
-    case ItemKindType::SCROLL: {
+    case ItemKindType::SCROLL:
         break;
-    }
-    case ItemKindType::STAFF: {
-        if ((!(o_ptr->ident & (IDENT_EMPTY)) && !o_ptr->is_known()) || (!(j_ptr->ident & (IDENT_EMPTY)) && !j_ptr->is_known())) {
+    case ItemKindType::STAFF:
+        if ((none_bits(o_ptr->ident, IDENT_EMPTY) && !o_ptr->is_known()) || (none_bits(j_ptr->ident, IDENT_EMPTY) && !j_ptr->is_known())) {
             return 0;
         }
 
@@ -124,18 +122,15 @@ int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
         }
 
         break;
-    }
-    case ItemKindType::WAND: {
+    case ItemKindType::WAND:
         if ((!(o_ptr->ident & (IDENT_EMPTY)) && !o_ptr->is_known()) || (!(j_ptr->ident & (IDENT_EMPTY)) && !j_ptr->is_known())) {
             return 0;
         }
 
         break;
-    }
-    case ItemKindType::ROD: {
-        max_num = std::min(max_num, MAX_SHORT / k_info[o_ptr->k_idx].pval);
+    case ItemKindType::ROD:
+        max_num = std::min(max_num, MAX_SHORT / o_ptr->get_baseitem().pval);
         break;
-    }
     case ItemKindType::GLOVES:
         if (o_ptr->is_glove_same_temper(j_ptr)) {
             return 0;
@@ -152,6 +147,10 @@ int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
         break;
     case ItemKindType::LITE:
         if (o_ptr->fuel != j_ptr->fuel) {
+            return 0;
+        }
+
+        if (!o_ptr->is_known() || !j_ptr->is_known()) {
             return 0;
         }
 
@@ -193,13 +192,12 @@ int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
         }
 
         break;
-    default: {
+    default:
         if (!o_ptr->is_known() || !j_ptr->is_known()) {
             return 0;
         }
 
         break;
-    }
     }
 
     if (o_ptr->art_flags != j_ptr->art_flags) {
@@ -209,17 +207,19 @@ int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
     if (o_ptr->curse_flags != j_ptr->curse_flags) {
         return 0;
     }
-    if ((o_ptr->ident & (IDENT_BROKEN)) != (j_ptr->ident & (IDENT_BROKEN))) {
+
+    if (any_bits(o_ptr->ident, IDENT_BROKEN) != any_bits(j_ptr->ident, IDENT_BROKEN)) {
         return 0;
     }
 
-    if (o_ptr->inscription && j_ptr->inscription && (o_ptr->inscription != j_ptr->inscription)) {
+    if (o_ptr->is_inscribed() && j_ptr->is_inscribed() && (o_ptr->inscription != j_ptr->inscription)) {
         return 0;
     }
 
     if (!stack_force_notes && (o_ptr->inscription != j_ptr->inscription)) {
         return 0;
     }
+
     if (!stack_force_costs && (o_ptr->discount != j_ptr->discount)) {
         return 0;
     }
@@ -234,7 +234,7 @@ int object_similar_part(const ObjectType *o_ptr, const ObjectType *j_ptr)
  * @param j_ptr 検証したいオブジェクトの構造体参照ポインタ2
  * @return 重ね合わせ可能ならばTRUEを返す。
  */
-bool object_similar(const ObjectType *o_ptr, const ObjectType *j_ptr)
+bool object_similar(const ItemEntity *o_ptr, const ItemEntity *j_ptr)
 {
     int total = o_ptr->number + j_ptr->number;
     int max_num = object_similar_part(o_ptr, j_ptr);
@@ -254,7 +254,7 @@ bool object_similar(const ObjectType *o_ptr, const ObjectType *j_ptr)
  * @param o_ptr 重ね合わせ先のオブジェクトの構造体参照ポインタ
  * @param j_ptr 重ね合わせ元のオブジェクトの構造体参照ポインタ
  */
-void object_absorb(ObjectType *o_ptr, ObjectType *j_ptr)
+void object_absorb(ItemEntity *o_ptr, ItemEntity *j_ptr)
 {
     int max_num = object_similar_part(o_ptr, j_ptr);
     int total = o_ptr->number + j_ptr->number;
@@ -277,7 +277,7 @@ void object_absorb(ObjectType *o_ptr, ObjectType *j_ptr)
     if (j_ptr->is_fully_known()) {
         o_ptr->ident |= (IDENT_FULL_KNOWN);
     }
-    if (j_ptr->inscription) {
+    if (j_ptr->is_inscribed()) {
         o_ptr->inscription = j_ptr->inscription;
     }
     if (j_ptr->feeling) {
@@ -286,12 +286,14 @@ void object_absorb(ObjectType *o_ptr, ObjectType *j_ptr)
     if (o_ptr->discount < j_ptr->discount) {
         o_ptr->discount = j_ptr->discount;
     }
-    if (o_ptr->tval == ItemKindType::ROD) {
+
+    const auto tval = o_ptr->bi_key.tval();
+    if (tval == ItemKindType::ROD) {
         o_ptr->pval += j_ptr->pval * (j_ptr->number - diff) / j_ptr->number;
         o_ptr->timeout += j_ptr->timeout * (j_ptr->number - diff) / j_ptr->number;
     }
 
-    if (o_ptr->tval == ItemKindType::WAND) {
+    if (tval == ItemKindType::WAND) {
         o_ptr->pval += j_ptr->pval * (j_ptr->number - diff) / j_ptr->number;
     }
 }

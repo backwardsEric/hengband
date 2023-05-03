@@ -4,7 +4,7 @@
 #include "io/files-util.h"
 #include "perception/object-perception.h"
 #include "store/store-util.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "view/display-messages.h"
@@ -19,17 +19,15 @@
  * @param art_ptr 記述内容を収めた構造体参照ポインタ
  * Fill in an object description structure for a given object
  */
-static void spoiler_print_randart(ObjectType *o_ptr, obj_desc_list *art_ptr)
+static void spoiler_print_randart(ItemEntity *o_ptr, obj_desc_list *art_ptr)
 {
     pval_info_type *pval_ptr = &art_ptr->pval_info;
-    char buf[80];
     fprintf(spoiler_file, "%s\n", art_ptr->description);
     if (!o_ptr->is_fully_known()) {
         fprintf(spoiler_file, _("%s不明\n", "%sUnknown\n"), spoiler_indent);
     } else {
         if (pval_ptr->pval_desc[0]) {
-            sprintf(buf, _("%sの修正:", "%s to"), pval_ptr->pval_desc);
-            spoiler_outlist(buf, pval_ptr->pval_affects, item_separator);
+            spoiler_outlist(std::string(pval_ptr->pval_desc).append(_("の修正:", " to")).data(), pval_ptr->pval_affects, item_separator);
         }
 
         spoiler_outlist(_("対:", "Slay"), art_ptr->slays, item_separator);
@@ -52,10 +50,10 @@ static void spoiler_print_randart(ObjectType *o_ptr, obj_desc_list *art_ptr)
  * @param o_ptr ランダムアーティファクトのオブジェクト構造体参照ポインタ
  * @param tval 出力したいランダムアーティファクトの種類
  */
-static void spoil_random_artifact_aux(PlayerType *player_ptr, ObjectType *o_ptr, ItemKindType tval)
+static void spoil_random_artifact_aux(PlayerType *player_ptr, ItemEntity *o_ptr, ItemKindType tval)
 {
     obj_desc_list artifact;
-    if (!o_ptr->is_known() || !o_ptr->art_name || o_ptr->tval != tval) {
+    if (!o_ptr->is_known() || !o_ptr->is_random_artifact() || (o_ptr->bi_key.tval() != tval)) {
         return;
     }
 
@@ -70,39 +68,36 @@ static void spoil_random_artifact_aux(PlayerType *player_ptr, ObjectType *o_ptr,
  */
 void spoil_random_artifact(PlayerType *player_ptr, concptr fname)
 {
-    store_type *store_ptr;
-    ObjectType *q_ptr;
     char buf[1024];
     path_build(buf, sizeof(buf), ANGBAND_DIR_USER, fname);
-    spoiler_file = angband_fopen(buf, "w");
+    spoiler_file = angband_fopen(buf, FileOpenMode::WRITE);
     if (!spoiler_file) {
         msg_print("Cannot create list file.");
         return;
     }
 
-    sprintf(buf, "Random artifacts list.\r");
-    spoiler_underline(buf);
+    spoiler_underline("Random artifacts list.\r");
     for (const auto &[tval_list, name] : group_artifact_list) {
         for (auto tval : tval_list) {
             for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-                q_ptr = &player_ptr->inventory_list[i];
+                auto *q_ptr = &player_ptr->inventory_list[i];
                 spoil_random_artifact_aux(player_ptr, q_ptr, tval);
             }
 
             for (int i = 0; i < INVEN_PACK; i++) {
-                q_ptr = &player_ptr->inventory_list[i];
+                auto *q_ptr = &player_ptr->inventory_list[i];
                 spoil_random_artifact_aux(player_ptr, q_ptr, tval);
             }
 
-            store_ptr = &town_info[1].store[enum2i(StoreSaleType::HOME)];
+            const auto *store_ptr = &towns_info[1].store[enum2i(StoreSaleType::HOME)];
             for (int i = 0; i < store_ptr->stock_num; i++) {
-                q_ptr = &store_ptr->stock[i];
+                auto *q_ptr = &store_ptr->stock[i];
                 spoil_random_artifact_aux(player_ptr, q_ptr, tval);
             }
 
-            store_ptr = &town_info[1].store[enum2i(StoreSaleType::MUSEUM)];
+            store_ptr = &towns_info[1].store[enum2i(StoreSaleType::MUSEUM)];
             for (int i = 0; i < store_ptr->stock_num; i++) {
-                q_ptr = &store_ptr->stock[i];
+                auto *q_ptr = &store_ptr->stock[i];
                 spoil_random_artifact_aux(player_ptr, q_ptr, tval);
             }
         }

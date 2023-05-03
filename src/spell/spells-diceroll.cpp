@@ -12,8 +12,8 @@
 #include "player/player-status-table.h"
 #include "room/rooms-builder.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 
 /*!
@@ -22,9 +22,9 @@
  * @param m_ptr 対象モンスター
  * @return 魅了に抵抗したらTRUE
  */
-bool common_saving_throw_charm(PlayerType *player_ptr, int pow, monster_type *m_ptr)
+bool common_saving_throw_charm(PlayerType *player_ptr, int pow, MonsterEntity *m_ptr)
 {
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
     if (player_ptr->current_floor_ptr->inside_arena) {
         return true;
@@ -62,9 +62,9 @@ bool common_saving_throw_charm(PlayerType *player_ptr, int pow, monster_type *m_
  * @param m_ptr 対象モンスター
  * @return 服従に抵抗したらTRUE
  */
-bool common_saving_throw_control(PlayerType *player_ptr, int pow, monster_type *m_ptr)
+bool common_saving_throw_control(PlayerType *player_ptr, int pow, MonsterEntity *m_ptr)
 {
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
     if (player_ptr->current_floor_ptr->inside_arena) {
         return true;

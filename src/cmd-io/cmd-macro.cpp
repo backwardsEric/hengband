@@ -11,6 +11,7 @@
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/angband-files.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
@@ -22,7 +23,7 @@
  */
 static void macro_dump(FILE **fpp, concptr fname)
 {
-    static concptr mark = "Macro Dump";
+    constexpr auto mark = "Macro Dump";
     char buf[1024];
     path_build(buf, sizeof(buf), ANGBAND_DIR_USER, fname);
     if (!open_auto_dump(fpp, buf, mark)) {
@@ -31,7 +32,7 @@ static void macro_dump(FILE **fpp, concptr fname)
 
     auto_dump_printf(*fpp, _("\n# 自動マクロセーブ\n\n", "\n# Automatic macro dump\n\n"));
 
-    for (int i = 0; i < macro__num; i++) {
+    for (auto i = 0; i < macro__num; i++) {
         ascii_to_text(buf, macro__act[i], sizeof(buf));
         auto_dump_printf(*fpp, "A:%s\n", buf);
         ascii_to_text(buf, macro__pat[i], sizeof(buf));
@@ -104,7 +105,6 @@ static void do_cmd_macro_aux_keymap(char *buf)
 static errr keymap_dump(concptr fname)
 {
     FILE *auto_dump_stream;
-    static concptr mark = "Keymap Dump";
     char key[1024];
     char buf[1024];
     BIT_FLAGS mode;
@@ -115,6 +115,7 @@ static errr keymap_dump(concptr fname)
     }
 
     path_build(buf, sizeof(buf), ANGBAND_DIR_USER, fname);
+    constexpr auto mark = "Keymap Dump";
     if (!open_auto_dump(&auto_dump_stream, buf, mark)) {
         return -1;
     }
@@ -186,7 +187,7 @@ void do_cmd_macros(PlayerType *player_ptr)
         if (key == '1') {
             prt(_("コマンド: ユーザー設定ファイルのロード", "Command: Load a user pref file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 80)) {
                 continue;
             }
@@ -202,7 +203,7 @@ void do_cmd_macros(PlayerType *player_ptr)
         } else if (key == '2') {
             prt(_("コマンド: マクロをファイルに追加する", "Command: Append macros to a file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 80)) {
                 continue;
             }
@@ -219,7 +220,7 @@ void do_cmd_macros(PlayerType *player_ptr)
                 msg_print(_("そのキーにはマクロは定義されていません。", "Found no macro."));
             } else {
                 // マクロの作成時に参照するためmacro_bufにコピーする
-                strncpy(macro_buf, macro__act[k].c_str(), sizeof(macro_buf) - 1);
+                strncpy(macro_buf, macro__act[k].data(), sizeof(macro_buf) - 1);
                 // too long macro must die
                 strncpy(tmp, macro_buf, 80);
                 tmp[80] = '\0';
@@ -253,7 +254,7 @@ void do_cmd_macros(PlayerType *player_ptr)
         } else if (key == '6') {
             prt(_("コマンド: キー配置をファイルに追加する", "Command: Append keymaps to a file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 80)) {
                 continue;
             }

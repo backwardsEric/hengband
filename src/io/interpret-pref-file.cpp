@@ -14,10 +14,11 @@
 #include "io/input-key-requester.h"
 #include "io/tokenizer.h"
 #include "monster-race/monster-race.h"
-#include "object/object-kind.h"
+#include "system/baseitem-info.h"
 #include "system/game-option-types.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "term/gameterm.h"
 #include "util/quarks.h"
 #include "util/string-processor.h"
@@ -40,15 +41,15 @@ static errr interpret_r_token(char *buf)
         return 1;
     }
 
-    monster_race *r_ptr;
+    MonsterRaceInfo *r_ptr;
     int i = (int)strtol(zz[0], nullptr, 0);
     TERM_COLOR n1 = (TERM_COLOR)strtol(zz[1], nullptr, 0);
     auto n2 = static_cast<char>(strtol(zz[2], nullptr, 0));
-    if (i >= static_cast<int>(r_info.size())) {
+    if (i >= static_cast<int>(monraces_info.size())) {
         return 1;
     }
 
-    r_ptr = &r_info[i2enum<MonsterRaceId>(i)];
+    r_ptr = &monraces_info[i2enum<MonsterRaceId>(i)];
     if (n1 || (!(n2 & 0x80) && n2)) {
         r_ptr->x_attr = n1;
     } /* Allow TERM_DARK text */
@@ -71,20 +72,19 @@ static errr interpret_k_token(char *buf)
         return 1;
     }
 
-    object_kind *k_ptr;
     int i = (int)strtol(zz[0], nullptr, 0);
     TERM_COLOR n1 = (TERM_COLOR)strtol(zz[1], nullptr, 0);
     auto n2 = static_cast<char>(strtol(zz[2], nullptr, 0));
-    if (i >= static_cast<int>(k_info.size())) {
+    if (i >= static_cast<int>(baseitems_info.size())) {
         return 1;
     }
 
-    k_ptr = &k_info[i];
+    auto *bii_ptr = &baseitems_info[i];
     if (n1 || (!(n2 & 0x80) && n2)) {
-        k_ptr->x_attr = n1;
+        bii_ptr->x_attr = n1;
     } /* Allow TERM_DARK text */
     if (n2) {
-        k_ptr->x_char = n2;
+        bii_ptr->x_char = n2;
     }
 
     return 0;
@@ -98,8 +98,8 @@ static errr interpret_k_token(char *buf)
  */
 static errr decide_feature_type(int i, int num, char **zz)
 {
-    feature_type *f_ptr;
-    f_ptr = &f_info[i];
+    TerrainType *f_ptr;
+    f_ptr = &terrains_info[i];
 
     TERM_COLOR n1 = (TERM_COLOR)strtol(zz[1], nullptr, 0);
     auto n2 = static_cast<char>(strtol(zz[2], nullptr, 0));
@@ -168,7 +168,7 @@ static errr interpret_f_token(char *buf)
     }
 
     int i = (int)strtol(zz[0], nullptr, 0);
-    if (i >= static_cast<int>(f_info.size())) {
+    if (i >= static_cast<int>(terrains_info.size())) {
         return 1;
     }
 
@@ -207,16 +207,17 @@ static errr interpret_u_token(char *buf)
         return 1;
     }
 
-    int j = (int)strtol(zz[0], nullptr, 0);
-    TERM_COLOR n1 = (TERM_COLOR)strtol(zz[1], nullptr, 0);
-    auto n2 = static_cast<char>(strtol(zz[2], nullptr, 0));
-    for (auto &k_ref : k_info) {
-        if ((k_ref.idx > 0) && (enum2i(k_ref.tval) == j)) {
+    const auto tval = i2enum<ItemKindType>(std::stoi(zz[0], nullptr, 0));
+    const auto n1 = static_cast<uint8_t>(std::stoi(zz[1], nullptr, 0));
+    const auto n2 = static_cast<char>(strtol(zz[2], nullptr, 0));
+    for (auto &baseitem : baseitems_info) {
+        if ((baseitem.idx > 0) && (baseitem.bi_key.tval() == tval)) {
             if (n1) {
-                k_ref.d_attr = n1;
+                baseitem.d_attr = n1;
             }
+
             if (n2) {
-                k_ref.d_char = n2;
+                baseitem.d_char = n2;
             }
         }
     }
@@ -351,28 +352,28 @@ static errr interpret_xy_token(PlayerType *player_ptr, char *buf)
 
 /*!
  * @brief Zトークンの解釈 / Process "Z:<type>:<str>" -- set spell color
- * @param buf バッファ
+ * @param line トークン1行
  * @param zz トークン保管文字列
- * @return エラーコード
+ * @return 解釈に成功したか
  */
-static int interpret_z_token(char *buf)
+static bool interpret_z_token(std::string_view line)
 {
-    auto *t = angband_strchr(buf + 2, ':');
-    if (t == nullptr) {
-        return 1;
+    constexpr auto num_splits = 3;
+    const auto splits = str_split(line, ':', false, num_splits);
+    if (splits.size() != num_splits) {
+        return false;
     }
 
-    *(t++) = '\0';
-    for (const auto &description : gf_descriptions) {
-        if (!streq(description.name, buf + 2)) {
+    for (const auto &[name, num] : gf_descriptions) {
+        if (name != splits[1]) {
             continue;
         }
 
-        gf_colors[description.num] = quark_add(t);
-        return 0;
+        gf_colors[num] = splits[2];
+        return true;
     }
 
-    return 1;
+    return false;
 }
 
 /*!
@@ -540,7 +541,7 @@ errr interpret_pref_file(PlayerType *player_ptr, char *buf)
     case 'Y':
         return interpret_xy_token(player_ptr, buf);
     case 'Z':
-        return interpret_z_token(buf);
+        return interpret_z_token(buf) ? 0 : 1;
     case 'T':
         return interpret_t_token(buf);
     default:

@@ -28,7 +28,6 @@
 #include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
 #include "floor/wild.h"
-#include "grid/feature.h"
 #include "io/input-key-acceptor.h"
 #include "io/input-key-requester.h"
 #include "main/music-definitions-table.h"
@@ -61,8 +60,10 @@
 #include "system/building-type-definition.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
@@ -165,10 +166,10 @@ static void bldg_process_command(PlayerType *player_ptr, building_type *bldg, in
         bcost = compare_weapons(player_ptr, bcost);
         break;
     case BACT_ENCHANT_WEAPON:
-        enchant_item(player_ptr, bcost, 1, 1, 0, FuncItemTester(&ObjectType::allow_enchant_melee_weapon));
+        enchant_item(player_ptr, bcost, 1, 1, 0, FuncItemTester(&ItemEntity::allow_enchant_melee_weapon));
         break;
     case BACT_ENCHANT_ARMOR:
-        enchant_item(player_ptr, bcost, 0, 0, 1, FuncItemTester(&ObjectType::is_armour));
+        enchant_item(player_ptr, bcost, 0, 0, 1, FuncItemTester(&ItemEntity::is_protector));
         break;
     case BACT_RECHARGE:
         building_recharge(player_ptr);
@@ -197,7 +198,7 @@ static void bldg_process_command(PlayerType *player_ptr, building_type *bldg, in
         paid = restore_all_status(player_ptr);
         break;
     case BACT_ENCHANT_ARROWS:
-        enchant_item(player_ptr, bcost, 1, 1, 0, FuncItemTester(&ObjectType::is_ammo));
+        enchant_item(player_ptr, bcost, 1, 1, 0, FuncItemTester(&ItemEntity::is_ammo));
         break;
     case BACT_ENCHANT_BOW:
         enchant_item(player_ptr, bcost, 1, 1, 0, TvalItemTester(ItemKindType::BOW));
@@ -210,8 +211,10 @@ static void bldg_process_command(PlayerType *player_ptr, building_type *bldg, in
         break;
 
     case BACT_TELEPORT_LEVEL:
+        screen_save();
         clear_bldg(4, 20);
         paid = free_level_recall(player_ptr);
+        screen_load();
         break;
 
     case BACT_LOSE_MUTATION: {
@@ -255,24 +258,24 @@ static void bldg_process_command(PlayerType *player_ptr, building_type *bldg, in
 
     case BACT_HEIKOUKA:
         msg_print(_("平衡化の儀式を行なった。", "You received an equalization ritual."));
-        set_virtue(player_ptr, V_COMPASSION, 0);
-        set_virtue(player_ptr, V_HONOUR, 0);
-        set_virtue(player_ptr, V_JUSTICE, 0);
-        set_virtue(player_ptr, V_SACRIFICE, 0);
-        set_virtue(player_ptr, V_KNOWLEDGE, 0);
-        set_virtue(player_ptr, V_FAITH, 0);
-        set_virtue(player_ptr, V_ENLIGHTEN, 0);
-        set_virtue(player_ptr, V_ENCHANT, 0);
-        set_virtue(player_ptr, V_CHANCE, 0);
-        set_virtue(player_ptr, V_NATURE, 0);
-        set_virtue(player_ptr, V_HARMONY, 0);
-        set_virtue(player_ptr, V_VITALITY, 0);
-        set_virtue(player_ptr, V_UNLIFE, 0);
-        set_virtue(player_ptr, V_PATIENCE, 0);
-        set_virtue(player_ptr, V_TEMPERANCE, 0);
-        set_virtue(player_ptr, V_DILIGENCE, 0);
-        set_virtue(player_ptr, V_VALOUR, 0);
-        set_virtue(player_ptr, V_INDIVIDUALISM, 0);
+        set_virtue(player_ptr, Virtue::COMPASSION, 0);
+        set_virtue(player_ptr, Virtue::HONOUR, 0);
+        set_virtue(player_ptr, Virtue::JUSTICE, 0);
+        set_virtue(player_ptr, Virtue::SACRIFICE, 0);
+        set_virtue(player_ptr, Virtue::KNOWLEDGE, 0);
+        set_virtue(player_ptr, Virtue::FAITH, 0);
+        set_virtue(player_ptr, Virtue::ENLIGHTEN, 0);
+        set_virtue(player_ptr, Virtue::ENCHANT, 0);
+        set_virtue(player_ptr, Virtue::CHANCE, 0);
+        set_virtue(player_ptr, Virtue::NATURE, 0);
+        set_virtue(player_ptr, Virtue::HARMONY, 0);
+        set_virtue(player_ptr, Virtue::VITALITY, 0);
+        set_virtue(player_ptr, Virtue::UNLIFE, 0);
+        set_virtue(player_ptr, Virtue::PATIENCE, 0);
+        set_virtue(player_ptr, Virtue::TEMPERANCE, 0);
+        set_virtue(player_ptr, Virtue::DILIGENCE, 0);
+        set_virtue(player_ptr, Virtue::VALOUR, 0);
+        set_virtue(player_ptr, Virtue::INDIVIDUALISM, 0);
         initialize_virtues(player_ptr);
         paid = true;
         break;
@@ -309,12 +312,14 @@ void do_cmd_building(PlayerType *player_ptr)
     PlayerEnergy energy(player_ptr);
     energy.set_player_turn_energy(100);
 
-    if (!cave_has_flag_bold(player_ptr->current_floor_ptr, player_ptr->y, player_ptr->x, FloorFeatureType::BLDG)) {
+    if (!cave_has_flag_bold(player_ptr->current_floor_ptr, player_ptr->y, player_ptr->x, TerrainCharacteristics::BLDG)) {
         msg_print(_("ここには建物はない。", "You see no building here."));
         return;
     }
 
-    int which = f_info[player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].feat].subtype;
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
+
+    int which = terrains_info[player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].feat].subtype;
 
     building_type *bldg;
     bldg = &building[which];
@@ -403,7 +408,7 @@ void do_cmd_building(PlayerType *player_ptr)
     w_ptr->character_icky_depth--;
     term_clear();
 
-    player_ptr->update |= (PU_VIEW | PU_MONSTERS | PU_BONUS | PU_LITE | PU_MON_LITE);
+    player_ptr->update |= (PU_VIEW | PU_MONSTER_STATUSES | PU_BONUS | PU_LITE | PU_MONSTER_LITE);
     player_ptr->redraw |= (PR_BASIC | PR_EXTRA | PR_EQUIPPY | PR_MAP);
     player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
 }

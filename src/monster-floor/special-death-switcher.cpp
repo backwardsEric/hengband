@@ -36,13 +36,13 @@
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-weapon-types.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
-#include "world/world.h"
 
 /*!
  * @brief 死亡召喚に使用するモード選択
@@ -51,7 +51,7 @@
  */
 static BIT_FLAGS dead_mode(monster_death_type *md_ptr)
 {
-    bool pet = is_pet(md_ptr->m_ptr);
+    bool pet = md_ptr->m_ptr->is_pet();
     bool clone = md_ptr->m_ptr->mflag2.has(MonsterConstantFlagType::CLONED);
     BIT_FLAGS mode = pet ? PM_FORCE_PET : PM_NONE;
     if (clone) {
@@ -80,7 +80,7 @@ static void summon_self(PlayerType *player_ptr, monster_death_type *md_ptr, summ
     POSITION wy = md_ptr->md_y;
     POSITION wx = md_ptr->md_x;
     int attempts = 100;
-    bool pet = is_pet(md_ptr->m_ptr);
+    bool pet = md_ptr->m_ptr->is_pet();
     do {
         scatter(player_ptr, &wy, &wx, md_ptr->md_y, md_ptr->md_x, radius, PROJECT_NONE);
     } while (!(in_bounds(floor_ptr, wy, wx) && is_cave_empty_bold2(player_ptr, wy, wx)) && --attempts);
@@ -106,7 +106,7 @@ static void on_dead_pink_horror(PlayerType *player_ptr, monster_death_type *md_p
     for (int i = 0; i < blue_horrors; i++) {
         POSITION wy = md_ptr->md_y;
         POSITION wx = md_ptr->md_x;
-        bool pet = is_pet(md_ptr->m_ptr);
+        bool pet = md_ptr->m_ptr->is_pet();
         BIT_FLAGS mode = dead_mode(md_ptr);
         if (summon_specific(player_ptr, (pet ? -1 : md_ptr->m_idx), wy, wx, 100, SUMMON_BLUE_HORROR, mode) && player_can_see_bold(player_ptr, wy, wx)) {
             notice = true;
@@ -125,9 +125,9 @@ static void on_dead_bloodletter(PlayerType *player_ptr, monster_death_type *md_p
         return;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
-    q_ptr->prep(lookup_kind(ItemKindType::SWORD, SV_BLADE_OF_CHAOS));
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::SWORD, SV_BLADE_OF_CHAOS }));
     ItemMagicApplier(player_ptr, q_ptr, player_ptr->current_floor_ptr->object_level, AM_NO_FIXED_ART | md_ptr->mo_mode).execute();
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
 }
@@ -139,13 +139,13 @@ static void on_dead_raal(PlayerType *player_ptr, monster_death_type *md_ptr)
         return;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
     q_ptr->wipe();
     if ((floor_ptr->dun_level > 49) && one_in_(5)) {
-        get_obj_num_hook = kind_is_good_book;
+        get_obj_index_hook = kind_is_good_book;
     } else {
-        get_obj_num_hook = kind_is_book;
+        get_obj_index_hook = kind_is_book;
     }
 
     (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
@@ -183,16 +183,10 @@ static void on_dead_sacred_treasures(PlayerType *player_ptr, monster_death_type 
             break;
         }
 
-        a_ptr = &a_info.at(a_idx);
+        a_ptr = &ArtifactsInfo::get_instance().get_artifact(a_idx);
     } while (a_ptr->is_generated);
 
-    if (!create_named_art(player_ptr, a_idx, md_ptr->md_y, md_ptr->md_x)) {
-        return;
-    }
-
-    if (w_ptr->character_dungeon) {
-        a_ptr->floor_id = player_ptr->floor_id;
-    }
+    create_named_art(player_ptr, a_idx, md_ptr->md_y, md_ptr->md_x);
 }
 
 static void on_dead_serpent(PlayerType *player_ptr, monster_death_type *md_ptr)
@@ -201,14 +195,14 @@ static void on_dead_serpent(PlayerType *player_ptr, monster_death_type *md_ptr)
         return;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
-    q_ptr->prep(lookup_kind(ItemKindType::HAFTED, SV_GROND));
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::HAFTED, SV_GROND }));
     q_ptr->fixed_artifact_idx = FixedArtifactId::GROND;
     ItemMagicApplier(player_ptr, q_ptr, -1, AM_GOOD | AM_GREAT).execute();
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
     q_ptr = &forge;
-    q_ptr->prep(lookup_kind(ItemKindType::CROWN, SV_CHAOS));
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::CROWN, SV_CHAOS }));
     q_ptr->fixed_artifact_idx = FixedArtifactId::CHAOS;
     ItemMagicApplier(player_ptr, q_ptr, -1, AM_GOOD | AM_GREAT).execute();
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
@@ -220,9 +214,9 @@ static void on_dead_death_sword(PlayerType *player_ptr, monster_death_type *md_p
         return;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
-    q_ptr->prep(lookup_kind(ItemKindType::SWORD, randint1(2)));
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::SWORD, randint1(2) }));
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
 }
 
@@ -236,9 +230,9 @@ static void on_dead_can_angel(PlayerType *player_ptr, monster_death_type *md_ptr
         return;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
-    q_ptr->prep(lookup_kind(ItemKindType::CHEST, SV_CHEST_KANDUME));
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::CHEST, SV_CHEST_KANDUME }));
     ItemMagicApplier(player_ptr, q_ptr, player_ptr->current_floor_ptr->object_level, AM_NO_FIXED_ART).execute();
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
 }
@@ -254,7 +248,7 @@ static void on_dead_aqua_illusion(PlayerType *player_ptr, monster_death_type *md
     for (int i = 0; i < popped_bubbles; i++) {
         POSITION wy = md_ptr->md_y;
         POSITION wx = md_ptr->md_x;
-        bool pet = is_pet(md_ptr->m_ptr);
+        bool pet = md_ptr->m_ptr->is_pet();
         BIT_FLAGS mode = dead_mode(md_ptr);
         auto smaller_bubble = md_ptr->m_ptr->r_idx - 1;
         if (summon_named_creature(player_ptr, (pet ? -1 : md_ptr->m_idx), wy, wx, smaller_bubble, mode) && player_can_see_bold(player_ptr, wy, wx)) {
@@ -289,7 +283,7 @@ static void on_dead_dragon_centipede(PlayerType *player_ptr, monster_death_type 
     for (int i = 0; i < reproduced_centipede; i++) {
         POSITION wy = md_ptr->md_y;
         POSITION wx = md_ptr->md_x;
-        bool pet = is_pet(md_ptr->m_ptr);
+        bool pet = md_ptr->m_ptr->is_pet();
         BIT_FLAGS mode = dead_mode(md_ptr);
 
         auto smaller_centipede = md_ptr->m_ptr->r_idx - 1;
@@ -298,10 +292,9 @@ static void on_dead_dragon_centipede(PlayerType *player_ptr, monster_death_type 
         }
     }
 
-    GAME_TEXT m_name[MAX_NLEN];
-    monster_desc(player_ptr, m_name, md_ptr->m_ptr, MD_NONE);
     if (notice) {
-        msg_format(_("%sが再生した！", "The %s reproduced!"), m_name);
+        const auto m_name = monster_desc(player_ptr, md_ptr->m_ptr, MD_NONE);
+        msg_format(_("%sが再生した！", "The %s reproduced!"), m_name.data());
         sound(SOUND_SUMMON);
     }
 }
@@ -315,7 +308,7 @@ static void on_dead_dragon_centipede(PlayerType *player_ptr, monster_death_type 
  * @return 生成したアイテムが装備品ならtrue、それ以外ならfalse
  * @todo 汎用的に使えそうだがどこかにいいファイルはないか？
  */
-static bool make_equipment(PlayerType *player_ptr, ObjectType *q_ptr, const BIT_FLAGS drop_mode, const bool is_object_hook_null)
+static bool make_equipment(PlayerType *player_ptr, ItemEntity *q_ptr, const BIT_FLAGS drop_mode, const bool is_object_hook_null)
 {
     q_ptr->wipe();
     (void)make_object(player_ptr, q_ptr, drop_mode);
@@ -323,29 +316,7 @@ static bool make_equipment(PlayerType *player_ptr, ObjectType *q_ptr, const BIT_
         return true;
     }
 
-    auto tval = q_ptr->tval;
-    switch (tval) {
-    case ItemKindType::BOW:
-    case ItemKindType::DIGGING:
-    case ItemKindType::HAFTED:
-    case ItemKindType::POLEARM:
-    case ItemKindType::SWORD:
-    case ItemKindType::BOOTS:
-    case ItemKindType::GLOVES:
-    case ItemKindType::HELM:
-    case ItemKindType::CROWN:
-    case ItemKindType::SHIELD:
-    case ItemKindType::CLOAK:
-    case ItemKindType::SOFT_ARMOR:
-    case ItemKindType::HARD_ARMOR:
-    case ItemKindType::DRAG_ARMOR:
-    case ItemKindType::LITE:
-    case ItemKindType::AMULET:
-    case ItemKindType::RING:
-        return true;
-    default:
-        return false;
-    }
+    return q_ptr->is_wearable() && (q_ptr->bi_key.tval() != ItemKindType::CARD);
 }
 
 /*
@@ -358,25 +329,25 @@ static bool make_equipment(PlayerType *player_ptr, ObjectType *q_ptr, const BIT_
  * 最初のアイテム生成でいきなり☆が生成された場合を除き、中途半端な☆ (例：呪われている)は生成しない.
  * このルーチンで★は生成されないので、★生成フラグのキャンセルも不要
  */
-static void on_dead_random_artifact(PlayerType *player_ptr, monster_death_type *md_ptr, bool (*object_hook_pf)(KIND_OBJECT_IDX k_idx))
+static void on_dead_random_artifact(PlayerType *player_ptr, monster_death_type *md_ptr, bool (*object_hook_pf)(short bi_id))
 {
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
     auto is_object_hook_null = object_hook_pf == nullptr;
     auto drop_mode = md_ptr->mo_mode | AM_NO_FIXED_ART;
     while (true) {
         // make_object() の中でアイテム種別をキャンセルしている
         // よってこのwhileループ中へ入れないと、引数で指定していない種別のアイテムが選ばれる可能性がある
-        get_obj_num_hook = object_hook_pf;
+        get_obj_index_hook = object_hook_pf;
         if (!make_equipment(player_ptr, q_ptr, drop_mode, is_object_hook_null)) {
             continue;
         }
 
-        if (q_ptr->art_name > 0) {
+        if (q_ptr->is_random_artifact()) {
             break;
         }
 
-        if ((q_ptr->fixed_artifact_idx != FixedArtifactId::NONE) && q_ptr->is_ego()) {
+        if (q_ptr->is_ego()) {
             continue;
         }
 
@@ -407,12 +378,12 @@ static void on_dead_manimani(PlayerType *player_ptr, monster_death_type *md_ptr)
     msg_print(_("どこからか声が聞こえる…「ハロー！　そして…グッドバイ！」", "Heard a voice from somewhere... 'Hello! And... good bye!'"));
 }
 
-static void drop_specific_item_on_dead(PlayerType *player_ptr, monster_death_type *md_ptr, bool (*object_hook_pf)(KIND_OBJECT_IDX k_idx))
+static void drop_specific_item_on_dead(PlayerType *player_ptr, monster_death_type *md_ptr, bool (*object_hook_pf)(short bi_id))
 {
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
     q_ptr->wipe();
-    get_obj_num_hook = object_hook_pf;
+    get_obj_index_hook = object_hook_pf;
     (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
 }
@@ -447,7 +418,7 @@ static void on_dead_chest_mimic(PlayerType *player_ptr, monster_death_type *md_p
     for (auto i = 0; i < num_summons; i++) {
         auto wy = md_ptr->md_y;
         auto wx = md_ptr->md_x;
-        auto pet = is_pet(md_ptr->m_ptr);
+        auto pet = md_ptr->m_ptr->is_pet();
         BIT_FLAGS mode = dead_mode(md_ptr);
         if (summon_named_creature(player_ptr, (pet ? -1 : md_ptr->m_idx), wy, wx, mimic_inside, (BIT_FLAGS)mode) && player_can_see_bold(player_ptr, wy, wx)) {
             notice = true;

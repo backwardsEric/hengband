@@ -2,8 +2,8 @@
 #include "artifact/fixed-art-types.h"
 #include "load/angband-version-comparer.h"
 #include "load/load-util.h"
-#include "object/object-kind.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 
@@ -13,12 +13,12 @@
 void ItemLoaderBase::load_item(void)
 {
     auto loading_max_k_idx = rd_u16b();
-    object_kind dummy;
+    BaseitemInfo dummy;
     for (auto i = 0U; i < loading_max_k_idx; i++) {
-        auto *k_ptr = i < k_info.size() ? &k_info[i] : &dummy;
+        auto *bii_ptr = i < baseitems_info.size() ? &baseitems_info[i] : &dummy;
         auto tmp8u = rd_byte();
-        k_ptr->aware = any_bits(tmp8u, 0x01);
-        k_ptr->tried = any_bits(tmp8u, 0x02);
+        bii_ptr->aware = any_bits(tmp8u, 0x01);
+        bii_ptr->tried = any_bits(tmp8u, 0x02);
     }
 
     load_note(_("アイテムの記録をロードしました", "Loaded Object Memory"));
@@ -27,14 +27,12 @@ void ItemLoaderBase::load_item(void)
 /*!
  * @brief 固定アーティファクトの出現情報をロードする.
  */
-void ItemLoaderBase::load_artifact(void)
+void ItemLoaderBase::load_artifact()
 {
-    ArtifactType dummy;
     auto loading_max_a_idx = rd_u16b();
     for (auto i = 0U; i < loading_max_a_idx; i++) {
         const auto a_idx = i2enum<FixedArtifactId>(i);
-        const auto it = a_info.find(a_idx);
-        auto &artifact = it != a_info.end() ? it->second : dummy;
+        auto &artifact = ArtifactsInfo::get_instance().get_artifact(a_idx);
         artifact.is_generated = rd_bool();
         if (h_older_than(1, 5, 0, 0)) {
             artifact.floor_id = 0;

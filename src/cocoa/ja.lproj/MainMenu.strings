@@ -34,6 +34,9 @@
 /* Class = "NSMenu"; title = "Help"; ObjectID = "F2S-fz-NVQ"; */
 "F2S-fz-NVQ.title" = "ヘルプ";
 
+/* Class = "NSMenuItem"; title = "Sound and Music ..."; ObjectID = "FdG-dF-c6Z"; */
+"FdG-dF-c6Z.title" = "効果音とBGM…";
+
 /* Class = "NSMenuItem"; title = "Hengband Help"; ObjectID = "FKE-Sm-Kum"; */
 "FKE-Sm-Kum.title" = "変愚蛮怒 ヘルプ";
 
@@ -56,13 +59,10 @@
 "Kd2-mp-pUS.title" = "すべてを表示";
 
 /* Class = "NSMenuItem"; title = "Settings"; ObjectID = "KRs-UN-gSY"; */
-"KRs-UN-gSY.title" = "配置";
+"KRs-UN-gSY.title" = "設定";
 
 /* Class = "NSMenuItem"; title = "Bring All to Front"; ObjectID = "LE2-aR-0XJ"; */
 "LE2-aR-0XJ.title" = "すべてを手前に移動";
-
-/* Class = "NSMenuItem"; title = "Toggle Sound"; ObjectID = "mul-VV-UfU"; */
-"mul-VV-UfU.title" = "音変える";
 
 /* Class = "NSMenuItem"; title = "Services"; ObjectID = "NMo-om-nkz"; */
 "NMo-om-nkz.title" = "サービス";
@@ -80,7 +80,7 @@
 "Pka-9x-yi4.title" = "20 毎秒";
 
 /* Class = "NSMenuItem"; title = "Save…"; ObjectID = "pxx-59-PXV"; */
-"pxx-59-PXV.title" = "セーブするがゲ";
+"pxx-59-PXV.title" = "セーブ";
 
 /* Class = "NSMenuItem"; title = "Zoom"; ObjectID = "R4o-n2-Eq4"; */
 "R4o-n2-Eq4.title" = "拡大／縮小";
@@ -89,7 +89,7 @@
 "Td7-aD-5lo.title" = "ウインドウ";
 
 /* Class = "NSMenuItem"; title = "Toggle Wide Tiles"; ObjectID = "tR9-z3-4SZ"; */
-"tR9-z3-4SZ.title" = "広いタイルを切り替え";
+"tR9-z3-4SZ.title" = "2倍幅タイル";
 
 /* Class = "NSMenu"; title = "Hengband"; ObjectID = "uQy-DD-JDr"; */
 "uQy-DD-JDr.title" = "変愚蛮怒";
@@ -119,7 +119,7 @@
 "wpr-3q-Mcd.title" = "ヘルプ";
 
 /* Class = "NSMenu"; title = "Settings"; ObjectID = "yJq-0y-VBt"; */
-"yJq-0y-VBt.title" = "配置";
+"yJq-0y-VBt.title" = "設定";
 
 /* Class = "NSMenuItem"; title = "40 per second"; ObjectID = "ZN5-kE-LHc"; */
 "ZN5-kE-LHc.title" = "40 毎秒";

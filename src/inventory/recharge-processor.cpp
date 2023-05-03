@@ -5,10 +5,10 @@
 #include "flavor/object-flavor-types.h"
 #include "hpmp/hp-mp-regenerator.h"
 #include "inventory/inventory-slot-types.h"
-#include "object/object-kind.h"
 #include "object/tval-types.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/quarks.h"
 #include "util/string-processor.h"
@@ -20,24 +20,23 @@
  * If player has inscribed the object with "!!", let him know when it's recharged. -LM-
  * @param o_ptr 対象オブジェクトの構造体参照ポインタ
  */
-static void recharged_notice(PlayerType *player_ptr, ObjectType *o_ptr)
+static void recharged_notice(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    if (!o_ptr->inscription) {
+    if (!o_ptr->is_inscribed()) {
         return;
     }
 
-    concptr s = angband_strchr(quark_str(o_ptr->inscription), '!');
+    auto s = angband_strchr(o_ptr->inscription->data(), '!');
     while (s) {
         if (s[1] == '!') {
-            GAME_TEXT o_name[MAX_NLEN];
-            describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+            const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 #ifdef JP
-            msg_format("%sは再充填された。", o_name);
+            msg_format("%sは再充填された。", item_name.data());
 #else
             if (o_ptr->number > 1) {
-                msg_format("Your %s are recharged.", o_name);
+                msg_format("Your %s are recharged.", item_name.data());
             } else {
-                msg_format("Your %s is recharged.", o_name);
+                msg_format("Your %s is recharged.", item_name.data());
             }
 #endif
             disturb(player_ptr, false, false);
@@ -59,7 +58,7 @@ void recharge_magic_items(PlayerType *player_ptr)
 
     for (changed = false, i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         auto *o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
@@ -73,7 +72,7 @@ void recharge_magic_items(PlayerType *player_ptr)
     }
 
     if (changed) {
-        player_ptr->window_flags |= (PW_EQUIP);
+        player_ptr->window_flags |= (PW_EQUIPMENT);
         wild_regen = 20;
     }
 
@@ -84,13 +83,13 @@ void recharge_magic_items(PlayerType *player_ptr)
      */
     for (changed = false, i = 0; i < INVEN_PACK; i++) {
         auto *o_ptr = &player_ptr->inventory_list[i];
-        auto *k_ptr = &k_info[o_ptr->k_idx];
-        if (!o_ptr->k_idx) {
+        const auto &baseitem = o_ptr->get_baseitem();
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        if ((o_ptr->tval == ItemKindType::ROD) && (o_ptr->timeout)) {
-            TIME_EFFECT temp = (o_ptr->timeout + (k_ptr->pval - 1)) / k_ptr->pval;
+        if ((o_ptr->bi_key.tval() == ItemKindType::ROD) && (o_ptr->timeout)) {
+            TIME_EFFECT temp = (o_ptr->timeout + (baseitem.pval - 1)) / baseitem.pval;
             if (temp > o_ptr->number) {
                 temp = (TIME_EFFECT)o_ptr->number;
             }
@@ -103,14 +102,14 @@ void recharge_magic_items(PlayerType *player_ptr)
             if (!(o_ptr->timeout)) {
                 recharged_notice(player_ptr, o_ptr);
                 changed = true;
-            } else if (o_ptr->timeout % k_ptr->pval) {
+            } else if (o_ptr->timeout % baseitem.pval) {
                 changed = true;
             }
         }
     }
 
     if (changed) {
-        player_ptr->window_flags |= (PW_INVEN);
+        player_ptr->window_flags |= (PW_INVENTORY);
         wild_regen = 20;
     }
 
@@ -120,7 +119,7 @@ void recharge_magic_items(PlayerType *player_ptr)
             continue;
         }
 
-        if ((o_ptr->tval == ItemKindType::ROD) && (o_ptr->timeout)) {
+        if ((o_ptr->bi_key.tval() == ItemKindType::ROD) && (o_ptr->timeout)) {
             o_ptr->timeout -= (TIME_EFFECT)o_ptr->number;
             if (o_ptr->timeout < 0) {
                 o_ptr->timeout = 0;

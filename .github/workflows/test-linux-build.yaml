@@ -19,14 +19,13 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
-      # Requires automake, autoconf, and autoconf-archive; install those via
-      # apt-get.
+      # Requires automake and autoconf; install those via apt-get.
       - name: Install Build Dependencies
-        run: sudo apt-get install autoconf automake autoconf-archive
+        run: sudo apt-get install autoconf automake
 
       - name: Build
         run: |
@@ -56,15 +55,15 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
-      # Requires automake, autoconf, autoconf-archive and, unless building the
+      # Requires automake, autoconf, and, unless building the
       # 1.6.2 version, nkf; install those via apt-get.
       # macos-latest).
       - name: Install Build Dependencies
-        run: sudo apt-get install automake autoconf autoconf-archive nkf
+        run: sudo apt-get install automake autoconf nkf
 
       - name: Build
         run: |

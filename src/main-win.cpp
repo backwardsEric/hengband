@@ -129,6 +129,7 @@
 #include "wizard/spoiler-util.h"
 #include "wizard/wizard-spoiler.h"
 #include "world/world.h"
+#include <algorithm>
 #include <commdlg.h>
 #include <cstdlib>
 #include <direct.h>
@@ -255,28 +256,30 @@ static byte ignore_key_list[] = {
 /*!
  * @brief Validate a file
  */
-static void validate_file(concptr s)
+static void validate_file(const std::filesystem::path &s)
 {
-    if (check_file(s)) {
+    if (std::filesystem::is_regular_file(s)) {
         return;
     }
 
-    quit_fmt(_("必要なファイル[%s]が見あたりません。", "Cannot find required file:\n%s"), s);
+    const auto &file = s.string();
+    quit_fmt(_("必要なファイル[%s]が見あたりません。", "Cannot find required file:\n%s"), file.data());
 }
 
 /*!
  * @brief Validate a directory
  */
-static void validate_dir(concptr s, bool vital)
+static void validate_dir(const std::filesystem::path &s, bool vital)
 {
-    if (check_dir(s)) {
+    if (std::filesystem::is_directory(s)) {
         return;
     }
 
+    const auto &dir = s.string();
     if (vital) {
-        quit_fmt(_("必要なディレクトリ[%s]が見あたりません。", "Cannot find required directory:\n%s"), s);
-    } else if (mkdir(s)) {
-        quit_fmt("Unable to create directory:\n%s", s);
+        quit_fmt(_("必要なディレクトリ[%s]が見あたりません。", "Cannot find required directory:\n%s"), dir.data());
+    } else if (mkdir(dir.data())) {
+        quit_fmt("Unable to create directory:\n%s", dir.data());
     }
 }
 
@@ -405,25 +408,25 @@ static void save_prefs(void)
 
     strcpy(buf, arg_sound ? "1" : "0");
     WritePrivateProfileStringA("Angband", "Sound", buf, ini_file);
+    WritePrivateProfileStringA("Angband", "SoundVolumeTableIndex", std::to_string(arg_sound_volume_table_index).data(), ini_file);
 
     strcpy(buf, arg_music ? "1" : "0");
     WritePrivateProfileStringA("Angband", "Music", buf, ini_file);
     strcpy(buf, use_pause_music_inactive ? "1" : "0");
+    WritePrivateProfileStringA("Angband", "MusicVolumeTableIndex", std::to_string(arg_music_volume_table_index).data(), ini_file);
     WritePrivateProfileStringA("Angband", "MusicPauseInactive", buf, ini_file);
 
     wsprintfA(buf, "%d", current_bg_mode);
     WritePrivateProfileStringA("Angband", "BackGround", buf, ini_file);
     WritePrivateProfileStringA("Angband", "BackGroundBitmap", wallpaper_file[0] != '\0' ? wallpaper_file : DEFAULT_BG_FILENAME, ini_file);
 
-    int path_length = strlen(ANGBAND_DIR) - 4; /* \libの4文字分を削除 */
-    char tmp[1024] = "";
-    strncat(tmp, ANGBAND_DIR, path_length);
-
-    int n = strncmp(tmp, savefile, path_length);
-    if (n == 0) {
-        char relative_path[1024] = "";
-        snprintf(relative_path, sizeof(relative_path), ".\\%s", (savefile + path_length));
-        WritePrivateProfileStringA("Angband", "SaveFile", relative_path, ini_file);
+    std::string angband_dir_str(ANGBAND_DIR.string());
+    const auto path_length = angband_dir_str.length() - 4; // "\lib" を除く.
+    angband_dir_str = angband_dir_str.substr(0, path_length);
+    const std::string savefile_str(savefile);
+    if (angband_dir_str == savefile_str) {
+        const auto relative_path = format(".\\%s", (savefile + path_length));
+        WritePrivateProfileStringA("Angband", "SaveFile", relative_path.data(), ini_file);
     } else {
         WritePrivateProfileStringA("Angband", "SaveFile", savefile, ini_file);
     }
@@ -507,7 +510,9 @@ static void load_prefs(void)
     arg_bigtile = (GetPrivateProfileIntA("Angband", "Bigtile", false, ini_file) != 0);
     use_bigtile = arg_bigtile;
     arg_sound = (GetPrivateProfileIntA("Angband", "Sound", 0, ini_file) != 0);
+    arg_sound_volume_table_index = std::clamp<int>(GetPrivateProfileIntA("Angband", "SoundVolumeTableIndex", 0, ini_file), 0, SOUND_VOLUME_TABLE.size() - 1);
     arg_music = (GetPrivateProfileIntA("Angband", "Music", 0, ini_file) != 0);
+    arg_music_volume_table_index = std::clamp<int>(GetPrivateProfileIntA("Angband", "MusicVolumeTableIndex", 0, ini_file), 0, main_win_music::VOLUME_TABLE.size() - 1);
     use_pause_music_inactive = (GetPrivateProfileIntA("Angband", "MusicPauseInactive", 0, ini_file) != 0);
     current_bg_mode = static_cast<bg_mode>(GetPrivateProfileIntA("Angband", "BackGround", 0, ini_file));
     GetPrivateProfileStringA("Angband", "BackGroundBitmap", DEFAULT_BG_FILENAME, wallpaper_file, 1023, ini_file);
@@ -515,9 +520,11 @@ static void load_prefs(void)
 
     int n = strncmp(".\\", savefile, 2);
     if (n == 0) {
-        int path_length = strlen(ANGBAND_DIR) - 4; /* \libの4文字分を削除 */
+        std::string angband_dir_str(ANGBAND_DIR.string());
+        const auto path_length = angband_dir_str.length() - 4; // "\lib" を除く.
+        angband_dir_str = angband_dir_str.substr(0, path_length);
         char tmp[1024] = "";
-        strncat(tmp, ANGBAND_DIR, path_length);
+        strncat(tmp, angband_dir_str.data(), path_length);
         strncat(tmp, savefile + 2, strlen(savefile) - 2 + path_length);
         strncpy(savefile, tmp, strlen(tmp));
     }
@@ -903,7 +910,7 @@ static errr term_xtra_win_sound(int v)
     if (!use_sound) {
         return 1;
     }
-    return play_sound(v);
+    return play_sound(v, SOUND_VOLUME_TABLE[arg_sound_volume_table_index]);
 }
 
 /*!
@@ -1318,8 +1325,8 @@ static void init_windows(void)
     *td = {};
     td->name = win_term_name[0];
 
-    td->rows = 24;
-    td->cols = 80;
+    td->rows = MAIN_TERM_MIN_ROWS;
+    td->cols = MAIN_TERM_MIN_COLS;
     td->visible = true;
     td->size_ow1 = 2;
     td->size_ow2 = 2;
@@ -1333,8 +1340,8 @@ static void init_windows(void)
         td = &data[i];
         *td = {};
         td->name = win_term_name[i];
-        td->rows = 24;
-        td->cols = 80;
+        td->rows = TERM_DEFAULT_ROWS;
+        td->cols = TERM_DEFAULT_COLS;
         td->visible = false;
         td->size_ow1 = 1;
         td->size_ow2 = 1;
@@ -1400,7 +1407,7 @@ static void init_windows(void)
         td->size_hack = false;
 
         term_data_link(td);
-        angband_term[i] = &td->t;
+        angband_terms[i] = &td->t;
 
         if (td->visible) {
             /* Activate the window */
@@ -1432,7 +1439,7 @@ static void init_windows(void)
     td->size_hack = false;
 
     term_data_link(td);
-    angband_term[0] = &td->t;
+    angband_terms[0] = &td->t;
     normsize.x = td->cols;
     normsize.y = td->rows;
 
@@ -1522,8 +1529,12 @@ static void setup_menus(void)
     CheckMenuItem(hm, IDM_OPTIONS_NEW2_GRAPHICS, (arg_graphics == enum2i(graphics_mode::GRAPHICS_HENGBAND) ? MF_CHECKED : MF_UNCHECKED));
     CheckMenuItem(hm, IDM_OPTIONS_BIGTILE, (arg_bigtile ? MF_CHECKED : MF_UNCHECKED));
     CheckMenuItem(hm, IDM_OPTIONS_MUSIC, (arg_music ? MF_CHECKED : MF_UNCHECKED));
+    CheckMenuRadioItem(hm, IDM_OPTIONS_MUSIC_VOLUME_100, IDM_OPTIONS_MUSIC_VOLUME_010,
+        IDM_OPTIONS_MUSIC_VOLUME_100 + arg_music_volume_table_index, MF_BYCOMMAND);
     CheckMenuItem(hm, IDM_OPTIONS_MUSIC_PAUSE_INACTIVE, (use_pause_music_inactive ? MF_CHECKED : MF_UNCHECKED));
     CheckMenuItem(hm, IDM_OPTIONS_SOUND, (arg_sound ? MF_CHECKED : MF_UNCHECKED));
+    CheckMenuRadioItem(hm, IDM_OPTIONS_SOUND_VOLUME_100, IDM_OPTIONS_SOUND_VOLUME_010,
+        IDM_OPTIONS_SOUND_VOLUME_100 + arg_sound_volume_table_index, MF_BYCOMMAND);
     CheckMenuItem(hm, IDM_OPTIONS_NO_BG, ((current_bg_mode == bg_mode::BG_NONE) ? MF_CHECKED : MF_UNCHECKED));
     CheckMenuItem(hm, IDM_OPTIONS_BG, ((current_bg_mode == bg_mode::BG_ONE) ? MF_CHECKED : MF_UNCHECKED));
     CheckMenuItem(hm, IDM_OPTIONS_PRESET_BG, ((current_bg_mode == bg_mode::BG_PRESET) ? MF_CHECKED : MF_UNCHECKED));
@@ -1545,7 +1556,7 @@ static void check_for_save_file(const std::string &savefile_option)
         return;
     }
 
-    strcpy(savefile, savefile_option.c_str());
+    strcpy(savefile, savefile_option.data());
     validate_file(savefile);
     game_in_progress = true;
 }
@@ -1870,6 +1881,22 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         }
         break;
     }
+    case IDM_OPTIONS_MUSIC_VOLUME_100:
+    case IDM_OPTIONS_MUSIC_VOLUME_090:
+    case IDM_OPTIONS_MUSIC_VOLUME_080:
+    case IDM_OPTIONS_MUSIC_VOLUME_070:
+    case IDM_OPTIONS_MUSIC_VOLUME_060:
+    case IDM_OPTIONS_MUSIC_VOLUME_050:
+    case IDM_OPTIONS_MUSIC_VOLUME_040:
+    case IDM_OPTIONS_MUSIC_VOLUME_030:
+    case IDM_OPTIONS_MUSIC_VOLUME_020:
+    case IDM_OPTIONS_MUSIC_VOLUME_010: {
+        arg_music_volume_table_index = wCmd - IDM_OPTIONS_MUSIC_VOLUME_100;
+        if (use_music) {
+            main_win_music::set_music_volume(main_win_music::VOLUME_TABLE[arg_music_volume_table_index]);
+        }
+        break;
+    }
     case IDM_OPTIONS_MUSIC_PAUSE_INACTIVE: {
         use_pause_music_inactive = !use_pause_music_inactive;
         break;
@@ -1883,6 +1910,19 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
     case IDM_OPTIONS_SOUND: {
         arg_sound = !arg_sound;
         change_sound_mode(arg_sound);
+        break;
+    }
+    case IDM_OPTIONS_SOUND_VOLUME_100:
+    case IDM_OPTIONS_SOUND_VOLUME_090:
+    case IDM_OPTIONS_SOUND_VOLUME_080:
+    case IDM_OPTIONS_SOUND_VOLUME_070:
+    case IDM_OPTIONS_SOUND_VOLUME_060:
+    case IDM_OPTIONS_SOUND_VOLUME_050:
+    case IDM_OPTIONS_SOUND_VOLUME_040:
+    case IDM_OPTIONS_SOUND_VOLUME_030:
+    case IDM_OPTIONS_SOUND_VOLUME_020:
+    case IDM_OPTIONS_SOUND_VOLUME_010: {
+        arg_sound_volume_table_index = wCmd - IDM_OPTIONS_SOUND_VOLUME_100;
         break;
     }
     case IDM_OPTIONS_OPEN_SOUND_DIR: {
@@ -1905,7 +1945,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         }
         // 壁紙の設定に失敗した（ファイルが存在しない等）場合、壁紙に使うファイルを選択させる
     }
-        [[fallthrough]]; /* Fall through */
+        [[fallthrough]];
     case IDM_OPTIONS_OPEN_BG: {
         memset(&ofn, 0, sizeof(ofn));
         ofn.lStructSize = sizeof(ofn);
@@ -1915,7 +1955,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         ofn.lpstrTitle = _(L"壁紙を選んでね。", L"Choose wall paper.");
         ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 
-        if (get_open_filename(&ofn, nullptr, wallpaper_file, MAIN_WIN_MAX_PATH)) {
+        if (get_open_filename(&ofn, "", wallpaper_file, MAIN_WIN_MAX_PATH)) {
             change_bg_mode(bg_mode::BG_ONE, true, true);
         }
         break;
@@ -1997,7 +2037,7 @@ static bool process_keydown(WPARAM wParam, LPARAM lParam)
         switch (wParam) {
         case VK_DIVIDE:
             term_no_press = true;
-            [[fallthrough]]; /* Fall through */
+            [[fallthrough]];
         case VK_RETURN:
             numpad = ext_key;
             break;
@@ -2017,7 +2057,7 @@ static bool process_keydown(WPARAM wParam, LPARAM lParam)
         case VK_SEPARATOR:
         case VK_DECIMAL:
             term_no_press = true;
-            [[fallthrough]]; /* Fall through */
+            [[fallthrough]];
         case VK_CLEAR:
         case VK_HOME:
         case VK_END:
@@ -2123,8 +2163,8 @@ static bool handle_window_resize(term_data *td, UINT uMsg, WPARAM wParam, LPARAM
     switch (uMsg) {
     case WM_GETMINMAXINFO: {
         const bool is_main = is_main_term(td);
-        const int min_cols = (is_main) ? 80 : 20;
-        const int min_rows = (is_main) ? 24 : 3;
+        const int min_cols = (is_main) ? MAIN_TERM_MIN_COLS : 20;
+        const int min_rows = (is_main) ? MAIN_TERM_MIN_ROWS : 3;
         const LONG w = min_cols * td->tile_wid + td->size_ow1 + td->size_ow2;
         const LONG h = min_rows * td->tile_hgt + td->size_oh1 + td->size_oh2 + 1;
         RECT rc{ 0, 0, w, h };
@@ -2228,7 +2268,7 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         return 0;
     }
     case MM_MCINOTIFY: {
-        main_win_music::on_mci_notify(wParam, lParam);
+        main_win_music::on_mci_notify(wParam, lParam, main_win_music::VOLUME_TABLE[arg_music_volume_table_index]);
 
         return 0;
     }
@@ -2441,7 +2481,7 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
             }
         }
     }
-        [[fallthrough]]; /* Fall through */
+        [[fallthrough]];
     case WM_ENABLE: {
         if (wParam == FALSE && keep_subwindows) {
             for (int i = 1; i < MAX_TERM_DATA; i++) {
@@ -2575,7 +2615,7 @@ static void hook_quit(concptr str)
 /*!
  * @brief Init some stuff
  */
-static void init_stuff(void)
+static void init_stuff()
 {
     char path[MAIN_WIN_MAX_PATH];
     DWORD path_len = GetModuleFileNameA(hInstance, path, MAIN_WIN_MAX_PATH);
@@ -2591,7 +2631,7 @@ static void init_stuff(void)
 
     strcpy(path + i + 1, "lib\\");
     validate_dir(path, true);
-    init_file_paths(path, path);
+    init_file_paths(path);
     validate_dir(ANGBAND_DIR_APEX, false);
     validate_dir(ANGBAND_DIR_BONE, false);
     if (!check_dir(ANGBAND_DIR_EDIT)) {
@@ -2766,12 +2806,16 @@ int WINAPI WinMain(
 
     signals_init();
     term_activate(term_screen);
-    init_angband(p_ptr, false);
-    initialized = true;
+    {
+        TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
 
-    check_for_save_file(command_line.get_savefile_option());
-    prt(_("[ファイル] メニューの [新規] または [開く] を選択してください。", "[Choose 'New' or 'Open' from the 'File' menu]"), 23, _(8, 17));
-    term_fresh();
+        init_angband(p_ptr, false);
+        initialized = true;
+
+        check_for_save_file(command_line.get_savefile_option());
+        prt(_("[ファイル] メニューの [新規] または [開く] を選択してください。", "[Choose 'New' or 'Open' from the 'File' menu]"), 23, _(8, 17));
+        term_fresh();
+    }
 
     change_sound_mode(arg_sound);
     use_music = arg_music;

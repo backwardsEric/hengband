@@ -31,11 +31,12 @@
 #include "player/attack-defense-types.h"
 #include "status/action-setter.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
+#include "term/z-form.h"
 #include "timed-effect/player-cut.h"
 #include "timed-effect/player-fear.h"
 #include "timed-effect/player-stun.h"
@@ -47,13 +48,13 @@
 struct samurai_slaying_type {
     MULTIPLY mult;
     TrFlags flags;
-    monster_type *m_ptr;
+    MonsterEntity *m_ptr;
     combat_options mode;
-    monster_race *r_ptr;
+    MonsterRaceInfo *r_ptr;
 };
 
 static samurai_slaying_type *initialize_samurai_slaying_type(
-    samurai_slaying_type *samurai_slaying_ptr, MULTIPLY mult, const TrFlags &flags, monster_type *m_ptr, combat_options mode, monster_race *r_ptr)
+    samurai_slaying_type *samurai_slaying_ptr, MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode, MonsterRaceInfo *r_ptr)
 {
     samurai_slaying_ptr->mult = mult;
     samurai_slaying_ptr->flags = flags;
@@ -322,9 +323,9 @@ static void hissatsu_keiun_kininken(PlayerType *player_ptr, samurai_slaying_type
  * @param mode 剣術のスレイ型ID
  * @return スレイの倍率(/10倍)
  */
-MULTIPLY mult_hissatsu(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flags, monster_type *m_ptr, combat_options mode)
+MULTIPLY mult_hissatsu(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode)
 {
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
     samurai_slaying_type tmp_slaying;
     samurai_slaying_type *samurai_slaying_ptr = initialize_samurai_slaying_type(&tmp_slaying, mult, flags, m_ptr, mode, r_ptr);
     hissatsu_burning_strike(player_ptr, samurai_slaying_ptr);
@@ -365,7 +366,7 @@ void concentration(PlayerType *player_ptr)
         player_ptr->csp_frac = 0;
     }
 
-    player_ptr->redraw |= PR_MANA;
+    player_ptr->redraw |= PR_MP;
 }
 
 /*!
@@ -396,7 +397,7 @@ bool choose_samurai_stance(PlayerType *player_ptr)
     prt(_(" a) 型を崩す", " a) No Form"), 2, 20);
     for (auto i = 0U; i < samurai_stances.size(); i++) {
         if (player_ptr->lev >= samurai_stances[i].min_level) {
-            sprintf(buf, _(" %c) %sの型    %s", " %c) Stance of %-12s  %s"), I2A(i + 1), samurai_stances[i].desc, samurai_stances[i].info);
+            strnfmt(buf, sizeof(buf), _(" %c) %sの型    %s", " %c) Stance of %-12s  %s"), I2A(i + 1), samurai_stances[i].desc, samurai_stances[i].info);
             prt(buf, 3 + i, 20);
         }
     }
@@ -438,12 +439,12 @@ bool choose_samurai_stance(PlayerType *player_ptr)
     if (PlayerClass(player_ptr).samurai_stance_is(new_stance)) {
         msg_print(_("構え直した。", "You reassume a stance."));
     } else {
-        player_ptr->update |= (PU_BONUS | PU_MONSTERS);
+        player_ptr->update |= (PU_BONUS | PU_MONSTER_STATUSES);
         msg_format(_("%sの型で構えた。", "You assume the %s stance."), samurai_stances[enum2i(new_stance) - 1].desc);
         PlayerClass(player_ptr).set_samurai_stance(new_stance);
     }
 
-    player_ptr->redraw |= (PR_STATE | PR_STATUS);
+    player_ptr->redraw |= (PR_ACTION | PR_TIMED_EFFECT);
     screen_load();
     return true;
 }
@@ -471,7 +472,7 @@ int calc_attack_quality(PlayerType *player_ptr, player_attack_type *pa_ptr)
         chance = std::max(chance * 3 / 2, chance + 60);
     }
 
-    int vir = virtue_number(player_ptr, V_VALOUR);
+    int vir = virtue_number(player_ptr, Virtue::VALOUR);
     if (vir != 0) {
         chance += (player_ptr->virtues[vir - 1] / 10);
     }
@@ -493,21 +494,21 @@ void mineuchi(PlayerType *player_ptr, player_attack_type *pa_ptr)
     pa_ptr->attack_damage = 0;
     anger_monster(player_ptr, pa_ptr->m_ptr);
 
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if ((r_ptr->flags3 & (RF3_NO_STUN))) {
         msg_format(_("%s には効果がなかった。", "%s is not effected."), pa_ptr->m_name);
         return;
     }
 
     int tmp = (10 + randint1(15) + player_ptr->lev / 5);
-    if (monster_stunned_remaining(pa_ptr->m_ptr)) {
+    if (pa_ptr->m_ptr->get_remaining_stun()) {
         msg_format(_("%sはひどくもうろうとした。", "%s is more dazed."), pa_ptr->m_name);
         tmp /= 2;
     } else {
         msg_format(_("%s はもうろうとした。", "%s is dazed."), pa_ptr->m_name);
     }
 
-    (void)set_monster_stunned(player_ptr, pa_ptr->g_ptr->m_idx, monster_stunned_remaining(pa_ptr->m_ptr) + tmp);
+    (void)set_monster_stunned(player_ptr, pa_ptr->g_ptr->m_idx, pa_ptr->m_ptr->get_remaining_stun() + tmp);
 }
 
 /*!
@@ -521,11 +522,10 @@ void musou_counterattack(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         return;
     }
 
-    char m_target_name[MAX_NLEN];
-    monster_desc(player_ptr, m_target_name, monap_ptr->m_ptr, 0);
+    const auto m_target_name = monster_desc(player_ptr, monap_ptr->m_ptr, 0);
     player_ptr->csp -= 7;
-    msg_format(_("%^sに反撃した！", "You counterattacked %s!"), m_target_name);
+    msg_format(_("%s^に反撃した！", "You counterattacked %s!"), m_target_name.data());
     do_cmd_attack(player_ptr, monap_ptr->m_ptr->fy, monap_ptr->m_ptr->fx, HISSATSU_COUNTER);
     monap_ptr->fear = false;
-    player_ptr->redraw |= (PR_MANA);
+    player_ptr->redraw |= (PR_MP);
 }

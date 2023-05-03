@@ -17,7 +17,7 @@
 #include "player/player-move.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
@@ -129,7 +129,7 @@ void travel_step(PlayerType *player_ptr)
  * @brief トラベル処理の記憶配列を初期化する Hack: forget the "flow" information
  * @param player_ptr	プレイヤーへの参照ポインタ
  */
-void forget_travel_flow(floor_type *floor_ptr)
+void forget_travel_flow(FloorType *floor_ptr)
 {
     for (POSITION y = 0; y < floor_ptr->height; y++) {
         for (POSITION x = 0; x < floor_ptr->width; x++) {

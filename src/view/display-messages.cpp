@@ -86,7 +86,7 @@ concptr message_str(int age)
         return "";
     }
 
-    return message_history[age]->c_str();
+    return message_history[age]->data();
 }
 
 static void message_add_aux(std::string str)
@@ -97,28 +97,28 @@ static void message_add_aux(std::string str)
         return;
     }
 
-    // 80桁を超えるメッセージは80桁ずつ分割する
-    if (str.length() > 80) {
+    // MAIN_TERM_MIN_COLS桁を超えるメッセージはMAIN_TERM_MIN_COLS桁ずつ分割する
+    if (str.length() > MAIN_TERM_MIN_COLS) {
         int n;
 #ifdef JP
-        for (n = 0; n < 80; n++) {
+        for (n = 0; n < MAIN_TERM_MIN_COLS; n++) {
             if (iskanji(str[n])) {
                 n++;
             }
         }
 
         /* 最後の文字が漢字半分 */
-        if (n == 81) {
-            n = 79;
+        if (n == MAIN_TERM_MIN_COLS + 1) {
+            n = MAIN_TERM_MIN_COLS - 1;
         }
 #else
-        for (n = 80; n > 60; n--) {
+        for (n = MAIN_TERM_MIN_COLS; n > MAIN_TERM_MIN_COLS - 20; n--) {
             if (str[n] == ' ') {
                 break;
             }
         }
-        if (n == 60) {
-            n = 80;
+        if (n == MAIN_TERM_MIN_COLS - 20) {
+            n = MAIN_TERM_MIN_COLS;
         }
 #endif
         splitted = str.substr(n);
@@ -149,7 +149,7 @@ static void message_add_aux(std::string str)
         }
 
         if (str == last_message && (j < 1000)) {
-            str = format("%s <x%d>", str.c_str(), j + 1);
+            str = format("%s <x%d>", str.data(), j + 1);
             message_history.pop_front();
             if (!now_message) {
                 now_message++;
@@ -195,14 +195,14 @@ void message_add(std::string_view msg)
 
 bool is_msg_window_flowed(void)
 {
-    int i;
-    for (i = 0; i < 8; i++) {
-        if (angband_term[i] && (window_flag[i] & PW_MESSAGE)) {
+    auto i = 0U;
+    for (; i < angband_terms.size(); ++i) {
+        if (angband_terms[i] && (window_flag[i] & PW_MESSAGE)) {
             break;
         }
     }
     if (i < 8) {
-        if (num_more < angband_term[i]->hgt) {
+        if (num_more < angband_terms[i]->hgt) {
             return false;
         }
 
@@ -400,6 +400,16 @@ void msg_format(std::string_view fmt, ...)
     char buf[1024];
     va_start(vp, fmt);
     (void)vstrnfmt(buf, sizeof(buf), fmt.data(), vp);
+    va_end(vp);
+    msg_print(buf);
+}
+
+void msg_format(const char *fmt, ...)
+{
+    va_list vp;
+    char buf[1024];
+    va_start(vp, fmt);
+    (void)vstrnfmt(buf, sizeof(buf), fmt, vp);
     va_end(vp);
     msg_print(buf);
 }

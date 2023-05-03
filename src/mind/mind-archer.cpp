@@ -7,7 +7,6 @@
 #include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "inventory/inventory-object.h"
 #include "io/command-repeater.h"
@@ -18,10 +17,13 @@
 #include "object/item-use-flags.h"
 #include "object/object-kind-hook.h"
 #include "perception/object-perception.h"
+#include "system/angband.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "target/target-getter.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -112,33 +114,32 @@ bool create_ammo(PlayerType *player_ptr)
         POSITION y = player_ptr->y + ddy[dir];
         POSITION x = player_ptr->x + ddx[dir];
         auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-        if (f_info[g_ptr->get_feat_mimic()].flags.has_not(FloorFeatureType::CAN_DIG)) {
+        if (terrains_info[g_ptr->get_feat_mimic()].flags.has_not(TerrainCharacteristics::CAN_DIG)) {
             msg_print(_("そこには岩石がない。", "You need a pile of rubble."));
             return false;
         }
 
-        if (!g_ptr->cave_has_flag(FloorFeatureType::CAN_DIG) || !g_ptr->cave_has_flag(FloorFeatureType::HURT_ROCK)) {
+        if (!g_ptr->cave_has_flag(TerrainCharacteristics::CAN_DIG) || !g_ptr->cave_has_flag(TerrainCharacteristics::HURT_ROCK)) {
             msg_print(_("硬すぎて崩せなかった。", "You failed to make ammo."));
             return true;
         }
 
-        ObjectType forge;
+        ItemEntity forge;
         auto *q_ptr = &forge;
-        q_ptr->prep(lookup_kind(ItemKindType::SHOT, (OBJECT_SUBTYPE_VALUE)m_bonus(1, player_ptr->lev) + 1));
+        q_ptr->prep(lookup_baseitem_id({ ItemKindType::SHOT, (OBJECT_SUBTYPE_VALUE)m_bonus(1, player_ptr->lev) + 1 }));
         q_ptr->number = (byte)rand_range(15, 30);
         object_aware(player_ptr, q_ptr);
         object_known(q_ptr);
         ItemMagicApplier(player_ptr, q_ptr, player_ptr->lev, AM_NO_FIXED_ART).execute();
         q_ptr->discount = 99;
         int16_t slot = store_item_to_inventory(player_ptr, q_ptr);
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, q_ptr, 0);
-        msg_format(_("%sを作った。", "You make some ammo."), o_name);
+        const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
+        msg_print(_(format("%sを作った。", item_name.data()), "You make some ammo."));
         if (slot >= 0) {
             autopick_alter_item(player_ptr, slot, false);
         }
 
-        cave_alter_feat(player_ptr, y, x, FloorFeatureType::HURT_ROCK);
+        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HURT_ROCK);
         player_ptr->update |= PU_FLOW;
         return true;
     }
@@ -146,22 +147,21 @@ bool create_ammo(PlayerType *player_ptr)
         concptr q = _("どのアイテムから作りますか？ ", "Convert which item? ");
         concptr s = _("材料を持っていない。", "You have no item to convert.");
         OBJECT_IDX item;
-        auto *q_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ObjectType::is_convertible));
+        auto *q_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ItemEntity::is_convertible));
         if (!q_ptr) {
             return false;
         }
 
-        ObjectType forge;
+        ItemEntity forge;
         q_ptr = &forge;
-        q_ptr->prep(lookup_kind(ItemKindType::ARROW, (OBJECT_SUBTYPE_VALUE)m_bonus(1, player_ptr->lev) + 1));
+        q_ptr->prep(lookup_baseitem_id({ ItemKindType::ARROW, static_cast<short>(m_bonus(1, player_ptr->lev) + 1) }));
         q_ptr->number = (byte)rand_range(5, 10);
         object_aware(player_ptr, q_ptr);
         object_known(q_ptr);
         ItemMagicApplier(player_ptr, q_ptr, player_ptr->lev, AM_NO_FIXED_ART).execute();
         q_ptr->discount = 99;
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, q_ptr, 0);
-        msg_format(_("%sを作った。", "You make some ammo."), o_name);
+        const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
+        msg_print(_(format("%sを作った。", item_name.data()), "You make some ammo."));
         vary_item(player_ptr, item, -1);
         int16_t slot = store_item_to_inventory(player_ptr, q_ptr);
         if (slot >= 0) {
@@ -174,22 +174,21 @@ bool create_ammo(PlayerType *player_ptr)
         concptr q = _("どのアイテムから作りますか？ ", "Convert which item? ");
         concptr s = _("材料を持っていない。", "You have no item to convert.");
         OBJECT_IDX item;
-        auto *q_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ObjectType::is_convertible));
+        auto *q_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::is_convertible));
         if (!q_ptr) {
             return false;
         }
 
-        ObjectType forge;
+        ItemEntity forge;
         q_ptr = &forge;
-        q_ptr->prep(lookup_kind(ItemKindType::BOLT, (OBJECT_SUBTYPE_VALUE)m_bonus(1, player_ptr->lev) + 1));
+        q_ptr->prep(lookup_baseitem_id({ ItemKindType::BOLT, static_cast<short>(m_bonus(1, player_ptr->lev) + 1) }));
         q_ptr->number = (byte)rand_range(4, 8);
         object_aware(player_ptr, q_ptr);
         object_known(q_ptr);
         ItemMagicApplier(player_ptr, q_ptr, player_ptr->lev, AM_NO_FIXED_ART).execute();
         q_ptr->discount = 99;
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, q_ptr, 0);
-        msg_format(_("%sを作った。", "You make some ammo."), o_name);
+        const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
+        msg_print(_(format("%sを作った。", item_name.data()), "You make some ammo."));
         vary_item(player_ptr, item, -1);
         int16_t slot = store_item_to_inventory(player_ptr, q_ptr);
         if (slot >= 0) {

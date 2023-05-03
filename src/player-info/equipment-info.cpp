@@ -5,7 +5,7 @@
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
 #include "player-status/player-hand-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -17,7 +17,7 @@
 bool has_melee_weapon(PlayerType *player_ptr, int slot)
 {
     const auto o_ptr = &player_ptr->inventory_list[slot];
-    return o_ptr->k_idx && o_ptr->is_melee_weapon();
+    return o_ptr->is_valid() && o_ptr->is_melee_weapon();
 }
 
 /*!
@@ -28,10 +28,10 @@ bool has_melee_weapon(PlayerType *player_ptr, int slot)
 BIT_FLAGS16 empty_hands(PlayerType *player_ptr, bool riding_control)
 {
     BIT_FLAGS16 status = EMPTY_HAND_NONE;
-    if (!player_ptr->inventory_list[INVEN_MAIN_HAND].k_idx) {
+    if (!player_ptr->inventory_list[INVEN_MAIN_HAND].is_valid()) {
         status |= EMPTY_HAND_MAIN;
     }
-    if (!player_ptr->inventory_list[INVEN_SUB_HAND].k_idx) {
+    if (!player_ptr->inventory_list[INVEN_SUB_HAND].is_valid()) {
         status |= EMPTY_HAND_SUB;
     }
 
@@ -63,11 +63,11 @@ bool heavy_armor(PlayerType *player_ptr)
     }
 
     WEIGHT monk_arm_wgt = 0;
-    if (player_ptr->inventory_list[INVEN_MAIN_HAND].tval > ItemKindType::SWORD) {
+    if (player_ptr->inventory_list[INVEN_MAIN_HAND].bi_key.tval() > ItemKindType::SWORD) {
         monk_arm_wgt += player_ptr->inventory_list[INVEN_MAIN_HAND].weight;
     }
 
-    if (player_ptr->inventory_list[INVEN_SUB_HAND].tval > ItemKindType::SWORD) {
+    if (player_ptr->inventory_list[INVEN_SUB_HAND].bi_key.tval() > ItemKindType::SWORD) {
         monk_arm_wgt += player_ptr->inventory_list[INVEN_SUB_HAND].weight;
     }
 

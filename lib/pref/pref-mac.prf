@@ -47,6 +47,9 @@ T:F13:017f
 T:F14:117f
 T:F15:217f
 T:F16:317f
+T:F17:417f
+T:F18:517f
+T:F19:617f
 # NSInsertFunctionKey = 0xF727
 T:Insert:727f
 T:Delete:827f

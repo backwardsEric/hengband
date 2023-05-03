@@ -19,11 +19,13 @@
 #include "player/player-status-flags.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
+#include "term/z-form.h"
 #include "util/int-char-converter.h"
+#include "util/string-processor.h"
 #include "view/display-inventory.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
@@ -60,7 +62,7 @@ static bool check_item_tag_aux(PlayerType *player_ptr, item_selection_type *item
         return false;
     }
 
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     item_selection_ptr->k = 0 - (*item_selection_ptr->cp);
     o_ptr = &player_ptr->current_floor_ptr->o_list[item_selection_ptr->k];
     if (!item_tester.okay(o_ptr) && ((item_selection_ptr->mode & USE_FULL) == 0)) {
@@ -254,9 +256,9 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
 
     if (item_selection_ptr->floor) {
         for (const auto this_o_idx : player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list) {
-            ObjectType *o_ptr;
+            ItemEntity *o_ptr;
             o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
-            if ((item_tester.okay(o_ptr) || (item_selection_ptr->mode & USE_FULL)) && (o_ptr->marked & OM_FOUND)) {
+            if ((item_tester.okay(o_ptr) || (item_selection_ptr->mode & USE_FULL)) && o_ptr->marked.has(OmType::FOUND)) {
                 item_selection_ptr->allow_floor = true;
             }
         }
@@ -296,16 +298,16 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
         COMMAND_CODE get_item_label = 0;
         int ni = 0;
         int ne = 0;
-        for (int j = 0; j < 8; j++) {
-            if (!angband_term[j]) {
+        for (auto i = 0U; i < angband_terms.size(); ++i) {
+            if (!angband_terms[i]) {
                 continue;
             }
 
-            if (window_flag[j] & (PW_INVEN)) {
+            if (window_flag[i] & (PW_INVENTORY)) {
                 ni++;
             }
 
-            if (window_flag[j] & (PW_EQUIP)) {
+            if (window_flag[i] & (PW_EQUIPMENT)) {
                 ne++;
             }
         }
@@ -315,7 +317,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
             item_selection_ptr->toggle = !item_selection_ptr->toggle;
         }
 
-        player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+        player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
         handle_stuff(player_ptr);
 
         if (!command_wrk) {
@@ -329,49 +331,51 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
         }
 
         if (!command_wrk) {
-            sprintf(item_selection_ptr->out_val, _("持ち物:", "Inven:"));
+            angband_strcpy(item_selection_ptr->out_val, _("持ち物:", "Inven:"), sizeof(item_selection_ptr->out_val));
             if ((item_selection_ptr->i1 <= item_selection_ptr->i2) && !use_menu) {
                 char tmp_val[80];
-                sprintf(tmp_val, _("%c-%c,'(',')',", " %c-%c,'(',')',"), index_to_label(item_selection_ptr->i1),
-                    index_to_label(item_selection_ptr->i2));
-                strcat(item_selection_ptr->out_val, tmp_val);
+                strnfmt(tmp_val, sizeof(tmp_val), _("%c-%c,'(',')',", " %c-%c,'(',')',"), index_to_label(item_selection_ptr->i1), index_to_label(item_selection_ptr->i2));
+                angband_strcat(item_selection_ptr->out_val, tmp_val, sizeof(item_selection_ptr->out_val));
             }
 
             if (!command_see && !use_menu) {
-                strcat(item_selection_ptr->out_val, _(" '*'一覧,", " * to see,"));
+                angband_strcat(item_selection_ptr->out_val, _(" '*'一覧,", " * to see,"), sizeof(item_selection_ptr->out_val));
             }
 
             if (item_selection_ptr->equip) {
-                strcat(item_selection_ptr->out_val, format(_(" %s 装備品,", " %s for Equip,"), use_menu ? _("'4'or'6'", "4 or 6") : _("'/'", "/")));
+                char tmp_val[80];
+                strnfmt(tmp_val, sizeof(tmp_val), _(" %s 装備品,", " %s for Equip,"), use_menu ? _("'4'or'6'", "4 or 6") : _("'/'", "/"));
+                angband_strcat(item_selection_ptr->out_val, tmp_val, sizeof(item_selection_ptr->out_val));
             }
         } else {
-            sprintf(item_selection_ptr->out_val, _("装備品:", "Equip:"));
+            angband_strcpy(item_selection_ptr->out_val, _("装備品:", "Equip:"), sizeof(item_selection_ptr->out_val));
             if ((item_selection_ptr->e1 <= item_selection_ptr->e2) && !use_menu) {
                 char tmp_val[80];
-                sprintf(tmp_val, _("%c-%c,'(',')',", " %c-%c,'(',')',"), index_to_label(item_selection_ptr->e1),
-                    index_to_label(item_selection_ptr->e2));
-                strcat(item_selection_ptr->out_val, tmp_val);
+                strnfmt(tmp_val, sizeof(tmp_val), _("%c-%c,'(',')',", " %c-%c,'(',')',"), index_to_label(item_selection_ptr->e1), index_to_label(item_selection_ptr->e2));
+                angband_strcat(item_selection_ptr->out_val, tmp_val, sizeof(item_selection_ptr->out_val));
             }
 
             if (!command_see && !use_menu) {
-                strcat(item_selection_ptr->out_val, _(" '*'一覧,", " * to see,"));
+                angband_strcat(item_selection_ptr->out_val, _(" '*'一覧,", " * to see,"), sizeof(item_selection_ptr->out_val));
             }
 
             if (item_selection_ptr->inven) {
-                strcat(item_selection_ptr->out_val, format(_(" %s 持ち物,", " %s for Inven,"), use_menu ? _("'4'or'6'", "4 or 6") : _("'/'", "'/'")));
+                char tmp_val[80];
+                strnfmt(tmp_val, sizeof(tmp_val), _(" %s 持ち物,", " %s for Inven,"), use_menu ? _("'4'or'6'", "4 or 6") : _("'/'", "'/'"));
+                angband_strcat(item_selection_ptr->out_val, tmp_val, sizeof(item_selection_ptr->out_val));
             }
         }
 
         if (item_selection_ptr->allow_floor) {
-            strcat(item_selection_ptr->out_val, _(" '-'床上,", " - for floor,"));
+            angband_strcat(item_selection_ptr->out_val, _(" '-'床上,", " - for floor,"), sizeof(item_selection_ptr->out_val));
         }
 
         if (item_selection_ptr->mode & USE_FORCE) {
-            strcat(item_selection_ptr->out_val, _(" 'w'練気術,", " w for the Force,"));
+            angband_strcat(item_selection_ptr->out_val, _(" 'w'練気術,", " w for the Force,"), sizeof(item_selection_ptr->out_val));
         }
 
-        strcat(item_selection_ptr->out_val, " ESC");
-        sprintf(item_selection_ptr->tmp_val, "(%s) %s", item_selection_ptr->out_val, pmt);
+        angband_strcat(item_selection_ptr->out_val, " ESC", sizeof(item_selection_ptr->out_val));
+        strnfmt(item_selection_ptr->tmp_val, sizeof(item_selection_ptr->tmp_val), "(%s) %s", item_selection_ptr->out_val, pmt);
         prt(item_selection_ptr->tmp_val, 0, 0);
         item_selection_ptr->which = inkey();
         if (use_menu) {
@@ -500,7 +504,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
         case '-': {
             if (item_selection_ptr->allow_floor) {
                 for (const auto this_o_idx : player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list) {
-                    ObjectType *o_ptr;
+                    ItemEntity *o_ptr;
                     o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
                     if (!item_tester.okay(o_ptr) && !(item_selection_ptr->mode & USE_FULL)) {
                         continue;
@@ -569,7 +573,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
                 break;
             }
         }
-            /* Fall through */
+            [[fallthrough]];
         default: {
             bool tag_not_found = false;
 
@@ -636,7 +640,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
         toggle_inventory_equipment(player_ptr);
     }
 
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
     handle_stuff(player_ptr);
     prt("", 0, 0);
     if (item_selection_ptr->oops && str) {

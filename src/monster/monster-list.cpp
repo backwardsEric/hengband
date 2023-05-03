@@ -13,7 +13,6 @@
 #include "core/player-update-types.h"
 #include "core/speed-table.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
@@ -24,6 +23,7 @@
 #include "monster-floor/monster-summon.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-mask.h"
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-flags2.h"
 #include "monster-race/race-flags3.h"
@@ -36,14 +36,16 @@
 #include "pet/pet-fall-off.h"
 #include "player/player-status.h"
 #include "system/alloc-entries.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/probability-table.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <cmath>
 #include <iterator>
 
 #define HORDE_NOGOOD 0x01 /*!< (未実装フラグ)HORDE生成でGOODなモンスターの生成を禁止する？ */
@@ -55,7 +57,7 @@
  * @details
  * This routine should almost never fail, but it *can* happen.
  */
-MONSTER_IDX m_pop(floor_type *floor_ptr)
+MONSTER_IDX m_pop(FloorType *floor_ptr)
 {
     /* Normal allocation */
     if (floor_ptr->m_max < w_ptr->max_m_idx) {
@@ -67,7 +69,7 @@ MONSTER_IDX m_pop(floor_type *floor_ptr)
 
     /* Recycle dead monsters */
     for (MONSTER_IDX i = 1; i < floor_ptr->m_max; i++) {
-        monster_type *m_ptr;
+        MonsterEntity *m_ptr;
         m_ptr = &floor_ptr->m_list[i];
         if (MonsterRace(m_ptr->r_idx).is_valid()) {
             continue;
@@ -88,13 +90,12 @@ MONSTER_IDX m_pop(floor_type *floor_ptr)
  * @param min_level 最小生成階
  * @param max_level 最大生成階
  * @return 選択されたモンスター生成種族
+ * @details nasty生成 (ゲーム内経過日数に応じて、現在フロアより深いフロアのモンスターを出現させる仕様)は
  */
 MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, BIT_FLAGS option)
 {
-    int pls_kakuritu, pls_max_level, over_days;
-    int delay = mysqrt(max_level * 10000L) + (max_level * 5);
-
     /* town max_level : same delay as 10F, no nasty mons till day18 */
+    auto delay = static_cast<int>(std::sqrt(max_level * 10000)) + (max_level * 5);
     if (!max_level) {
         delay = 360;
     }
@@ -105,33 +106,36 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
 
     /* +1 per day after the base date */
     /* base dates : day5(1F), day18(10F,0F), day34(30F), day53(60F), day69(90F) */
-    over_days = std::max<int>(0, w_ptr->dungeon_turn / (TURNS_PER_TICK * 10000L) - delay / 20);
+    const auto over_days = std::max<int>(0, w_ptr->dungeon_turn / (TURNS_PER_TICK * 10000L) - delay / 20);
 
-    /* starts from 1/25, reaches 1/3 after 44days from a max_level dependent base date */
-    pls_kakuritu = std::max(NASTY_MON_MAX, NASTY_MON_BASE - over_days / 2);
-    /* starts from 0, reaches +25lv after 75days from a max_level dependent base date */
-    pls_max_level = std::min(NASTY_MON_PLUS_MAX, over_days / 3);
-
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::MAZE)) {
-        pls_kakuritu = std::min(pls_kakuritu / 2, pls_kakuritu - 10);
-        if (pls_kakuritu < 2) {
-            pls_kakuritu = 2;
+    /* Probability starts from 1/25, reaches 1/3 after 44days from a max_level dependent base date */
+    /* Boost level starts from 0, reaches +25lv after 75days from a max_level dependent base date */
+    constexpr auto chance_nasty_monster = 25;
+    constexpr auto max_num_nasty_monsters = 3;
+    constexpr auto max_depth_nasty_monster = 25;
+    auto chance_nasty = std::max(max_num_nasty_monsters, chance_nasty_monster - over_days / 2);
+    auto nasty_level = std::min(max_depth_nasty_monster, over_days / 3);
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::MAZE)) {
+        chance_nasty = std::min(chance_nasty / 2, chance_nasty - 10);
+        if (chance_nasty < 2) {
+            chance_nasty = 2;
         }
-        pls_max_level += 2;
+
+        nasty_level += 2;
         max_level += 3;
     }
 
     /* Boost the max_level */
-    if ((option & GMN_ARENA) || d_info[player_ptr->dungeon_idx].flags.has_not(DungeonFeatureType::BEGINNER)) {
+    if ((option & GMN_ARENA) || dungeons_info[player_ptr->dungeon_idx].flags.has_not(DungeonFeatureType::BEGINNER)) {
         /* Nightmare mode allows more out-of depth monsters */
-        if (ironman_nightmare && !randint0(pls_kakuritu)) {
+        if (ironman_nightmare && !randint0(chance_nasty)) {
             /* What a bizarre calculation */
             max_level = 1 + (max_level * MAX_DEPTH / randint1(MAX_DEPTH));
         } else {
             /* Occasional "nasty" monster */
-            if (!randint0(pls_kakuritu)) {
+            if (!randint0(chance_nasty)) {
                 /* Pick a max_level bonus */
-                max_level += pls_max_level;
+                max_level += nasty_level;
             }
         }
     }
@@ -148,7 +152,7 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
             break;
         } // sorted by depth array,
         auto r_idx = i2enum<MonsterRaceId>(entry.index);
-        auto r_ptr = &r_info[r_idx];
+        auto r_ptr = &monraces_info[r_idx];
         if (!(option & GMN_ARENA) && !chameleon_change_m_idx) {
             if ((r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) && (r_ptr->cur_num >= r_ptr->max_num)) {
                 continue;
@@ -159,10 +163,10 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
             }
 
             if (r_idx == MonsterRaceId::BANORLUPART) {
-                if (r_info[MonsterRaceId::BANOR].cur_num > 0) {
+                if (monraces_info[MonsterRaceId::BANOR].cur_num > 0) {
                     continue;
                 }
-                if (r_info[MonsterRaceId::LUPART].cur_num > 0) {
+                if (monraces_info[MonsterRaceId::LUPART].cur_num > 0) {
                     continue;
                 }
             }
@@ -172,7 +176,7 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
     }
 
     if (cheat_hear) {
-        msg_format(_("モンスター第3次候補数:%d(%d-%dF)%d ", "monster third selection:%d(%d-%dF)%d "), prob_table.item_count(), min_level, max_level,
+        msg_format(_("モンスター第3次候補数:%lu(%d-%dF)%d ", "monster third selection:%lu(%d-%dF)%d "), prob_table.item_count(), min_level, max_level,
             prob_table.total_prob());
     }
 
@@ -208,9 +212,9 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
 static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
     auto *m_ptr = &floor_ptr->m_list[chameleon_change_m_idx];
-    monster_race *old_r_ptr = &r_info[m_ptr->r_idx];
+    MonsterRaceInfo *old_r_ptr = &monraces_info[m_ptr->r_idx];
 
     if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
         return false;
@@ -219,7 +223,7 @@ static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_
         return false;
     }
 
-    if (std::abs(r_ptr->level - r_info[MonsterRaceId::CHAMELEON_K].level) > 5) {
+    if (std::abs(r_ptr->level - monraces_info[MonsterRaceId::CHAMELEON_K].level) > 5) {
         return false;
     }
 
@@ -253,9 +257,9 @@ static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_
 static bool monster_hook_chameleon(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
     auto *m_ptr = &floor_ptr->m_list[chameleon_change_m_idx];
-    monster_race *old_r_ptr = &r_info[m_ptr->r_idx];
+    MonsterRaceInfo *old_r_ptr = &monraces_info[m_ptr->r_idx];
 
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
         return false;
@@ -306,19 +310,18 @@ void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, Mo
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
-    monster_race *r_ptr;
+    MonsterRaceInfo *r_ptr;
 
     bool old_unique = false;
-    if (r_info[m_ptr->r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
+    if (monraces_info[m_ptr->r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
         old_unique = true;
     }
     if (old_unique && (r_idx == MonsterRaceId::CHAMELEON)) {
         r_idx = MonsterRaceId::CHAMELEON_K;
     }
-    r_ptr = &r_info[r_idx];
+    r_ptr = &monraces_info[r_idx];
 
-    char old_m_name[MAX_NLEN];
-    monster_desc(player_ptr, old_m_name, m_ptr, 0);
+    const auto old_m_name = monster_desc(player_ptr, m_ptr, 0);
 
     if (!MonsterRace(r_idx).is_valid()) {
         DEPTH level;
@@ -331,19 +334,19 @@ void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, Mo
         }
 
         if (old_unique) {
-            level = r_info[MonsterRaceId::CHAMELEON_K].level;
+            level = monraces_info[MonsterRaceId::CHAMELEON_K].level;
         } else if (!floor_ptr->dun_level) {
             level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
         } else {
             level = floor_ptr->dun_level;
         }
 
-        if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::CHAMELEON)) {
+        if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::CHAMELEON)) {
             level += 2 + randint1(3);
         }
 
         r_idx = get_mon_num(player_ptr, 0, level, 0);
-        r_ptr = &r_info[r_idx];
+        r_ptr = &monraces_info[r_idx];
 
         chameleon_change_m_idx = 0;
         if (!MonsterRace(r_idx).is_valid()) {
@@ -357,8 +360,8 @@ void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, Mo
     lite_spot(player_ptr, m_ptr->fy, m_ptr->fx);
 
     auto old_r_idx = m_ptr->r_idx;
-    if ((r_info[old_r_idx].flags7 & (RF7_LITE_MASK | RF7_DARK_MASK)) || (r_ptr->flags7 & (RF7_LITE_MASK | RF7_DARK_MASK))) {
-        player_ptr->update |= (PU_MON_LITE);
+    if (monraces_info[old_r_idx].brightness_flags.has_any_of(ld_mask) || r_ptr->brightness_flags.has_any_of(ld_mask)) {
+        player_ptr->update |= (PU_MONSTER_LITE);
     }
 
     if (born) {
@@ -376,12 +379,11 @@ void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, Mo
     }
 
     if (m_idx == player_ptr->riding) {
-        GAME_TEXT m_name[MAX_NLEN];
-        monster_desc(player_ptr, m_name, m_ptr, 0);
-        msg_format(_("突然%sが変身した。", "Suddenly, %s transforms!"), old_m_name);
+        msg_format(_("突然%sが変身した。", "Suddenly, %s transforms!"), old_m_name.data());
         if (!(r_ptr->flags7 & RF7_RIDING)) {
             if (process_fall_off_horse(player_ptr, 0, true)) {
-                msg_format(_("地面に落とされた。", "You have fallen from %s."), m_name);
+                const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+                msg_print(_("地面に落とされた。", format("You have fallen from %s.", m_name.data())));
             }
         }
     }
@@ -413,7 +415,7 @@ void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, Mo
  * @param r_ptr モンスター種族の参照ポインタ
  * @return 加速値
  */
-byte get_mspeed(floor_type *floor_ptr, monster_race *r_ptr)
+byte get_mspeed(FloorType *floor_ptr, MonsterRaceInfo *r_ptr)
 {
     auto mspeed = r_ptr->speed;
     if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && !floor_ptr->inside_arena) {
@@ -438,7 +440,7 @@ byte get_mspeed(floor_type *floor_ptr, monster_race *r_ptr)
  * @param m_idx 隣接数を調べたいモンスターのID
  * @return 隣接しているモンスターの数
  */
-int get_monster_crowd_number(floor_type *floor_ptr, MONSTER_IDX m_idx)
+int get_monster_crowd_number(FloorType *floor_ptr, MONSTER_IDX m_idx)
 {
     auto *m_ptr = &floor_ptr->m_list[m_idx];
     POSITION my = m_ptr->fy;

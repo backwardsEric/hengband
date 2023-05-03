@@ -37,9 +37,9 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列ポインタを返す。SpellProcessType::CAST時はnullptr文字列を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
  */
-concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool name = mode == SpellProcessType::NAME;
     bool desc = mode == SpellProcessType::DESCRIPTION;
@@ -65,7 +65,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
             }
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::ELEC, dir, damroll(dice, sides));
             }
@@ -100,7 +100,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
         }
 
         if (cast) {
-            (void)BadStatusSetter(player_ptr).fear(0);
+            (void)BadStatusSetter(player_ptr).set_fear(0);
         }
 
         break;
@@ -119,7 +119,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
             }
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fear_monster(player_ptr, dir, power);
             }
@@ -179,7 +179,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
             }
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_blast(player_ptr, AttributeType::LITE, dir, dice, sides, 10, 3);
             }
@@ -197,9 +197,9 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
         if (cast) {
             BadStatusSetter bss(player_ptr);
-            (void)bss.cut(0);
+            (void)bss.set_cut(0);
             (void)bss.set_poison(0);
-            (void)bss.stun(0);
+            (void)bss.set_stun(0);
         }
 
         break;
@@ -213,13 +213,13 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
         }
 
         {
-            int power = MAX_SIGHT * 5;
+            int power = MAX_PLAYER_SIGHT * 5;
             if (info) {
                 return info_power(power);
             }
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_ball(player_ptr, AttributeType::AWAY_EVIL, dir, power, 0);
             }
@@ -253,7 +253,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_ball(player_ptr, AttributeType::HOLY_FIRE, dir, damroll(dice, sides) + base, rad);
@@ -357,7 +357,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_bolt(player_ptr, AttributeType::ELEC, dir, dam);
             }
@@ -384,10 +384,10 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
             BadStatusSetter bss(player_ptr);
             dispel_evil(player_ptr, randint1(dam_sides));
             hp_player(player_ptr, heal);
-            (void)bss.fear(0);
+            (void)bss.set_fear(0);
             (void)bss.set_poison(0);
-            (void)bss.stun(0);
-            (void)bss.cut(0);
+            (void)bss.set_stun(0);
+            (void)bss.set_cut(0);
         }
 
         break;
@@ -403,7 +403,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
         {
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 destroy_door(player_ptr, dir);
@@ -428,7 +428,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 stasis_evil(player_ptr, dir);
             }
@@ -533,7 +533,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_ball(player_ptr, AttributeType::LITE, dir, dam, rad);
@@ -691,7 +691,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
 
             if (cast) {
                 if (!cast_wrath_of_the_god(player_ptr, dam, rad)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
             }
         }
@@ -767,7 +767,7 @@ concptr do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTy
             set_blessed(player_ptr, randint1(base) + base, false);
             set_acceleration(player_ptr, randint1(sp_sides) + sp_base, false);
             set_protevil(player_ptr, randint1(base) + base, false);
-            (void)BadStatusSetter(player_ptr).fear(0);
+            (void)BadStatusSetter(player_ptr).set_fear(0);
         }
 
         break;

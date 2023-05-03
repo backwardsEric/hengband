@@ -28,7 +28,6 @@
 #include "mind/mind-force-trainer.h"
 #include "monster/monster-describer.h"
 #include "object/object-kind-hook.h"
-#include "object/object-kind.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
 #include "player-info/magic-eater-data-type.h"
@@ -45,10 +44,11 @@
 #include "status/experience.h"
 #include "status/shape-changer.h"
 #include "status/sight-setter.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "timed-effect/player-acceleration.h"
@@ -171,7 +171,7 @@ bool poly_monster(PlayerType *player_ptr, DIRECTION dir, int power)
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     bool tester = (project_hook(player_ptr, AttributeType::OLD_POLY, dir, power, flg));
     if (tester) {
-        chg_virtue(player_ptr, V_CHANCE, 1);
+        chg_virtue(player_ptr, Virtue::CHANCE, 1);
     }
     return tester;
 }
@@ -215,7 +215,7 @@ bool time_walk(PlayerType *player_ptr)
 
     player_ptr->energy_need -= 1000 + (100 + player_ptr->csp - 50) * TURNS_PER_TICK / 10;
     player_ptr->redraw |= (PR_MAP);
-    player_ptr->update |= (PU_MONSTERS);
+    player_ptr->update |= (PU_MONSTER_STATUSES);
     player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
     handle_stuff(player_ptr);
     return true;
@@ -280,8 +280,8 @@ void roll_hitdice(PlayerType *player_ptr, spell_operation options)
 bool life_stream(PlayerType *player_ptr, bool message, bool virtue_change)
 {
     if (virtue_change) {
-        chg_virtue(player_ptr, V_VITALITY, 1);
-        chg_virtue(player_ptr, V_UNLIFE, -5);
+        chg_virtue(player_ptr, Virtue::VITALITY, 1);
+        chg_virtue(player_ptr, Virtue::UNLIFE, -5);
     }
 
     if (message) {
@@ -294,9 +294,9 @@ bool life_stream(PlayerType *player_ptr, bool message, bool virtue_change)
     (void)bss.set_blindness(0);
     (void)bss.set_confusion(0);
     (void)bss.hallucination(0);
-    (void)bss.stun(0);
-    (void)bss.cut(0);
-    (void)bss.paralysis(0);
+    (void)bss.set_stun(0);
+    (void)bss.set_cut(0);
+    (void)bss.set_paralysis(0);
     (void)restore_all_status(player_ptr);
     (void)set_shero(player_ptr, 0, true);
     handle_stuff(player_ptr);
@@ -308,7 +308,7 @@ bool life_stream(PlayerType *player_ptr, bool message, bool virtue_change)
 bool heroism(PlayerType *player_ptr, int base)
 {
     auto ident = false;
-    if (BadStatusSetter(player_ptr).fear(0)) {
+    if (BadStatusSetter(player_ptr).set_fear(0)) {
         ident = true;
     }
 
@@ -326,7 +326,7 @@ bool heroism(PlayerType *player_ptr, int base)
 bool berserk(PlayerType *player_ptr, int base)
 {
     auto ident = false;
-    if (BadStatusSetter(player_ptr).fear(0)) {
+    if (BadStatusSetter(player_ptr).set_fear(0)) {
         ident = true;
     }
 
@@ -380,7 +380,7 @@ bool cure_serious_wounds(PlayerType *player_ptr, DICE_NUMBER dice, DICE_SID side
         ident = true;
     }
 
-    if (bss.cut((player_ptr->effects()->cut()->current() / 2) - 50)) {
+    if (bss.set_cut((player_ptr->effects()->cut()->current() / 2) - 50)) {
         ident = true;
     }
 
@@ -411,11 +411,11 @@ bool cure_critical_wounds(PlayerType *player_ptr, int pow)
         ident = true;
     }
 
-    if (bss.stun(0)) {
+    if (bss.set_stun(0)) {
         ident = true;
     }
 
-    if (bss.cut(0)) {
+    if (bss.set_cut(0)) {
         ident = true;
     }
 
@@ -446,11 +446,11 @@ bool true_healing(PlayerType *player_ptr, int pow)
         ident = true;
     }
 
-    if (bss.stun(0)) {
+    if (bss.set_stun(0)) {
         ident = true;
     }
 
-    if (bss.cut(0)) {
+    if (bss.set_cut(0)) {
         ident = true;
     }
 
@@ -477,8 +477,8 @@ bool restore_mana(PlayerType *player_ptr, bool magic_eater)
 
         auto sval = 0;
         for (auto &item : magic_eater_data->get_item_group(ItemKindType::ROD)) {
-            KIND_OBJECT_IDX k_idx = lookup_kind(ItemKindType::ROD, sval);
-            item.charge -= ((item.count < 10) ? EATER_ROD_CHARGE * 3 : item.count * EATER_ROD_CHARGE / 3) * k_info[k_idx].pval;
+            const auto bi_id = lookup_baseitem_id({ ItemKindType::ROD, sval });
+            item.charge -= ((item.count < 10) ? EATER_ROD_CHARGE * 3 : item.count * EATER_ROD_CHARGE / 3) * baseitems_info[bi_id].pval;
             item.charge = std::max(item.charge, 0);
             ++sval;
         }
@@ -495,7 +495,7 @@ bool restore_mana(PlayerType *player_ptr, bool magic_eater)
     player_ptr->csp = player_ptr->msp;
     player_ptr->csp_frac = 0;
     msg_print(_("頭がハッキリとした。", "You feel your head clear."));
-    player_ptr->redraw |= (PR_MANA);
+    player_ptr->redraw |= (PR_MP);
     player_ptr->window_flags |= (PW_PLAYER);
     player_ptr->window_flags |= (PW_SPELL);
     return true;
@@ -534,21 +534,20 @@ bool fishing(PlayerType *player_ptr)
     POSITION y = player_ptr->y + ddy[dir];
     POSITION x = player_ptr->x + ddx[dir];
     player_ptr->fishing_dir = dir;
-    if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, FloorFeatureType::WATER)) {
+    if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::WATER)) {
         msg_print(_("そこは水辺ではない。", "You can't fish here."));
         return false;
     }
 
     if (player_ptr->current_floor_ptr->grid_array[y][x].m_idx) {
-        GAME_TEXT m_name[MAX_NLEN];
-        monster_desc(player_ptr, m_name, &player_ptr->current_floor_ptr->m_list[player_ptr->current_floor_ptr->grid_array[y][x].m_idx], 0);
-        msg_format(_("%sが邪魔だ！", "%^s is standing in your way."), m_name);
+        const auto m_name = monster_desc(player_ptr, &player_ptr->current_floor_ptr->m_list[player_ptr->current_floor_ptr->grid_array[y][x].m_idx], 0);
+        msg_format(_("%sが邪魔だ！", "%s^ is standing in your way."), m_name.data());
         PlayerEnergy(player_ptr).reset_player_turn();
         return false;
     }
 
     set_action(player_ptr, ACTION_FISH);
-    player_ptr->redraw |= (PR_STATE);
+    player_ptr->redraw |= (PR_ACTION);
     return true;
 }
 
@@ -560,7 +559,7 @@ bool fishing(PlayerType *player_ptr)
  * @details
  * 脱いで落とした装備にtimeoutを設定するために装備品のアドレスを返す。
  */
-bool cosmic_cast_off(PlayerType *player_ptr, ObjectType **o_ptr_ptr)
+bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
 {
     auto *o_ptr = (*o_ptr_ptr);
 
@@ -576,7 +575,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ObjectType **o_ptr_ptr)
         return false;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     (&forge)->copy_from(o_ptr);
     inven_item_increase(player_ptr, slot, (0 - o_ptr->number));
     inven_item_optimize(player_ptr, slot);
@@ -584,9 +583,8 @@ bool cosmic_cast_off(PlayerType *player_ptr, ObjectType **o_ptr_ptr)
     OBJECT_IDX old_o_idx = drop_near(player_ptr, &forge, 0, player_ptr->y, player_ptr->x);
     *o_ptr_ptr = &player_ptr->current_floor_ptr->o_list[old_o_idx];
 
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, &forge, OD_NAME_ONLY);
-    msg_format(_("%sを脱ぎ捨てた。", "You cast off %s."), o_name);
+    const auto item_name = describe_flavor(player_ptr, &forge, OD_NAME_ONLY);
+    msg_format(_("%sを脱ぎ捨てた。", "You cast off %s."), item_name.data());
     sound(SOUND_TAKE_OFF);
 
     /* Get effects */
@@ -594,7 +592,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ObjectType **o_ptr_ptr)
     TIME_EFFECT t = 20 + randint1(20);
     BadStatusSetter bss(player_ptr);
     (void)bss.mod_blindness(t);
-    (void)bss.fear(0);
+    (void)bss.set_fear(0);
     (void)set_tim_esp(player_ptr, player_ptr->tim_esp + t, false);
     (void)set_tim_regen(player_ptr, player_ptr->tim_regen + t, false);
     (void)set_hero(player_ptr, player_ptr->hero + t, false);
@@ -613,7 +611,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ObjectType **o_ptr_ptr)
  * @brief プレイヤーの因果混乱処理 / Apply Nexus
  * @param m_ptr 因果混乱をプレイヤーに与えたモンスターの情報参照ポインタ
  */
-void apply_nexus(monster_type *m_ptr, PlayerType *player_ptr)
+void apply_nexus(MonsterEntity *m_ptr, PlayerType *player_ptr)
 {
     switch (randint1(7)) {
     case 1:

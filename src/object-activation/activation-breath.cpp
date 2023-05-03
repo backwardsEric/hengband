@@ -9,7 +9,7 @@
 #include "spell-realm/spells-song.h"
 #include "status/element-resistance.h"
 #include "sv-definition/sv-ring-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "util/bit-flags-calculator.h"
@@ -22,7 +22,7 @@
  * @param o_ptr 対象のオブジェクト構造体ポインタ
  * @return 発動実行の是非を返す。
  */
-bool activate_dragon_breath(PlayerType *player_ptr, ObjectType *o_ptr)
+bool activate_dragon_breath(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     DIRECTION dir;
     if (!get_aim_dir(player_ptr, &dir)) {
@@ -60,7 +60,7 @@ bool activate_dragon_breath(PlayerType *player_ptr, ObjectType *o_ptr)
     return true;
 }
 
-bool activate_breath_fire(PlayerType *player_ptr, ObjectType *o_ptr)
+bool activate_breath_fire(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     DIRECTION dir;
     if (!get_aim_dir(player_ptr, &dir)) {
@@ -68,14 +68,14 @@ bool activate_breath_fire(PlayerType *player_ptr, ObjectType *o_ptr)
     }
 
     fire_breath(player_ptr, AttributeType::FIRE, dir, 200, 2);
-    if ((o_ptr->tval == ItemKindType::RING) && (o_ptr->sval == SV_RING_FLAMES)) {
+    if (o_ptr->bi_key == BaseitemKey(ItemKindType::RING, SV_RING_FLAMES)) {
         (void)set_oppose_fire(player_ptr, randint1(20) + 20, false);
     }
 
     return true;
 }
 
-bool activate_breath_cold(PlayerType *player_ptr, ObjectType *o_ptr)
+bool activate_breath_cold(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     DIRECTION dir;
     if (!get_aim_dir(player_ptr, &dir)) {
@@ -83,7 +83,7 @@ bool activate_breath_cold(PlayerType *player_ptr, ObjectType *o_ptr)
     }
 
     fire_breath(player_ptr, AttributeType::COLD, dir, 200, 2);
-    if ((o_ptr->tval == ItemKindType::RING) && (o_ptr->sval == SV_RING_ICE)) {
+    if (o_ptr->bi_key == BaseitemKey(ItemKindType::RING, SV_RING_ICE)) {
         (void)set_oppose_cold(player_ptr, randint1(20) + 20, false);
     }
 

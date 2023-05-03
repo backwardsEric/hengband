@@ -26,11 +26,11 @@
 #include "object-enchant/weapon/apply-magic-polearm.h"
 #include "object-enchant/weapon/apply-magic-sword.h"
 #include "object/tval-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 
-std::unique_ptr<EnchanterBase> EnchanterFactory::create_enchanter(PlayerType *player_ptr, ObjectType *o_ptr, int lev, int power)
+std::unique_ptr<EnchanterBase> EnchanterFactory::create_enchanter(PlayerType *player_ptr, ItemEntity *o_ptr, int lev, int power)
 {
-    switch (o_ptr->tval) {
+    switch (o_ptr->bi_key.tval()) {
     case ItemKindType::SHOT:
     case ItemKindType::ARROW:
     case ItemKindType::BOLT:

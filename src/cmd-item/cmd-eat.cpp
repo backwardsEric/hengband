@@ -22,7 +22,6 @@
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
 #include "object/object-kind-hook.h"
-#include "object/object-kind.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
@@ -45,8 +44,9 @@
 #include "status/experience.h"
 #include "sv-definition/sv-food-types.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -58,14 +58,14 @@
  * @param o_ptr 食べるオブジェクト
  * @return 鑑定されるならTRUE、されないならFALSE
  */
-bool exe_eat_food_type_object(PlayerType *player_ptr, ObjectType *o_ptr)
+static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &bi_key)
 {
-    if (o_ptr->tval != ItemKindType::FOOD) {
+    if (bi_key.tval() != ItemKindType::FOOD) {
         return false;
     }
 
     BadStatusSetter bss(player_ptr);
-    switch (o_ptr->sval) {
+    switch (bi_key.sval().value()) {
     case SV_FOOD_POISON:
         return (!(has_resist_pois(player_ptr) || is_oppose_pois(player_ptr))) && bss.mod_poison(randint0(10) + 10);
     case SV_FOOD_BLINDNESS:
@@ -107,7 +107,7 @@ bool exe_eat_food_type_object(PlayerType *player_ptr, ObjectType *o_ptr)
     case SV_FOOD_CURE_BLINDNESS:
         return bss.set_blindness(0);
     case SV_FOOD_CURE_PARANOIA:
-        return bss.fear(0);
+        return bss.set_fear(0);
     case SV_FOOD_CURE_CONFUSION:
         return bss.set_confusion(0);
     case SV_FOOD_CURE_SERIOUS:
@@ -148,72 +148,63 @@ bool exe_eat_food_type_object(PlayerType *player_ptr, ObjectType *o_ptr)
  * @brief 魔法道具のチャージをの食料として食べたときの効果を発動
  * @param player_ptr プレイヤー情報への参照ポインタ
  * @param o_ptr 食べるオブジェクト
- * @param item オブジェクトのインベントリ番号
+ * @param inventory オブジェクトのインベントリ番号
  * @return 食べようとしたらTRUE、しなかったらFALSE
  */
-bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ObjectType *o_ptr, INVENTORY_IDX item)
+static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o_ptr, short inventory)
 {
-    if (o_ptr->tval != ItemKindType::STAFF && o_ptr->tval != ItemKindType::WAND) {
+    if (!o_ptr->is_wand_staff() || (PlayerRace(player_ptr).food() != PlayerRaceFoodType::MANA)) {
         return false;
     }
 
-    if (PlayerRace(player_ptr).food() == PlayerRaceFoodType::MANA) {
-        concptr staff;
-
-        if (o_ptr->tval == ItemKindType::STAFF && (item < 0) && (o_ptr->number > 1)) {
-            msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
-            return true;
-        }
-
-        staff = (o_ptr->tval == ItemKindType::STAFF) ? _("杖", "staff") : _("魔法棒", "wand");
-
-        /* "Eat" charges */
-        if (o_ptr->pval == 0) {
-            msg_format(_("この%sにはもう魔力が残っていない。", "The %s has no charges left."), staff);
-            o_ptr->ident |= (IDENT_EMPTY);
-            player_ptr->window_flags |= (PW_INVEN);
-            return true;
-        }
-
-        msg_format(_("あなたは%sの魔力をエネルギー源として吸収した。", "You absorb mana of the %s as your energy."), staff);
-
-        /* Use a single charge */
-        o_ptr->pval--;
-
-        /* Eat a charge */
-        set_food(player_ptr, player_ptr->food + 5000);
-
-        /* XXX Hack -- unstack if necessary */
-        if (o_ptr->tval == ItemKindType::STAFF && (item >= 0) && (o_ptr->number > 1)) {
-            ObjectType forge;
-            ObjectType *q_ptr;
-            q_ptr = &forge;
-            q_ptr->copy_from(o_ptr);
-
-            /* Modify quantity */
-            q_ptr->number = 1;
-
-            /* Restore the charges */
-            o_ptr->pval++;
-
-            /* Unstack the used item */
-            o_ptr->number--;
-            item = store_item_to_inventory(player_ptr, q_ptr);
-
-            msg_format(_("杖をまとめなおした。", "You unstack your staff."));
-        }
-
-        if (item >= 0) {
-            inven_item_charges(player_ptr, item);
-        } else {
-            floor_item_charges(player_ptr->current_floor_ptr, 0 - item);
-        }
-
-        player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+    const auto is_staff = o_ptr->bi_key.tval() == ItemKindType::STAFF;
+    if (is_staff && (inventory < 0) && (o_ptr->number > 1)) {
+        msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
         return true;
     }
 
-    return false;
+    const auto staff = is_staff ? _("杖", "staff") : _("魔法棒", "wand");
+
+    /* "Eat" charges */
+    if (o_ptr->pval == 0) {
+        msg_format(_("この%sにはもう魔力が残っていない。", "The %s has no charges left."), staff);
+        o_ptr->ident |= IDENT_EMPTY;
+        player_ptr->window_flags |= PW_INVENTORY;
+        return true;
+    }
+
+    msg_format(_("あなたは%sの魔力をエネルギー源として吸収した。", "You absorb mana of the %s as your energy."), staff);
+
+    /* Use a single charge */
+    o_ptr->pval--;
+
+    /* Eat a charge */
+    set_food(player_ptr, player_ptr->food + 5000);
+
+    /* XXX Hack -- unstack if necessary */
+    if (is_staff && (inventory >= 0) && (o_ptr->number > 1)) {
+        auto item = *o_ptr;
+
+        /* Modify quantity */
+        item.number = 1;
+
+        /* Restore the charges */
+        o_ptr->pval++;
+
+        /* Unstack the used item */
+        o_ptr->number--;
+        inventory = store_item_to_inventory(player_ptr, &item);
+        msg_format(_("杖をまとめなおした。", "You unstack your staff."));
+    }
+
+    if (inventory >= 0) {
+        inven_item_charges(player_ptr->inventory_list[inventory]);
+    } else {
+        floor_item_charges(player_ptr->current_floor_ptr, 0 - inventory);
+    }
+
+    player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT;
+    return true;
 }
 
 /*!
@@ -236,12 +227,11 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
     sound(SOUND_EAT);
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-
-    /* Object level */
-    int lev = k_info[o_ptr->k_idx].level;
+    const auto lev = o_ptr->get_baseitem().level;
 
     /* Identity not known yet */
-    int ident = exe_eat_food_type_object(player_ptr, o_ptr);
+    const auto &bi_key = o_ptr->bi_key;
+    const auto ident = exe_eat_food_type_object(player_ptr, bi_key);
 
     /*
      * Store what may have to be updated for the inventory (including
@@ -250,17 +240,18 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
      * do not rearrange the inventory before the food item is destroyed in
      * the pack.
      */
-    BIT_FLAGS inventory_flags = (PU_COMBINE | PU_REORDER | (player_ptr->update & PU_AUTODESTROY));
-    player_ptr->update &= ~(PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
+    BIT_FLAGS inventory_flags = (PU_COMBINATION | PU_REORDER | (player_ptr->update & PU_AUTO_DESTRUCTION));
+    player_ptr->update &= ~(PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
 
     if (!(o_ptr->is_aware())) {
-        chg_virtue(player_ptr, V_KNOWLEDGE, -1);
-        chg_virtue(player_ptr, V_PATIENCE, -1);
-        chg_virtue(player_ptr, V_CHANCE, 1);
+        chg_virtue(player_ptr, Virtue::KNOWLEDGE, -1);
+        chg_virtue(player_ptr, Virtue::PATIENCE, -1);
+        chg_virtue(player_ptr, Virtue::CHANCE, 1);
     }
 
     /* We have tried it */
-    if (o_ptr->tval == ItemKindType::FOOD) {
+    const auto tval = bi_key.tval();
+    if (tval == ItemKindType::FOOD) {
         object_tried(o_ptr);
     }
 
@@ -270,7 +261,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
         gain_exp(player_ptr, (lev + (player_ptr->lev >> 1)) / player_ptr->lev);
     }
 
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP | PW_PLAYER);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER);
 
     /* Undeads drain recharge of magic device */
     if (exe_eat_charge_of_magic_device(player_ptr, o_ptr, item)) {
@@ -282,10 +273,9 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
 
     /* Balrogs change humanoid corpses to energy */
     const auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-    if (food_type == PlayerRaceFoodType::CORPSE && (o_ptr->tval == ItemKindType::CORPSE && o_ptr->sval == SV_CORPSE && angband_strchr("pht", r_info[corpse_r_idx].d_char))) {
-        GAME_TEXT o_name[MAX_NLEN];
-        describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-        msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%^s is burnt to ashes.  You absorb its vitality!"), o_name);
+    if (food_type == PlayerRaceFoodType::CORPSE && (bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE) && angband_strchr("pht", monraces_info[corpse_r_idx].d_char))) {
+        const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+        msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%s^ is burnt to ashes.  You absorb its vitality!"), item_name.data());
         (void)set_food(player_ptr, PY_FOOD_MAX - 1);
 
         player_ptr->update |= inventory_flags;
@@ -294,12 +284,13 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
     }
 
     if (PlayerRace(player_ptr).equals(PlayerRaceType::SKELETON)) {
-        if (!((o_ptr->sval == SV_FOOD_WAYBREAD) || (o_ptr->sval < SV_FOOD_BISCUIT))) {
-            ObjectType forge;
+        const auto sval = bi_key.sval();
+        if ((sval != SV_FOOD_WAYBREAD) && (sval >= SV_FOOD_BISCUIT)) {
+            ItemEntity forge;
             auto *q_ptr = &forge;
 
             msg_print(_("食べ物がアゴを素通りして落ちた！", "The food falls through your jaws!"));
-            q_ptr->prep(lookup_kind(o_ptr->tval, o_ptr->sval));
+            q_ptr->prep(lookup_baseitem_id(bi_key));
 
             /* Drop the object from heaven */
             (void)drop_near(player_ptr, q_ptr, -1, player_ptr->y, player_ptr->x);
@@ -321,7 +312,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
         msg_print(_("生者の食物はあなたにとってほとんど栄養にならない。", "The food of mortals is poor sustenance for you."));
         set_food(player_ptr, player_ptr->food + ((o_ptr->pval) / 20));
     } else {
-        if (o_ptr->tval == ItemKindType::FOOD && o_ptr->sval == SV_FOOD_WAYBREAD) {
+        if (bi_key == BaseitemKey(ItemKindType::FOOD, SV_FOOD_WAYBREAD)) {
             /* Waybread is always fully satisfying. */
             set_food(player_ptr, std::max<short>(player_ptr->food, PY_FOOD_MAX - 1));
         } else {

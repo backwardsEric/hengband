@@ -3,7 +3,7 @@
 #include "load/load-util.h"
 #include "load/old/load-v1-5-0.h"
 #include "load/old/monster-flag-types-savefile50.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
@@ -17,7 +17,7 @@ MonsterLoader50::MonsterLoader50(PlayerType *player_ptr)
 /*!
  * @brief モンスターを読み込む(v3.0.0 Savefile ver50まで)
  */
-void MonsterLoader50::rd_monster(monster_type *m_ptr_)
+void MonsterLoader50::rd_monster(MonsterEntity *m_ptr_)
 {
     this->m_ptr = m_ptr_;
     if (h_older_than(1, 5, 0, 0)) {
@@ -88,9 +88,9 @@ void MonsterLoader50::rd_monster(monster_type *m_ptr_)
     if (any_bits(flags, SaveDataMonsterFlagType::NICKNAME)) {
         char buf[128];
         rd_string(buf, sizeof(buf));
-        this->m_ptr->nickname = quark_add(buf);
+        this->m_ptr->nickname = buf;
     } else {
-        this->m_ptr->nickname = 0;
+        this->m_ptr->nickname.clear();
     }
 
     this->m_ptr->parent_m_idx = any_bits(flags, SaveDataMonsterFlagType::PARENT) ? rd_s16b() : 0;

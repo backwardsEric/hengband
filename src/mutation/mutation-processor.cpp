@@ -2,7 +2,6 @@
 #include "core/asking-player.h"
 #include "core/disturbance.h"
 #include "core/player-redraw-types.h"
-#include "dungeon/dungeon.h"
 #include "effect/attribute-types.h"
 #include "floor/geometry.h"
 #include "grid/grid.h"
@@ -41,11 +40,12 @@
 #include "store/store-owners.h"
 #include "store/store-util.h"
 #include "store/store.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "target/target-setter.h"
@@ -137,7 +137,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         msg_print(_("ウガァァア！", "RAAAAGHH!"));
         msg_print(_("激怒の発作に襲われた！", "You feel a fit of rage coming over you!"));
         (void)set_shero(player_ptr, 10 + randint1(player_ptr->lev), false);
-        (void)bss.fear(0);
+        (void)bss.set_fear(0);
     }
 
     if (player_ptr->muta.has(PlayerMutationType::COWARDICE) && (randint1(3000) == 13)) {
@@ -258,7 +258,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         msg_print(_("突然ほとんど孤独になった気がする。", "You suddenly feel almost lonely."));
 
         banish_monsters(player_ptr, 100);
-        if (!is_in_dungeon(player_ptr) && player_ptr->town_num) {
+        if (!player_ptr->current_floor_ptr->is_in_dungeon() && player_ptr->town_num) {
             StoreSaleType sst;
             do {
                 sst = i2enum<StoreSaleType>(randint0(MAX_STORES));
@@ -271,8 +271,6 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     }
 
     if (player_ptr->muta.has(PlayerMutationType::EAT_LIGHT) && one_in_(3000)) {
-        ObjectType *o_ptr;
-
         msg_print(_("影につつまれた。", "A shadow passes over you."));
         msg_print(nullptr);
 
@@ -280,14 +278,13 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             hp_player(player_ptr, 10);
         }
 
-        o_ptr = &player_ptr->inventory_list[INVEN_LITE];
-
-        if (o_ptr->tval == ItemKindType::LITE) {
-            if (!o_ptr->is_fixed_artifact() && (o_ptr->fuel > 0)) {
-                hp_player(player_ptr, o_ptr->fuel / 20);
-                o_ptr->fuel /= 2;
+        auto &item = player_ptr->inventory_list[INVEN_LITE];
+        if (item.bi_key.tval() == ItemKindType::LITE) {
+            if (!item.is_fixed_artifact() && (item.fuel > 0)) {
+                hp_player(player_ptr, item.fuel / 20);
+                item.fuel /= 2;
                 msg_print(_("光源からエネルギーを吸収した！", "You absorb energy from your light!"));
-                notice_lite_change(player_ptr, o_ptr);
+                notice_lite_change(player_ptr, &item);
             }
         }
 
@@ -434,8 +431,8 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         int danger_amount = 0;
         for (MONSTER_IDX monster = 0; monster < player_ptr->current_floor_ptr->m_max; monster++) {
             auto *m_ptr = &player_ptr->current_floor_ptr->m_list[monster];
-            auto *r_ptr = &r_info[m_ptr->r_idx];
-            if (!monster_is_valid(m_ptr)) {
+            auto *r_ptr = &monraces_info[m_ptr->r_idx];
+            if (!m_ptr->is_valid()) {
                 continue;
             }
 
@@ -476,7 +473,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
 
             hp_player(player_ptr, healing);
             player_ptr->csp -= healing;
-            player_ptr->redraw |= (PR_HP | PR_MANA);
+            player_ptr->redraw |= (PR_HP | PR_MP);
         }
     }
 
@@ -489,7 +486,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             }
 
             player_ptr->csp += healing;
-            player_ptr->redraw |= (PR_HP | PR_MANA);
+            player_ptr->redraw |= (PR_HP | PR_MP);
             take_hit(player_ptr, DAMAGE_LOSELIFE, healing, _("頭に昇った血", "blood rushing to the head"));
         }
     }
@@ -505,7 +502,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
 bool drop_weapons(PlayerType *player_ptr)
 {
     INVENTORY_IDX slot = 0;
-    ObjectType *o_ptr = nullptr;
+    ItemEntity *o_ptr = nullptr;
 
     if (player_ptr->wild_mode) {
         return false;

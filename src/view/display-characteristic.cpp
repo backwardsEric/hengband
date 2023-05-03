@@ -17,7 +17,7 @@
 #include "player/permanent-resistances.h"
 #include "player/race-resistances.h"
 #include "player/temporary-resistances.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -316,7 +316,7 @@ static void process_one_characteristic(PlayerType *player_ptr, TERM_LEN row, TER
         if (s == "." && (!char_stat.has_imm && !char_stat.has_vul)) {
             clr = TERM_L_DARK;
         }
-        c_put_str(clr, s.c_str(), row, col++);
+        c_put_str(clr, s.data(), row, col++);
     }
 }
 

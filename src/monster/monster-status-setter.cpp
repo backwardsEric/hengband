@@ -11,6 +11,7 @@
 #include "monster-floor/monster-move.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-mask.h"
 #include "monster-race/race-flags3.h"
 #include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
@@ -21,8 +22,8 @@
 #include "monster/monster-util.h"
 #include "monster/smart-learn-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "view/display-messages.h"
@@ -33,11 +34,11 @@
  * @param PlayerType プレイヤーへの参照ポインタ
  * @param m_ptr モンスター情報構造体の参照ポインタ
  */
-void set_pet(PlayerType *player_ptr, monster_type *m_ptr)
+void set_pet(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
     QuestCompletionChecker(player_ptr, m_ptr).complete();
     m_ptr->mflag2.set(MonsterConstantFlagType::PET);
-    if (r_info[m_ptr->r_idx].kind_flags.has_none_of(alignment_mask)) {
+    if (monraces_info[m_ptr->r_idx].kind_flags.has_none_of(alignment_mask)) {
         m_ptr->sub_align = SUB_ALIGN_NEUTRAL;
     }
 }
@@ -47,7 +48,7 @@ void set_pet(PlayerType *player_ptr, monster_type *m_ptr)
  * Makes the monster hostile towards the player
  * @param m_ptr モンスター情報構造体の参照ポインタ
  */
-void set_hostile(PlayerType *player_ptr, monster_type *m_ptr)
+void set_hostile(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
     if (player_ptr->phase_out) {
         return;
@@ -61,20 +62,19 @@ void set_hostile(PlayerType *player_ptr, monster_type *m_ptr)
  * Anger the monster
  * @param m_ptr モンスター情報構造体の参照ポインタ
  */
-void anger_monster(PlayerType *player_ptr, monster_type *m_ptr)
+void anger_monster(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
-    if (player_ptr->phase_out || !is_friendly(m_ptr)) {
+    if (player_ptr->phase_out || !m_ptr->is_friendly()) {
         return;
     }
 
-    GAME_TEXT m_name[MAX_NLEN];
-    monster_desc(player_ptr, m_name, m_ptr, 0);
-    msg_format(_("%^sは怒った！", "%^s gets angry!"), m_name);
+    const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+    msg_format(_("%s^は怒った！", "%s^ gets angry!"), m_name.data());
     set_hostile(player_ptr, m_ptr);
-    chg_virtue(player_ptr, V_INDIVIDUALISM, 1);
-    chg_virtue(player_ptr, V_HONOUR, -1);
-    chg_virtue(player_ptr, V_JUSTICE, -1);
-    chg_virtue(player_ptr, V_COMPASSION, -1);
+    chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
+    chg_virtue(player_ptr, Virtue::HONOUR, -1);
+    chg_virtue(player_ptr, Virtue::JUSTICE, -1);
+    chg_virtue(player_ptr, Virtue::COMPASSION, -1);
 }
 
 /*!
@@ -83,7 +83,7 @@ void anger_monster(PlayerType *player_ptr, monster_type *m_ptr)
  * @return m_idx モンスターの参照ID
  * @return mproc_type 削除したいモンスターの時限ステータスID
  */
-static void mproc_remove(floor_type *floor_ptr, MONSTER_IDX m_idx, int mproc_type)
+static void mproc_remove(FloorType *floor_ptr, MONSTER_IDX m_idx, int mproc_type)
 {
     int mproc_idx = get_mproc_idx(floor_ptr, m_idx, mproc_type);
     if (mproc_idx >= 0) {
@@ -107,12 +107,12 @@ bool set_monster_csleep(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 10000) ? 10000 : (v < 0) ? 0
                                       : v;
     if (v) {
-        if (!monster_csleep_remaining(m_ptr)) {
+        if (!m_ptr->is_asleep()) {
             mproc_add(floor_ptr, m_idx, MTIMED_CSLEEP);
             notice = true;
         }
     } else {
-        if (monster_csleep_remaining(m_ptr)) {
+        if (m_ptr->is_asleep()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_CSLEEP);
             notice = true;
         }
@@ -133,8 +133,8 @@ bool set_monster_csleep(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
         }
     }
 
-    if (r_info[m_ptr->r_idx].flags7 & RF7_HAS_LD_MASK) {
-        player_ptr->update |= PU_MON_LITE;
+    if (monraces_info[m_ptr->r_idx].brightness_flags.has_any_of(has_ld_mask)) {
+        player_ptr->update |= PU_MONSTER_LITE;
     }
 
     return true;
@@ -156,12 +156,12 @@ bool set_monster_fast(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_fast_remaining(m_ptr)) {
+        if (!m_ptr->is_accelerated()) {
             mproc_add(floor_ptr, m_idx, MTIMED_FAST);
             notice = true;
         }
     } else {
-        if (monster_fast_remaining(m_ptr)) {
+        if (m_ptr->is_accelerated()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_FAST);
             notice = true;
         }
@@ -190,12 +190,12 @@ bool set_monster_slow(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_slow_remaining(m_ptr)) {
+        if (!m_ptr->is_decelerated()) {
             mproc_add(floor_ptr, m_idx, MTIMED_SLOW);
             notice = true;
         }
     } else {
-        if (monster_slow_remaining(m_ptr)) {
+        if (m_ptr->is_decelerated()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_SLOW);
             notice = true;
         }
@@ -229,12 +229,12 @@ bool set_monster_stunned(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_stunned_remaining(m_ptr)) {
+        if (!m_ptr->is_stunned()) {
             mproc_add(floor_ptr, m_idx, MTIMED_STUNNED);
             notice = true;
         }
     } else {
-        if (monster_stunned_remaining(m_ptr)) {
+        if (m_ptr->is_stunned()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_STUNNED);
             notice = true;
         }
@@ -260,12 +260,12 @@ bool set_monster_confused(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_confused_remaining(m_ptr)) {
+        if (!m_ptr->is_confused()) {
             mproc_add(floor_ptr, m_idx, MTIMED_CONFUSED);
             notice = true;
         }
     } else {
-        if (monster_confused_remaining(m_ptr)) {
+        if (m_ptr->is_confused()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_CONFUSED);
             notice = true;
         }
@@ -291,12 +291,12 @@ bool set_monster_monfear(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_fear_remaining(m_ptr)) {
+        if (!m_ptr->is_fearful()) {
             mproc_add(floor_ptr, m_idx, MTIMED_MONFEAR);
             notice = true;
         }
     } else {
-        if (monster_fear_remaining(m_ptr)) {
+        if (m_ptr->is_fearful()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_MONFEAR);
             notice = true;
         }
@@ -338,12 +338,12 @@ bool set_monster_invulner(PlayerType *player_ptr, MONSTER_IDX m_idx, int v, bool
     v = (v > 200) ? 200 : (v < 0) ? 0
                                   : v;
     if (v) {
-        if (!monster_invulner_remaining(m_ptr)) {
+        if (!m_ptr->is_invulnerable()) {
             mproc_add(floor_ptr, m_idx, MTIMED_INVULNER);
             notice = true;
         }
     } else {
-        if (monster_invulner_remaining(m_ptr)) {
+        if (m_ptr->is_invulnerable()) {
             mproc_remove(floor_ptr, m_idx, MTIMED_INVULNER);
             if (energy_need && !player_ptr->wild_mode) {
                 m_ptr->energy_need += ENERGY_NEED();
@@ -386,8 +386,7 @@ bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bo
     }
 
     if (vs_player) {
-        GAME_TEXT m_name[MAX_NLEN];
-        monster_desc(player_ptr, m_name, m_ptr, 0);
+        const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
         concptr mes;
         switch (who) {
@@ -405,7 +404,7 @@ bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bo
             break;
         }
 
-        msg_format(mes, m_name);
+        msg_format(mes, m_name.data());
         msg_print(nullptr);
     }
 
@@ -415,7 +414,7 @@ bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bo
     }
 
     while (num--) {
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             break;
         }
 
@@ -428,7 +427,7 @@ bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bo
     }
 
     player_ptr->redraw |= PR_MAP;
-    player_ptr->update |= PU_MONSTERS;
+    player_ptr->update |= PU_MONSTER_STATUSES;
     player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
     w_ptr->timewalk_m_idx = 0;
     if (vs_player || (player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx) && projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx))) {

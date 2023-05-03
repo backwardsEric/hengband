@@ -36,7 +36,8 @@
 #include "status/buff-setter.h"
 #include "status/element-resistance.h"
 #include "sv-definition/sv-food-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "view/display-messages.h"
@@ -46,9 +47,9 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列ポインタを返す。SpellProcessType::CAST時はnullptr文字列を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
  */
-concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool name = mode == SpellProcessType::NAME;
     bool desc = mode == SpellProcessType::DESCRIPTION;
@@ -101,7 +102,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
                 project_length = range;
 
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_beam(player_ptr, AttributeType::ELEC, dir, damroll(dice, sides));
@@ -142,11 +143,11 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
         {
             if (cast) {
-                ObjectType forge, *q_ptr = &forge;
+                ItemEntity forge, *q_ptr = &forge;
                 msg_print(_("食料を生成した。", "A food ration is produced."));
 
                 /* Create the food ration */
-                q_ptr->prep(lookup_kind(ItemKindType::FOOD, SV_FOOD_RATION));
+                q_ptr->prep(lookup_baseitem_id({ ItemKindType::FOOD, SV_FOOD_RATION }));
 
                 /* Drop the object from heaven */
                 (void)drop_near(player_ptr, q_ptr, -1, player_ptr->y, player_ptr->x);
@@ -200,7 +201,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 charm_animal(player_ptr, dir, plev);
@@ -252,7 +253,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
             if (cast) {
                 BadStatusSetter bss(player_ptr);
                 hp_player(player_ptr, damroll(dice, sides));
-                (void)bss.cut(0);
+                (void)bss.set_cut(0);
                 (void)bss.set_poison(0);
             }
         }
@@ -277,7 +278,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 wall_to_mud(player_ptr, dir, 20 + randint1(30));
@@ -303,7 +304,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::COLD, dir, damroll(dice, sides));
             }
@@ -355,7 +356,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::FIRE, dir, damroll(dice, sides));
             }
@@ -380,7 +381,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 msg_print(_("太陽光線が現れた。", "A line of sunlight appears."));
                 lite_line(player_ptr, dir, damroll(6, 8));
@@ -551,7 +552,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
         {
             if (cast) {
                 if (!identify_fully(player_ptr, false)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
             }
         }
@@ -583,7 +584,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
         {
             if (cast) {
                 if (!rustproof(player_ptr)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
             }
         }
@@ -641,7 +642,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_ball(player_ptr, AttributeType::COLD, dir, dam, rad);
@@ -667,7 +668,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_ball(player_ptr, AttributeType::ELEC, dir, dam, rad);
                 break;
@@ -693,7 +694,7 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
                 fire_ball(player_ptr, AttributeType::WATER, dir, dam, rad);
             }
@@ -719,8 +720,8 @@ concptr do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessTyp
 
             if (cast) {
                 fire_ball(player_ptr, AttributeType::LITE, 0, dam, rad);
-                chg_virtue(player_ptr, V_KNOWLEDGE, 1);
-                chg_virtue(player_ptr, V_ENLIGHTEN, 1);
+                chg_virtue(player_ptr, Virtue::KNOWLEDGE, 1);
+                chg_virtue(player_ptr, Virtue::ENLIGHTEN, 1);
                 wiz_lite(player_ptr, false);
 
                 PlayerRace race(player_ptr);

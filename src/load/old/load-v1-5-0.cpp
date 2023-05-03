@@ -7,7 +7,6 @@
 
 #include "load/old/load-v1-5-0.h"
 #include "artifact/fixed-art-types.h"
-#include "dungeon/dungeon.h"
 #include "floor/floor-object.h"
 #include "game-option/birth-options.h"
 #include "grid/feature.h"
@@ -41,10 +40,12 @@
 #include "sv-definition/sv-lite-types.h"
 #include "system/angband-exceptions.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
@@ -63,26 +64,26 @@ const int QUEST_ROYAL_CRYPT = 28; // 王家の墓.
  * @brief アイテムオブジェクト1件を読み込む / Read an object
  * @param o_ptr アイテムオブジェクト読み取り先ポインタ
  */
-void rd_item_old(ObjectType *o_ptr)
+void rd_item_old(ItemEntity *o_ptr)
 {
-    o_ptr->k_idx = rd_s16b();
+    o_ptr->bi_id = rd_s16b();
 
     o_ptr->iy = rd_byte();
     o_ptr->ix = rd_byte();
 
-    /* Type/Subtype */
-    o_ptr->tval = i2enum<ItemKindType>(rd_byte());
-    o_ptr->sval = rd_byte();
+    const auto tval = i2enum<ItemKindType>(rd_byte());
+    const auto sval = rd_byte();
+    o_ptr->bi_key = BaseitemKey(tval, sval);
 
     if (h_older_than(0, 4, 4)) {
-        if (o_ptr->tval == i2enum<ItemKindType>(100)) {
-            o_ptr->tval = ItemKindType::GOLD;
+        if (tval == i2enum<ItemKindType>(100)) {
+            o_ptr->bi_key = BaseitemKey(ItemKindType::GOLD, sval);
         }
-        if (o_ptr->tval == i2enum<ItemKindType>(98)) {
-            o_ptr->tval = ItemKindType::MUSIC_BOOK;
+        if (tval == i2enum<ItemKindType>(98)) {
+            o_ptr->bi_key = BaseitemKey(ItemKindType::MUSIC_BOOK, sval);
         }
-        if (o_ptr->tval == i2enum<ItemKindType>(110)) {
-            o_ptr->tval = ItemKindType::HISSATSU_BOOK;
+        if (tval == i2enum<ItemKindType>(110)) {
+            o_ptr->bi_key = BaseitemKey(ItemKindType::HISSATSU_BOOK, sval);
         }
     }
 
@@ -107,7 +108,7 @@ void rd_item_old(ObjectType *o_ptr)
     o_ptr->ds = rd_byte();
 
     o_ptr->ident = rd_byte();
-    o_ptr->marked = rd_byte();
+    rd_FlagGroup_bytes(o_ptr->marked, rd_byte, 1);
 
     for (int i = 0, count = (h_older_than(1, 3, 0, 0) ? 3 : 4); i < count; i++) {
         auto tmp32u = rd_u32b();
@@ -132,19 +133,19 @@ void rd_item_old(ObjectType *o_ptr)
                 o_ptr->curse_flags.set(CurseTraitType::PERMA_CURSE);
             }
             if (o_ptr->is_fixed_artifact()) {
-                const auto &a_ref = a_info.at(o_ptr->fixed_artifact_idx);
-                if (a_ref.gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
+                const auto &artifact = o_ptr->get_fixed_artifact();
+                if (artifact.gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
                     o_ptr->curse_flags.set(CurseTraitType::HEAVY_CURSE);
                 }
-                if (a_ref.gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
+                if (artifact.gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
                     o_ptr->curse_flags.set(CurseTraitType::PERMA_CURSE);
                 }
             } else if (o_ptr->is_ego()) {
-                const auto &e_ref = e_info[o_ptr->ego_idx];
-                if (e_ref.gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
+                const auto &ego = o_ptr->get_ego();
+                if (ego.gen_flags.has(ItemGenerationTraitType::HEAVY_CURSE)) {
                     o_ptr->curse_flags.set(CurseTraitType::HEAVY_CURSE);
                 }
-                if (e_ref.gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
+                if (ego.gen_flags.has(ItemGenerationTraitType::PERMA_CURSE)) {
                     o_ptr->curse_flags.set(CurseTraitType::PERMA_CURSE);
                 }
             }
@@ -258,14 +259,14 @@ void rd_item_old(ObjectType *o_ptr)
         o_ptr->smith_hit = 0;
         o_ptr->smith_damage = 0;
         o_ptr->captured_monster_max_hp = 0;
-        if (o_ptr->tval == ItemKindType::CHEST) {
+        if (tval == ItemKindType::CHEST) {
             o_ptr->chest_level = xtra1;
-        } else if (o_ptr->tval == ItemKindType::CAPTURE) {
+        } else if (tval == ItemKindType::CAPTURE) {
             o_ptr->captured_monster_speed = xtra1;
         }
 
-        if (o_ptr->tval == ItemKindType::CAPTURE) {
-            const auto &r_ref = r_info[i2enum<MonsterRaceId>(o_ptr->pval)];
+        if (tval == ItemKindType::CAPTURE) {
+            const auto &r_ref = monraces_info[i2enum<MonsterRaceId>(o_ptr->pval)];
             if (r_ref.flags1 & RF1_FORCE_MAXHP) {
                 o_ptr->captured_monster_max_hp = maxroll(r_ref.hdice, r_ref.hside);
             } else {
@@ -287,9 +288,9 @@ void rd_item_old(ObjectType *o_ptr)
         }
 
         auto xtra4 = rd_s16b();
-        if (o_ptr->tval == ItemKindType::LITE) {
+        if (tval == ItemKindType::LITE) {
             o_ptr->fuel = xtra4;
-        } else if (o_ptr->tval == ItemKindType::CAPTURE) {
+        } else if (tval == ItemKindType::CAPTURE) {
             o_ptr->captured_monster_current_hp = xtra4;
         } else {
             o_ptr->smith_hit = static_cast<byte>(xtra4 >> 8);
@@ -309,26 +310,26 @@ void rd_item_old(ObjectType *o_ptr)
     char buf[128];
     rd_string(buf, sizeof(buf));
     if (buf[0]) {
-        o_ptr->inscription = quark_add(buf);
+        o_ptr->inscription.emplace(buf);
     }
 
     rd_string(buf, sizeof(buf));
 
     /*!< @todo 元々このif文には末尾に";"が付いていた、バグかもしれない */
     if (buf[0]) {
-        o_ptr->art_name = quark_add(buf);
+        o_ptr->randart_name.emplace(buf);
     }
     {
         auto tmp32s = rd_s32b();
         strip_bytes(tmp32s);
     }
 
-    if ((o_ptr->k_idx >= 445) && (o_ptr->k_idx <= 479)) {
+    if ((o_ptr->bi_id >= 445) && (o_ptr->bi_id <= 479)) {
         return;
     }
 
     if (h_older_than(0, 4, 10) && (o_ptr->ego_idx == EgoType::TWILIGHT)) {
-        o_ptr->k_idx = lookup_kind(ItemKindType::SOFT_ARMOR, SV_TWILIGHT_ROBE);
+        o_ptr->bi_id = lookup_baseitem_id({ ItemKindType::SOFT_ARMOR, SV_TWILIGHT_ROBE });
     }
 
     if (h_older_than(0, 4, 9)) {
@@ -339,15 +340,15 @@ void rd_item_old(ObjectType *o_ptr)
     }
 
     if (o_ptr->is_fixed_artifact()) {
-        const auto &a_ref = a_info.at(o_ptr->fixed_artifact_idx);
-        if (a_ref.name.empty()) {
+        const auto &artifact = o_ptr->get_fixed_artifact();
+        if (artifact.name.empty()) {
             o_ptr->fixed_artifact_idx = FixedArtifactId::NONE;
         }
     }
 
     if (o_ptr->is_ego()) {
-        const auto &e_ref = e_info[o_ptr->ego_idx];
-        if (e_ref.name.empty()) {
+        const auto &ego = o_ptr->get_ego();
+        if (ego.name.empty()) {
             o_ptr->ego_idx = EgoType::NONE;
         }
     }
@@ -358,7 +359,7 @@ void rd_item_old(ObjectType *o_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param m_ptr モンスター保存先ポインタ
  */
-void rd_monster_old(PlayerType *player_ptr, monster_type *m_ptr)
+void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
     m_ptr->r_idx = i2enum<MonsterRaceId>(rd_s16b());
 
@@ -369,7 +370,7 @@ void rd_monster_old(PlayerType *player_ptr, monster_type *m_ptr)
     }
 
     if (h_older_than(1, 0, 14)) {
-        auto *r_ptr = &r_info[m_ptr->r_idx];
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
         m_ptr->sub_align = SUB_ALIGN_NEUTRAL;
         if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
@@ -472,19 +473,19 @@ void rd_monster_old(PlayerType *player_ptr, monster_type *m_ptr)
     }
 
     if (h_older_than(0, 1, 3)) {
-        m_ptr->nickname = 0;
+        m_ptr->nickname.clear();
     } else {
         char buf[128];
         rd_string(buf, sizeof(buf));
         if (buf[0]) {
-            m_ptr->nickname = quark_add(buf);
+            m_ptr->nickname = buf;
         }
     }
 
     strip_bytes(1);
 }
 
-static void move_RF3_to_RFR(monster_race *r_ptr, const BIT_FLAGS rf3, const MonsterResistanceType rfr)
+static void move_RF3_to_RFR(MonsterRaceInfo *r_ptr, const BIT_FLAGS rf3, const MonsterResistanceType rfr)
 {
     if (r_ptr->r_flags3 & rf3) {
         r_ptr->r_flags3 &= ~rf3;
@@ -492,7 +493,7 @@ static void move_RF3_to_RFR(monster_race *r_ptr, const BIT_FLAGS rf3, const Mons
     }
 }
 
-static void move_RF4_BR_to_RFR(monster_race *r_ptr, BIT_FLAGS f4, const BIT_FLAGS rf4_br, const MonsterResistanceType rfr)
+static void move_RF4_BR_to_RFR(MonsterRaceInfo *r_ptr, BIT_FLAGS f4, const BIT_FLAGS rf4_br, const MonsterResistanceType rfr)
 {
     if (f4 & rf4_br) {
         r_ptr->resistance_flags.set(rfr);
@@ -505,7 +506,7 @@ static void move_RF4_BR_to_RFR(monster_race *r_ptr, BIT_FLAGS f4, const BIT_FLAG
  * @param r_idx モンスター種族ID
  * @details 本来はr_idxからr_ptrを決定可能だが、互換性を優先するため元コードのままとする
  */
-void set_old_lore(monster_race *r_ptr, BIT_FLAGS f4, const MonsterRaceId r_idx)
+void set_old_lore(MonsterRaceInfo *r_ptr, BIT_FLAGS f4, const MonsterRaceId r_idx)
 {
     r_ptr->r_resistance_flags.clear();
     move_RF3_to_RFR(r_ptr, RF3_IM_ACID, MonsterResistanceType::IMMUNE_ACID);
@@ -765,7 +766,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         monster_loader->rd_monster(m_ptr);
         auto *g_ptr = &floor_ptr->grid_array[m_ptr->fy][m_ptr->fx];
         g_ptr->m_idx = m_idx;
-        real_r_ptr(m_ptr)->cur_num++;
+        m_ptr->get_real_r_ref().cur_num++;
     }
 
     if (h_older_than(0, 3, 13) && !floor_ptr->dun_level && !floor_ptr->inside_arena) {

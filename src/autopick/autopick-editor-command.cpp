@@ -25,6 +25,7 @@
 #include "player-info/race-info.h"
 #include "system/player-type-definition.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 
 /*!
  * @brief
@@ -542,7 +543,7 @@ ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, int 
             break;
         }
         string_free(tb->lines_list[tb->cy]);
-        tb->lines_list[tb->cy] = autopick_line_from_entry_kill(entry);
+        tb->lines_list[tb->cy] = autopick_line_from_entry(*entry);
         tb->dirty_flags |= DIRTY_SCREEN;
         break;
     }
@@ -566,7 +567,7 @@ ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, int 
             break;
         }
         char expression[80];
-        sprintf(expression, "?:[AND [EQU $RACE %s] [EQU $CLASS %s] [GEQ $LEVEL %02d]]",
+        strnfmt(expression, sizeof(expression), "?:[AND [EQU $RACE %s] [EQU $CLASS %s] [GEQ $LEVEL %02d]]",
 #ifdef JP
             rp_ptr->E_title, cp_ptr->E_title,
 #else

@@ -20,8 +20,8 @@
 #include "spell/technic-info-table.h"
 #include "status/action-setter.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
@@ -74,8 +74,8 @@ void SpellHex::stop_all_spells()
         set_action(this->player_ptr, ACTION_NONE);
     }
 
-    this->player_ptr->update |= PU_BONUS | PU_HP | PU_MANA | PU_SPELLS;
-    this->player_ptr->redraw |= PR_EXTRA | PR_HP | PR_MANA;
+    this->player_ptr->update |= PU_BONUS | PU_HP | PU_MP | PU_SPELLS;
+    this->player_ptr->redraw |= PR_EXTRA | PR_HP | PR_MP;
 }
 
 /*!
@@ -111,8 +111,8 @@ bool SpellHex::stop_spells_with_selection()
         this->reset_casting_flag(i2enum<spell_hex_type>(n));
     }
 
-    this->player_ptr->update |= PU_BONUS | PU_HP | PU_MANA | PU_SPELLS;
-    this->player_ptr->redraw |= PR_EXTRA | PR_HP | PR_MANA;
+    this->player_ptr->update |= PU_BONUS | PU_HP | PU_MP | PU_SPELLS;
+    this->player_ptr->redraw |= PR_EXTRA | PR_HP | PR_MP;
     return is_selected;
 }
 
@@ -160,8 +160,8 @@ void SpellHex::display_casting_spells_list()
     prt(_("     名前", "     Name"), y, x + 5);
     for (auto spell : this->casting_spells) {
         term_erase(x, y + n + 1, 255);
-        auto spell_result = exe_spell(this->player_ptr, REALM_HEX, spell, SpellProcessType::NAME);
-        put_str(format("%c)  %s", I2A(n), spell_result), y + n + 1, x + 2);
+        const auto spell_name = exe_spell(this->player_ptr, REALM_HEX, spell, SpellProcessType::NAME);
+        put_str(format("%c)  %s", I2A(n), spell_name->data()), y + n + 1, x + 2);
         n++;
     }
 }
@@ -215,7 +215,7 @@ bool SpellHex::process_mana_cost(const bool need_restart)
     }
 
     s64b_sub(&(this->player_ptr->csp), &(this->player_ptr->csp_frac), need_mana, need_mana_frac);
-    this->player_ptr->redraw |= PR_MANA;
+    this->player_ptr->redraw |= PR_MP;
     if (!need_restart) {
         return true;
     }
@@ -223,8 +223,8 @@ bool SpellHex::process_mana_cost(const bool need_restart)
     msg_print(_("詠唱を再開した。", "You restart casting."));
     this->player_ptr->action = ACTION_SPELL;
     this->player_ptr->update |= PU_BONUS | PU_HP;
-    this->player_ptr->redraw |= PR_MAP | PR_STATUS | PR_STATE;
-    this->player_ptr->update |= PU_MONSTERS;
+    this->player_ptr->redraw |= PR_MAP | PR_TIMED_EFFECT | PR_ACTION;
+    this->player_ptr->update |= PU_MONSTER_STATUSES;
     this->player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
     return true;
 }
@@ -317,7 +317,7 @@ void SpellHex::store_vengeful_damage(int dam)
 bool SpellHex::check_hex_barrier(MONSTER_IDX m_idx, spell_hex_type type) const
 {
     const auto *m_ptr = &this->player_ptr->current_floor_ptr->m_list[m_idx];
-    const auto *r_ptr = &r_info[m_ptr->r_idx];
+    const auto *r_ptr = &monraces_info[m_ptr->r_idx];
     return this->is_spelling_specific(type) && ((this->player_ptr->lev * 3 / 2) >= randint1(r_ptr->level));
 }
 
@@ -356,9 +356,8 @@ void SpellHex::eyes_on_eyes()
 #ifdef JP
     msg_format("攻撃が%s自身を傷つけた！", this->monap_ptr->m_name);
 #else
-    GAME_TEXT m_name_self[MAX_MONSTER_NAME];
-    monster_desc(this->player_ptr, m_name_self, this->monap_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE | MD_OBJECTIVE);
-    msg_format("The attack of %s has wounded %s!", this->monap_ptr->m_name, m_name_self);
+    const auto m_name_self = monster_desc(this->player_ptr, this->monap_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE | MD_OBJECTIVE);
+    msg_format("The attack of %s has wounded %s!", this->monap_ptr->m_name, m_name_self.data());
 #endif
     const auto y = this->monap_ptr->m_ptr->fy;
     const auto x = this->monap_ptr->m_ptr->fx;
@@ -382,7 +381,7 @@ void SpellHex::thief_teleport()
         msg_print(_("泥棒は笑って逃げ...ようとしたがバリアに防がれた。", "The thief flees laughing...? But a magic barrier obstructs it."));
     } else {
         msg_print(_("泥棒は笑って逃げた！", "The thief flees laughing!"));
-        teleport_away(this->player_ptr, this->monap_ptr->m_idx, MAX_SIGHT * 2 + 5, TELEPORT_SPONTANEOUS);
+        teleport_away(this->player_ptr, this->monap_ptr->m_idx, MAX_PLAYER_SIGHT * 2 + 5, TELEPORT_SPONTANEOUS);
     }
 }
 

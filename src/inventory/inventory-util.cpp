@@ -13,11 +13,12 @@
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/int-char-converter.h"
 #include "util/quarks.h"
 #include "util/string-processor.h"
+#include <sstream>
 
 /*!
  * @brief プレイヤーの所持/装備オブジェクトIDが指輪枠かを返す /
@@ -45,15 +46,15 @@ bool is_ring_slot(int i)
  * Also, the tag "@xn" will work as well, where "n" is a any tag-char,\n
  * and "x" is the "current" command_cmd code.\n
  */
-bool get_tag_floor(floor_type *floor_ptr, COMMAND_CODE *cp, char tag, FLOOR_IDX floor_list[], ITEM_NUMBER floor_num)
+bool get_tag_floor(FloorType *floor_ptr, COMMAND_CODE *cp, char tag, FLOOR_IDX floor_list[], ITEM_NUMBER floor_num)
 {
     for (COMMAND_CODE i = 0; i < floor_num && i < 23; i++) {
         auto *o_ptr = &floor_ptr->o_list[floor_list[i]];
-        if (!o_ptr->inscription) {
+        if (!o_ptr->is_inscribed()) {
             continue;
         }
 
-        concptr s = angband_strchr(quark_str(o_ptr->inscription), '@');
+        auto s = angband_strchr(o_ptr->inscription->data(), '@');
         while (s) {
             if ((s[1] == command_cmd) && (s[2] == tag)) {
                 *cp = i;
@@ -70,11 +71,11 @@ bool get_tag_floor(floor_type *floor_ptr, COMMAND_CODE *cp, char tag, FLOOR_IDX 
 
     for (COMMAND_CODE i = 0; i < floor_num && i < 23; i++) {
         auto *o_ptr = &floor_ptr->o_list[floor_list[i]];
-        if (!o_ptr->inscription) {
+        if (!o_ptr->is_inscribed()) {
             continue;
         }
 
-        concptr s = angband_strchr(quark_str(o_ptr->inscription), '@');
+        auto s = angband_strchr(o_ptr->inscription->data(), '@');
         while (s) {
             if (s[1] == tag) {
                 *cp = i;
@@ -124,7 +125,7 @@ bool get_tag(PlayerType *player_ptr, COMMAND_CODE *cp, char tag, BIT_FLAGS mode,
 
     for (COMMAND_CODE i = start; i <= end; i++) {
         auto *o_ptr = &player_ptr->inventory_list[i];
-        if ((o_ptr->k_idx == 0) || (o_ptr->inscription == 0)) {
+        if (!o_ptr->is_valid() || !o_ptr->is_inscribed()) {
             continue;
         }
 
@@ -132,7 +133,7 @@ bool get_tag(PlayerType *player_ptr, COMMAND_CODE *cp, char tag, BIT_FLAGS mode,
             continue;
         }
 
-        concptr s = angband_strchr(quark_str(o_ptr->inscription), '@');
+        auto s = angband_strchr(o_ptr->inscription->data(), '@');
         while (s) {
             if ((s[1] == command_cmd) && (s[2] == tag)) {
                 *cp = i;
@@ -149,7 +150,7 @@ bool get_tag(PlayerType *player_ptr, COMMAND_CODE *cp, char tag, BIT_FLAGS mode,
 
     for (COMMAND_CODE i = start; i <= end; i++) {
         auto *o_ptr = &player_ptr->inventory_list[i];
-        if ((o_ptr->k_idx == 0) || (o_ptr->inscription == 0)) {
+        if (!o_ptr->is_valid() || !o_ptr->is_inscribed()) {
             continue;
         }
 
@@ -157,7 +158,7 @@ bool get_tag(PlayerType *player_ptr, COMMAND_CODE *cp, char tag, BIT_FLAGS mode,
             continue;
         }
 
-        concptr s = angband_strchr(quark_str(o_ptr->inscription), '@');
+        auto s = angband_strchr(o_ptr->inscription->data(), '@');
         while (s) {
             if (s[1] == tag) {
                 *cp = i;
@@ -204,18 +205,18 @@ bool get_item_allow(PlayerType *player_ptr, INVENTORY_IDX item)
         return true;
     }
 
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     if (item >= 0) {
         o_ptr = &player_ptr->inventory_list[item];
     } else {
         o_ptr = &player_ptr->current_floor_ptr->o_list[0 - item];
     }
 
-    if (!o_ptr->inscription) {
+    if (!o_ptr->is_inscribed()) {
         return true;
     }
 
-    concptr s = angband_strchr(quark_str(o_ptr->inscription), '!');
+    auto s = angband_strchr(o_ptr->inscription->data(), '!');
     while (s) {
         if ((s[1] == command_cmd) || (s[1] == '*')) {
             if (!verify(player_ptr, _("本当に", "Really try"), item)) {
@@ -247,7 +248,7 @@ INVENTORY_IDX label_to_equipment(PlayerType *player_ptr, int c)
         return is_ring_slot(i) ? i : -1;
     }
 
-    if (!player_ptr->inventory_list[i].k_idx) {
+    if (!player_ptr->inventory_list[i].bi_id) {
         return -1;
     }
 
@@ -266,7 +267,7 @@ INVENTORY_IDX label_to_inventory(PlayerType *player_ptr, int c)
 {
     INVENTORY_IDX i = (INVENTORY_IDX)(islower(c) ? A2I(c) : -1);
 
-    if ((i < 0) || (i > INVEN_PACK) || (player_ptr->inventory_list[i].k_idx == 0)) {
+    if ((i < 0) || (i > INVEN_PACK) || !player_ptr->inventory_list[i].is_valid()) {
         return -1;
     }
 
@@ -284,18 +285,21 @@ INVENTORY_IDX label_to_inventory(PlayerType *player_ptr, int c)
  */
 bool verify(PlayerType *player_ptr, concptr prompt, INVENTORY_IDX item)
 {
-    GAME_TEXT o_name[MAX_NLEN];
-    char out_val[MAX_NLEN + 20];
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     if (item >= 0) {
         o_ptr = &player_ptr->inventory_list[item];
     } else {
         o_ptr = &player_ptr->current_floor_ptr->o_list[0 - item];
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, 0);
-    (void)sprintf(out_val, _("%s%sですか? ", "%s %s? "), prompt, o_name);
-    return get_check(out_val);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+    std::stringstream ss;
+    ss << prompt;
+#ifndef JP
+    ss << ' ';
+#endif
+    ss << item_name << _("ですか? ", "? ");
+    return get_check(ss.str());
 }
 
 /*!

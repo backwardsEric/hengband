@@ -164,7 +164,6 @@ hengband_SOURCES = \
 	core/visuals-reseter.cpp core/visuals-reseter.h \
 	core/window-redrawer.cpp core/window-redrawer.h \
 	\
-	dungeon/dungeon.cpp dungeon/dungeon.h \
 	dungeon/dungeon-flag-mask.h \
 	dungeon/dungeon-flag-types.h \
 	dungeon/dungeon-processor.cpp dungeon/dungeon-processor.h \
@@ -227,7 +226,6 @@ hengband_SOURCES = \
 	floor/object-allocator.cpp floor/object-allocator.h \
 	floor/object-scanner.cpp floor/object-scanner.h \
 	floor/pattern-walk.cpp floor/pattern-walk.h \
-	floor/sight-definitions.h \
 	floor/tunnel-generator.cpp floor/tunnel-generator.h \
 	floor/wild.h floor/wild.cpp \
 	\
@@ -262,6 +260,8 @@ hengband_SOURCES = \
 	hpmp/hp-mp-regenerator.cpp hpmp/hp-mp-regenerator.h \
 	\
 	info-reader/artifact-reader.cpp info-reader/artifact-reader.h \
+	info-reader/baseitem-reader.cpp info-reader/baseitem-reader.h \
+	info-reader/baseitem-tokens-table.cpp info-reader/baseitem-tokens-table.h \
 	info-reader/dungeon-info-tokens-table.cpp info-reader/dungeon-info-tokens-table.h \
 	info-reader/dungeon-reader.cpp info-reader/dungeon-reader.h \
 	info-reader/ego-reader.cpp info-reader/ego-reader.h \
@@ -270,8 +270,6 @@ hengband_SOURCES = \
 	info-reader/fixed-map-parser.cpp info-reader/fixed-map-parser.h \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
 	info-reader/info-reader-util.cpp info-reader/info-reader-util.h \
-	info-reader/kind-info-tokens-table.cpp info-reader/kind-info-tokens-table.h \
-	info-reader/kind-reader.cpp info-reader/kind-reader.h \
 	info-reader/magic-reader.cpp info-reader/magic-reader.h \
 	info-reader/parse-error-types.h \
 	info-reader/race-info-tokens-table.cpp info-reader/race-info-tokens-table.h \
@@ -320,6 +318,8 @@ hengband_SOURCES = \
 	io-dump/player-status-dump.cpp io-dump/player-status-dump.h \
 	io-dump/random-art-info-dumper.cpp io-dump/random-art-info-dumper.h \
 	io-dump/special-class-dump.cpp io-dump/special-class-dump.h \
+	\
+	item-info/flavor-initializer.cpp item-info/flavor-initializer.h \
 	\
 	knowledge/knowledge-autopick.cpp knowledge/knowledge-autopick.h \
 	knowledge/knowledge-experiences.cpp knowledge/knowledge-experiences.h \
@@ -466,6 +466,7 @@ hengband_SOURCES = \
 	monster/monster-flag-types.h \
 	monster/monster-info.cpp monster/monster-info.h \
 	monster/monster-list.cpp monster/monster-list.h \
+	monster/monster-pain-describer.cpp monster/monster-pain-describer.h \
 	monster/monster-processor.cpp monster/monster-processor.h \
 	monster/monster-processor-util.cpp monster/monster-processor-util.h \
 	monster/monster-timed-effect-types.h \
@@ -512,6 +513,8 @@ hengband_SOURCES = \
 	monster-race/race-ability-flags.h \
 	monster-race/race-ability-mask.cpp monster-race/race-ability-mask.h \
 	monster-race/race-behavior-flags.h \
+	monster-race/race-brightness-flags.h \
+	monster-race/race-brightness-mask.h monster-race/race-brightness-mask.cpp \
 	monster-race/race-drop-flags.h \
 	monster-race/race-feature-flags.h \
 	monster-race/race-feature-mask.cpp monster-race/race-feature-mask.h \
@@ -573,7 +576,6 @@ hengband_SOURCES = \
 	object/object-flags.cpp object/object-flags.h \
 	object/object-index-list.cpp object/object-index-list.h \
 	object/object-info.cpp object/object-info.h \
-	object/object-kind.cpp object/object-kind.h \
 	object/object-kind-hook.cpp object/object-kind-hook.h \
 	object/object-stack.cpp object/object-stack.h \
 	object/object-value.cpp object/object-value.h \
@@ -806,7 +808,6 @@ hengband_SOURCES = \
 	\
 	specific-object/blade-turner.cpp specific-object/blade-turner.h \
 	specific-object/bloody-moon.cpp specific-object/bloody-moon.h \
-	specific-object/bow.cpp specific-object/bow.h \
 	specific-object/chest.cpp specific-object/chest.h \
 	specific-object/death-crimson.cpp specific-object/death-crimson.h \
 	specific-object/death-scythe.cpp specific-object/death-scythe.h \
@@ -911,18 +912,22 @@ hengband_SOURCES = \
 	system/angband-exceptions.h \
 	system/angband-version.cpp system/angband-version.h \
 	system/artifact-type-definition.cpp system/artifact-type-definition.h \
+	system/baseitem-info.cpp system/baseitem-info.h \
 	system/building-type-definition.cpp system/building-type-definition.h \
 	system/dungeon-data-definition.h \
-	system/floor-type-definition.h \
+	system/dungeon-info.cpp system/dungeon-info.h \
+	system/floor-type-definition.cpp system/floor-type-definition.h \
 	system/grid-type-definition.cpp system/grid-type-definition.h \
 	system/game-option-types.h \
 	system/h-basic.h system/h-config.h \
 	system/h-system.h system/h-type.h \
-	system/monster-race-definition.h \
-	system/monster-type-definition.h \
-	system/object-type-definition.cpp system/object-type-definition.h \
+	system/item-entity.cpp system/item-entity.h \
+	system/monster-entity.cpp system/monster-entity.h \
+	system/monster-race-info.cpp system/monster-race-info.h \
 	system/player-type-definition.cpp system/player-type-definition.h \
+	system/redrawing-flags-updater.cpp system/redrawing-flags-updater.h \
 	system/system-variables.cpp system/system-variables.h \
+	system/terrain-type-definition.cpp system/terrain-type-definition.h \
 	system/gamevalue.h \
 	\
 	target/grid-selector.cpp target/grid-selector.h \
@@ -967,7 +972,6 @@ hengband_SOURCES = \
 	util/rng-xoshiro.cpp util/rng-xoshiro.h \
 	util/sort.cpp util/sort.h \
 	util/string-processor.cpp util/string-processor.h \
-	util/tag-sorter.cpp util/tag-sorter.h \
 	\
 	view/display-birth.cpp view/display-birth.h \
 	view/display-characteristic.cpp view/display-characteristic.h \
@@ -993,11 +997,9 @@ hengband_SOURCES = \
 	view/status-first-page.cpp view/status-first-page.h \
 	view/status-bars-table.cpp view/status-bars-table.h \
 	\
-	window/display-sub-window-items.cpp window/display-sub-window-items.h \
-	window/display-sub-window-spells.cpp window/display-sub-window-spells.h \
 	window/display-sub-windows.cpp window/display-sub-windows.h \
 	window/main-window-left-frame.cpp window/main-window-left-frame.h \
-	window/main-window-row-column.h \
+	window/main-window-row-column.cpp window/main-window-row-column.h \
 	window/main-window-stat-poster.cpp window/main-window-stat-poster.h \
 	window/main-window-util.cpp window/main-window-util.h \
 	window/main-window-equipments.cpp window/main-window-equipments.h \
@@ -1047,7 +1049,8 @@ EXTRA_hengband_SOURCES = \
 
 cocoa_xcode_files = \
 	cocoa/AppDelegate.m \
-	cocoa/Base.lproj/MainMenu.xib
+	cocoa/Base.lproj/MainMenu.xib \
+	cocoa/Base.lproj/SoundAndMusic.xib
 cocoa_icon_files = \
 	cocoa/hengband_Icons.icns \
 	cocoa/Save.icns \
@@ -1058,13 +1061,15 @@ cocoa_plist_strings_template = cocoa/Angband-Cocoa.strings
 cocoa_plist_files = \
 	cocoa/CommandMenu.plist
 cocoa_en_nib_files = \
-	cocoa/Base.lproj/MainMenu.nib
+	cocoa/Base.lproj/MainMenu.nib \
+	cocoa/Base.lproj/SoundAndMusic.nib
 cocoa_en_strings_files = \
 	cocoa/en.lproj/Localizable.strings \
 	cocoa/en.lproj/CommandMenu.strings \
 	cocoa/en.lproj/GraphicsMenu.strings
 cocoa_ja_strings_files = \
 	cocoa/ja.lproj/MainMenu.strings \
+	cocoa/ja.lproj/SoundAndMusic.strings \
 	cocoa/ja.lproj/Localizable.strings \
 	cocoa/ja.lproj/CommandMenu.strings \
 	cocoa/ja.lproj/GraphicsMenu.strings
@@ -1085,12 +1090,16 @@ hengband_SOURCES += \
 	main-cocoa.mm \
 	system/grafmode.h \
 	system/grafmode.cpp \
-	cocoa/AppDelegate.h
-AM_CFLAGS = -mmacosx-version-min=10.13 -Wunguarded-availability
-AM_OBJCXXFLAGS = -std=c++17 -fobjc-arc -mmacosx-version-min=10.13 -Wunguarded-availability -stdlib=libc++
-AM_CXXFLAGS = -std=c++17 -mmacosx-version-min=10.13 -Wunguarded-availability -stdlib=libc++
-hengband_LDFLAGS = -framework cocoa $(AM_LDFLAGS)
-hengband_LINK = MACOSX_DEPLOYMENT_TARGET=10.13 $(OBJCXXLINK) $(hengband_LDFLAGS) $(LDFLAGS) -o $@
+	cocoa/AppDelegate.h \
+	cocoa/AngbandAudio.h \
+	cocoa/AngbandAudio.mm \
+	cocoa/SoundAndMusic.h \
+	cocoa/SoundAndMusic.mm
+AM_CFLAGS = -mmacosx-version-min=10.15 -Wunguarded-availability
+AM_OBJCXXFLAGS = -std=c++20 -fobjc-arc -mmacosx-version-min=10.15 -Wunguarded-availability -stdlib=libc++
+AM_CXXFLAGS = -mmacosx-version-min=10.15 -Wunguarded-availability -stdlib=libc++
+hengband_LDFLAGS = -framework cocoa -framework AVFoundation $(AM_LDFLAGS)
+hengband_LINK = MACOSX_DEPLOYMENT_TARGET=10.15 $(OBJCXXLINK) $(hengband_LDFLAGS) $(LDFLAGS) -o $@
 APPNAME = $(PACKAGE_NAME)
 APPEXE = hengband
 APPDIR = $(APPNAME).app
@@ -1123,15 +1132,16 @@ appen_DATA = $(cocoa_en_strings_files)
 appendir = $(APPRES)/en.lproj
 appja_DATA = $(cocoa_ja_strings_files)
 appjadir = $(APPRES)/ja.lproj
-MD5SUM=md5
 else
 EXTRA_hengband_SOURCES += main-cocoa.mm system/grafmode.h system/grafmode.cpp \
 	cocoa/AppDelegate.h
 hengband_LINK = $(CXXLINK)
-MD5SUM=md5sum
 endif
 
-DEFAULT_INCLUDES = -I$(srcdir) -I$(top_builddir)/src
+# The "-I$(top_builddir)/src/cocoa" is there so can use the same include
+# directives in the cocoa/*.{h,mm} files when building here or rebuilding the
+# nib files in Xcode according to the procedure in cocoa/AppDelegate.m.
+DEFAULT_INCLUDES = -I$(srcdir) -I$(top_builddir)/src -I$(top_builddir)/src/cocoa
 CPPFLAGS += $(XFT_CFLAGS) $(libcurl_CFLAGS)
 LIBS += $(XFT_LIBS) $(libcurl_LIBS)
 COMPILE = $(srcdir)/gcc-wrap $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
@@ -1149,8 +1159,10 @@ CXXCOMPILE += -include ../src/stdafx.h
 
 stdafx.h.gch: stdafx.h stdafx.cpp Makefile
 	$(CXX) -x c++-header $(CXXFLAGS) $(AM_CXXFLAGS) $(srcdir)/stdafx.cpp -o $@
-	rm -f stdafx.h.gch.sum
-	$(MD5SUM) $@ > stdafx.h.gch.sum
+	if test none != "$(PCH_CHECKSUMMER)" ; then \
+		rm -f "$@".sum ; \
+		$(PCH_CHECKSUMMER) $@ > "$@".sum ; \
+	fi
 
 $(hengband_SOURCES:.cpp=.$(OBJEXT)): stdafx.h.gch
 endif
@@ -1204,7 +1216,7 @@ uninstall-local:
 endif
 
 distclean-local:
-	-rm -r -f $(DEPDIR) */$(DEPDIR)
+	-rm -r -f $(DEPDIR) */$(DEPDIR) */*/$(DEPDIR)
 
 clean-local:
 	-rm stdafx.h.gch stdafx.h.gch.sum

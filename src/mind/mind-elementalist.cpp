@@ -33,6 +33,7 @@
 #include "mind/mind-explanations-table.h"
 #include "mind/mind-mindcrafter.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-flags3.h"
 #include "monster-race/race-flags7.h"
@@ -59,20 +60,21 @@
 #include "system/floor-type-definition.h"
 #include "system/game-option-types.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/grid-selector.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
-#include "util/buffer-shaper.h"
 #include "util/enum-converter.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
+#include "view/display-util.h"
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -369,7 +371,7 @@ concptr get_element_name(int realm_idx, int n)
  * @param spell_idx 呪文番号
  * @return 説明文
  */
-static concptr get_element_tip(PlayerType *player_ptr, int spell_idx)
+static std::string get_element_tip(PlayerType *player_ptr, int spell_idx)
 {
     auto realm = i2enum<ElementRealmType>(player_ptr->element);
     auto spell = i2enum<ElementSpells>(spell_idx);
@@ -407,10 +409,9 @@ static mind_type get_elemental_info(PlayerType *player_ptr, int spell_idx)
  * @brief 元素魔法呪文の効果表示文字列を取得
  * @param player_ptr プレイヤー情報への参照ポインタ
  * @param spell_idx 呪文番号
- * @param p バッファ
- * @return なし(pを更新)
+ * @return std::string 魔法の効果を表す文字列
  */
-void get_element_effect_info(PlayerType *player_ptr, int spell_idx, char *p)
+static std::string get_element_effect_info(PlayerType *player_ptr, int spell_idx)
 {
     PLAYER_LEVEL plev = player_ptr->lev;
     auto spell = i2enum<ElementSpells>(spell_idx);
@@ -418,51 +419,36 @@ void get_element_effect_info(PlayerType *player_ptr, int spell_idx, char *p)
 
     switch (spell) {
     case ElementSpells::BOLT_1ST:
-        sprintf(p, " %s%dd%d", KWD_DAM, 3 + ((plev - 1) / 5), 4);
-        break;
+        return format(" %s%dd%d", KWD_DAM, 3 + ((plev - 1) / 5), 4);
     case ElementSpells::CURE:
-        sprintf(p, " %s%dd%d", KWD_HEAL, 2, 8);
-        break;
+        return format(" %s%dd%d", KWD_HEAL, 2, 8);
     case ElementSpells::BOLT_2ND:
-        sprintf(p, " %s%dd%d", KWD_DAM, 8 + ((plev - 5) / 4), 8);
-        break;
+        return format(" %s%dd%d", KWD_DAM, 8 + ((plev - 5) / 4), 8);
     case ElementSpells::BALL_3RD:
-        sprintf(p, " %s%d", KWD_DAM, (50 + plev * 2));
-        break;
+        return format(" %s%d", KWD_DAM, (50 + plev * 2));
     case ElementSpells::BALL_1ST:
-        sprintf(p, " %s%d", KWD_DAM, 55 + plev);
-        break;
+        return format(" %s%d", KWD_DAM, 55 + plev);
     case ElementSpells::BREATH_2ND:
         dam = p_ptr->chp / 2;
-        sprintf(p, " %s%d", KWD_DAM, (dam > 150) ? 150 : dam);
-        break;
+        return format(" %s%d", KWD_DAM, (dam > 150) ? 150 : dam);
     case ElementSpells::ANNIHILATE:
-        sprintf(p, " %s%d", _("効力:", "pow "), 50 + plev);
-        break;
+        return format(" %s%d", _("効力:", "pow "), 50 + plev);
     case ElementSpells::BOLT_3RD:
-        sprintf(p, " %s%dd%d", KWD_DAM, 12 + ((plev - 5) / 4), 8);
-        break;
+        return format(" %s%dd%d", KWD_DAM, 12 + ((plev - 5) / 4), 8);
     case ElementSpells::WAVE_1ST:
-        sprintf(p, " %s50+d%d", KWD_DAM, plev * 3);
-        break;
+        return format(" %s50+d%d", KWD_DAM, plev * 3);
     case ElementSpells::BALL_2ND:
-        sprintf(p, " %s%d", KWD_DAM, 75 + plev * 3 / 2);
-        break;
+        return format(" %s%d", KWD_DAM, 75 + plev * 3 / 2);
     case ElementSpells::BURST_1ST:
-        sprintf(p, " %s%dd%d", KWD_DAM, 6 + plev / 8, 7);
-        break;
+        return format(" %s%dd%d", KWD_DAM, 6 + plev / 8, 7);
     case ElementSpells::STORM_2ND:
-        sprintf(p, " %s%d", KWD_DAM, 115 + plev * 5 / 2);
-        break;
+        return format(" %s%d", KWD_DAM, 115 + plev * 5 / 2);
     case ElementSpells::BREATH_1ST:
-        sprintf(p, " %s%d", KWD_DAM, p_ptr->chp * 2 / 3);
-        break;
+        return format(" %s%d", KWD_DAM, p_ptr->chp * 2 / 3);
     case ElementSpells::STORM_3ND:
-        sprintf(p, " %s%d", KWD_DAM, 300 + plev * 5);
-        break;
+        return format(" %s%d", KWD_DAM, 300 + plev * 5);
     default:
-        p[0] = '\0';
-        break;
+        return std::string();
     }
 }
 
@@ -587,7 +573,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
             int attempts = 1000;
             while (attempts--) {
                 scatter(player_ptr, &y, &x, player_ptr->y, player_ptr->x, 4, PROJECT_NONE);
-                if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, FloorFeatureType::PROJECT)) {
+                if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT)) {
                     continue;
                 }
                 if (!player_bold(player_ptr, y, x)) {
@@ -691,7 +677,7 @@ static MANA_POINT decide_element_mana_cost(PlayerType *player_ptr, mind_type spe
  * @param only_browse 閲覧モードかどうか
  * @return 選んだらTRUE、選ばなかったらFALSE
  */
-bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
+static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
 {
     SPELL_IDX i;
     int num = 0;
@@ -700,7 +686,6 @@ bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
     PLAYER_LEVEL plev = player_ptr->lev;
     char choice;
     char out_val[160];
-    char comment[80];
     COMMAND_CODE code;
     bool flag, redraw;
     int menu_line = (use_menu ? 1 : 0);
@@ -724,11 +709,11 @@ bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
     }
 
     if (only_browse) {
-        (void)strnfmt(out_val, 78, _("(%^s %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%^ss %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0),
+        (void)strnfmt(out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0),
             I2A(num - 1), p);
     } else {
         (void)strnfmt(
-            out_val, 78, _("(%^s %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%^ss %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0), I2A(num - 1), p);
+            out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0), I2A(num - 1), p);
     }
 
     if (use_menu && !only_browse) {
@@ -780,8 +765,6 @@ bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
         int spell_max = enum2i(ElementSpells::MAX);
         if ((choice == ' ') || (choice == '*') || (choice == '?') || (use_menu && should_redraw_cursor)) {
             if (!redraw || use_menu) {
-                char desc[80];
-                char name[80];
                 redraw = true;
                 if (!only_browse && !use_menu) {
                     screen_save();
@@ -800,21 +783,22 @@ bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_browse)
 
                     PERCENTAGE chance = decide_element_chance(player_ptr, spell);
                     int mana_cost = decide_element_mana_cost(player_ptr, spell);
-                    get_element_effect_info(player_ptr, i, comment);
+                    const auto comment = get_element_effect_info(player_ptr, i);
 
+                    std::string desc;
                     if (use_menu) {
                         if (i == (menu_line - 1)) {
-                            strcpy(desc, _("  》 ", "  >  "));
+                            desc = _("  》 ", "  >  ");
                         } else {
-                            strcpy(desc, "     ");
+                            desc = "     ";
                         }
                     } else {
-                        sprintf(desc, "  %c) ", I2A(i));
+                        desc = format("  %c) ", I2A(i));
                     }
 
                     concptr s = get_element_name(player_ptr->element, elem);
-                    sprintf(name, spell.name, s);
-                    strcat(desc, format("%-30s%2d %4d %3d%%%s", name, spell.min_lev, mana_cost, chance, comment));
+                    std::string name = format(spell.name, s);
+                    desc.append(format("%-30s%2d %4d %3d%%%s", name.data(), spell.min_lev, mana_cost, chance, comment.data()));
                     prt(desc, y + i + 1, x);
                 }
 
@@ -903,7 +887,7 @@ static bool try_cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx, 
         player_ptr->csp = std::max(0, player_ptr->csp - player_ptr->msp * 10 / (20 + randint1(10)));
 
         PlayerEnergy(player_ptr).set_player_turn_energy(100);
-        set_bits(player_ptr->redraw, PR_MANA);
+        set_bits(player_ptr->redraw, PR_MP);
         set_bits(player_ptr->window_flags, PW_PLAYER | PW_SPELL);
 
         return false;
@@ -943,7 +927,7 @@ void do_cmd_element(PlayerType *player_ptr)
         player_ptr->csp_frac = 0;
         msg_print(_("精神を集中しすぎて気を失ってしまった！", "You faint from the effort!"));
         (void)BadStatusSetter(player_ptr).mod_paralysis(randint1(5 * oops + 1));
-        chg_virtue(player_ptr, V_KNOWLEDGE, -10);
+        chg_virtue(player_ptr, Virtue::KNOWLEDGE, -10);
         if (randint0(100) < 50) {
             bool perm = (randint0(100) < 25);
             msg_print(_("体を悪くしてしまった！", "You have damaged your health!"));
@@ -952,7 +936,7 @@ void do_cmd_element(PlayerType *player_ptr)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    set_bits(player_ptr->redraw, PR_MANA);
+    set_bits(player_ptr->redraw, PR_MP);
     set_bits(player_ptr->window_flags, PW_PLAYER | PW_SPELL);
 }
 
@@ -963,7 +947,6 @@ void do_cmd_element(PlayerType *player_ptr)
 void do_cmd_element_browse(PlayerType *player_ptr)
 {
     SPELL_IDX n = 0;
-    char temp[62 * 5];
 
     screen_save();
     while (true) {
@@ -978,11 +961,7 @@ void do_cmd_element_browse(PlayerType *player_ptr)
         term_erase(12, 18, 255);
         term_erase(12, 17, 255);
         term_erase(12, 16, 255);
-        shape_buffer(get_element_tip(player_ptr, n), 62, temp, sizeof(temp));
-        for (int j = 0, line = 17; temp[j]; j += (1 + strlen(&temp[j]))) {
-            prt(&temp[j], line, 15);
-            line++;
-        }
+        display_wrap_around(get_element_tip(player_ptr, n), 62, 17, 15);
 
         prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
         (void)inkey();
@@ -995,7 +974,7 @@ void do_cmd_element_browse(PlayerType *player_ptr)
  * @param type 魔法攻撃属性
  * @return 効果があるならTRUE、なければFALSE
  */
-bool is_elemental_genocide_effective(monster_race *r_ptr, AttributeType type)
+bool is_elemental_genocide_effective(MonsterRaceInfo *r_ptr, AttributeType type)
 {
     switch (type) {
     case AttributeType::FIRE:
@@ -1067,7 +1046,7 @@ ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, effect_m
 
     if (!b) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%sには効果がなかった。", "%^s is unaffected."), em_ptr->m_name);
+            msg_format(_("%sには効果がなかった。", "%s^ is unaffected."), em_ptr->m_name);
         }
         em_ptr->dam = 0;
         return ProcessResult::PROCESS_TRUE;
@@ -1075,10 +1054,10 @@ ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, effect_m
 
     if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, !em_ptr->who, (em_ptr->r_ptr->level + 1) / 2, _("モンスター消滅", "Genocide One"))) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%sは消滅した！", "%^s disappeared!"), em_ptr->m_name);
+            msg_format(_("%sは消滅した！", "%s^ disappeared!"), em_ptr->m_name);
         }
         em_ptr->dam = 0;
-        chg_virtue(player_ptr, V_VITALITY, -1);
+        chg_virtue(player_ptr, Virtue::VITALITY, -1);
         return ProcessResult::PROCESS_TRUE;
     }
 
@@ -1113,7 +1092,6 @@ bool has_element_resist(PlayerType *player_ptr, ElementRealmType realm, PLAYER_L
  */
 static void display_realm_cursor(int i, int n, term_color_type color)
 {
-    char cur[80];
     char sym;
     concptr name;
     if (i == n) {
@@ -1123,9 +1101,8 @@ static void display_realm_cursor(int i, int n, term_color_type color)
         sym = I2A(i);
         name = element_types.at(i2enum<ElementRealmType>(i + 1)).title.data();
     }
-    sprintf(cur, "%c) %s", sym, name);
 
-    c_put_str(color, cur, 12 + (i / 5), 2 + 15 * (i % 5));
+    c_put_str(color, format("%c) %s", sym, name), 12 + (i / 5), 2 + 15 * (i % 5));
 }
 
 /*!
@@ -1180,8 +1157,7 @@ static int get_element_realm(PlayerType *player_ptr, int is, int n)
     int os = cs;
     int k;
 
-    char buf[80];
-    sprintf(buf, _("領域を選んで下さい(%c-%c) ('='初期オプション設定): ", "Choose a realm (%c-%c) ('=' for options): "), I2A(0), I2A(n - 1));
+    std::string buf = format(_("領域を選んで下さい(%c-%c) ('='初期オプション設定): ", "Choose a realm (%c-%c) ('=' for options): "), I2A(0), I2A(n - 1));
 
     while (true) {
         display_realm_cursor(os, n, TERM_WHITE);
@@ -1264,16 +1240,7 @@ byte select_element_realm(PlayerType *player_ptr)
         }
 
         auto realm = i2enum<ElementRealmType>(realm_idx);
-        char temp[80 * 5];
-        shape_buffer(element_texts.at(realm).data(), 74, temp, sizeof(temp));
-        concptr t = temp;
-        for (int i = 0; i < 5; i++) {
-            if (t[0] == 0) {
-                break;
-            }
-            prt(t, row + i, 3);
-            t += strlen(t) + 1;
-        }
+        display_wrap_around(element_texts.at(realm), 74, row, 3);
 
         if (get_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), CHECK_DEFAULT_Y)) {
             break;
@@ -1336,7 +1303,7 @@ void switch_element_racial(PlayerType *player_ptr, rc_type *rc_ptr)
         rc_ptr->add_power(rpi, RC_IDX_CLASS_1);
         break;
     case ElementRealmType::DARKNESS:
-        rpi = rpi_type(format(_("闇の扉", "Door to darkness"), 15 + plev / 2));
+        rpi = rpi_type(_("闇の扉", "Door to darkness"));
         rpi.info = format("%s%d", KWD_SPHERE, 15 + plev / 2);
         rpi.min_level = 5;
         rpi.cost = 5 + plev / 7;
@@ -1420,8 +1387,8 @@ bool switch_element_execution(PlayerType *player_ptr)
         (void)earthquake(player_ptr, player_ptr->y, player_ptr->x, 10, 0);
         break;
     case ElementRealmType::DEATH:
-        if (player_ptr->current_floor_ptr->num_repro <= MAX_REPRO) {
-            player_ptr->current_floor_ptr->num_repro += MAX_REPRO;
+        if (player_ptr->current_floor_ptr->num_repro <= MAX_REPRODUCTION) {
+            player_ptr->current_floor_ptr->num_repro += MAX_REPRODUCTION;
         }
         break;
     default:
@@ -1438,7 +1405,7 @@ bool switch_element_execution(PlayerType *player_ptr)
  * @param x 指定のx座標
  * @return 暗いならTRUE、そうでないならFALSE
  */
-static bool is_target_grid_dark(floor_type *f_ptr, POSITION y, POSITION x)
+static bool is_target_grid_dark(FloorType *f_ptr, POSITION y, POSITION x)
 {
     if (any_bits(f_ptr->grid_array[y][x].info, CAVE_MNLT)) {
         return false;
@@ -1462,17 +1429,17 @@ static bool is_target_grid_dark(floor_type *f_ptr, POSITION y, POSITION x)
             }
 
             POSITION d = distance(dy, dx, y, x);
-            auto *r_ptr = &r_info[f_ptr->m_list[m_idx].r_idx];
-            if (d <= 1 && any_bits(r_ptr->flags7, RF7_HAS_LITE_1 | RF7_SELF_LITE_1)) {
+            auto *r_ptr = &monraces_info[f_ptr->m_list[m_idx].r_idx];
+            if (d <= 1 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_1, MonsterBrightnessType::SELF_LITE_1 })) {
                 return false;
             }
-            if (d <= 2 && any_bits(r_ptr->flags7, RF7_HAS_LITE_2 | RF7_SELF_LITE_2)) {
+            if (d <= 2 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_2, MonsterBrightnessType::SELF_LITE_2 })) {
                 return false;
             }
-            if (d <= 1 && any_bits(r_ptr->flags7, RF7_HAS_DARK_1 | RF7_SELF_DARK_1)) {
+            if (d <= 1 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_1, MonsterBrightnessType::SELF_DARK_1 })) {
                 is_dark = true;
             }
-            if (d <= 2 && any_bits(r_ptr->flags7, RF7_HAS_DARK_2 | RF7_SELF_DARK_2)) {
+            if (d <= 2 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_2, MonsterBrightnessType::SELF_DARK_2 })) {
                 is_dark = true;
             }
         }
@@ -1489,7 +1456,7 @@ static bool door_to_darkness(PlayerType *player_ptr, POSITION dist)
 {
     POSITION y = player_ptr->y;
     POSITION x = player_ptr->x;
-    floor_type *f_ptr;
+    FloorType *f_ptr;
 
     for (int i = 0; i < 3; i++) {
         if (!tgt_pt(player_ptr, &x, &y)) {

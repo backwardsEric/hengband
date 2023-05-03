@@ -4,6 +4,8 @@
 
 #include "io/exit-panic.h"
 #include "system/angband.h"
+#include "term/gameterm.h"
+#include "term/z-form.h"
 
 #ifdef USE_CAP
 
@@ -255,7 +257,7 @@ static void do_cs(int y1, int y2)
 
 #ifdef USE_HARDCODE
     char temp[64];
-    sprintf(temp, cs, y1, y2);
+    strnfmt(temp, sizeof(temp), cs, y1, y2);
     tp(temp);
 #endif
 }
@@ -274,7 +276,7 @@ static void do_cm(int x, int y)
 
 #ifdef USE_HARDCODE
     char temp[64];
-    sprintf(temp, cm, y + 1, x + 1);
+    strnfmt(temp, sizeof(temp), cm, y + 1, x + 1);
     tp(temp);
 #endif
 }
@@ -331,10 +333,10 @@ errr init_cap_aux(void)
 
     /* Get the (initial) columns and rows, or default */
     if ((cols = tgetnum("co")) == -1) {
-        cols = 80;
+        cols = TERM_DEFAULT_COLS;
     }
     if ((rows = tgetnum("li")) == -1) {
-        rows = 24;
+        rows = TERM_DEFAULT_ROWS;
     }
 
     /* Find out how to move the cursor to a given location */
@@ -398,8 +400,8 @@ errr init_cap_aux(void)
 #ifdef USE_HARDCODE
 
     /* Assume some defualt information */
-    rows = 24;
-    cols = 80;
+    rows = TERM_DEFAULT_ROWS;
+    cols = TERM_DEFAULT_COLS;
 
     /* Clear screen */
     cl = "\033[2J\033[H"; /* --]--]-- */
@@ -800,7 +802,7 @@ static errr game_term_wipe_cap(int x, int y, int n)
     game_term_curs_cap(x, y);
 
     /* Wipe to end of line */
-    if (x + n >= 80) {
+    if (x + n >= MAIN_TERM_MIN_COLS) {
         do_ce();
     }
 
@@ -959,7 +961,7 @@ errr init_cap(void)
     }
 
     /* Hack -- Require large screen, or Quit with message */
-    if ((rows < 24) || (cols < 80)) {
+    if ((rows < MAIN_TERM_MIN_ROWS) || (cols < MAIN_TERM_MIN_COLS)) {
         quit("Screen too small!");
     }
 
@@ -980,7 +982,7 @@ errr init_cap(void)
     /*** Now prepare the term ***/
 
     /* Initialize the term */
-    term_init(t, 80, 24, 256);
+    term_init(t, TERM_DEFAULT_COLS, TERM_DEFAULT_ROWS, 256);
 
     /* Avoid the bottom right corner */
     t->icky_corner = true;

@@ -3,7 +3,6 @@
 #include "cmd-io/cmd-save.h"
 #include "core/disturbance.h"
 #include "core/magic-effects-timeout-reducer.h"
-#include "dungeon/dungeon.h"
 #include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
 #include "floor/wild.h"
@@ -11,7 +10,6 @@
 #include "game-option/cheat-options.h"
 #include "game-option/special-options.h"
 #include "game-option/text-display-options.h"
-#include "grid/feature.h"
 #include "hpmp/hp-mp-processor.h"
 #include "hpmp/hp-mp-regenerator.h"
 #include "inventory/inventory-curse.h"
@@ -31,10 +29,12 @@
 #include "store/store-owners.h"
 #include "store/store-util.h"
 #include "store/store.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "util/bit-flags-calculator.h"
@@ -103,16 +103,20 @@ void WorldTurnProcessor::process_world()
  */
 void WorldTurnProcessor::print_time()
 {
+    TERM_LEN width, height;
+    term_get_size(&width, &height);
+    const auto row = height + ROW_DAY;
+
     int day;
-    c_put_str(TERM_WHITE, "             ", ROW_DAY, COL_DAY);
+    c_put_str(TERM_WHITE, "             ", row, COL_DAY);
     extract_day_hour_min(this->player_ptr, &day, &this->hour, &this->min);
     if (day < 1000) {
-        c_put_str(TERM_WHITE, format(_("%2d日目", "Day%3d"), day), ROW_DAY, COL_DAY);
+        c_put_str(TERM_WHITE, format(_("%2d日目", "Day%3d"), day), row, COL_DAY);
     } else {
-        c_put_str(TERM_WHITE, _("***日目", "Day***"), ROW_DAY, COL_DAY);
+        c_put_str(TERM_WHITE, _("***日目", "Day***"), row, COL_DAY);
     }
 
-    c_put_str(TERM_WHITE, format("%2d:%02d", this->hour, this->min), ROW_DAY, COL_DAY + 7);
+    c_put_str(TERM_WHITE, format("%2d:%02d", this->hour, this->min), row, COL_DAY + 7);
 }
 
 void WorldTurnProcessor::process_downward()
@@ -168,10 +172,9 @@ void WorldTurnProcessor::process_monster_arena()
 
 void WorldTurnProcessor::process_monster_arena_winner(int win_m_idx)
 {
-    GAME_TEXT m_name[MAX_NLEN];
     auto *wm_ptr = &this->player_ptr->current_floor_ptr->m_list[win_m_idx];
-    monster_desc(this->player_ptr, m_name, wm_ptr, 0);
-    msg_format(_("%sが勝利した！", "%s won!"), m_name);
+    const auto m_name = monster_desc(this->player_ptr, wm_ptr, 0);
+    msg_format(_("%sが勝利した！", "%s won!"), m_name.data());
     msg_print(nullptr);
 
     if (win_m_idx == (sel_monster + 1)) {
@@ -281,8 +284,8 @@ void WorldTurnProcessor::shuffle_shopkeeper()
         }
     } while (true);
 
-    for (const auto &f_ref : f_info) {
-        if (f_ref.name.empty() || f_ref.flags.has_not(FloorFeatureType::STORE)) {
+    for (const auto &f_ref : terrains_info) {
+        if (f_ref.name.empty() || f_ref.flags.has_not(TerrainCharacteristics::STORE)) {
             continue;
         }
 
@@ -291,7 +294,7 @@ void WorldTurnProcessor::shuffle_shopkeeper()
         }
 
         if (cheat_xtra) {
-            msg_format(_("%sの店主をシャッフルします。", "Shuffle a Shopkeeper of %s."), f_ref.name.c_str());
+            msg_format(_("%sの店主をシャッフルします。", "Shuffle a Shopkeeper of %s."), f_ref.name.data());
         }
 
         store_shuffle(this->player_ptr, i2enum<StoreSaleType>(n));
@@ -302,12 +305,12 @@ void WorldTurnProcessor::shuffle_shopkeeper()
 void WorldTurnProcessor::decide_alloc_monster()
 {
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    auto should_alloc = one_in_(d_info[this->player_ptr->dungeon_idx].max_m_alloc_chance);
+    auto should_alloc = one_in_(dungeons_info[this->player_ptr->dungeon_idx].max_m_alloc_chance);
     should_alloc &= !floor_ptr->inside_arena;
     should_alloc &= !inside_quest(floor_ptr->quest_number);
     should_alloc &= !this->player_ptr->phase_out;
     if (should_alloc) {
-        (void)alloc_monster(this->player_ptr, MAX_SIGHT + 5, 0, summon_specific);
+        (void)alloc_monster(this->player_ptr, MAX_PLAYER_SIGHT + 5, 0, summon_specific);
     }
 }
 

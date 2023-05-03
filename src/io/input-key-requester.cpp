@@ -15,7 +15,7 @@
 #include "player-base/player-class.h"
 #include "save/save.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h" //!< @todo 相互依存している、後で何とかする.
 #include "util/int-char-converter.h"
@@ -76,7 +76,7 @@ void InputKeyRequestor::request_command()
 void InputKeyRequestor::input_command()
 {
     while (true) {
-        if (!macro_running() && !command_new && auto_debug_save && (!inkey_next || *inkey_next == '\0')) {
+        if (!this->shopping && !macro_running() && !command_new && auto_debug_save && (!inkey_next || *inkey_next == '\0')) {
             save_player(this->player_ptr, SaveType::DEBUG);
         }
 
@@ -319,18 +319,18 @@ void InputKeyRequestor::sweep_confirmation_equipments()
 {
     auto caret_command = this->get_caret_command();
     for (auto i = enum2i(INVEN_MAIN_HAND); i < INVEN_TOTAL; i++) {
-        auto &o_ref = this->player_ptr->inventory_list[i];
-        if ((o_ref.k_idx == 0) || (o_ref.inscription == 0)) {
+        auto &item = this->player_ptr->inventory_list[i];
+        if (!item.is_valid() || !item.is_inscribed()) {
             continue;
         }
 
-        this->confirm_command(o_ref, caret_command);
+        this->confirm_command(item, caret_command);
     }
 }
 
-void InputKeyRequestor::confirm_command(ObjectType &o_ref, const int caret_command)
+void InputKeyRequestor::confirm_command(ItemEntity &o_ref, const int caret_command)
 {
-    auto s = quark_str(o_ref.inscription);
+    auto s = o_ref.inscription->data();
     s = angband_strchr(s, '^');
     while (s) {
 #ifdef JP

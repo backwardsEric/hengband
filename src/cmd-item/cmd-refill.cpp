@@ -17,7 +17,7 @@
 #include "player/special-defense-types.h"
 #include "status/action-setter.h"
 #include "sv-definition/sv-lite-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -29,26 +29,26 @@
 static void do_cmd_refill_lamp(PlayerType *player_ptr)
 {
     OBJECT_IDX item;
-    ObjectType *o_ptr;
-    ObjectType *j_ptr;
+    ItemEntity *o_ptr;
+    ItemEntity *j_ptr;
     concptr q = _("どの油つぼから注ぎますか? ", "Refill with which flask? ");
     concptr s = _("油つぼがない。", "You have no flasks of oil.");
-    o_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ObjectType::can_refill_lantern));
+    o_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ItemEntity::can_refill_lantern));
     if (!o_ptr) {
         return;
     }
 
-    auto flgs = object_flags(o_ptr);
+    auto flags = object_flags(o_ptr);
 
     PlayerEnergy(player_ptr).set_player_turn_energy(50);
     j_ptr = &player_ptr->inventory_list[INVEN_LITE];
-    auto flgs2 = object_flags(j_ptr);
+    auto flags2 = object_flags(j_ptr);
     j_ptr->fuel += o_ptr->fuel;
     msg_print(_("ランプに油を注いだ。", "You fuel your lamp."));
-    if (flgs.has(TR_DARK_SOURCE) && (j_ptr->fuel > 0)) {
+    if (flags.has(TR_DARK_SOURCE) && (j_ptr->fuel > 0)) {
         j_ptr->fuel = 0;
         msg_print(_("ランプが消えてしまった！", "Your lamp has gone out!"));
-    } else if (flgs.has(TR_DARK_SOURCE) || flgs2.has(TR_DARK_SOURCE)) {
+    } else if (flags.has(TR_DARK_SOURCE) || flags2.has(TR_DARK_SOURCE)) {
         j_ptr->fuel = 0;
         msg_print(_("しかしランプは全く光らない。", "Curiously, your lamp doesn't light."));
     } else if (j_ptr->fuel >= FUEL_LAMP) {
@@ -67,26 +67,26 @@ static void do_cmd_refill_lamp(PlayerType *player_ptr)
 static void do_cmd_refill_torch(PlayerType *player_ptr)
 {
     OBJECT_IDX item;
-    ObjectType *o_ptr;
-    ObjectType *j_ptr;
+    ItemEntity *o_ptr;
+    ItemEntity *j_ptr;
     concptr q = _("どの松明で明かりを強めますか? ", "Refuel with which torch? ");
     concptr s = _("他に松明がない。", "You have no extra torches.");
-    o_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ObjectType::can_refill_torch));
+    o_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR, FuncItemTester(&ItemEntity::can_refill_torch));
     if (!o_ptr) {
         return;
     }
 
-    auto flgs = object_flags(o_ptr);
+    auto flags = object_flags(o_ptr);
 
     PlayerEnergy(player_ptr).set_player_turn_energy(50);
     j_ptr = &player_ptr->inventory_list[INVEN_LITE];
-    auto flgs2 = object_flags(j_ptr);
+    auto flags2 = object_flags(j_ptr);
     j_ptr->fuel += o_ptr->fuel + 5;
     msg_print(_("松明を結合した。", "You combine the torches."));
-    if (flgs.has(TR_DARK_SOURCE) && (j_ptr->fuel > 0)) {
+    if (flags.has(TR_DARK_SOURCE) && (j_ptr->fuel > 0)) {
         j_ptr->fuel = 0;
         msg_print(_("松明が消えてしまった！", "Your torch has gone out!"));
-    } else if (flgs.has(TR_DARK_SOURCE) || flgs2.has(TR_DARK_SOURCE)) {
+    } else if (flags.has(TR_DARK_SOURCE) || flags2.has(TR_DARK_SOURCE)) {
         j_ptr->fuel = 0;
         msg_print(_("しかし松明は全く光らない。", "Curiously, your torch doesn't light."));
     } else if (j_ptr->fuel >= FUEL_TORCH) {
@@ -106,16 +106,14 @@ static void do_cmd_refill_torch(PlayerType *player_ptr)
  */
 void do_cmd_refill(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
-    o_ptr = &player_ptr->inventory_list[INVEN_LITE];
-
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
-
-    if (o_ptr->tval != ItemKindType::LITE) {
+    const auto *o_ptr = &player_ptr->inventory_list[INVEN_LITE];
+    const auto &bi_key = o_ptr->bi_key;
+    if (bi_key.tval() != ItemKindType::LITE) {
         msg_print(_("光源を装備していない。", "You are not wielding a light."));
-    } else if (o_ptr->sval == SV_LITE_LANTERN) {
+    } else if (bi_key.sval() == SV_LITE_LANTERN) {
         do_cmd_refill_lamp(player_ptr);
-    } else if (o_ptr->sval == SV_LITE_TORCH) {
+    } else if (bi_key.sval() == SV_LITE_TORCH) {
         do_cmd_refill_torch(player_ptr);
     } else {
         msg_print(_("この光源は寿命を延ばせない。", "Your light cannot be refilled."));

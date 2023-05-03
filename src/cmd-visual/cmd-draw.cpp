@@ -15,6 +15,7 @@
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -40,17 +41,17 @@ void do_cmd_redraw(PlayerType *player_ptr)
 {
     term_xtra(TERM_XTRA_REACT, 0);
 
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
+    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
     player_ptr->update |= (PU_TORCH);
-    player_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+    player_ptr->update |= (PU_BONUS | PU_HP | PU_MP | PU_SPELLS);
     player_ptr->update |= (PU_UN_VIEW | PU_UN_LITE);
-    player_ptr->update |= (PU_VIEW | PU_LITE | PU_MON_LITE);
-    player_ptr->update |= (PU_MONSTERS);
+    player_ptr->update |= (PU_VIEW | PU_LITE | PU_MONSTER_LITE);
+    player_ptr->update |= (PU_MONSTER_STATUSES);
 
     player_ptr->redraw |= (PR_WIPE | PR_BASIC | PR_EXTRA | PR_MAP | PR_EQUIPPY);
 
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP | PW_SPELL | PW_PLAYER);
-    player_ptr->window_flags |= (PW_MESSAGE | PW_OVERHEAD | PW_DUNGEON | PW_MONSTER | PW_OBJECT);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT | PW_SPELL | PW_PLAYER);
+    player_ptr->window_flags |= (PW_MESSAGE | PW_OVERHEAD | PW_DUNGEON | PW_MONSTER_LORE | PW_ITEM_KNOWLEDGTE);
 
     update_playtime();
     handle_stuff(player_ptr);
@@ -59,12 +60,12 @@ void do_cmd_redraw(PlayerType *player_ptr)
     }
 
     term_type *old = game_term;
-    for (int j = 0; j < 8; j++) {
-        if (!angband_term[j]) {
+    for (auto i = 0U; i < angband_terms.size(); ++i) {
+        if (!angband_terms[i]) {
             continue;
         }
 
-        term_activate(angband_term[j]);
+        term_activate(angband_terms[i]);
         term_redraw();
         term_fresh();
         term_activate(old);
@@ -80,6 +81,8 @@ void do_cmd_player_status(PlayerType *player_ptr)
     char tmp[160];
     screen_save();
     while (true) {
+        TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
+
         update_playtime();
         (void)display_player(player_ptr, mode);
 
@@ -99,7 +102,7 @@ void do_cmd_player_status(PlayerType *player_ptr)
             get_name(player_ptr);
             process_player_name(player_ptr);
         } else if (c == 'f') {
-            sprintf(tmp, "%s.txt", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.txt", player_ptr->base_name);
             if (get_string(_("ファイル名: ", "File name: "), tmp, 80)) {
                 if (tmp[0] && (tmp[0] != ' ')) {
                     update_playtime();

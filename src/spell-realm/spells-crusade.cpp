@@ -62,7 +62,7 @@ bool cast_wrath_of_the_god(PlayerType *player_ptr, int dam, POSITION rad)
         if (get_max_range(player_ptr) <= distance(player_ptr->y, player_ptr->x, ny, nx)) {
             break;
         }
-        if (!cave_has_flag_bold(player_ptr->current_floor_ptr, ny, nx, FloorFeatureType::PROJECT)) {
+        if (!cave_has_flag_bold(player_ptr->current_floor_ptr, ny, nx, TerrainCharacteristics::PROJECT)) {
             break;
         }
         if ((dir != 5) && player_ptr->current_floor_ptr->grid_array[ny][nx].m_idx != 0) {
@@ -142,7 +142,7 @@ bool set_tim_sh_holy(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->tim_sh_holy = v;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (!notice) {
         return false;
@@ -190,7 +190,7 @@ bool set_tim_eyeeye(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->tim_eyeeye = v;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (!notice) {
         return false;

@@ -13,8 +13,8 @@
 #include "monster/monster-status.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -48,7 +48,7 @@ ProcessResult effect_monster_old_clone(PlayerType *player_ptr, effect_monster_ty
     }
 
     bool has_resistance = (player_ptr->current_floor_ptr->inside_arena);
-    has_resistance |= is_pet(em_ptr->m_ptr);
+    has_resistance |= em_ptr->m_ptr->is_pet();
     has_resistance |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
     has_resistance |= any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
     has_resistance |= em_ptr->r_ptr->population_flags.has(MonsterPopulationType::NAZGUL);
@@ -79,7 +79,7 @@ ProcessResult effect_monster_star_heal(PlayerType *player_ptr, effect_monster_ty
 
     if (em_ptr->m_ptr->maxhp < em_ptr->m_ptr->max_maxhp) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%^sの強さが戻った。", "%^s recovers %s vitality."), em_ptr->m_name, em_ptr->m_poss);
+            msg_print(_(format("%s^の強さが戻った。", em_ptr->m_name), format("%s^ recovers %s vitality.", em_ptr->m_name, em_ptr->m_poss)));
         }
         em_ptr->m_ptr->maxhp = em_ptr->m_ptr->max_maxhp;
     }
@@ -106,47 +106,47 @@ static void effect_monster_old_heal_check_player(PlayerType *player_ptr, effect_
         return;
     }
 
-    chg_virtue(player_ptr, V_VITALITY, 1);
+    chg_virtue(player_ptr, Virtue::VITALITY, 1);
     if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-        chg_virtue(player_ptr, V_INDIVIDUALISM, 1);
+        chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
     }
 
-    if (is_friendly(em_ptr->m_ptr)) {
-        chg_virtue(player_ptr, V_HONOUR, 1);
+    if (em_ptr->m_ptr->is_friendly()) {
+        chg_virtue(player_ptr, Virtue::HONOUR, 1);
     } else if (em_ptr->r_ptr->kind_flags.has_not(MonsterKindType::EVIL)) {
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
-            chg_virtue(player_ptr, V_COMPASSION, 2);
+            chg_virtue(player_ptr, Virtue::COMPASSION, 2);
         } else {
-            chg_virtue(player_ptr, V_COMPASSION, 1);
+            chg_virtue(player_ptr, Virtue::COMPASSION, 1);
         }
     }
 
     if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL)) {
-        chg_virtue(player_ptr, V_NATURE, 1);
+        chg_virtue(player_ptr, Virtue::NATURE, 1);
     }
 }
 
 static void effect_monster_old_heal_recovery(PlayerType *player_ptr, effect_monster_type *em_ptr)
 {
-    if (monster_stunned_remaining(em_ptr->m_ptr)) {
+    if (em_ptr->m_ptr->get_remaining_stun()) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%^sは朦朧状態から立ち直った。", "%^s is no longer stunned."), em_ptr->m_name);
+            msg_format(_("%s^は朦朧状態から立ち直った。", "%s^ is no longer stunned."), em_ptr->m_name);
         }
 
         (void)set_monster_stunned(player_ptr, em_ptr->g_ptr->m_idx, 0);
     }
 
-    if (monster_confused_remaining(em_ptr->m_ptr)) {
+    if (em_ptr->m_ptr->is_confused()) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%^sは混乱から立ち直った。", "%^s is no longer confused."), em_ptr->m_name);
+            msg_format(_("%s^は混乱から立ち直った。", "%s^ is no longer confused."), em_ptr->m_name);
         }
 
         (void)set_monster_confused(player_ptr, em_ptr->g_ptr->m_idx, 0);
     }
 
-    if (monster_fear_remaining(em_ptr->m_ptr)) {
+    if (em_ptr->m_ptr->is_fearful()) {
         if (em_ptr->seen_msg) {
-            msg_format(_("%^sは勇気を取り戻した。", "%^s recovers %s courage."), em_ptr->m_name, em_ptr->m_poss);
+            msg_print(_(format("%s^は勇気を取り戻した。", em_ptr->m_name), format("%s^ recovers %s courage.", em_ptr->m_name, em_ptr->m_poss)));
         }
 
         (void)set_monster_monfear(player_ptr, em_ptr->g_ptr->m_idx, 0);
@@ -173,7 +173,7 @@ ProcessResult effect_monster_old_heal(PlayerType *player_ptr, effect_monster_typ
     if (em_ptr->m_ptr->r_idx == MonsterRaceId::LEPER) {
         em_ptr->heal_leper = true;
         if (!em_ptr->who) {
-            chg_virtue(player_ptr, V_COMPASSION, 5);
+            chg_virtue(player_ptr, Virtue::COMPASSION, 5);
         }
     }
 
@@ -195,16 +195,16 @@ ProcessResult effect_monster_old_speed(PlayerType *player_ptr, effect_monster_ty
         em_ptr->obvious = true;
     }
 
-    if (set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, monster_fast_remaining(em_ptr->m_ptr) + 100)) {
+    if (set_monster_fast(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_acceleration() + 100)) {
         em_ptr->note = _("の動きが速くなった。", " starts moving faster.");
     }
 
     if (!em_ptr->who) {
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-            chg_virtue(player_ptr, V_INDIVIDUALISM, 1);
+            chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
         }
-        if (is_friendly(em_ptr->m_ptr)) {
-            chg_virtue(player_ptr, V_HONOUR, 1);
+        if (em_ptr->m_ptr->is_friendly()) {
+            chg_virtue(player_ptr, Virtue::HONOUR, 1);
         }
     }
 
@@ -229,7 +229,7 @@ ProcessResult effect_monster_old_slow(PlayerType *player_ptr, effect_monster_typ
         return ProcessResult::PROCESS_CONTINUE;
     }
 
-    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, monster_slow_remaining(em_ptr->m_ptr) + 50)) {
+    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_deceleration() + 50)) {
         em_ptr->note = _("の動きが遅くなった。", " starts moving slower.");
     }
 
@@ -238,7 +238,7 @@ ProcessResult effect_monster_old_slow(PlayerType *player_ptr, effect_monster_typ
 }
 
 /*!
- * @todo 「ユニークは (魔法では)常に眠らない」はr_infoの趣旨に反すると思われる
+ * @todo 「ユニークは (魔法では)常に眠らない」はMonsterRaceDefinitionの趣旨に反すると思われる
  * 眠る確率を半分にするとかしておいた方が良さそう
  */
 ProcessResult effect_monster_old_sleep(PlayerType *player_ptr, effect_monster_type *em_ptr)
@@ -270,7 +270,7 @@ ProcessResult effect_monster_old_sleep(PlayerType *player_ptr, effect_monster_ty
 }
 
 /*!
- * @todo 「ユニークは (魔法では)常に混乱しない」はr_infoの趣旨に反すると思われる
+ * @todo 「ユニークは (魔法では)常に混乱しない」はMonsterRaceDefinitionの趣旨に反すると思われる
  * 眠る確率を半分にするとかしておいた方が良さそう
  */
 ProcessResult effect_monster_old_conf(PlayerType *player_ptr, effect_monster_type *em_ptr)

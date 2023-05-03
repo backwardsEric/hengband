@@ -6,6 +6,7 @@
 #include "flavor/object-flavor-types.h"
 #include "flavor/object-flavor.h"
 #include "game-option/special-options.h"
+#include "grid/feature.h"
 #include "io/files-util.h"
 #include "io/input-key-acceptor.h"
 #include "io/read-pref-file.h"
@@ -15,12 +16,14 @@
 #include "knowledge/lighting-level-table.h"
 #include "main/sound-of-music.h"
 #include "monster-race/monster-race.h"
-#include "object/object-kind.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/angband-files.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
@@ -36,7 +39,7 @@ static bool cmd_visuals_aux(int i, IDX *num, IDX max)
 {
     if (iscntrl(i)) {
         char str[10] = "";
-        sprintf(str, "%d", *num);
+        strnfmt(str, sizeof(str), "%d", *num);
         if (!get_string(format("Input new number(0-%d): ", max - 1), str, 4)) {
             return false;
         }
@@ -102,7 +105,7 @@ void do_cmd_visuals(PlayerType *player_ptr)
         case '0': {
             prt(_("コマンド: ユーザー設定ファイルのロード", "Command: Load a user pref file"), 15, 0);
             prt(_("ファイル: ", "File: "), 17, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
@@ -112,27 +115,27 @@ void do_cmd_visuals(PlayerType *player_ptr)
             break;
         }
         case '1': {
-            static concptr mark = "Monster attr/chars";
             prt(_("コマンド: モンスターの[色/文字]をファイルに書き出します", "Command: Dump monster attr/chars"), 15, 0);
             prt(_("ファイル: ", "File: "), 17, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
 
             path_build(buf, sizeof(buf), ANGBAND_DIR_USER, tmp);
+            constexpr auto mark = "Monster attr/chars";
             if (!open_auto_dump(&auto_dump_stream, buf, mark)) {
                 continue;
             }
 
             auto_dump_printf(auto_dump_stream, _("\n# モンスターの[色/文字]の設定\n\n", "\n# Monster attr/char definitions\n\n"));
-            for (const auto &[r_idx, r_ref] : r_info) {
+            for (const auto &[r_idx, r_ref] : monraces_info) {
                 if (r_ref.name.empty()) {
                     continue;
                 }
 
-                auto_dump_printf(auto_dump_stream, "# %s\n", r_ref.name.c_str());
-                auto_dump_printf(auto_dump_stream, "R:%d:0x%02X/0x%02X\n\n", r_ref.idx, (byte)(r_ref.x_attr), (byte)(r_ref.x_char));
+                auto_dump_printf(auto_dump_stream, "# %s\n", r_ref.name.data());
+                auto_dump_printf(auto_dump_stream, "R:%d:0x%02X/0x%02X\n\n", enum2i(r_ref.idx), (byte)(r_ref.x_attr), (byte)(r_ref.x_char));
             }
 
             close_auto_dump(&auto_dump_stream, mark);
@@ -140,41 +143,36 @@ void do_cmd_visuals(PlayerType *player_ptr)
             break;
         }
         case '2': {
-            static concptr mark = "Object attr/chars";
             prt(_("コマンド: アイテムの[色/文字]をファイルに書き出します", "Command: Dump object attr/chars"), 15, 0);
             prt(_("ファイル: ", "File: "), 17, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
 
             path_build(buf, sizeof(buf), ANGBAND_DIR_USER, tmp);
+            constexpr auto mark = "Object attr/chars";
             if (!open_auto_dump(&auto_dump_stream, buf, mark)) {
                 continue;
             }
 
             auto_dump_printf(auto_dump_stream, _("\n# アイテムの[色/文字]の設定\n\n", "\n# Object attr/char definitions\n\n"));
-            for (const auto &k_ref : k_info) {
-                if (k_ref.name.empty()) {
+            for (const auto &baseitem : baseitems_info) {
+                if (baseitem.name.empty()) {
                     continue;
                 }
 
-                std::string o_name("");
-                GAME_TEXT char_o_name[MAX_NLEN]{};
-                if (!k_ref.flavor) {
-                    o_name = strip_name(k_ref.idx);
+                std::string item_name;
+                if (baseitem.flavor == 0) {
+                    item_name = strip_name(baseitem.idx);
                 } else {
-                    ObjectType dummy;
-                    dummy.prep(k_ref.idx);
-                    describe_flavor(player_ptr, char_o_name, &dummy, OD_FORCE_FLAVOR);
+                    ItemEntity dummy;
+                    dummy.prep(baseitem.idx);
+                    item_name = describe_flavor(player_ptr, &dummy, OD_FORCE_FLAVOR);
                 }
 
-                if (o_name == "") {
-                    o_name = char_o_name;
-                }
-
-                auto_dump_printf(auto_dump_stream, "# %s\n", o_name.data());
-                auto_dump_printf(auto_dump_stream, "K:%d:0x%02X/0x%02X\n\n", (int)k_ref.idx, (byte)(k_ref.x_attr), (byte)(k_ref.x_char));
+                auto_dump_printf(auto_dump_stream, "# %s\n", item_name.data());
+                auto_dump_printf(auto_dump_stream, "K:%d:0x%02X/0x%02X\n\n", (int)baseitem.idx, (byte)(baseitem.x_attr), (byte)(baseitem.x_char));
             }
 
             close_auto_dump(&auto_dump_stream, mark);
@@ -182,21 +180,21 @@ void do_cmd_visuals(PlayerType *player_ptr)
             break;
         }
         case '3': {
-            static concptr mark = "Feature attr/chars";
             prt(_("コマンド: 地形の[色/文字]をファイルに書き出します", "Command: Dump feature attr/chars"), 15, 0);
             prt(_("ファイル: ", "File: "), 17, 0);
-            sprintf(tmp, "%s.prf", player_ptr->base_name);
+            strnfmt(tmp, sizeof(tmp), "%s.prf", player_ptr->base_name);
             if (!askfor(tmp, 70)) {
                 continue;
             }
 
             path_build(buf, sizeof(buf), ANGBAND_DIR_USER, tmp);
+            constexpr auto mark = "Feature attr/chars";
             if (!open_auto_dump(&auto_dump_stream, buf, mark)) {
                 continue;
             }
 
             auto_dump_printf(auto_dump_stream, _("\n# 地形の[色/文字]の設定\n\n", "\n# Feature attr/char definitions\n\n"));
-            for (const auto &f_ref : f_info) {
+            for (const auto &f_ref : terrains_info) {
                 if (f_ref.name.empty()) {
                     continue;
                 }
@@ -204,7 +202,7 @@ void do_cmd_visuals(PlayerType *player_ptr)
                     continue;
                 }
 
-                auto_dump_printf(auto_dump_stream, "# %s\n", (f_ref.name.c_str()));
+                auto_dump_printf(auto_dump_stream, "# %s\n", (f_ref.name.data()));
                 auto_dump_printf(auto_dump_stream, "F:%d:0x%02X/0x%02X:0x%02X/0x%02X:0x%02X/0x%02X\n\n", f_ref.idx, (byte)(f_ref.x_attr[F_LIT_STANDARD]),
                     (byte)(f_ref.x_char[F_LIT_STANDARD]), (byte)(f_ref.x_attr[F_LIT_LITE]), (byte)(f_ref.x_char[F_LIT_LITE]),
                     (byte)(f_ref.x_attr[F_LIT_DARK]), (byte)(f_ref.x_char[F_LIT_DARK]));
@@ -217,10 +215,10 @@ void do_cmd_visuals(PlayerType *player_ptr)
         case '4': {
             IDX num = 0;
             static concptr choice_msg = _("モンスターの[色/文字]を変更します", "Change monster attr/chars");
-            static MonsterRaceId r = r_info.begin()->second.idx;
+            static MonsterRaceId r = monraces_info.begin()->second.idx;
             prt(format(_("コマンド: %s", "Command: %s"), choice_msg), 15, 0);
             while (true) {
-                auto *r_ptr = &r_info[r];
+                auto *r_ptr = &monraces_info[r];
                 int c;
                 IDX t;
 
@@ -229,7 +227,7 @@ void do_cmd_visuals(PlayerType *player_ptr)
                 TERM_COLOR ca = r_ptr->x_attr;
                 byte cc = r_ptr->x_char;
 
-                term_putstr(5, 17, -1, TERM_WHITE, format(_("モンスター = %d, 名前 = %-40.40s", "Monster = %d, Name = %-40.40s"), r, r_ptr->name.c_str()));
+                term_putstr(5, 17, -1, TERM_WHITE, format(_("モンスター = %d, 名前 = %-40.40s", "Monster = %d, Name = %-40.40s"), enum2i(r), r_ptr->name.data()));
                 term_putstr(10, 19, -1, TERM_WHITE, format(_("初期値  色 / 文字 = %3u / %3u", "Default attr/char = %3u / %3u"), da, dc));
                 term_putstr(40, 19, -1, TERM_WHITE, empty_symbol);
                 term_queue_bigchar(43, 19, da, dc, 0, 0);
@@ -254,12 +252,12 @@ void do_cmd_visuals(PlayerType *player_ptr)
                 case 'n': {
                     auto prev_r = r;
                     do {
-                        if (!cmd_visuals_aux(i, &num, static_cast<IDX>(r_info.size()))) {
+                        if (!cmd_visuals_aux(i, &num, static_cast<IDX>(monraces_info.size()))) {
                             r = prev_r;
                             break;
                         }
                         r = i2enum<MonsterRaceId>(num);
-                    } while (r_info[r].name.empty());
+                    } while (monraces_info[r].name.empty());
                 }
 
                 break;
@@ -287,21 +285,21 @@ void do_cmd_visuals(PlayerType *player_ptr)
         }
         case '5': {
             static concptr choice_msg = _("アイテムの[色/文字]を変更します", "Change object attr/chars");
-            static IDX k = 0;
+            static short k = 0;
             prt(format(_("コマンド: %s", "Command: %s"), choice_msg), 15, 0);
             while (true) {
-                auto *k_ptr = &k_info[k];
+                auto &baseitem = baseitems_info[k];
                 int c;
                 IDX t;
 
-                TERM_COLOR da = k_ptr->d_attr;
-                auto dc = k_ptr->d_char;
-                TERM_COLOR ca = k_ptr->x_attr;
-                auto cc = k_ptr->x_char;
+                TERM_COLOR da = baseitem.d_attr;
+                auto dc = baseitem.d_char;
+                TERM_COLOR ca = baseitem.x_attr;
+                auto cc = baseitem.x_char;
 
                 term_putstr(5, 17, -1, TERM_WHITE,
                     format(
-                        _("アイテム = %d, 名前 = %-40.40s", "Object = %d, Name = %-40.40s"), k, (!k_ptr->flavor ? k_ptr->name : k_ptr->flavor_name).c_str()));
+                        _("アイテム = %d, 名前 = %-40.40s", "Object = %d, Name = %-40.40s"), k, (!baseitem.flavor ? baseitem.name : baseitem.flavor_name).data()));
                 term_putstr(10, 19, -1, TERM_WHITE, format(_("初期値  色 / 文字 = %3d / %3d", "Default attr/char = %3d / %3d"), da, dc));
                 term_putstr(40, 19, -1, TERM_WHITE, empty_symbol);
                 term_queue_bigchar(43, 19, da, dc, 0, 0);
@@ -325,26 +323,26 @@ void do_cmd_visuals(PlayerType *player_ptr)
 
                 switch (c) {
                 case 'n': {
-                    IDX prev_k = k;
+                    short prev_k = k;
                     do {
-                        if (!cmd_visuals_aux(i, &k, static_cast<IDX>(k_info.size()))) {
+                        if (!cmd_visuals_aux(i, &k, static_cast<short>(baseitems_info.size()))) {
                             k = prev_k;
                             break;
                         }
-                    } while (k_info[k].name.empty());
+                    } while (baseitems_info[k].name.empty());
                 }
 
                 break;
                 case 'a':
-                    t = (int)k_ptr->x_attr;
+                    t = (int)baseitem.x_attr;
                     (void)cmd_visuals_aux(i, &t, 256);
-                    k_ptr->x_attr = (byte)t;
+                    baseitem.x_attr = (byte)t;
                     need_redraw = true;
                     break;
                 case 'c':
-                    t = (int)k_ptr->x_char;
+                    t = (int)baseitem.x_char;
                     (void)cmd_visuals_aux(i, &t, 256);
-                    k_ptr->x_char = (byte)t;
+                    baseitem.x_char = (byte)t;
                     need_redraw = true;
                     break;
                 case 'v':
@@ -363,7 +361,7 @@ void do_cmd_visuals(PlayerType *player_ptr)
             static IDX lighting_level = F_LIT_STANDARD;
             prt(format(_("コマンド: %s", "Command: %s"), choice_msg), 15, 0);
             while (true) {
-                auto *f_ptr = &f_info[f];
+                auto *f_ptr = &terrains_info[f];
                 int c;
                 IDX t;
 
@@ -374,7 +372,7 @@ void do_cmd_visuals(PlayerType *player_ptr)
 
                 prt("", 17, 5);
                 term_putstr(5, 17, -1, TERM_WHITE,
-                    format(_("地形 = %d, 名前 = %s, 明度 = %s", "Terrain = %d, Name = %s, Lighting = %s"), f, (f_ptr->name.c_str()),
+                    format(_("地形 = %d, 名前 = %s, 明度 = %s", "Terrain = %d, Name = %s, Lighting = %s"), f, (f_ptr->name.data()),
                         lighting_level_str[lighting_level]));
                 term_putstr(10, 19, -1, TERM_WHITE, format(_("初期値  色 / 文字 = %3d / %3d", "Default attr/char = %3d / %3d"), da, dc));
                 term_putstr(40, 19, -1, TERM_WHITE, empty_symbol);
@@ -402,11 +400,11 @@ void do_cmd_visuals(PlayerType *player_ptr)
                 case 'n': {
                     IDX prev_f = f;
                     do {
-                        if (!cmd_visuals_aux(i, &f, static_cast<IDX>(f_info.size()))) {
+                        if (!cmd_visuals_aux(i, &f, static_cast<IDX>(terrains_info.size()))) {
                             f = prev_f;
                             break;
                         }
-                    } while (f_info[f].name.empty() || (f_info[f].mimic != f));
+                    } while (terrains_info[f].name.empty() || (terrains_info[f].mimic != f));
                 }
 
                 break;

@@ -20,9 +20,10 @@ enum class PlayerSkillKindType;
 enum class MimicKindType;
 enum class MonsterAbilityType;
 enum class MonsterRaceId : int16_t;
+enum class Virtue : short;
 
-struct floor_type;
-class ObjectType;
+class FloorType;
+class ItemEntity;
 class TimedEffects;
 class PlayerType {
 public:
@@ -33,7 +34,7 @@ public:
     int player_euid{};
     int player_egid{};
 
-    floor_type *current_floor_ptr{};
+    FloorType *current_floor_ptr{};
     POSITION oldpy{}; /* Previous player location -KMW- */
     POSITION oldpx{}; /* Previous player location -KMW- */
 
@@ -149,7 +150,7 @@ public:
     EnumClassFlagGroup<PlayerMutationType> muta{}; /*!< 突然変異 / mutations */
 
     int16_t virtues[8]{};
-    int16_t vir_types[8]{};
+    Virtue vir_types[8]{};
 
     TIME_EFFECT word_recall{}; /* Word of recall counter */
     TIME_EFFECT alter_reality{}; /* Alter reality counter */
@@ -225,7 +226,7 @@ public:
     byte feeling{}; /* Most recent dungeon feeling */
     int32_t feeling_turn{}; /* The turn of the last dungeon feeling */
 
-    std::shared_ptr<ObjectType[]> inventory_list{}; /* The player's inventory */
+    std::shared_ptr<ItemEntity[]> inventory_list{}; /* The player's inventory */
     int16_t inven_cnt{}; /* Number of items in inventory */
     int16_t equip_cnt{}; /* Number of items in equipment */
 
@@ -249,7 +250,7 @@ public:
 
     MonsterRaceId monster_race_idx{}; /* Monster race trackee */
 
-    KIND_OBJECT_IDX object_kind_idx{}; /* Object kind trackee */
+    short tracking_bi_id{}; /* Object kind trackee */
 
     int16_t new_spells{}; /* Number of spells available */
     int16_t old_spells{};

@@ -1,11 +1,9 @@
 ﻿#include "spell-kind/spells-detection.h"
 #include "core/window-redrawer.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "floor/cave.h"
 #include "floor/floor-save-util.h"
 #include "floor/geometry.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "grid/trap.h"
 #include "monster-race/monster-race-hook.h"
@@ -21,11 +19,13 @@
 #include "realm/realm-song-numbers.h"
 #include "realm/realm-song.h"
 #include "spell-realm/spells-song.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 
@@ -37,9 +37,9 @@
  * @param known 地形から危険フラグを外すならTRUE
  * @return 効力があった場合TRUEを返す
  */
-static bool detect_feat_flag(PlayerType *player_ptr, POSITION range, FloorFeatureType flag, bool known)
+static bool detect_feat_flag(PlayerType *player_ptr, POSITION range, TerrainCharacteristics flag, bool known)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
@@ -52,7 +52,7 @@ static bool detect_feat_flag(PlayerType *player_ptr, POSITION range, FloorFeatur
                 continue;
             }
             g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-            if (flag == FloorFeatureType::TRAP) {
+            if (flag == TerrainCharacteristics::TRAP) {
                 /* Mark as detected */
                 if (dist <= range && known) {
                     if (dist <= range - 1) {
@@ -88,9 +88,9 @@ static bool detect_feat_flag(PlayerType *player_ptr, POSITION range, FloorFeatur
  */
 bool detect_traps(PlayerType *player_ptr, POSITION range, bool known)
 {
-    bool detect = detect_feat_flag(player_ptr, range, FloorFeatureType::TRAP, known);
+    bool detect = detect_feat_flag(player_ptr, range, TerrainCharacteristics::TRAP, known);
     if (!known && detect) {
-        detect_feat_flag(player_ptr, range, FloorFeatureType::TRAP, true);
+        detect_feat_flag(player_ptr, range, TerrainCharacteristics::TRAP, true);
     }
 
     if (known || detect) {
@@ -116,7 +116,7 @@ bool detect_traps(PlayerType *player_ptr, POSITION range, bool known)
  */
 bool detect_doors(PlayerType *player_ptr, POSITION range)
 {
-    bool detect = detect_feat_flag(player_ptr, range, FloorFeatureType::DOOR, true);
+    bool detect = detect_feat_flag(player_ptr, range, TerrainCharacteristics::DOOR, true);
 
     if (music_singing(player_ptr, MUSIC_DETECT) && get_singing_count(player_ptr) > 0) {
         detect = false;
@@ -136,7 +136,7 @@ bool detect_doors(PlayerType *player_ptr, POSITION range)
  */
 bool detect_stairs(PlayerType *player_ptr, POSITION range)
 {
-    bool detect = detect_feat_flag(player_ptr, range, FloorFeatureType::STAIRS, true);
+    bool detect = detect_feat_flag(player_ptr, range, TerrainCharacteristics::STAIRS, true);
 
     if (music_singing(player_ptr, MUSIC_DETECT) && get_singing_count(player_ptr) > 0) {
         detect = false;
@@ -156,7 +156,7 @@ bool detect_stairs(PlayerType *player_ptr, POSITION range)
  */
 bool detect_treasure(PlayerType *player_ptr, POSITION range)
 {
-    bool detect = detect_feat_flag(player_ptr, range, FloorFeatureType::HAS_GOLD, true);
+    bool detect = detect_feat_flag(player_ptr, range, TerrainCharacteristics::HAS_GOLD, true);
 
     if (music_singing(player_ptr, MUSIC_DETECT) && get_singing_count(player_ptr) > 6) {
         detect = false;
@@ -176,7 +176,7 @@ bool detect_treasure(PlayerType *player_ptr, POSITION range)
 bool detect_objects_gold(PlayerType *player_ptr, POSITION range)
 {
     POSITION range2 = range;
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range2 /= 3;
     }
 
@@ -199,8 +199,8 @@ bool detect_objects_gold(PlayerType *player_ptr, POSITION range)
             continue;
         }
 
-        if (o_ptr->tval == ItemKindType::GOLD) {
-            o_ptr->marked |= OM_FOUND;
+        if (o_ptr->bi_key.tval() == ItemKindType::GOLD) {
+            o_ptr->marked.set(OmType::FOUND);
             lite_spot(player_ptr, y, x);
             detect = true;
         }
@@ -229,7 +229,7 @@ bool detect_objects_gold(PlayerType *player_ptr, POSITION range)
 bool detect_objects_normal(PlayerType *player_ptr, POSITION range)
 {
     POSITION range2 = range;
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range2 /= 3;
     }
 
@@ -251,8 +251,8 @@ bool detect_objects_normal(PlayerType *player_ptr, POSITION range)
             continue;
         }
 
-        if (o_ptr->tval != ItemKindType::GOLD) {
-            o_ptr->marked |= OM_FOUND;
+        if (o_ptr->bi_key.tval() != ItemKindType::GOLD) {
+            o_ptr->marked.set(OmType::FOUND);
             lite_spot(player_ptr, y, x);
             detect = true;
         }
@@ -262,6 +262,7 @@ bool detect_objects_normal(PlayerType *player_ptr, POSITION range)
         detect = false;
     }
     if (detect) {
+        player_ptr->window_flags |= PW_FOUND_ITEMS;
         msg_print(_("アイテムの存在を感じとった！", "You sense the presence of objects!"));
     }
 
@@ -272,54 +273,59 @@ bool detect_objects_normal(PlayerType *player_ptr, POSITION range)
     return detect;
 }
 
+static bool is_object_magically(const ItemKindType tval)
+{
+    switch (tval) {
+    case ItemKindType::WHISTLE:
+    case ItemKindType::AMULET:
+    case ItemKindType::RING:
+    case ItemKindType::STAFF:
+    case ItemKindType::WAND:
+    case ItemKindType::ROD:
+    case ItemKindType::SCROLL:
+    case ItemKindType::POTION:
+        return true;
+    default:
+        return false;
+    }
+}
+
 /*!
- * @brief 魔法効果のあるのアイテムオブジェクトを感知する / Detect all "magic" objects on the current panel.
+ * @brief 魔法効果のあるのアイテムオブジェクトを感知する
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param range 効果範囲
- * @return 効力があった場合TRUEを返す
- * @details
- * <pre>
- * This will light up all spaces with "magic" items, including artifacts,
- * ego-items, potions, scrolls, books, rods, wands, staffs, amulets, rings,
- * and "enchanted" items of the "good" variety.
- *
- * It can probably be argued that this function is now too powerful.
- * </pre>
+ * @return 1つ以上感知したか否か
  */
 bool detect_objects_magic(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
-    ItemKindType tv;
-    bool detect = false;
+    auto detect = false;
     for (OBJECT_IDX i = 1; i < player_ptr->current_floor_ptr->o_max; i++) {
         auto *o_ptr = &player_ptr->current_floor_ptr->o_list[i];
-
-        if (!o_ptr->is_valid()) {
-            continue;
-        }
-        if (o_ptr->is_held_by_monster()) {
+        if (!o_ptr->is_valid() || o_ptr->is_held_by_monster()) {
             continue;
         }
 
-        POSITION y = o_ptr->iy;
-        POSITION x = o_ptr->ix;
-
+        auto y = o_ptr->iy;
+        auto x = o_ptr->ix;
         if (distance(player_ptr->y, player_ptr->x, y, x) > range) {
             continue;
         }
 
-        tv = o_ptr->tval;
-        if (o_ptr->is_artifact() || o_ptr->is_ego() || (tv == ItemKindType::WHISTLE) || (tv == ItemKindType::AMULET) || (tv == ItemKindType::RING) || (tv == ItemKindType::STAFF) || (tv == ItemKindType::WAND) || (tv == ItemKindType::ROD) || (tv == ItemKindType::SCROLL) || (tv == ItemKindType::POTION) || (tv == ItemKindType::LIFE_BOOK) || (tv == ItemKindType::SORCERY_BOOK) || (tv == ItemKindType::NATURE_BOOK) || (tv == ItemKindType::CHAOS_BOOK) || (tv == ItemKindType::DEATH_BOOK) || (tv == ItemKindType::TRUMP_BOOK) || (tv == ItemKindType::ARCANE_BOOK) || (tv == ItemKindType::CRAFT_BOOK) || (tv == ItemKindType::DEMON_BOOK) || (tv == ItemKindType::CRUSADE_BOOK) || (tv == ItemKindType::MUSIC_BOOK) || (tv == ItemKindType::HISSATSU_BOOK) || (tv == ItemKindType::HEX_BOOK) || ((o_ptr->to_a > 0) || (o_ptr->to_h + o_ptr->to_d > 0))) {
-            o_ptr->marked |= OM_FOUND;
+        auto has_bonus = o_ptr->to_a > 0;
+        has_bonus |= o_ptr->to_h + o_ptr->to_d > 0;
+        if (o_ptr->is_fixed_or_random_artifact() || o_ptr->is_ego() || is_object_magically(o_ptr->bi_key.tval()) || o_ptr->is_spell_book() || has_bonus) {
+            o_ptr->marked.set(OmType::FOUND);
             lite_spot(player_ptr, y, x);
             detect = true;
         }
     }
 
     if (detect) {
+        player_ptr->window_flags |= PW_FOUND_ITEMS;
         msg_print(_("魔法のアイテムの存在を感じとった！", "You sense the presence of magic objects!"));
     }
 
@@ -334,15 +340,15 @@ bool detect_objects_magic(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_normal(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -377,16 +383,16 @@ bool detect_monsters_normal(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_invis(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -399,7 +405,7 @@ bool detect_monsters_invis(PlayerType *player_ptr, POSITION range)
 
         if (r_ptr->flags2 & RF2_INVISIBLE) {
             if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-                player_ptr->window_flags |= (PW_MONSTER);
+                player_ptr->window_flags |= (PW_MONSTER_LORE);
             }
 
             m_ptr->mflag2.set({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW });
@@ -426,15 +432,15 @@ bool detect_monsters_invis(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_evil(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -446,10 +452,10 @@ bool detect_monsters_evil(PlayerType *player_ptr, POSITION range)
         }
 
         if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
-            if (is_original_ap(m_ptr)) {
+            if (m_ptr->is_original_ap()) {
                 r_ptr->r_kind_flags.set(MonsterKindType::EVIL);
                 if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-                    player_ptr->window_flags |= (PW_MONSTER);
+                    player_ptr->window_flags |= (PW_MONSTER_LORE);
                 }
             }
 
@@ -474,14 +480,14 @@ bool detect_monsters_evil(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_nonliving(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -493,7 +499,7 @@ bool detect_monsters_nonliving(PlayerType *player_ptr, POSITION range)
 
         if (!monster_living(m_ptr->r_idx)) {
             if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-                player_ptr->window_flags |= (PW_MONSTER);
+                player_ptr->window_flags |= (PW_MONSTER_LORE);
             }
 
             m_ptr->mflag2.set({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW });
@@ -517,15 +523,15 @@ bool detect_monsters_nonliving(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_mind(PlayerType *player_ptr, POSITION range)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -538,7 +544,7 @@ bool detect_monsters_mind(PlayerType *player_ptr, POSITION range)
 
         if (!(r_ptr->flags2 & RF2_EMPTY_MIND)) {
             if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-                player_ptr->window_flags |= (PW_MONSTER);
+                player_ptr->window_flags |= (PW_MONSTER_LORE);
             }
 
             m_ptr->mflag2.set({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW });
@@ -563,15 +569,15 @@ bool detect_monsters_mind(PlayerType *player_ptr, POSITION range)
  */
 bool detect_monsters_string(PlayerType *player_ptr, POSITION range, concptr Match)
 {
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS)) {
         range /= 3;
     }
 
     bool flag = false;
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
-        if (!monster_is_valid(m_ptr)) {
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -584,7 +590,7 @@ bool detect_monsters_string(PlayerType *player_ptr, POSITION range, concptr Matc
 
         if (angband_strchr(Match, r_ptr->d_char)) {
             if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-                player_ptr->window_flags |= (PW_MONSTER);
+                player_ptr->window_flags |= (PW_MONSTER_LORE);
             }
 
             m_ptr->mflag2.set({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW });

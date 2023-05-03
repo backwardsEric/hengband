@@ -9,7 +9,7 @@
 #include "object/object-value.h"
 #include "store/store-owners.h"
 #include "store/store.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/object-sort.h"
 #include <stdint.h>
@@ -27,7 +27,7 @@
  * Also note that it may not correctly "adapt" to "knowledge" bacoming
  * known, the player may have to pick stuff up and drop it again.
  */
-static void home_carry_load(PlayerType *player_ptr, store_type *store_ptr, ObjectType *o_ptr)
+static void home_carry_load(PlayerType *player_ptr, store_type *store_ptr, ItemEntity *o_ptr)
 {
     for (auto i = 0; i < store_ptr->stock_num; i++) {
         auto *j_ptr = &store_ptr->stock[i];
@@ -43,7 +43,7 @@ static void home_carry_load(PlayerType *player_ptr, store_type *store_ptr, Objec
         return;
     }
 
-    auto value = object_value(o_ptr);
+    const auto value = o_ptr->get_price();
     int slot;
     for (slot = 0; slot < store_ptr->stock_num; slot++) {
         if (object_sort_comp(player_ptr, o_ptr, value, &store_ptr->stock[slot])) {
@@ -57,7 +57,7 @@ static void home_carry_load(PlayerType *player_ptr, store_type *store_ptr, Objec
 
     store_ptr->stock_num++;
     store_ptr->stock[slot] = *o_ptr;
-    chg_virtue(player_ptr, V_SACRIFICE, -1);
+    chg_virtue(player_ptr, Virtue::SACRIFICE, -1);
 }
 
 /*!
@@ -72,12 +72,12 @@ static void rd_store(PlayerType *player_ptr, int town_number, int store_number)
     store_type *store_ptr;
     auto sort = false;
     if (h_older_than(0, 3, 3) && (i2enum<StoreSaleType>(store_number) == StoreSaleType::HOME)) {
-        store_ptr = &town_info[1].store[store_number];
+        store_ptr = &towns_info[1].store[store_number];
         if (store_ptr->stock_num) {
             sort = true;
         }
     } else {
-        store_ptr = &town_info[town_number].store[store_number];
+        store_ptr = &towns_info[town_number].store[store_number];
     }
 
     store_ptr->store_open = rd_s32b();
@@ -102,7 +102,7 @@ static void rd_store(PlayerType *player_ptr, int town_number, int store_number)
 
     auto item_loader = ItemLoaderFactory::create_loader();
     for (int j = 0; j < inven_num; j++) {
-        ObjectType item;
+        ItemEntity item;
         item_loader->rd_item(&item);
         auto stock_max = store_get_stock_max(i2enum<StoreSaleType>(store_number));
         if (store_ptr->stock_num >= stock_max) {

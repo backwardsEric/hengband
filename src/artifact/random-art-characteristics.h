@@ -4,8 +4,10 @@
  * @brief ランダムアーティファクトのバイアス付加処理ヘッダ
  */
 
-class ObjectType;
+#include <string>
+
+class ItemEntity;
 class PlayerType;
-void curse_artifact(PlayerType *player_ptr, ObjectType *o_ptr);
-void get_random_name(ObjectType *o_ptr, char *return_name, bool armour, int power);
-bool has_extreme_damage_rate(PlayerType *player_ptr, ObjectType *o_ptr);
+void curse_artifact(PlayerType *player_ptr, ItemEntity *o_ptr);
+std::string get_random_name(const ItemEntity &item, bool armour, int power);
+bool has_extreme_damage_rate(PlayerType *player_ptr, ItemEntity *o_ptr);

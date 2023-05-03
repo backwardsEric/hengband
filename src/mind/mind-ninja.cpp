@@ -13,7 +13,6 @@
 #include "floor/floor-util.h"
 #include "floor/geometry.h"
 #include "game-option/disturbance-options.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
 #include "mind/mind-mirror-master.h"
@@ -48,12 +47,14 @@
 #include "status/body-improvement.h"
 #include "status/element-resistance.h"
 #include "status/temporary-resistance.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -79,7 +80,7 @@ bool kawarimi(PlayerType *player_ptr, bool success)
         return false;
     }
 
-    ObjectType forge;
+    ItemEntity forge;
     auto *q_ptr = &forge;
     if (player_ptr->is_dead) {
         return false;
@@ -101,7 +102,7 @@ bool kawarimi(PlayerType *player_ptr, bool success)
     if (!success && one_in_(3)) {
         msg_print(_("変わり身失敗！逃げられなかった。", "Kawarimi failed! You couldn't run away."));
         ninja_data->kawarimi = false;
-        player_ptr->redraw |= (PR_STATUS);
+        player_ptr->redraw |= (PR_TIMED_EFFECT);
         return false;
     }
 
@@ -110,8 +111,8 @@ bool kawarimi(PlayerType *player_ptr, bool success)
 
     teleport_player(player_ptr, 10 + randint1(90), TELEPORT_SPONTANEOUS);
     q_ptr->wipe();
-    const int SV_WOODEN_STATUE = 0;
-    q_ptr->prep(lookup_kind(ItemKindType::STATUE, SV_WOODEN_STATUE));
+    const int sv_wooden_statue = 0;
+    q_ptr->prep(lookup_baseitem_id({ ItemKindType::STATUE, sv_wooden_statue }));
 
     q_ptr->pval = enum2i(MonsterRaceId::NINJA);
     (void)drop_near(player_ptr, q_ptr, -1, y, x);
@@ -123,7 +124,7 @@ bool kawarimi(PlayerType *player_ptr, bool success)
     }
 
     ninja_data->kawarimi = false;
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
     return true;
 }
 
@@ -170,7 +171,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
     bool tmp_mdeath = false;
     bool moved = false;
     for (const auto &[ny, nx] : path_g) {
-        monster_type *m_ptr;
+        MonsterEntity *m_ptr;
 
         if (is_cave_empty_bold(player_ptr, ny, nx) && player_can_enter(player_ptr, floor_ptr->grid_array[ny][nx].feat, 0)) {
             ty = ny;
@@ -201,9 +202,8 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
             msg_format("There is %s in the way!", m_ptr->ml ? (tm_idx ? "another monster" : "a monster") : "someone");
 #endif
         } else if (!player_bold(player_ptr, ty, tx)) {
-            GAME_TEXT m_name[MAX_NLEN];
-            monster_desc(player_ptr, m_name, m_ptr, 0);
-            msg_format(_("素早く%sの懐に入り込んだ！", "You quickly jump in and attack %s!"), m_name);
+            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+            msg_format(_("素早く%sの懐に入り込んだ！", "You quickly jump in and attack %s!"), m_name.data());
         }
 
         if (!player_bold(player_ptr, ty, tx)) {
@@ -232,7 +232,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
  */
 void process_surprise_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if (!has_melee_weapon(player_ptr, enum2i(INVEN_MAIN_HAND) + pa_ptr->hand) || player_ptr->is_icky_wield[pa_ptr->hand]) {
         return;
     }
@@ -249,13 +249,13 @@ void process_surprise_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
     }
 
     auto ninja_data = PlayerClass(player_ptr).get_specific_data<ninja_data_type>();
-    if (monster_csleep_remaining(pa_ptr->m_ptr) && pa_ptr->m_ptr->ml) {
+    if (pa_ptr->m_ptr->is_asleep() && pa_ptr->m_ptr->ml) {
         /* Can't backstab creatures that we can't see, right? */
         pa_ptr->backstab = true;
     } else if ((ninja_data && ninja_data->s_stealth) && (randint0(tmp) > (r_ptr->level + 20)) &&
                pa_ptr->m_ptr->ml && !r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
         pa_ptr->surprise_attack = true;
-    } else if (monster_fear_remaining(pa_ptr->m_ptr) && pa_ptr->m_ptr->ml) {
+    } else if (pa_ptr->m_ptr->is_fearful() && pa_ptr->m_ptr->ml) {
         pa_ptr->stab_fleeing = true;
     }
 }
@@ -310,9 +310,9 @@ bool hayagake(PlayerType *player_ptr)
     }
 
     auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x];
-    auto *f_ptr = &f_info[g_ptr->feat];
+    auto *f_ptr = &terrains_info[g_ptr->feat];
 
-    if (f_ptr->flags.has_not(FloorFeatureType::PROJECT) || (!player_ptr->levitation && f_ptr->flags.has(FloorFeatureType::DEEP))) {
+    if (f_ptr->flags.has_not(TerrainCharacteristics::PROJECT) || (!player_ptr->levitation && f_ptr->flags.has(TerrainCharacteristics::DEEP))) {
         msg_print(_("ここでは素早く動けない。", "You cannot run in here."));
     } else {
         set_action(player_ptr, ACTION_HAYAGAKE);
@@ -360,7 +360,7 @@ bool set_superstealth(PlayerType *player_ptr, bool set)
     if (!notice) {
         return false;
     }
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 
     if (disturb_state) {
         disturb(player_ptr, false, false);
@@ -409,7 +409,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
         if (ninja_data && !ninja_data->kawarimi) {
             msg_print(_("敵の攻撃に対して敏感になった。", "You are now prepared to evade any attacks."));
             ninja_data->kawarimi = true;
-            player_ptr->redraw |= (PR_STATUS);
+            player_ptr->redraw |= (PR_TIMED_EFFECT);
         }
 
         break;
@@ -446,7 +446,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
             OBJECT_IDX slot;
 
             for (slot = 0; slot < INVEN_PACK; slot++) {
-                if (player_ptr->inventory_list[slot].tval == ItemKindType::SPIKE) {
+                if (player_ptr->inventory_list[slot].bi_key.tval() == ItemKindType::SPIKE) {
                     break;
                 }
             }

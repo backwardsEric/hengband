@@ -11,8 +11,8 @@
 #include "monster-race/race-flags1.h"
 #include "monster/monster-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h" //!< @todo 違和感、m_ptr は外から与えることとしたい.
+#include "system/monster-entity.h" //!< @todo 違和感、m_ptr は外から与えることとしたい.
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 
 template <class T>
@@ -34,7 +34,7 @@ static int count_lore_mflag_group(const EnumClassFlagGroup<T> &flags, const Enum
 int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     int n = 0;
-    auto *r_ptr = &r_info[r_idx];
+    auto *r_ptr = &monraces_info[r_idx];
     if (r_ptr->r_wake != MAX_UCHAR) {
         n++;
     }
@@ -105,7 +105,7 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
     r_ptr->r_can_evolve = true;
 
     if (player_ptr->monster_race_idx == r_idx) {
-        player_ptr->window_flags |= (PW_MONSTER);
+        player_ptr->window_flags |= (PW_MONSTER_LORE);
     }
 
     return n;
@@ -121,9 +121,9 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
 void lore_treasure(PlayerType *player_ptr, MONSTER_IDX m_idx, ITEM_NUMBER num_item, ITEM_NUMBER num_gold)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
-    if (!is_original_ap(m_ptr)) {
+    if (!m_ptr->is_original_ap()) {
         return;
     }
 
@@ -141,6 +141,6 @@ void lore_treasure(PlayerType *player_ptr, MONSTER_IDX m_idx, ITEM_NUMBER num_it
         r_ptr->r_drop_flags.set(MonsterDropType::DROP_GREAT);
     }
     if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-        player_ptr->window_flags |= (PW_MONSTER);
+        player_ptr->window_flags |= (PW_MONSTER_LORE);
     }
 }

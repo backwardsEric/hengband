@@ -24,13 +24,12 @@
 #include "player/player-status-flags.h"
 #include "player/special-defense-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/term-color-types.h"
+#include "term/z-form.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-util.h"
-
-static TERM_COLOR likert_color = TERM_WHITE;
 
 /*!
  * @brief
@@ -39,17 +38,17 @@ static TERM_COLOR likert_color = TERM_WHITE;
  * @param shots 射撃回数
  * @param shot_frac 射撃速度
  */
-static void calc_shot_params(PlayerType *player_ptr, ObjectType *o_ptr, int *shots, int *shot_frac)
+static void calc_shot_params(PlayerType *player_ptr, ItemEntity *o_ptr, int *shots, int *shot_frac)
 {
-    if (o_ptr->k_idx == 0) {
+    if (!o_ptr->is_valid()) {
         return;
     }
 
-    ENERGY energy_fire = bow_energy(o_ptr->sval);
+    const auto energy_fire = o_ptr->get_bow_energy();
     *shots = player_ptr->num_fire * 100;
     *shot_frac = ((*shots) * 100 / energy_fire) % 100;
     *shots = (*shots) / energy_fire;
-    if (o_ptr->fixed_artifact_idx != FixedArtifactId::CRIMSON) {
+    if (!o_ptr->is_specific_artifact(FixedArtifactId::CRIMSON)) {
         return;
     }
 
@@ -79,7 +78,7 @@ static void calc_shot_params(PlayerType *player_ptr, ObjectType *o_ptr, int *sho
  * @param o_ptr 装備中の武器への参照ポインタ
  * @return 利き手ならTRUE、反対の手ならFALSE
  */
-static bool calc_weapon_damage_limit(PlayerType *player_ptr, int hand, int *damage, int *basedam, ObjectType *o_ptr)
+static bool calc_weapon_damage_limit(PlayerType *player_ptr, int hand, int *damage, int *basedam, ItemEntity *o_ptr)
 {
     PLAYER_LEVEL level = player_ptr->lev;
     if (hand > 0) {
@@ -101,7 +100,7 @@ static bool calc_weapon_damage_limit(PlayerType *player_ptr, int hand, int *dama
     }
 
     damage[hand] += *basedam;
-    if ((o_ptr->tval == ItemKindType::SWORD) && (o_ptr->sval == SV_POISON_NEEDLE)) {
+    if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) {
         damage[hand] = 1;
     }
     if (damage[hand] < 0) {
@@ -119,15 +118,15 @@ static bool calc_weapon_damage_limit(PlayerType *player_ptr, int hand, int *dama
  * @param basedam 素手における直接攻撃のダメージ
  * @return 素手ならFALSE、武器を持っていればTRUE
  */
-static bool calc_weapon_one_hand(ObjectType *o_ptr, int hand, int *damage, int *basedam)
+static bool calc_weapon_one_hand(ItemEntity *o_ptr, int hand, int *damage, int *basedam)
 {
-    if (o_ptr->k_idx == 0) {
+    if (!o_ptr->is_valid()) {
         return false;
     }
 
     *basedam = 0;
     damage[hand] += *basedam;
-    if ((o_ptr->tval == ItemKindType::SWORD) && (o_ptr->sval == SV_POISON_NEEDLE)) {
+    if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) {
         damage[hand] = 1;
     }
 
@@ -143,19 +142,19 @@ static bool calc_weapon_one_hand(ObjectType *o_ptr, int hand, int *damage, int *
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param o_ptr 装備中の武器への参照ポインタ
  * @param basedam 素手における直接攻撃のダメージ
- * @param flgs オブジェクトフラグ群
+ * @param flags オブジェクトフラグ群
  * @return 強化後の素手ダメージ
  * @todo ヴォーパル計算処理が building-craft-weapon::compare_weapon_aux() と多重実装.
  */
-static int strengthen_basedam(PlayerType *player_ptr, ObjectType *o_ptr, int basedam, const TrFlags &flgs)
+static int strengthen_basedam(PlayerType *player_ptr, ItemEntity *o_ptr, int basedam, const TrFlags &flags)
 {
-    const auto is_vorpal_blade = o_ptr->fixed_artifact_idx == FixedArtifactId::VORPAL_BLADE;
-    const auto is_chainsword = o_ptr->fixed_artifact_idx == FixedArtifactId::CHAINSWORD;
+    const auto is_vorpal_blade = o_ptr->is_specific_artifact(FixedArtifactId::VORPAL_BLADE);
+    const auto is_chainsword = o_ptr->is_specific_artifact(FixedArtifactId::CHAINSWORD);
     if (o_ptr->is_fully_known() && (is_vorpal_blade || is_chainsword)) {
         /* vorpal blade */
         basedam *= 5;
         basedam /= 3;
-    } else if (flgs.has(TR_VORPAL)) {
+    } else if (flags.has(TR_VORPAL)) {
         /* vorpal flag only */
         basedam *= 11;
         basedam /= 9;
@@ -163,7 +162,7 @@ static int strengthen_basedam(PlayerType *player_ptr, ObjectType *o_ptr, int bas
 
     // 理力
     bool is_force = !PlayerClass(player_ptr).equals(PlayerClassType::SAMURAI);
-    is_force &= flgs.has(TR_FORCE_WEAPON);
+    is_force &= flags.has(TR_FORCE_WEAPON);
     is_force &= player_ptr->csp > (o_ptr->dd * o_ptr->ds / 5);
     if (is_force) {
         basedam = basedam * 7 / 2;
@@ -177,86 +176,64 @@ static int strengthen_basedam(PlayerType *player_ptr, ObjectType *o_ptr, int bas
  * Returns a "rating" of x depending on y
  * @param x 技能値
  * @param y 技能値に対するランク基準比
+ * @return スキル レベルのテキスト説明とその説明のカラー インデックスのペア
  */
-static concptr likert(int x, int y)
+static std::pair<std::string, TERM_COLOR> likert(int x, int y)
 {
-    static char dummy[20] = "", dummy2[20] = "";
-    memset(dummy, 0, strlen(dummy));
-    memset(dummy2, 0, strlen(dummy2));
-    if (y <= 0) {
-        y = 1;
-    }
+    std::string desc;
 
     if (show_actual_value) {
-        sprintf(dummy, "%3d-", x);
+        desc = format("%3d-", x);
     }
 
     if (x < 0) {
-        likert_color = TERM_L_DARK;
-        strcat(dummy, _("最低", "Very Bad"));
-        return dummy;
+        return make_pair(desc.append(_("最低", "Very Bad")), TERM_L_DARK);
+    }
+
+    if (y <= 0) {
+        y = 1;
     }
 
     switch ((x / y)) {
     case 0:
     case 1: {
-        likert_color = TERM_RED;
-        strcat(dummy, _("悪い", "Bad"));
-        break;
+        return make_pair(desc.append(_("悪い", "Bad")), TERM_RED);
     }
     case 2: {
-        likert_color = TERM_L_RED;
-        strcat(dummy, _("劣る", "Poor"));
-        break;
+        return make_pair(desc.append(_("劣る", "Poor")), TERM_L_RED);
     }
     case 3:
     case 4: {
-        likert_color = TERM_ORANGE;
-        strcat(dummy, _("普通", "Fair"));
-        break;
+        return make_pair(desc.append(_("普通", "Fair")), TERM_ORANGE);
     }
     case 5: {
-        likert_color = TERM_YELLOW;
-        strcat(dummy, _("良い", "Good"));
-        break;
+        return make_pair(desc.append(_("良い", "Good")), TERM_YELLOW);
     }
     case 6: {
-        likert_color = TERM_YELLOW;
-        strcat(dummy, _("大変良い", "Very Good"));
-        break;
+        return make_pair(desc.append(_("大変良い", "Very Good")), TERM_YELLOW);
     }
     case 7:
     case 8: {
-        likert_color = TERM_L_GREEN;
-        strcat(dummy, _("卓越", "Excellent"));
-        break;
+        return make_pair(desc.append(_("卓越", "Excellent")), TERM_L_GREEN);
     }
     case 9:
     case 10:
     case 11:
     case 12:
     case 13: {
-        likert_color = TERM_GREEN;
-        strcat(dummy, _("超越", "Superb"));
-        break;
+        return make_pair(desc.append(_("超越", "Superb")), TERM_GREEN);
     }
     case 14:
     case 15:
     case 16:
     case 17: {
-        likert_color = TERM_BLUE;
-        strcat(dummy, _("英雄的", "Heroic"));
-        break;
+        return make_pair(desc.append(_("英雄的", "Heroic")), TERM_BLUE);
     }
     default: {
-        likert_color = TERM_VIOLET;
-        sprintf(dummy2, _("伝説的[%d]", "Legendary[%d]"), (int)((((x / y) - 17) * 5) / 2));
-        strcat(dummy, dummy2);
-        break;
+        desc.append(format(_("伝説的[%d]", "Legendary[%d]"), (int)((((x / y) - 17) * 5) / 2)));
+        return make_pair(desc, TERM_VIOLET);
     }
     }
-
-    return dummy;
 }
 
 /*!
@@ -267,7 +244,7 @@ static concptr likert(int x, int y)
  */
 static void calc_two_hands(PlayerType *player_ptr, int *damage, int *to_h)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = &player_ptr->inventory_list[INVEN_BOW];
 
     for (int i = 0; i < 2; i++) {
@@ -288,23 +265,24 @@ static void calc_two_hands(PlayerType *player_ptr, int *damage, int *to_h)
         }
 
         to_h[i] = 0;
-        bool poison_needle = false;
-        if ((o_ptr->tval == ItemKindType::SWORD) && (o_ptr->sval == SV_POISON_NEEDLE)) {
+        auto poison_needle = false;
+        if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) {
             poison_needle = true;
         }
+
         if (o_ptr->is_known()) {
             damage[i] += o_ptr->to_d * 100;
             to_h[i] += o_ptr->to_h;
         }
 
         basedam = ((o_ptr->dd + player_ptr->to_dd[i]) * (o_ptr->ds + player_ptr->to_ds[i] + 1)) * 50;
-        auto flgs = object_flags_known(o_ptr);
+        auto flags = object_flags_known(o_ptr);
 
         bool impact = player_ptr->impact != 0;
         basedam = calc_expect_crit(player_ptr, o_ptr->weight, to_h[i], basedam, player_ptr->dis_to_h[i], poison_needle, impact);
-        basedam = strengthen_basedam(player_ptr, o_ptr, basedam, flgs);
+        basedam = strengthen_basedam(player_ptr, o_ptr, basedam, flags);
         damage[i] += basedam;
-        if ((o_ptr->tval == ItemKindType::SWORD) && (o_ptr->sval == SV_POISON_NEEDLE)) {
+        if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) {
             damage[i] = 1;
         }
         if (damage[i] < 0) {
@@ -353,35 +331,32 @@ static void display_first_page(PlayerType *player_ptr, int xthb, int *damage, in
     int xfos = player_ptr->skill_fos;
     int xdig = player_ptr->skill_dig;
 
-    concptr desc = likert(xthn, 12);
-    display_player_one_line(ENTRY_SKILL_FIGHT, desc, likert_color);
+    auto sd = likert(xthn, 12);
+    display_player_one_line(ENTRY_SKILL_FIGHT, sd.first, sd.second);
 
-    desc = likert(xthb, 12);
-    display_player_one_line(ENTRY_SKILL_SHOOT, desc, likert_color);
+    sd = likert(xthb, 12);
+    display_player_one_line(ENTRY_SKILL_SHOOT, sd.first, sd.second);
 
-    desc = likert(xsav, 7);
-    display_player_one_line(ENTRY_SKILL_SAVING, desc, likert_color);
+    sd = likert(xsav, 7);
+    display_player_one_line(ENTRY_SKILL_SAVING, sd.first, sd.second);
 
-    desc = likert((xstl > 0) ? xstl : -1, 1);
-    display_player_one_line(ENTRY_SKILL_STEALTH, desc, likert_color);
+    sd = likert((xstl > 0) ? xstl : -1, 1);
+    display_player_one_line(ENTRY_SKILL_STEALTH, sd.first, sd.second);
 
-    desc = likert(xfos, 6);
-    display_player_one_line(ENTRY_SKILL_PERCEP, desc, likert_color);
+    sd = likert(xfos, 6);
+    display_player_one_line(ENTRY_SKILL_PERCEP, sd.first, sd.second);
 
-    desc = likert(xsrh, 6);
-    display_player_one_line(ENTRY_SKILL_SEARCH, desc, likert_color);
+    sd = likert(xsrh, 6);
+    display_player_one_line(ENTRY_SKILL_SEARCH, sd.first, sd.second);
 
-    desc = likert(xdis, 8);
-    display_player_one_line(ENTRY_SKILL_DISARM, desc, likert_color);
+    sd = likert(xdis, 8);
+    display_player_one_line(ENTRY_SKILL_DISARM, sd.first, sd.second);
 
-    desc = likert(xdev, 6);
-    display_player_one_line(ENTRY_SKILL_DEVICE, desc, likert_color);
+    sd = likert(xdev, 6);
+    display_player_one_line(ENTRY_SKILL_DEVICE, sd.first, sd.second);
 
-    desc = likert(xdev, 6);
-    display_player_one_line(ENTRY_SKILL_DEVICE, desc, likert_color);
-
-    desc = likert(xdig, 4);
-    display_player_one_line(ENTRY_SKILL_DIG, desc, likert_color);
+    sd = likert(xdig, 4);
+    display_player_one_line(ENTRY_SKILL_DIG, sd.first, sd.second);
 
     if (!muta_att) {
         display_player_one_line(ENTRY_BLOWS, format("%d+%d", blows1, blows2), TERM_L_BLUE);
@@ -391,6 +366,7 @@ static void display_first_page(PlayerType *player_ptr, int xthb, int *damage, in
 
     display_player_one_line(ENTRY_SHOTS, format("%d.%02d", shots, shot_frac), TERM_L_BLUE);
 
+    std::string desc;
     if ((damage[0] + damage[1]) == 0) {
         desc = "nil!";
     } else {
@@ -411,7 +387,7 @@ static void display_first_page(PlayerType *player_ptr, int xthb, int *damage, in
  */
 void display_player_various(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = &player_ptr->inventory_list[INVEN_BOW];
     int tmp = player_ptr->to_h_b + o_ptr->to_h;
     int xthb = player_ptr->skill_thb + (tmp * BTH_PLUS_ADJ);

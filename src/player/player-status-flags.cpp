@@ -41,9 +41,9 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
@@ -121,17 +121,17 @@ BIT_FLAGS convert_inventory_slot_type_to_flag_cause(inventory_slot_type inventor
  */
 BIT_FLAGS check_equipment_flags(PlayerType *player_ptr, tr_type tr_flag)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     BIT_FLAGS result = 0L;
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        auto flgs = object_flags(o_ptr);
+        auto flags = object_flags(o_ptr);
 
-        if (flgs.has(tr_flag)) {
+        if (flags.has(tr_flag)) {
             set_bits(result, convert_inventory_slot_type_to_flag_cause(i2enum<inventory_slot_type>(i)));
         }
     }
@@ -489,8 +489,8 @@ bool has_kill_wall(PlayerType *player_ptr)
     }
 
     if (player_ptr->riding) {
-        monster_type *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        monster_race *riding_r_ptr = &r_info[riding_m_ptr->r_idx];
+        MonsterEntity *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
+        MonsterRaceInfo *riding_r_ptr = &monraces_info[riding_m_ptr->r_idx];
         if (riding_r_ptr->feature_flags.has(MonsterFeatureType::KILL_WALL)) {
             return true;
         }
@@ -516,8 +516,8 @@ bool has_pass_wall(PlayerType *player_ptr)
     }
 
     if (player_ptr->riding) {
-        monster_type *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        monster_race *riding_r_ptr = &r_info[riding_m_ptr->r_idx];
+        MonsterEntity *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
+        MonsterRaceInfo *riding_r_ptr = &monraces_info[riding_m_ptr->r_idx];
         if (riding_r_ptr->feature_flags.has_not(MonsterFeatureType::PASS_WALL)) {
             pow = false;
         }
@@ -713,7 +713,7 @@ BIT_FLAGS has_invuln_arrow(PlayerType *player_ptr)
 
 void check_no_flowed(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     bool has_sw = false, has_kabe = false;
 
     player_ptr->no_flowed = false;
@@ -729,10 +729,12 @@ void check_no_flowed(PlayerType *player_ptr)
     }
 
     for (int i = 0; i < INVEN_PACK; i++) {
-        if ((player_ptr->inventory_list[i].tval == ItemKindType::NATURE_BOOK) && (player_ptr->inventory_list[i].sval == 2)) {
+        const auto &bi_key = player_ptr->inventory_list[i].bi_key;
+        if (bi_key == BaseitemKey(ItemKindType::NATURE_BOOK, 2)) {
             has_sw = true;
         }
-        if ((player_ptr->inventory_list[i].tval == ItemKindType::CRAFT_BOOK) && (player_ptr->inventory_list[i].sval == 2)) {
+
+        if (bi_key == BaseitemKey(ItemKindType::CRAFT_BOOK, 2)) {
             has_kabe = true;
         }
     }
@@ -740,10 +742,10 @@ void check_no_flowed(PlayerType *player_ptr)
     for (const auto this_o_idx : player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list) {
         o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
 
-        if ((o_ptr->tval == ItemKindType::NATURE_BOOK) && (o_ptr->sval == 2)) {
+        if (o_ptr->bi_key == BaseitemKey(ItemKindType::NATURE_BOOK, 2)) {
             has_sw = true;
         }
-        if ((o_ptr->tval == ItemKindType::CRAFT_BOOK) && (o_ptr->sval == 2)) {
+        if (o_ptr->bi_key == BaseitemKey(ItemKindType::CRAFT_BOOK, 2)) {
             has_kabe = true;
         }
     }
@@ -793,18 +795,18 @@ BIT_FLAGS has_see_nocto(PlayerType *player_ptr)
 BIT_FLAGS has_warning(PlayerType *player_ptr)
 {
     BIT_FLAGS result = 0L;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        auto flgs = object_flags(o_ptr);
+        auto flags = object_flags(o_ptr);
 
-        if (flgs.has(TR_WARNING)) {
-            if (!o_ptr->inscription || !(angband_strchr(quark_str(o_ptr->inscription), '$'))) {
+        if (flags.has(TR_WARNING)) {
+            if (!o_ptr->is_inscribed() || !angband_strchr(o_ptr->inscription->data(), '$')) {
                 set_bits(result, convert_inventory_slot_type_to_flag_cause(i2enum<inventory_slot_type>(i)));
             }
         }
@@ -1003,8 +1005,8 @@ BIT_FLAGS has_levitation(PlayerType *player_ptr)
 
     // 乗馬中は実際に浮遊するかどうかは乗馬中のモンスターに依存する
     if (player_ptr->riding) {
-        monster_type *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        monster_race *riding_r_ptr = &r_info[riding_m_ptr->r_idx];
+        MonsterEntity *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
+        MonsterRaceInfo *riding_r_ptr = &monraces_info[riding_m_ptr->r_idx];
         result = riding_r_ptr->feature_flags.has(MonsterFeatureType::CAN_FLY) ? FLAG_CAUSE_RIDING : FLAG_CAUSE_NONE;
     }
 
@@ -1015,8 +1017,8 @@ bool has_can_swim(PlayerType *player_ptr)
 {
     bool can_swim = false;
     if (player_ptr->riding) {
-        monster_type *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        monster_race *riding_r_ptr = &r_info[riding_m_ptr->r_idx];
+        MonsterEntity *riding_m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
+        MonsterRaceInfo *riding_r_ptr = &monraces_info[riding_m_ptr->r_idx];
         if (riding_r_ptr->feature_flags.has_any_of({ MonsterFeatureType::CAN_SWIM, MonsterFeatureType::AQUATIC })) {
             can_swim = true;
         }
@@ -1057,7 +1059,7 @@ BIT_FLAGS has_regenerate(PlayerType *player_ptr)
 
 void update_curses(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     player_ptr->cursed.clear();
     player_ptr->cursed_special.clear();
 
@@ -1067,86 +1069,84 @@ void update_curses(PlayerType *player_ptr)
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
-        auto flgs = object_flags(o_ptr);
-        if (flgs.has(TR_AGGRAVATE)) {
+        auto flags = object_flags(o_ptr);
+        if (flags.has(TR_AGGRAVATE)) {
             player_ptr->cursed.set(CurseTraitType::AGGRAVATE);
         }
-        if (flgs.has(TR_DRAIN_EXP)) {
+        if (flags.has(TR_DRAIN_EXP)) {
             player_ptr->cursed.set(CurseTraitType::DRAIN_EXP);
         }
-        if (flgs.has(TR_TY_CURSE)) {
+        if (flags.has(TR_TY_CURSE)) {
             player_ptr->cursed.set(CurseTraitType::TY_CURSE);
         }
-        if (flgs.has(TR_ADD_L_CURSE)) {
+        if (flags.has(TR_ADD_L_CURSE)) {
             player_ptr->cursed.set(CurseTraitType::ADD_L_CURSE);
         }
-        if (flgs.has(TR_ADD_H_CURSE)) {
+        if (flags.has(TR_ADD_H_CURSE)) {
             player_ptr->cursed.set(CurseTraitType::ADD_H_CURSE);
         }
-        if (flgs.has(TR_DRAIN_HP)) {
+        if (flags.has(TR_DRAIN_HP)) {
             player_ptr->cursed.set(CurseTraitType::DRAIN_HP);
         }
-        if (flgs.has(TR_DRAIN_MANA)) {
+        if (flags.has(TR_DRAIN_MANA)) {
             player_ptr->cursed.set(CurseTraitType::DRAIN_MANA);
         }
-        if (flgs.has(TR_CALL_ANIMAL)) {
+        if (flags.has(TR_CALL_ANIMAL)) {
             player_ptr->cursed.set(CurseTraitType::CALL_ANIMAL);
         }
-        if (flgs.has(TR_CALL_DEMON)) {
+        if (flags.has(TR_CALL_DEMON)) {
             player_ptr->cursed.set(CurseTraitType::CALL_DEMON);
         }
-        if (flgs.has(TR_CALL_DRAGON)) {
+        if (flags.has(TR_CALL_DRAGON)) {
             player_ptr->cursed.set(CurseTraitType::CALL_DRAGON);
         }
-        if (flgs.has(TR_CALL_UNDEAD)) {
+        if (flags.has(TR_CALL_UNDEAD)) {
             player_ptr->cursed.set(CurseTraitType::CALL_UNDEAD);
         }
-        if (flgs.has(TR_COWARDICE)) {
+        if (flags.has(TR_COWARDICE)) {
             player_ptr->cursed.set(CurseTraitType::COWARDICE);
         }
-        if (flgs.has(TR_LOW_MELEE)) {
+        if (flags.has(TR_LOW_MELEE)) {
             player_ptr->cursed.set(CurseTraitType::LOW_MELEE);
         }
-        if (flgs.has(TR_LOW_AC)) {
+        if (flags.has(TR_LOW_AC)) {
             player_ptr->cursed.set(CurseTraitType::LOW_AC);
         }
-        if (flgs.has(TR_HARD_SPELL)) {
+        if (flags.has(TR_HARD_SPELL)) {
             player_ptr->cursed.set(CurseTraitType::HARD_SPELL);
         }
-        if (flgs.has(TR_FAST_DIGEST)) {
+        if (flags.has(TR_FAST_DIGEST)) {
             player_ptr->cursed.set(CurseTraitType::FAST_DIGEST);
         }
-        if (flgs.has(TR_SLOW_REGEN)) {
+        if (flags.has(TR_SLOW_REGEN)) {
             player_ptr->cursed.set(CurseTraitType::SLOW_REGEN);
         }
-        if (flgs.has(TR_BERS_RAGE)) {
+        if (flags.has(TR_BERS_RAGE)) {
             player_ptr->cursed.set(CurseTraitType::BERS_RAGE);
         }
-        if (flgs.has(TR_PERSISTENT_CURSE)) {
+        if (flags.has(TR_PERSISTENT_CURSE)) {
             player_ptr->cursed.set(CurseTraitType::PERSISTENT_CURSE);
         }
-        if (flgs.has(TR_VUL_CURSE)) {
+        if (flags.has(TR_VUL_CURSE)) {
             player_ptr->cursed.set(CurseTraitType::VUL_CURSE);
         }
 
         auto obj_curse_flags = o_ptr->curse_flags;
         obj_curse_flags.reset({ CurseTraitType::CURSED, CurseTraitType::HEAVY_CURSE, CurseTraitType::PERMA_CURSE });
         player_ptr->cursed.set(obj_curse_flags);
-        if (o_ptr->fixed_artifact_idx == FixedArtifactId::CHAINSWORD) {
+        if (o_ptr->is_specific_artifact(FixedArtifactId::CHAINSWORD)) {
             player_ptr->cursed_special.set(CurseSpecialTraitType::CHAINSWORD);
         }
 
-        if (flgs.has(TR_TELEPORT)) {
+        if (flags.has(TR_TELEPORT)) {
             if (o_ptr->is_cursed()) {
                 player_ptr->cursed.set(CurseTraitType::TELEPORT);
             } else {
-                concptr insc = quark_str(o_ptr->inscription);
-
                 /* {.} will stop random teleportation. */
-                if (o_ptr->inscription && angband_strchr(insc, '.')) {
+                if (o_ptr->is_inscribed() && angband_strchr(o_ptr->inscription->data(), '.')) {
                 } else {
                     player_ptr->cursed_special.set(CurseSpecialTraitType::TELEPORT_SELF);
                 }
@@ -1171,7 +1171,7 @@ BIT_FLAGS has_earthquake(PlayerType *player_ptr)
 
 void update_extra_blows(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     player_ptr->extra_blows[0] = player_ptr->extra_blows[1] = 0;
 
     const melee_type melee_type = player_melee_type(player_ptr);
@@ -1179,12 +1179,12 @@ void update_extra_blows(PlayerType *player_ptr)
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        auto flgs = object_flags(o_ptr);
-        if (flgs.has(TR_BLOWS)) {
+        auto flags = object_flags(o_ptr);
+        if (flags.has(TR_BLOWS)) {
             if ((i == INVEN_MAIN_HAND || i == INVEN_MAIN_RING) && !two_handed) {
                 player_ptr->extra_blows[0] += o_ptr->pval;
             } else if ((i == INVEN_SUB_HAND || i == INVEN_SUB_RING) && !two_handed) {
@@ -1478,17 +1478,17 @@ BIT_FLAGS has_resist_curse(PlayerType *player_ptr)
  */
 BIT_FLAGS has_vuln_curse(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     BIT_FLAGS result = 0L;
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        auto flgs = object_flags(o_ptr);
+        auto flags = object_flags(o_ptr);
 
-        if (flgs.has(TR_VUL_CURSE) || o_ptr->curse_flags.has(CurseTraitType::VUL_CURSE)) {
+        if (flags.has(TR_VUL_CURSE) || o_ptr->curse_flags.has(CurseTraitType::VUL_CURSE)) {
             set_bits(result, convert_inventory_slot_type_to_flag_cause(i2enum<inventory_slot_type>(i)));
         }
     }
@@ -1503,17 +1503,17 @@ BIT_FLAGS has_vuln_curse(PlayerType *player_ptr)
  */
 BIT_FLAGS has_heavy_vuln_curse(PlayerType *player_ptr)
 {
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     BIT_FLAGS result = 0L;
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        auto flgs = object_flags(o_ptr);
+        auto flags = object_flags(o_ptr);
 
-        if ((flgs.has(TR_VUL_CURSE) || o_ptr->curse_flags.has(CurseTraitType::VUL_CURSE)) && o_ptr->curse_flags.has(CurseTraitType::HEAVY_CURSE)) {
+        if ((flags.has(TR_VUL_CURSE) || o_ptr->curse_flags.has(CurseTraitType::VUL_CURSE)) && o_ptr->curse_flags.has(CurseTraitType::HEAVY_CURSE)) {
             set_bits(result, convert_inventory_slot_type_to_flag_cause(i2enum<inventory_slot_type>(i)));
         }
     }
@@ -1728,19 +1728,20 @@ bool has_disable_two_handed_bonus(PlayerType *player_ptr, int i)
 bool is_wielding_icky_weapon(PlayerType *player_ptr, int i)
 {
     auto *o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND + i];
-    auto flgs = object_flags(o_ptr);
+    auto flags = object_flags(o_ptr);
 
-    auto has_no_weapon = (o_ptr->tval == ItemKindType::NONE) || (o_ptr->tval == ItemKindType::SHIELD);
+    const auto tval = o_ptr->bi_key.tval();
+    const auto has_no_weapon = (tval == ItemKindType::NONE) || (tval == ItemKindType::SHIELD);
     PlayerClass pc(player_ptr);
     if (pc.equals(PlayerClassType::PRIEST)) {
-        auto is_suitable_weapon = flgs.has(TR_BLESSED);
-        is_suitable_weapon |= (o_ptr->tval != ItemKindType::SWORD) && (o_ptr->tval != ItemKindType::POLEARM);
+        auto is_suitable_weapon = flags.has(TR_BLESSED);
+        is_suitable_weapon |= (tval != ItemKindType::SWORD) && (tval != ItemKindType::POLEARM);
         return !has_no_weapon && !is_suitable_weapon;
     }
 
     if (pc.equals(PlayerClassType::SORCERER)) {
-        auto is_suitable_weapon = o_ptr->tval == ItemKindType::HAFTED;
-        is_suitable_weapon &= (o_ptr->sval == SV_WIZSTAFF) || (o_ptr->sval == SV_NAMAKE_HAMMER);
+        auto is_suitable_weapon = o_ptr->bi_key == BaseitemKey(ItemKindType::HAFTED, SV_WIZSTAFF);
+        is_suitable_weapon |= o_ptr->bi_key == BaseitemKey(ItemKindType::HAFTED, SV_NAMAKE_HAMMER);
         return !has_no_weapon && !is_suitable_weapon;
     }
 
@@ -1755,9 +1756,10 @@ bool is_wielding_icky_weapon(PlayerType *player_ptr, int i)
 bool is_wielding_icky_riding_weapon(PlayerType *player_ptr, int i)
 {
     auto *o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND + i];
-    auto flgs = object_flags(o_ptr);
-    auto has_no_weapon = (o_ptr->tval == ItemKindType::NONE) || (o_ptr->tval == ItemKindType::SHIELD);
-    auto is_suitable = o_ptr->is_lance() || flgs.has(TR_RIDING);
+    auto flags = object_flags(o_ptr);
+    const auto tval = o_ptr->bi_key.tval();
+    const auto has_no_weapon = (tval == ItemKindType::NONE) || (tval == ItemKindType::SHIELD);
+    const auto is_suitable = o_ptr->is_lance() || flags.has(TR_RIDING);
     return (player_ptr->riding > 0) && !has_no_weapon && !is_suitable;
 }
 
@@ -1767,11 +1769,12 @@ bool has_not_ninja_weapon(PlayerType *player_ptr, int i)
         return false;
     }
 
-    auto tval = player_ptr->inventory_list[INVEN_MAIN_HAND + i].tval;
-    auto sval = player_ptr->inventory_list[INVEN_MAIN_HAND + i].sval;
+    const auto &item = player_ptr->inventory_list[INVEN_MAIN_HAND + i];
+    const auto tval = item.bi_key.tval();
+    const auto sval = item.bi_key.sval().value();
     return PlayerClass(player_ptr).equals(PlayerClassType::NINJA) &&
            !((player_ptr->weapon_exp_max[tval][sval] > PlayerSkill::weapon_exp_at(PlayerSkillRank::BEGINNER)) &&
-               (player_ptr->inventory_list[INVEN_SUB_HAND - i].tval != ItemKindType::SHIELD));
+               (player_ptr->inventory_list[INVEN_SUB_HAND - i].bi_key.tval() != ItemKindType::SHIELD));
 }
 
 bool has_not_monk_weapon(PlayerType *player_ptr, int i)
@@ -1780,8 +1783,9 @@ bool has_not_monk_weapon(PlayerType *player_ptr, int i)
         return false;
     }
 
-    auto tval = player_ptr->inventory_list[INVEN_MAIN_HAND + i].tval;
-    auto sval = player_ptr->inventory_list[INVEN_MAIN_HAND + i].sval;
+    const auto &item = player_ptr->inventory_list[INVEN_MAIN_HAND + i];
+    const auto tval = item.bi_key.tval();
+    const auto sval = item.bi_key.sval().value();
     PlayerClass pc(player_ptr);
     return pc.is_martial_arts_pro() && (player_ptr->weapon_exp_max[tval][sval] == PlayerSkill::weapon_exp_at(PlayerSkillRank::UNSKILLED));
 }

@@ -68,7 +68,7 @@ bool BadStatusSetter::set_blindness(const TIME_EFFECT tmp_v)
             }
 
             notice = true;
-            chg_virtue(this->player_ptr, V_ENLIGHTEN, -1);
+            chg_virtue(this->player_ptr, Virtue::ENLIGHTEN, -1);
         }
     } else {
         if (is_blind) {
@@ -83,7 +83,7 @@ bool BadStatusSetter::set_blindness(const TIME_EFFECT tmp_v)
     }
 
     blindness->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -92,7 +92,7 @@ bool BadStatusSetter::set_blindness(const TIME_EFFECT tmp_v)
         disturb(this->player_ptr, false, false);
     }
 
-    this->player_ptr->update |= PU_UN_VIEW | PU_UN_LITE | PU_VIEW | PU_LITE | PU_MONSTERS | PU_MON_LITE;
+    this->player_ptr->update |= PU_UN_VIEW | PU_UN_LITE | PU_VIEW | PU_LITE | PU_MONSTER_STATUSES | PU_MONSTER_LITE;
     this->player_ptr->redraw |= PR_MAP;
     this->player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
     handle_stuff(this->player_ptr);
@@ -127,14 +127,14 @@ bool BadStatusSetter::set_confusion(const TIME_EFFECT tmp_v)
                 auto bluemage_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
                 bluemage_data->new_magic_learned = false;
 
-                this->player_ptr->redraw |= PR_STATE;
+                this->player_ptr->redraw |= PR_ACTION;
                 this->player_ptr->action = ACTION_NONE;
             }
             if (this->player_ptr->action == ACTION_MONK_STANCE) {
                 msg_print(_("構えがとけた。", "You lose your stance."));
                 PlayerClass(player_ptr).set_monk_stance(MonkStanceType::NONE);
                 this->player_ptr->update |= PU_BONUS;
-                this->player_ptr->redraw |= PR_STATE;
+                this->player_ptr->redraw |= PR_ACTION;
                 this->player_ptr->action = ACTION_NONE;
             } else if (this->player_ptr->action == ACTION_SAMURAI_STANCE) {
                 msg_print(_("型が崩れた。", "You lose your stance."));
@@ -151,7 +151,7 @@ bool BadStatusSetter::set_confusion(const TIME_EFFECT tmp_v)
 
             notice = true;
             this->player_ptr->counter = false;
-            chg_virtue(this->player_ptr, V_HARMONY, -1);
+            chg_virtue(this->player_ptr, Virtue::HARMONY, -1);
         }
     } else {
         if (is_confused) {
@@ -162,7 +162,7 @@ bool BadStatusSetter::set_confusion(const TIME_EFFECT tmp_v)
     }
 
     this->player_confusion->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -208,7 +208,7 @@ bool BadStatusSetter::set_poison(const TIME_EFFECT tmp_v)
     }
 
     player_poison->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -231,7 +231,7 @@ bool BadStatusSetter::mod_poison(const TIME_EFFECT tmp_v)
  * @param v 継続時間
  * @return ステータスに影響を及ぼす変化があった場合TRUEを返す。
  */
-bool BadStatusSetter::fear(const TIME_EFFECT tmp_v)
+bool BadStatusSetter::set_fear(const TIME_EFFECT tmp_v)
 {
     auto notice = false;
     auto v = std::clamp<short>(tmp_v, 0, 10000);
@@ -249,7 +249,7 @@ bool BadStatusSetter::fear(const TIME_EFFECT tmp_v)
 
             notice = true;
             this->player_ptr->counter = false;
-            chg_virtue(this->player_ptr, V_VALOUR, -1);
+            chg_virtue(this->player_ptr, Virtue::VALOUR, -1);
         }
     } else {
         if (fear->is_fearful()) {
@@ -259,7 +259,7 @@ bool BadStatusSetter::fear(const TIME_EFFECT tmp_v)
     }
 
     fear->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -274,7 +274,7 @@ bool BadStatusSetter::fear(const TIME_EFFECT tmp_v)
 
 bool BadStatusSetter::mod_fear(const TIME_EFFECT tmp_v)
 {
-    return this->fear(this->player_ptr->effects()->fear()->current() + tmp_v);
+    return this->set_fear(this->player_ptr->effects()->fear()->current() + tmp_v);
 }
 
 /*!
@@ -282,7 +282,7 @@ bool BadStatusSetter::mod_fear(const TIME_EFFECT tmp_v)
  * @param v 継続時間
  * @return ステータスに影響を及ぼす変化があった場合TRUEを返す。
  */
-bool BadStatusSetter::paralysis(const TIME_EFFECT tmp_v)
+bool BadStatusSetter::set_paralysis(const TIME_EFFECT tmp_v)
 {
     auto notice = false;
     auto v = std::clamp<short>(tmp_v, 0, 10000);
@@ -312,7 +312,7 @@ bool BadStatusSetter::paralysis(const TIME_EFFECT tmp_v)
     }
 
     paralysis->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -321,14 +321,14 @@ bool BadStatusSetter::paralysis(const TIME_EFFECT tmp_v)
         disturb(this->player_ptr, false, false);
     }
 
-    this->player_ptr->redraw |= PR_STATE;
+    this->player_ptr->redraw |= PR_ACTION;
     handle_stuff(this->player_ptr);
     return true;
 }
 
 bool BadStatusSetter::mod_paralysis(const TIME_EFFECT tmp_v)
 {
-    return this->paralysis(this->player_ptr->effects()->paralysis()->current() + tmp_v);
+    return this->set_paralysis(this->player_ptr->effects()->paralysis()->current() + tmp_v);
 }
 
 /*!
@@ -367,7 +367,7 @@ bool BadStatusSetter::hallucination(const TIME_EFFECT tmp_v)
     }
 
     hallucination->set(v);
-    this->player_ptr->redraw |= PR_STATUS;
+    this->player_ptr->redraw |= PR_TIMED_EFFECT;
     if (!notice) {
         return false;
     }
@@ -377,7 +377,7 @@ bool BadStatusSetter::hallucination(const TIME_EFFECT tmp_v)
     }
 
     this->player_ptr->redraw |= PR_MAP | PR_HEALTH | PR_UHEALTH;
-    this->player_ptr->update |= PU_MONSTERS;
+    this->player_ptr->update |= PU_MONSTER_STATUSES;
     this->player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
     handle_stuff(this->player_ptr);
     return true;
@@ -446,7 +446,7 @@ bool BadStatusSetter::mod_deceleration(const TIME_EFFECT tmp_v, bool do_dec)
  * @details
  * Note the special code to only notice "range" changes.
  */
-bool BadStatusSetter::stun(const TIME_EFFECT tmp_v)
+bool BadStatusSetter::set_stun(const TIME_EFFECT tmp_v)
 {
     auto v = std::clamp<short>(tmp_v, 0, 10000);
     if (this->player_ptr->is_dead) {
@@ -475,7 +475,7 @@ bool BadStatusSetter::stun(const TIME_EFFECT tmp_v)
 
 bool BadStatusSetter::mod_stun(const TIME_EFFECT tmp_v)
 {
-    return this->stun(this->player_ptr->effects()->stun()->current() + tmp_v);
+    return this->set_stun(this->player_ptr->effects()->stun()->current() + tmp_v);
 }
 
 /*!
@@ -485,7 +485,7 @@ bool BadStatusSetter::mod_stun(const TIME_EFFECT tmp_v)
  * @details
  * Note the special code to only notice "range" changes.
  */
-bool BadStatusSetter::cut(const TIME_EFFECT tmp_v)
+bool BadStatusSetter::set_cut(const TIME_EFFECT tmp_v)
 {
     auto v = std::clamp<short>(tmp_v, 0, 10000);
     if (this->player_ptr->is_dead) {
@@ -514,7 +514,7 @@ bool BadStatusSetter::cut(const TIME_EFFECT tmp_v)
 
 bool BadStatusSetter::mod_cut(const TIME_EFFECT tmp_v)
 {
-    return this->cut(this->player_ptr->effects()->cut()->current() + tmp_v);
+    return this->set_cut(this->player_ptr->effects()->cut()->current() + tmp_v);
 }
 
 bool BadStatusSetter::process_stun_effect(const short v)

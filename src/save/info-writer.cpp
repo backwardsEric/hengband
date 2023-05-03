@@ -10,7 +10,7 @@
 #include "save/save.h"
 #include "store/store-util.h"
 #include "system/angband.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "world/world.h"
 
 /*!
@@ -196,7 +196,7 @@ void save_quick_start(void)
 
     wr_s16b(previous_char.chaos_patron);
     for (int i = 0; i < 8; i++) {
-        wr_s16b(previous_char.vir_types[i]);
+        wr_s16b(enum2i(previous_char.vir_types[i]));
     }
 
     for (int i = 0; i < 4; i++) {

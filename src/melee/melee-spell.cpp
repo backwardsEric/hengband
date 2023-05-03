@@ -15,11 +15,12 @@
 #include "player-info/mane-data-type.h"
 #include "spell-realm/spells-hex.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #ifdef JP
@@ -33,13 +34,13 @@
 
 static bool try_melee_spell(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 {
-    if (spell_is_inate(ms_ptr->thrown_spell) || (!ms_ptr->in_no_magic_dungeon && (!monster_stunned_remaining(ms_ptr->m_ptr) || one_in_(2)))) {
+    if (spell_is_inate(ms_ptr->thrown_spell) || (!ms_ptr->in_no_magic_dungeon && (!ms_ptr->m_ptr->get_remaining_stun() || one_in_(2)))) {
         return false;
     }
 
     disturb(player_ptr, true, true);
     if (ms_ptr->see_m) {
-        msg_format(_("%^sは呪文を唱えようとしたが失敗した。", "%^s tries to cast a spell, but fails."), ms_ptr->m_name);
+        msg_format(_("%s^は呪文を唱えようとしたが失敗した。", "%s^ tries to cast a spell, but fails."), ms_ptr->m_name);
     }
 
     return true;
@@ -52,7 +53,7 @@ static bool disturb_melee_spell(PlayerType *player_ptr, melee_spell_type *ms_ptr
     }
 
     if (ms_ptr->see_m) {
-        msg_format(_("反魔法バリアが%^sの呪文をかき消した。", "Anti magic barrier cancels the spell which %^s casts."), ms_ptr->m_name);
+        msg_format(_("反魔法バリアが%s^の呪文をかき消した。", "Anti magic barrier cancels the spell which %s^ casts."), ms_ptr->m_name);
     }
 
     return true;
@@ -99,16 +100,12 @@ static void process_rememberance(melee_spell_type *ms_ptr)
 static void describe_melee_spell(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 {
     /* Get the monster name (or "it") */
-    monster_desc(player_ptr, ms_ptr->m_name, ms_ptr->m_ptr, 0x00);
+    angband_strcpy(ms_ptr->m_name, monster_desc(player_ptr, ms_ptr->m_ptr, 0x00).data(), sizeof(ms_ptr->m_name));
 #ifdef JP
 #else
     /* Get the monster possessive ("his"/"her"/"its") */
-    monster_desc(player_ptr, ms_ptr->m_poss, ms_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE);
+    angband_strcpy(ms_ptr->m_poss, monster_desc(player_ptr, ms_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE).data(), sizeof(ms_ptr->m_poss));
 #endif
-
-    /* Get the target's name (or "it") */
-    GAME_TEXT t_name[160];
-    monster_desc(player_ptr, t_name, ms_ptr->t_ptr, 0x00);
 }
 
 /*!

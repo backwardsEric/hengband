@@ -4,19 +4,11 @@
 #include "grid/grid.h"
 #include "monster/monster-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
-
-mspell_cast_msg::mspell_cast_msg(concptr to_player_true, concptr to_mons_true, concptr to_player_false, concptr to_mons_false)
-    : to_player_true(to_player_true)
-    , to_mons_true(to_mons_true)
-    , to_player_false(to_player_false)
-    , to_mons_false(to_mons_false)
-{
-}
 
 mspell_cast_msg_blind::mspell_cast_msg_blind(concptr blind, concptr to_player, concptr to_mons)
     : blind(blind)
@@ -39,7 +31,7 @@ mspell_cast_msg_simple::mspell_cast_msg_simple(concptr to_player, concptr to_mon
  */
 bool see_monster(PlayerType *player_ptr, MONSTER_IDX m_idx)
 {
-    monster_type *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
+    MonsterEntity *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     return is_seen(player_ptr, m_ptr);
 }
 
@@ -50,11 +42,11 @@ bool see_monster(PlayerType *player_ptr, MONSTER_IDX m_idx)
  * @param t_idx モンスターID二体目
  * @return モンスター2体のどちらかがプレイヤーの近くに居ればTRUE、どちらも遠ければFALSEを返す。
  */
-bool monster_near_player(floor_type *floor_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx)
+bool monster_near_player(FloorType *floor_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx)
 {
-    monster_type *m_ptr = &floor_ptr->m_list[m_idx];
-    monster_type *t_ptr = &floor_ptr->m_list[t_idx];
-    return (m_ptr->cdis <= MAX_SIGHT) || (t_ptr->cdis <= MAX_SIGHT);
+    MonsterEntity *m_ptr = &floor_ptr->m_list[m_idx];
+    MonsterEntity *t_ptr = &floor_ptr->m_list[t_idx];
+    return (m_ptr->cdis <= MAX_PLAYER_SIGHT) || (t_ptr->cdis <= MAX_PLAYER_SIGHT);
 }
 
 /*!
@@ -70,14 +62,13 @@ bool monster_near_player(floor_type *floor_ptr, MONSTER_IDX m_idx, MONSTER_IDX t
 bool monspell_message_base(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx, const mspell_cast_msg &msgs, bool msg_flag_aux, int target_type)
 {
     bool notice = false;
-    floor_type *floor_ptr = player_ptr->current_floor_ptr;
+    FloorType *floor_ptr = player_ptr->current_floor_ptr;
     bool known = monster_near_player(floor_ptr, m_idx, t_idx);
     bool see_either = see_monster(player_ptr, m_idx) || see_monster(player_ptr, t_idx);
     bool mon_to_mon = (target_type == MONSTER_TO_MONSTER);
     bool mon_to_player = (target_type == MONSTER_TO_PLAYER);
-    GAME_TEXT m_name[MAX_NLEN], t_name[MAX_NLEN];
-    monster_name(player_ptr, m_idx, m_name);
-    monster_name(player_ptr, t_idx, t_name);
+    const auto m_name = monster_name(player_ptr, m_idx);
+    const auto t_name = monster_name(player_ptr, t_idx);
 
     if (mon_to_player || (mon_to_mon && known && see_either)) {
         disturb(player_ptr, true, true);
@@ -85,18 +76,18 @@ bool monspell_message_base(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_ID
 
     if (msg_flag_aux) {
         if (mon_to_player) {
-            msg_format(msgs.to_player_true, m_name);
+            msg_format(msgs.to_player_true, m_name.data());
             notice = true;
         } else if (mon_to_mon && known && see_either) {
-            msg_format(msgs.to_mons_true, m_name);
+            msg_format(msgs.to_mons_true, m_name.data());
             notice = true;
         }
     } else {
         if (mon_to_player) {
-            msg_format(msgs.to_player_false, m_name);
+            msg_format(msgs.to_player_false, m_name.data());
             notice = true;
         } else if (mon_to_mon && known && see_either) {
-            msg_format(msgs.to_mons_false, m_name, t_name);
+            msg_format(msgs.to_mons_false, m_name.data(), t_name.data());
             notice = true;
         }
     }

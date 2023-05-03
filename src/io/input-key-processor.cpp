@@ -50,7 +50,6 @@
 #include "core/player-update-types.h"
 #include "core/special-internal-keys.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h" //!< @do_cmd_quest() がある。後で移設する.
 #include "effect/spells-effect-util.h"
 #include "floor/wild.h"
@@ -87,6 +86,7 @@
 #include "store/cmd-store.h"
 #include "store/home.h"
 #include "store/store-util.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
@@ -95,6 +95,8 @@
 #include "window/display-sub-windows.h"
 #include "wizard/cmd-wizard.h"
 #include "world/world.h"
+#include <optional>
+#include <string>
 
 /*!
  * @brief ウィザードモードへの導入処理
@@ -187,7 +189,7 @@ void process_command(PlayerType *player_ptr)
             msg_print(_("ウィザードモード突入。", "Wizard mode on."));
         }
 
-        player_ptr->update |= (PU_MONSTERS);
+        player_ptr->update |= (PU_MONSTER_STATUSES);
         player_ptr->redraw |= (PR_TITLE);
         break;
     }
@@ -401,7 +403,7 @@ void process_command(PlayerType *player_ptr)
             break;
         }
 
-        if (floor_ptr->dun_level && d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MAGIC) && !pc.equals(PlayerClassType::BERSERKER) && !pc.equals(PlayerClassType::SMITH)) {
+        if (floor_ptr->dun_level && dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MAGIC) && !pc.equals(PlayerClassType::BERSERKER) && !pc.equals(PlayerClassType::SMITH)) {
             msg_print(_("ダンジョンが魔法を吸収した！", "The dungeon absorbs all attempted magic!"));
             msg_print(nullptr);
             break;
@@ -681,10 +683,10 @@ void process_command(PlayerType *player_ptr)
             flush();
         }
         if (one_in_(2)) {
-            char error_m[1024];
             sound(SOUND_ILLEGAL);
-            if (!get_rnd_line(_("error_j.txt", "error.txt"), 0, error_m)) {
-                msg_print(error_m);
+            const auto error_mes = get_random_line(_("error_j.txt", "error.txt"), 0);
+            if (error_mes.has_value()) {
+                msg_print(error_mes.value());
             }
         } else {
             prt(_(" '?' でヘルプが表示されます。", "Type '?' for help."), 0, 0);

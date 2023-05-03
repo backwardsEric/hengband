@@ -14,9 +14,9 @@
 #include "player/player-status-table.h"
 #include "player/special-defense-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 
 /*!<広域マップ移動時の自然回復処理カウンタ（広域マップ1マス毎に20回処理を基本とする）*/
@@ -108,7 +108,7 @@ void regenmana(PlayerType *player_ptr, MANA_POINT upkeep_factor, MANA_POINT rege
     }
 
     if (old_csp != player_ptr->csp) {
-        player_ptr->redraw |= (PR_MANA);
+        player_ptr->redraw |= (PR_MP);
         player_ptr->window_flags |= (PW_PLAYER);
         player_ptr->window_flags |= (PW_SPELL);
         wild_regen = 20;
@@ -170,9 +170,9 @@ void regenerate_monsters(PlayerType *player_ptr)
 {
     for (int i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        auto *r_ptr = &r_info[m_ptr->r_idx];
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
 
@@ -212,12 +212,11 @@ void regenerate_captured_monsters(PlayerType *player_ptr)
 {
     bool heal = false;
     for (int i = 0; i < INVEN_TOTAL; i++) {
-        monster_race *r_ptr;
         auto *o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
-        if (o_ptr->tval != ItemKindType::CAPTURE) {
+        if (o_ptr->bi_key.tval() != ItemKindType::CAPTURE) {
             continue;
         }
         if (!o_ptr->pval) {
@@ -226,7 +225,7 @@ void regenerate_captured_monsters(PlayerType *player_ptr)
 
         heal = true;
         const auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        r_ptr = &r_info[r_idx];
+        const auto *r_ptr = &monraces_info[r_idx];
         if (o_ptr->captured_monster_current_hp < o_ptr->captured_monster_max_hp) {
             short frac = o_ptr->captured_monster_max_hp / 100;
             if (!frac) {
@@ -247,10 +246,10 @@ void regenerate_captured_monsters(PlayerType *player_ptr)
     }
 
     if (heal) {
-        player_ptr->update |= (PU_COMBINE);
+        player_ptr->update |= (PU_COMBINATION);
         // FIXME 広域マップ移動で1歩毎に何度も再描画されて重くなる。現在はボール中モンスターのHP回復でボールの表示は変わらないためコメントアウトする。
-        // player_ptr->window_flags |= (PW_INVEN);
-        // player_ptr->window_flags |= (PW_EQUIP);
+        // player_ptr->window_flags |= (PW_INVENTORY);
+        // player_ptr->window_flags |= (PW_EQUIPMENT);
         wild_regen = 20;
     }
 }

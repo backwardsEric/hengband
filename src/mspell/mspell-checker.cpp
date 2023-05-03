@@ -14,7 +14,6 @@
 #include "core/disturbance.h"
 #include "core/player-redraw-types.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -47,11 +46,12 @@
 #include "spell-kind/spells-world.h"
 #include "spell-realm/spells-hex.h"
 #include "spell/range-calc.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "util/bit-flags-calculator.h"
@@ -99,7 +99,7 @@ bool summon_possible(PlayerType *player_ptr, POSITION y1, POSITION x1)
  * @param m_ptr 判定を行いたいモンスターの構造体参照ポインタ
  * @return 死者復活が有効な状態ならばTRUEを返す。
  */
-bool raise_possible(PlayerType *player_ptr, monster_type *m_ptr)
+bool raise_possible(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
     POSITION y = m_ptr->fy;
     POSITION x = m_ptr->fx;
@@ -119,10 +119,10 @@ bool raise_possible(PlayerType *player_ptr, monster_type *m_ptr)
 
             g_ptr = &floor_ptr->grid_array[yy][xx];
             for (const auto this_o_idx : g_ptr->o_idx_list) {
-                auto *o_ptr = &floor_ptr->o_list[this_o_idx];
-                if (o_ptr->tval == ItemKindType::CORPSE) {
-                    auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-                    if (!monster_has_hostile_align(player_ptr, m_ptr, 0, 0, &r_info[corpse_r_idx])) {
+                const auto &item = floor_ptr->o_list[this_o_idx];
+                if (item.bi_key.tval() == ItemKindType::CORPSE) {
+                    auto corpse_r_idx = i2enum<MonsterRaceId>(item.pval);
+                    if (!monster_has_hostile_align(player_ptr, m_ptr, 0, 0, &monraces_info[corpse_r_idx])) {
                         return true;
                     }
                 }
@@ -169,7 +169,7 @@ bool clean_shot(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, P
     for (const auto &[y, x] : grid_g) {
         if ((floor_ptr->grid_array[y][x].m_idx > 0) && (y != y2 || x != x2)) {
             auto *m_ptr = &floor_ptr->m_list[floor_ptr->grid_array[y][x].m_idx];
-            if (is_friend == is_pet(m_ptr)) {
+            if (is_friend == m_ptr->is_pet()) {
                 return false;
             }
         }
@@ -265,7 +265,7 @@ ProjectResult ball(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m
 ProjectResult breath(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, AttributeType typ, int dam_hp, POSITION rad, int target_type)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
     BIT_FLAGS flg = PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_BREATH;
     if (target_type == MONSTER_TO_PLAYER) {
         flg |= PROJECT_PLAYER;

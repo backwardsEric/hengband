@@ -1,5 +1,6 @@
 ﻿#include "load/load-util.h"
 #include "locale/japanese.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 
 FILE *loading_savefile;
@@ -23,11 +24,11 @@ byte kanji_code = 0;
  * @details
  * Avoid the top two lines, to avoid interference with "msg_print()".
  */
-void load_note(concptr msg)
+void load_note(std::string_view msg)
 {
     static TERM_LEN y = 2;
     prt(msg, y, 0);
-    if (++y >= 24) {
+    if (++y >= MAIN_TERM_MIN_ROWS) {
         y = 2;
     }
 

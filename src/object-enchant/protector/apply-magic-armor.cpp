@@ -9,7 +9,8 @@
 #include "artifact/random-art-generator.h"
 #include "inventory/inventory-slot-types.h"
 #include "object/object-kind-hook.h"
-#include "system/object-type-definition.h"
+#include "object/tval-types.h"
+#include "system/item-entity.h"
 #include "view/display-messages.h"
 
 /*
@@ -19,7 +20,7 @@
  * @param level 生成基準階
  * @param power 生成ランク
  */
-ArmorEnchanter::ArmorEnchanter(PlayerType *player_ptr, ObjectType *o_ptr, DEPTH level, int power)
+ArmorEnchanter::ArmorEnchanter(PlayerType *player_ptr, ItemEntity *o_ptr, DEPTH level, int power)
     : AbstractProtectorEnchanter{ o_ptr, level, power }
     , player_ptr(player_ptr)
 {
@@ -39,15 +40,16 @@ void ArmorEnchanter::give_ego_index()
     while (true) {
         auto valid = true;
         this->o_ptr->ego_idx = get_random_ego(INVEN_BODY, true);
+        const auto tval = this->o_ptr->bi_key.tval();
         switch (this->o_ptr->ego_idx) {
         case EgoType::DWARVEN:
-            if (this->o_ptr->tval != ItemKindType::HARD_ARMOR) {
+            if (tval != ItemKindType::HARD_ARMOR) {
                 valid = false;
             }
 
             break;
         case EgoType::DRUID:
-            if (this->o_ptr->tval != ItemKindType::SOFT_ARMOR) {
+            if (tval != ItemKindType::SOFT_ARMOR) {
                 valid = false;
             }
 

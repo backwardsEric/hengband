@@ -10,12 +10,12 @@
 #include "flavor/object-flavor-types.h"
 #include "io/files-util.h"
 #include "system/angband.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "util/angband-files.h"
 
-ParchmentReadExecutor::ParchmentReadExecutor(PlayerType *player_ptr, ObjectType *o_ptr)
+ParchmentReadExecutor::ParchmentReadExecutor(PlayerType *player_ptr, ItemEntity *o_ptr)
     : player_ptr(player_ptr)
     , o_ptr(o_ptr)
 {
@@ -28,13 +28,12 @@ bool ParchmentReadExecutor::is_identified() const
 
 bool ParchmentReadExecutor::read()
 {
-    GAME_TEXT o_name[MAX_NLEN]{};
     char buf[1024]{};
     screen_save();
-    auto q = format("book-%d_jp.txt", this->o_ptr->sval);
-    describe_flavor(this->player_ptr, o_name, this->o_ptr, OD_NAME_ONLY);
-    (void)path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, q);
-    (void)show_file(this->player_ptr, true, buf, o_name, 0, 0);
+    auto q = format("book-%d_jp.txt", this->o_ptr->bi_key.sval().value());
+    const auto item_name = describe_flavor(this->player_ptr, this->o_ptr, OD_NAME_ONLY);
+    path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, q);
+    (void)show_file(this->player_ptr, true, buf, item_name.data(), 0, 0);
     screen_load();
     return false;
 }

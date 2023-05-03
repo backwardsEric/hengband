@@ -19,12 +19,11 @@
 #include "sv-definition/sv-scroll-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
-
 #include <set>
 
 /*!
@@ -66,7 +65,7 @@ bool affect_item(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y
         bool plural = (o_ptr->number > 1);
 #endif
         auto flags = object_flags(o_ptr);
-        bool is_artifact = o_ptr->is_artifact();
+        bool is_fixed_or_random_artifact = o_ptr->is_fixed_or_random_artifact();
         switch (typ) {
         case AttributeType::ACID: {
             if (BreakerAcid().hates(o_ptr)) {
@@ -180,7 +179,7 @@ bool affect_item(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y
             note_kill = _("壊れてしまった！", (plural ? " are destroyed!" : " is destroyed!"));
             if (flags.has(TR_RES_CHAOS)) {
                 ignore = true;
-            } else if ((o_ptr->tval == ItemKindType::SCROLL) && (o_ptr->sval == SV_SCROLL_CHAOS)) {
+            } else if (o_ptr->bi_key == BaseitemKey(ItemKindType::SCROLL, SV_SCROLL_CHAOS)) {
                 ignore = true;
             }
             break;
@@ -206,16 +205,17 @@ bool affect_item(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y
         }
         case AttributeType::KILL_TRAP:
         case AttributeType::KILL_DOOR: {
-            if (o_ptr->tval != ItemKindType::CHEST) {
+            if (o_ptr->bi_key.tval() != ItemKindType::CHEST) {
                 break;
             }
+
             if (o_ptr->pval <= 0) {
                 break;
             }
 
             o_ptr->pval = (0 - o_ptr->pval);
             object_known(o_ptr);
-            if (known && (o_ptr->marked & OM_FOUND)) {
+            if (known && o_ptr->marked.has(OmType::FOUND)) {
                 msg_print(_("カチッと音がした！", "Click!"));
                 is_item_affected = true;
             }
@@ -223,18 +223,19 @@ bool affect_item(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y
             break;
         }
         case AttributeType::ANIM_DEAD: {
-            if (o_ptr->tval != ItemKindType::CORPSE) {
+            if (o_ptr->bi_key.tval() != ItemKindType::CORPSE) {
                 break;
             }
 
             BIT_FLAGS mode = 0L;
-            if (!who || is_pet(&player_ptr->current_floor_ptr->m_list[who])) {
+            if (!who || player_ptr->current_floor_ptr->m_list[who].is_pet()) {
                 mode |= PM_FORCE_PET;
             }
 
             for (int i = 0; i < o_ptr->number; i++) {
                 auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-                if (((o_ptr->sval == SV_CORPSE) && (randint1(100) > 80)) || ((o_ptr->sval == SV_SKELETON) && (randint1(100) > 60))) {
+                const auto sval = o_ptr->bi_key.sval().value();
+                if (((sval == SV_CORPSE) && (randint1(100) > 80)) || ((sval == SV_SKELETON) && (randint1(100) > 60))) {
                     if (!note_kill) {
                         note_kill = _("灰になった。", (plural ? " become dust." : " becomes dust."));
                     }
@@ -259,29 +260,29 @@ bool affect_item(PlayerType *player_ptr, MONSTER_IDX who, POSITION r, POSITION y
             continue;
         }
 
-        GAME_TEXT o_name[MAX_NLEN];
-        if (known && (o_ptr->marked & OM_FOUND)) {
+        std::string item_name("");
+        if (known && o_ptr->marked.has(OmType::FOUND)) {
             is_item_affected = true;
-            describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+            item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
         }
 
-        if ((is_artifact || ignore)) {
-            if (known && (o_ptr->marked & OM_FOUND)) {
-                msg_format(_("%sは影響を受けない！", (plural ? "The %s are unaffected!" : "The %s is unaffected!")), o_name);
+        if ((is_fixed_or_random_artifact || ignore)) {
+            if (known && o_ptr->marked.has(OmType::FOUND)) {
+                msg_format(_("%sは影響を受けない！", (plural ? "The %s are unaffected!" : "The %s is unaffected!")), item_name.data());
             }
 
             continue;
         }
 
-        if (known && (o_ptr->marked & OM_FOUND) && note_kill) {
-            msg_format(_("%sは%s", "The %s%s"), o_name, note_kill);
+        if (known && o_ptr->marked.has(OmType::FOUND) && note_kill) {
+            msg_format(_("%sは%s", "The %s%s"), item_name.data(), note_kill);
         }
 
-        KIND_OBJECT_IDX k_idx = o_ptr->k_idx;
+        short bi_id = o_ptr->bi_id;
         bool is_potion = o_ptr->is_potion();
         delete_object_idx(player_ptr, this_o_idx);
         if (is_potion) {
-            (void)potion_smash_effect(player_ptr, who, y, x, k_idx);
+            (void)potion_smash_effect(player_ptr, who, y, x, bi_id);
 
             // 薬の破壊効果によりリストの次のアイテムが破壊された可能性があるのでリストの最初から処理をやり直す
             // 処理済みのアイテムは processed_list に登録されており、スキップされる

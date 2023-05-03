@@ -17,7 +17,7 @@
 #include "io/input-key-acceptor.h"
 #include "main/sound-of-music.h"
 #include "object/item-use-flags.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -33,18 +33,17 @@
  * A function for Auto-picker/destroyer
  * Examine whether the object matches to the list of keywords or not.
  */
-int find_autopick_list(PlayerType *player_ptr, ObjectType *o_ptr)
+int find_autopick_list(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    GAME_TEXT o_name[MAX_NLEN];
-    if (o_ptr->tval == ItemKindType::GOLD) {
+    if (o_ptr->bi_key.tval() == ItemKindType::GOLD) {
         return -1;
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
-    str_tolower(o_name);
+    auto item_name = describe_flavor(player_ptr, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    str_tolower(item_name.data());
     for (auto i = 0U; i < autopick_list.size(); i++) {
-        autopick_type *entry = &autopick_list[i];
-        if (is_autopick_match(player_ptr, o_ptr, entry, o_name)) {
+        const auto &entry = autopick_list[i];
+        if (is_autopick_match(player_ptr, o_ptr, entry, item_name)) {
             return i;
         }
     }
@@ -55,11 +54,11 @@ int find_autopick_list(PlayerType *player_ptr, ObjectType *o_ptr)
 /*!
  * @brief Choose an item for search
  */
-bool get_object_for_search(PlayerType *player_ptr, ObjectType **o_handle, concptr *search_strp)
+bool get_object_for_search(PlayerType *player_ptr, ItemEntity **o_handle, concptr *search_strp)
 {
     concptr q = _("どのアイテムを検索しますか? ", "Enter which item? ");
     concptr s = _("アイテムを持っていない。", "You have nothing to enter.");
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = choose_object(player_ptr, nullptr, q, s, USE_INVEN | USE_FLOOR | USE_EQUIP);
     if (!o_ptr) {
         return false;
@@ -67,26 +66,24 @@ bool get_object_for_search(PlayerType *player_ptr, ObjectType **o_handle, concpt
 
     *o_handle = o_ptr;
     string_free(*search_strp);
-    char buf[MAX_NLEN + 20];
-    describe_flavor(player_ptr, buf, *o_handle, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
-    *search_strp = string_make(format("<%s>", buf));
+    const auto item_name = describe_flavor(player_ptr, *o_handle, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    *search_strp = string_make(format("<%s>", item_name.data()).data());
     return true;
 }
 
 /*!
  * @brief Prepare for search by destroyed object
  */
-bool get_destroyed_object_for_search(PlayerType *player_ptr, ObjectType **o_handle, concptr *search_strp)
+bool get_destroyed_object_for_search(PlayerType *player_ptr, ItemEntity **o_handle, concptr *search_strp)
 {
-    if (!autopick_last_destroyed_object.k_idx) {
+    if (!autopick_last_destroyed_object.is_valid()) {
         return false;
     }
 
     *o_handle = &autopick_last_destroyed_object;
     string_free(*search_strp);
-    char buf[MAX_NLEN + 20];
-    describe_flavor(player_ptr, buf, *o_handle, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
-    *search_strp = string_make(format("<%s>", buf));
+    const auto item_name = describe_flavor(player_ptr, *o_handle, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    *search_strp = string_make(format("<%s>", item_name.data()).data());
     return true;
 }
 
@@ -97,13 +94,11 @@ bool get_destroyed_object_for_search(PlayerType *player_ptr, ObjectType **o_hand
  * TERM_YELLOW : Overwrite mode
  * TERM_WHITE : Insert mode
  */
-byte get_string_for_search(PlayerType *player_ptr, ObjectType **o_handle, concptr *search_strp)
+byte get_string_for_search(PlayerType *player_ptr, ItemEntity **o_handle, concptr *search_strp)
 {
     byte color = TERM_YELLOW;
     char buf[MAX_NLEN + 20];
     const int len = 80;
-    char prompt[] = _("検索(^I:持ち物 ^L:破壊された物): ", "Search key(^I:inven ^L:destroyed): ");
-    int col = sizeof(prompt) - 1;
     if (*search_strp) {
         strcpy(buf, *search_strp);
     } else {
@@ -114,6 +109,8 @@ byte get_string_for_search(PlayerType *player_ptr, ObjectType **o_handle, concpt
         color = TERM_L_GREEN;
     }
 
+    const std::string prompt(_("検索(^I:持ち物 ^L:破壊された物): ", "Search key(^I:inven ^L:destroyed): "));
+    const auto col = prompt.length();
     prt(prompt, 0, 0);
     int pos = 0;
     while (true) {
@@ -174,7 +171,7 @@ byte get_string_for_search(PlayerType *player_ptr, ObjectType **o_handle, concpt
 
         case KTRL('r'):
             back = true;
-            /* Fall through */
+            [[fallthrough]];
 
         case '\n':
         case '\r':
@@ -221,7 +218,7 @@ byte get_string_for_search(PlayerType *player_ptr, ObjectType **o_handle, concpt
 
             pos = i;
         }
-            /* Fall through */
+            [[fallthrough]];
 
         case 0x7F:
         case KTRL('d'): {
@@ -311,14 +308,13 @@ byte get_string_for_search(PlayerType *player_ptr, ObjectType **o_handle, concpt
 /*!
  * @brief Search next line matches for o_ptr
  */
-void search_for_object(PlayerType *player_ptr, text_body_type *tb, ObjectType *o_ptr, bool forward)
+void search_for_object(PlayerType *player_ptr, text_body_type *tb, ItemEntity *o_ptr, bool forward)
 {
     autopick_type an_entry, *entry = &an_entry;
-    GAME_TEXT o_name[MAX_NLEN];
     int bypassed_cy = -1;
     int i = tb->cy;
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
-    str_tolower(o_name);
+    auto item_name = describe_flavor(player_ptr, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    str_tolower(item_name.data());
 
     while (true) {
         bool match;
@@ -336,7 +332,7 @@ void search_for_object(PlayerType *player_ptr, text_body_type *tb, ObjectType *o
             continue;
         }
 
-        match = is_autopick_match(player_ptr, o_ptr, entry, o_name);
+        match = is_autopick_match(player_ptr, o_ptr, *entry, item_name);
         if (!match) {
             continue;
         }

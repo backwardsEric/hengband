@@ -1,5 +1,4 @@
 ﻿#include "spell-kind/spells-grid.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "floor/cave.h"
 #include "floor/floor-object.h"
@@ -9,9 +8,11 @@
 #include "grid/feature.h"
 #include "grid/grid.h"
 #include "grid/stair.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
+#include "system/terrain-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -70,11 +71,11 @@ void stair_creation(PlayerType *player_ptr)
 
     bool down = true;
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (inside_quest(quest_number(player_ptr, floor_ptr->dun_level)) || (floor_ptr->dun_level >= d_info[player_ptr->dungeon_idx].maxdepth)) {
+    if (inside_quest(quest_number(player_ptr, floor_ptr->dun_level)) || (floor_ptr->dun_level >= dungeons_info[player_ptr->dungeon_idx].maxdepth)) {
         down = false;
     }
 
-    if (!floor_ptr->dun_level || (!up && !down) || (inside_quest(floor_ptr->quest_number) && quest_type::is_fixed(floor_ptr->quest_number)) || floor_ptr->inside_arena || player_ptr->phase_out) {
+    if (!floor_ptr->dun_level || (!up && !down) || (inside_quest(floor_ptr->quest_number) && QuestType::is_fixed(floor_ptr->quest_number)) || floor_ptr->inside_arena || player_ptr->phase_out) {
         msg_print(_("効果がありません！", "There is no effect!"));
         return;
     }
@@ -143,11 +144,11 @@ void stair_creation(PlayerType *player_ptr)
     dest_sf_ptr = get_sf_ptr(dest_floor_id);
     if (up) {
         cave_set_feat(player_ptr, player_ptr->y, player_ptr->x,
-            (dest_sf_ptr->last_visit && (dest_sf_ptr->dun_level <= floor_ptr->dun_level - 2)) ? feat_state(player_ptr->current_floor_ptr, feat_up_stair, FloorFeatureType::SHAFT)
+            (dest_sf_ptr->last_visit && (dest_sf_ptr->dun_level <= floor_ptr->dun_level - 2)) ? feat_state(player_ptr->current_floor_ptr, feat_up_stair, TerrainCharacteristics::SHAFT)
                                                                                               : feat_up_stair);
     } else {
         cave_set_feat(player_ptr, player_ptr->y, player_ptr->x,
-            (dest_sf_ptr->last_visit && (dest_sf_ptr->dun_level >= floor_ptr->dun_level + 2)) ? feat_state(player_ptr->current_floor_ptr, feat_down_stair, FloorFeatureType::SHAFT)
+            (dest_sf_ptr->last_visit && (dest_sf_ptr->dun_level >= floor_ptr->dun_level + 2)) ? feat_state(player_ptr->current_floor_ptr, feat_down_stair, TerrainCharacteristics::SHAFT)
                                                                                               : feat_down_stair);
     }
 

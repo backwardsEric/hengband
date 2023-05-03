@@ -8,8 +8,8 @@
 #include "object-enchant/trg-types.h"
 #include "system/artifact-type-definition.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/enum-converter.h"
 #include "world/world.h"
@@ -19,9 +19,9 @@
  * @param o_ptr 対象のオブジェクト構造体ポインタ
  * @return オブジェクトが報酬対象になるならTRUEを返す
  */
-bool object_is_bounty(PlayerType *player_ptr, ObjectType *o_ptr)
+bool object_is_bounty(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
-    if (o_ptr->tval != ItemKindType::CORPSE) {
+    if (o_ptr->bi_key.tval() != ItemKindType::CORPSE) {
         return false;
     }
 
@@ -30,7 +30,7 @@ bool object_is_bounty(PlayerType *player_ptr, ObjectType *o_ptr)
     }
 
     auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-    if (player_ptr->knows_daily_bounty && (streq(r_info[corpse_r_idx].name.c_str(), r_info[w_ptr->today_mon].name.c_str()))) {
+    if (player_ptr->knows_daily_bounty && (streq(monraces_info[corpse_r_idx].name.data(), monraces_info[w_ptr->today_mon].name.data()))) {
         return true;
     }
 
@@ -46,22 +46,21 @@ bool object_is_bounty(PlayerType *player_ptr, ObjectType *o_ptr)
  * @param o_ptr 特性短縮表記を得たいオブジェクト構造体の参照ポインタ
  * @return 現在クエスト達成目的のアイテムならばTRUEを返す。
  */
-bool object_is_quest_target(QuestId quest_idx, ObjectType *o_ptr)
+bool object_is_quest_target(QuestId quest_idx, const ItemEntity *o_ptr)
 {
     if (!inside_quest(quest_idx)) {
         return false;
     }
 
-    const auto &quest_list = QuestList::get_instance();
-    auto a_idx = quest_list[quest_idx].reward_artifact_idx;
-    if (a_idx == FixedArtifactId::NONE) {
+    const auto &quest = QuestList::get_instance()[quest_idx];
+    if (quest.has_reward()) {
         return false;
     }
 
-    const auto &a_ref = a_info.at(a_idx);
-    if (a_ref.gen_flags.has(ItemGenerationTraitType::INSTA_ART)) {
+    const auto &artifact = quest.get_reward();
+    if (artifact.gen_flags.has(ItemGenerationTraitType::INSTA_ART)) {
         return false;
     }
 
-    return (o_ptr->tval == a_ref.tval) && (o_ptr->sval == a_ref.sval);
+    return o_ptr->bi_key == artifact.bi_key;
 }

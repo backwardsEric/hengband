@@ -28,7 +28,7 @@
 #include "status/element-resistance.h"
 #include "status/experience.h"
 #include "status/shape-changer.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
@@ -55,7 +55,7 @@ void effect_player_poison(PlayerType *player_ptr, EffectPlayerType *ep_ptr)
 
     ep_ptr->dam = ep_ptr->dam * calc_pois_damage_rate(player_ptr) / 100;
 
-    if ((!(double_resist || has_resist_pois(player_ptr))) && one_in_(HURT_CHANCE) && !check_multishadow(player_ptr)) {
+    if ((!(double_resist || has_resist_pois(player_ptr))) && one_in_(CHANCE_ABILITY_SCORE_DECREASE) && !check_multishadow(player_ptr)) {
         do_dec_stat(player_ptr, A_CON);
     }
 
@@ -432,8 +432,8 @@ void effect_player_lite(PlayerType *player_ptr, EffectPlayerType *ep_ptr)
     player_ptr->wraith_form = 0;
     msg_print(_("閃光のため非物質的な影の存在でいられなくなった。", "The light forces you out of your incorporeal shadow form."));
 
-    player_ptr->redraw |= (PR_MAP | PR_STATUS);
-    player_ptr->update |= (PU_MONSTERS);
+    player_ptr->redraw |= (PR_MAP | PR_TIMED_EFFECT);
+    player_ptr->update |= (PU_MONSTER_STATUSES);
     player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
 }
 
@@ -446,7 +446,7 @@ void effect_player_dark(PlayerType *player_ptr, EffectPlayerType *ep_ptr)
 
     ep_ptr->dam = ep_ptr->dam * calc_dark_damage_rate(player_ptr, CALC_RAND) / 100;
 
-    auto go_blind = is_blind;
+    auto go_blind = !is_blind;
     go_blind &= !has_resist_blind(player_ptr);
     go_blind &= !(has_resist_dark(player_ptr) || has_immune_dark(player_ptr));
     go_blind &= !check_multishadow(player_ptr);

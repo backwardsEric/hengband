@@ -7,7 +7,7 @@
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "racial/racial-android.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -19,30 +19,30 @@
  */
 bool rustproof(PlayerType *player_ptr)
 {
-    concptr q = _("どの防具に錆止めをしますか？", "Rustproof which piece of armour? ");
-    concptr s = _("錆止めできるものがありません。", "You have nothing to rustproof.");
+    const auto q = _("どの防具に錆止めをしますか？", "Rustproof which piece of armour? ");
+    const auto s = _("錆止めできるものがありません。", "You have nothing to rustproof.");
     OBJECT_IDX item;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT, FuncItemTester(&ObjectType::is_armour));
+    const auto options = USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT;
+    auto *o_ptr = choose_object(player_ptr, &item, q, s, options, FuncItemTester(&ItemEntity::is_protector));
     if (o_ptr == nullptr) {
         return false;
     }
 
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, OD_OMIT_PREFIX | OD_NAME_ONLY);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_OMIT_PREFIX | OD_NAME_ONLY);
     o_ptr->art_flags.set(TR_IGNORE_ACID);
     if ((o_ptr->to_a < 0) && !o_ptr->is_cursed()) {
 #ifdef JP
-        msg_format("%sは新品同様になった！", o_name);
+        msg_format("%sは新品同様になった！", item_name.data());
 #else
-        msg_format("%s %s look%s as good as new!", ((item >= 0) ? "Your" : "The"), o_name, ((o_ptr->number > 1) ? "" : "s"));
+        msg_format("%s %s look%s as good as new!", ((item >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
 #endif
         o_ptr->to_a = 0;
     }
 
 #ifdef JP
-    msg_format("%sは腐食しなくなった。", o_name);
+    msg_format("%sは腐食しなくなった。", item_name.data());
 #else
-    msg_format("%s %s %s now protected against corrosion.", ((item >= 0) ? "Your" : "The"), o_name, ((o_ptr->number > 1) ? "are" : "is"));
+    msg_format("%s %s %s now protected against corrosion.", ((item >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "are" : "is"));
 #endif
     calc_android_exp(player_ptr);
     return true;

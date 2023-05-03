@@ -17,12 +17,12 @@
 #include "object-enchant/special-object-flags.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-status/player-energy.h"
 #include "status/experience.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-confusion.h"
@@ -59,7 +59,7 @@ void ObjectUseEntity::execute()
         return;
     }
 
-    auto lev = k_info[o_ptr->k_idx].level;
+    auto lev = o_ptr->get_baseitem().level;
     if (lev > 50) {
         lev = 50 + (lev - 50) / 2;
     }
@@ -91,17 +91,17 @@ void ObjectUseEntity::execute()
 
         msg_print(_("この杖にはもう魔力が残っていない。", "The staff has no charges left."));
         o_ptr->ident |= IDENT_EMPTY;
-        this->player_ptr->update |= PU_COMBINE | PU_REORDER;
-        this->player_ptr->window_flags |= PW_INVEN;
+        this->player_ptr->update |= PU_COMBINATION | PU_REORDER;
+        this->player_ptr->window_flags |= PW_INVENTORY;
         return;
     }
 
     sound(SOUND_ZAP);
-    auto ident = staff_effect(this->player_ptr, o_ptr->sval, &use_charge, false, false, o_ptr->is_aware());
+    auto ident = staff_effect(this->player_ptr, o_ptr->bi_key.sval().value(), &use_charge, false, false, o_ptr->is_aware());
     if (!(o_ptr->is_aware())) {
-        chg_virtue(this->player_ptr, V_PATIENCE, -1);
-        chg_virtue(this->player_ptr, V_CHANCE, 1);
-        chg_virtue(this->player_ptr, V_KNOWLEDGE, -1);
+        chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
+        chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
+        chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
     /*
@@ -109,15 +109,15 @@ void ObjectUseEntity::execute()
      * gain_exp() does not reorder the inventory before the charge
      * is deducted from the staff.
      */
-    BIT_FLAGS inventory_flags = PU_COMBINE | PU_REORDER | (this->player_ptr->update & PU_AUTODESTROY);
-    reset_bits(this->player_ptr->update, PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
+    BIT_FLAGS inventory_flags = PU_COMBINATION | PU_REORDER | (this->player_ptr->update & PU_AUTO_DESTRUCTION);
+    reset_bits(this->player_ptr->update, PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
     object_tried(o_ptr);
     if (ident && !o_ptr->is_aware()) {
         object_aware(this->player_ptr, o_ptr);
         gain_exp(this->player_ptr, (lev + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 
-    set_bits(this->player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_PLAYER | PW_FLOOR_ITEM_LIST);
+    set_bits(this->player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
     set_bits(this->player_ptr->update, inventory_flags);
     if (!use_charge) {
         return;
@@ -125,7 +125,7 @@ void ObjectUseEntity::execute()
 
     o_ptr->pval--;
     if ((this->item >= 0) && (o_ptr->number > 1)) {
-        ObjectType forge;
+        ItemEntity forge;
         auto *q_ptr = &forge;
         q_ptr->copy_from(o_ptr);
         q_ptr->number = 1;
@@ -136,7 +136,7 @@ void ObjectUseEntity::execute()
     }
 
     if (this->item >= 0) {
-        inven_item_charges(this->player_ptr, this->item);
+        inven_item_charges(this->player_ptr->inventory_list[this->item]);
     } else {
         floor_item_charges(this->player_ptr->current_floor_ptr, 0 - this->item);
     }

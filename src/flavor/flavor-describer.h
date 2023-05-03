@@ -1,7 +1,8 @@
 ﻿#pragma once
 
 #include "system/angband.h"
+#include <string>
 
-class ObjectType;
+class ItemEntity;
 class PlayerType;
-void describe_flavor(PlayerType *player_ptr, char *buf, ObjectType *o_ptr, BIT_FLAGS mode);
+std::string describe_flavor(PlayerType *player_ptr, const ItemEntity *o_ptr, const BIT_FLAGS mode);

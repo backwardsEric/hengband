@@ -46,7 +46,7 @@ static void start_singing(PlayerType *player_ptr, SPELL_IDX spell, int32_t song)
     set_action(player_ptr, ACTION_SING);
 
     player_ptr->update |= (PU_BONUS);
-    player_ptr->redraw |= (PR_STATUS);
+    player_ptr->redraw |= (PR_TIMED_EFFECT);
 }
 
 /*!
@@ -54,9 +54,9 @@ static void start_singing(PlayerType *player_ptr, SPELL_IDX spell, int32_t song)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 歌ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST / SpellProcessType::FAIL / SPELL_CONT / SpellProcessType::STOP)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列ポインタを返す。SpellProcessType::CAST / SpellProcessType::FAIL / SPELL_CONT / SpellProcessType::STOP 時はnullptr文字列を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST / SpellProcessType::FAIL / SPELL_CONT / SpellProcessType::STOP 時は std::nullopt を返す。
  */
-concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+std::optional<std::string> do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool name = mode == SpellProcessType::NAME;
     bool desc = mode == SpellProcessType::DESCRIPTION;
@@ -150,7 +150,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_bolt(player_ptr, AttributeType::SOUND, dir, damroll(dice, sides));
@@ -302,7 +302,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
             msg_print(_("激しい戦いの歌を歌った．．．", "You start singing a song of intense fighting..."));
 
             (void)hp_player(player_ptr, 10);
-            (void)BadStatusSetter(player_ptr).fear(0);
+            (void)BadStatusSetter(player_ptr).set_fear(0);
             player_ptr->update |= PU_HP;
             start_singing(player_ptr, spell, MUSIC_HERO);
         }
@@ -820,7 +820,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_beam(player_ptr, AttributeType::SOUND, dir, damroll(dice, sides));
@@ -959,7 +959,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
         if (cast) {
             msg_print(_("英雄の歌を口ずさんだ．．．", "You chant a powerful, heroic call to arms..."));
             (void)hp_player(player_ptr, 10);
-            (void)BadStatusSetter(player_ptr).fear(0);
+            (void)BadStatusSetter(player_ptr).set_fear(0);
             player_ptr->update |= PU_HP;
             start_singing(player_ptr, spell, MUSIC_SHERO);
         }
@@ -1014,8 +1014,8 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
         if (cont) {
             hp_player(player_ptr, damroll(dice, sides));
             BadStatusSetter bss(player_ptr);
-            (void)bss.stun(0);
-            (void)bss.cut(0);
+            (void)bss.set_stun(0);
+            (void)bss.set_cut(0);
         }
 
         break;
@@ -1067,7 +1067,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
 
             if (cast) {
                 if (!get_aim_dir(player_ptr, &dir)) {
-                    return nullptr;
+                    return std::nullopt;
                 }
 
                 fire_ball(player_ptr, AttributeType::SOUND, dir, damroll(dice, sides), rad);
@@ -1092,7 +1092,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
             msg_print(_("フィンゴルフィンの冥王への挑戦を歌った．．．", "You recall the valor of Fingolfin's challenge to the Dark Lord..."));
 
             player_ptr->redraw |= (PR_MAP);
-            player_ptr->update |= (PU_MONSTERS);
+            player_ptr->update |= (PU_MONSTER_STATUSES);
             player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
 
             start_singing(player_ptr, spell, MUSIC_INVULN);
@@ -1103,7 +1103,7 @@ concptr do_music_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType
                 msg_print(_("無敵ではなくなった。", "The invulnerability wears off."));
 
                 player_ptr->redraw |= (PR_MAP);
-                player_ptr->update |= (PU_MONSTERS);
+                player_ptr->update |= (PU_MONSTER_STATUSES);
                 player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
             }
         }

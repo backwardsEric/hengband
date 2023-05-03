@@ -32,7 +32,7 @@
 #include "spell/spells-status.h"
 #include "spell/summon-types.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/grid-selector.h"
 #include "target/target-checker.h"
@@ -41,7 +41,6 @@
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
 #include "view/display-messages.h"
-
 #include <string_view>
 #include <vector>
 
@@ -205,7 +204,7 @@ void wiz_summon_specific_enemy(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     if (!MonsterRace(r_idx).is_valid()) {
         int val = 1;
-        if (!get_value("MonsterID", 1, r_info.size() - 1, &val)) {
+        if (!get_value("MonsterID", 1, monraces_info.size() - 1, &val)) {
             return;
         }
         r_idx = static_cast<MonsterRaceId>(val);
@@ -224,7 +223,7 @@ void wiz_summon_pet(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     if (!MonsterRace(r_idx).is_valid()) {
         int val = 1;
-        if (!get_value("MonsterID", 1, r_info.size() - 1, &val)) {
+        if (!get_value("MonsterID", 1, monraces_info.size() - 1, &val)) {
             return;
         }
         r_idx = static_cast<MonsterRaceId>(val);
@@ -256,15 +255,19 @@ void wiz_kill_target(PlayerType *player_ptr, int dam, AttributeType effect_idx, 
         for (auto i = 1; i <= 23; i++) {
             prt("", i, 0);
         }
+
         for (auto i = 0U; i < std::size(gf_descriptions); ++i) {
-            auto name = std::string_view(gf_descriptions[i].name).substr(3); // 先頭の"GF_"を取り除く
-            auto num = enum2i(gf_descriptions[i].num);
-            put_str(format("%03d:%^-.10s", num, name.data()), 1 + i / 5, 1 + (i % 5) * 16);
+            const auto &gf_description = gf_descriptions[i];
+            auto name = std::string_view(gf_description.name).substr(3); // 先頭の"GF_"を取り除く
+            auto num = enum2i(gf_description.num);
+            put_str(format("%03d:%-.10s^", num, name.data()), 1 + i / 5, 1 + (i % 5) * 16);
         }
+
         if (!get_value("EffectID", 1, max - 1, &idx)) {
             screen_load();
             return;
         }
+
         screen_load();
     }
 

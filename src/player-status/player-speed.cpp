@@ -24,9 +24,9 @@
 #include "spell-realm/spells-hex.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-deceleration.h"
 #include "timed-effect/timed-effects.h"
@@ -39,16 +39,12 @@ PlayerSpeed::PlayerSpeed(PlayerType *player_ptr)
 
 /*!
  * @brief 速度 - 初期値、下限、上限
- * @details
- * * 初期値110 - 加速+0に相当
- * * 上限209 - 加速+99相当
- * * 下限11 - 加速-99相当
  */
 void PlayerSpeed::set_locals()
 {
-    this->default_value = 110;
-    this->min_value = 11;
-    this->max_value = 209;
+    this->default_value = STANDARD_SPEED;
+    this->min_value = STANDARD_SPEED - 99;
+    this->max_value = STANDARD_SPEED + 99;
     this->tr_flag = TR_SPEED;
     this->tr_bad_flag = TR_SPEED;
 }
@@ -75,19 +71,23 @@ int16_t PlayerSpeed::class_bonus()
 {
     int16_t bonus = 0;
     PlayerClass pc(this->player_ptr);
+    PlayerRace pr(this->player_ptr);
+    auto has_speed = pr.equals(PlayerRaceType::KLACKON);
+    has_speed |= pr.equals(PlayerRaceType::SPRITE);
+    has_speed |= this->player_ptr->ppersonality == PERSONALITY_MUNCHKIN;
     if (pc.equals(PlayerClassType::NINJA)) {
         if (heavy_armor(this->player_ptr)) {
             bonus -= (this->player_ptr->lev) / 10;
-        } else if ((!this->player_ptr->inventory_list[INVEN_MAIN_HAND].k_idx || can_attack_with_main_hand(this->player_ptr)) && (!this->player_ptr->inventory_list[INVEN_SUB_HAND].k_idx || can_attack_with_sub_hand(this->player_ptr))) {
+        } else if (pc.has_ninja_speed()) {
             bonus += 3;
-            if (!(PlayerRace(this->player_ptr).equals(PlayerRaceType::KLACKON) || PlayerRace(this->player_ptr).equals(PlayerRaceType::SPRITE) || (this->player_ptr->ppersonality == PERSONALITY_MUNCHKIN))) {
+            if (!has_speed) {
                 bonus += (this->player_ptr->lev) / 10;
             }
         }
     }
 
     if ((pc.equals(PlayerClassType::MONK) || pc.equals(PlayerClassType::FORCETRAINER)) && !heavy_armor(this->player_ptr)) {
-        if (!(PlayerRace(this->player_ptr).equals(PlayerRaceType::KLACKON) || PlayerRace(this->player_ptr).equals(PlayerRaceType::SPRITE) || (this->player_ptr->ppersonality == PERSONALITY_MUNCHKIN))) {
+        if (!has_speed) {
             bonus += (this->player_ptr->lev) / 10;
         }
     }
@@ -121,13 +121,16 @@ int16_t PlayerSpeed::class_bonus()
  */
 int16_t PlayerSpeed::personality_bonus()
 {
-    int16_t bonus = 0;
     PlayerRace pr(this->player_ptr);
-    if (this->player_ptr->ppersonality == PERSONALITY_MUNCHKIN && !pr.equals(PlayerRaceType::KLACKON) && !pr.equals(PlayerRaceType::SPRITE)) {
-        bonus += (this->player_ptr->lev) / 10 + 5;
+    if (this->player_ptr->ppersonality != PERSONALITY_MUNCHKIN) {
+        return 0;
     }
 
-    return bonus;
+    if (pr.equals(PlayerRaceType::KLACKON) || pr.equals(PlayerRaceType::SPRITE)) {
+        return 0;
+    }
+
+    return this->player_ptr->lev / 10 + 5;
 }
 
 /*!
@@ -270,21 +273,22 @@ int16_t PlayerSpeed::riding_bonus()
         return 0;
     }
 
-    if (riding_m_ptr->mspeed > 110) {
-        bonus = (int16_t)((speed - 110) * (this->player_ptr->skill_exp[PlayerSkillKindType::RIDING] * 3 + this->player_ptr->lev * 160L - 10000L) / (22000L));
+    if (riding_m_ptr->mspeed > STANDARD_SPEED) {
+        const auto skill_exp = this->player_ptr->skill_exp[PlayerSkillKindType::RIDING];
+        bonus = (int16_t)((speed - STANDARD_SPEED) * (skill_exp * 3 + this->player_ptr->lev * 160L - 10000L) / (22000L));
         if (bonus < 0) {
             bonus = 0;
         }
     } else {
-        bonus = speed - 110;
+        bonus = speed - STANDARD_SPEED;
     }
 
     bonus += (this->player_ptr->skill_exp[PlayerSkillKindType::RIDING] + this->player_ptr->lev * 160L) / 3200;
-    if (monster_fast_remaining(riding_m_ptr)) {
+    if (riding_m_ptr->is_accelerated()) {
         bonus += 10;
     }
 
-    if (monster_slow_remaining(riding_m_ptr)) {
+    if (riding_m_ptr->is_decelerated()) {
         bonus -= 10;
     }
 
@@ -303,7 +307,7 @@ int16_t PlayerSpeed::inventory_weight_bonus()
     auto weight = calc_inventory_weight(this->player_ptr);
     if (this->player_ptr->riding) {
         auto *riding_m_ptr = &(this->player_ptr)->current_floor_ptr->m_list[this->player_ptr->riding];
-        auto *riding_r_ptr = &r_info[riding_m_ptr->r_idx];
+        auto *riding_r_ptr = &monraces_info[riding_m_ptr->r_idx];
         auto count = 1500 + riding_r_ptr->level * 25;
         if (weight > count) {
             bonus -= ((weight - count) / (count / 5));

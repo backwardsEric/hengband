@@ -12,13 +12,13 @@
 #include "object-enchant/special-object-flags.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-status/player-energy.h"
 #include "status/experience.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -46,7 +46,8 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
         return;
     }
 
-    if (o_ptr->is_aware() && (o_ptr->sval == SV_WAND_HEAL_MONSTER || o_ptr->sval == SV_WAND_HASTE_MONSTER)) {
+    const auto sval = o_ptr->bi_key.sval();
+    if (o_ptr->is_aware() && (sval == SV_WAND_HEAL_MONSTER || sval == SV_WAND_HASTE_MONSTER)) {
         target_pet = true;
     }
 
@@ -62,7 +63,7 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
         return;
     }
 
-    auto lev = k_info[o_ptr->k_idx].level;
+    auto lev = o_ptr->get_baseitem().level;
     if (lev > 50) {
         lev = 50 + (lev - 50) / 2;
     }
@@ -94,25 +95,25 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
 
         msg_print(_("この魔法棒にはもう魔力が残っていない。", "The wand has no charges left."));
         o_ptr->ident |= IDENT_EMPTY;
-        this->player_ptr->update |= PU_COMBINE | PU_REORDER;
-        this->player_ptr->window_flags |= PW_INVEN;
+        this->player_ptr->update |= PU_COMBINATION | PU_REORDER;
+        this->player_ptr->window_flags |= PW_INVENTORY;
         return;
     }
 
     sound(SOUND_ZAP);
-    auto ident = wand_effect(this->player_ptr, o_ptr->sval, dir, false, false);
+    auto ident = wand_effect(this->player_ptr, sval.value(), dir, false, false);
 
     /*
      * Temporarily remove the flags for updating the inventory so
      * gain_exp() does not reorder the inventory before the charge
      * is deducted from the wand.
      */
-    BIT_FLAGS inventory_flags = (PU_COMBINE | PU_REORDER | (this->player_ptr->update & PU_AUTODESTROY));
-    reset_bits(this->player_ptr->update, PU_COMBINE | PU_REORDER | PU_AUTODESTROY);
+    BIT_FLAGS inventory_flags = (PU_COMBINATION | PU_REORDER | (this->player_ptr->update & PU_AUTO_DESTRUCTION));
+    reset_bits(this->player_ptr->update, PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
     if (!(o_ptr->is_aware())) {
-        chg_virtue(this->player_ptr, V_PATIENCE, -1);
-        chg_virtue(this->player_ptr, V_CHANCE, 1);
-        chg_virtue(this->player_ptr, V_KNOWLEDGE, -1);
+        chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
+        chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
+        chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
     object_tried(o_ptr);
@@ -121,11 +122,11 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
         gain_exp(this->player_ptr, (lev + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 
-    set_bits(this->player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_PLAYER | PW_FLOOR_ITEM_LIST);
+    set_bits(this->player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
     set_bits(this->player_ptr->update, inventory_flags);
     o_ptr->pval--;
     if (item >= 0) {
-        inven_item_charges(this->player_ptr, item);
+        inven_item_charges(this->player_ptr->inventory_list[item]);
         return;
     }
 

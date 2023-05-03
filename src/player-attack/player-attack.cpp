@@ -51,16 +51,20 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-cut.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
 #include "world/world.h"
+
+/*! 吸血処理の最大回復HP */
+constexpr auto MAX_VAMPIRIC_DRAIN = 50;
 
 /*!
  * @brief プレイヤーの攻撃情報を初期化する(コンストラクタ以外の分)
@@ -77,7 +81,7 @@ static player_attack_type *initialize_player_attack_type(
     pa_ptr->m_idx = g_ptr->m_idx;
     pa_ptr->m_ptr = m_ptr;
     pa_ptr->r_idx = m_ptr->r_idx;
-    pa_ptr->r_ptr = &r_info[m_ptr->r_idx];
+    pa_ptr->r_ptr = &monraces_info[m_ptr->r_idx];
     pa_ptr->ma_ptr = &ma_blows[0];
     pa_ptr->g_ptr = g_ptr;
     pa_ptr->fear = fear;
@@ -117,7 +121,7 @@ static void attack_classify(PlayerType *player_ptr, player_attack_type *pa_ptr)
  */
 static void get_bare_knuckle_exp(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if ((r_ptr->level + 10) <= player_ptr->lev) {
         return;
     }
@@ -144,9 +148,9 @@ static void get_weapon_exp(PlayerType *player_ptr, player_attack_type *pa_ptr)
  */
 static void get_attack_exp(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    if (o_ptr->k_idx == 0) {
+    if (!o_ptr->is_valid()) {
         get_bare_knuckle_exp(player_ptr, pa_ptr);
         return;
     }
@@ -175,7 +179,7 @@ static void calc_num_blow(PlayerType *player_ptr, player_attack_type *pa_ptr)
     }
 
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    if ((o_ptr->tval == ItemKindType::SWORD) && (o_ptr->sval == SV_POISON_NEEDLE)) {
+    if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) {
         pa_ptr->num_blow = 1;
     }
 }
@@ -196,7 +200,7 @@ static chaotic_effect select_chaotic_effect(PlayerType *player_ptr, player_attac
     }
 
     if (one_in_(10)) {
-        chg_virtue(player_ptr, V_CHANCE, 1);
+        chg_virtue(player_ptr, Virtue::CHANCE, 1);
     }
 
     if (randint1(5) < 3) {
@@ -227,7 +231,7 @@ static MagicalBrandEffectType select_magical_brand_effect(PlayerType *player_ptr
     }
 
     if (one_in_(10)) {
-        chg_virtue(player_ptr, V_CHANCE, 1);
+        chg_virtue(player_ptr, Virtue::CHANCE, 1);
     }
 
     if (one_in_(5)) {
@@ -342,7 +346,7 @@ static void process_weapon_attack(PlayerType *player_ptr, player_attack_type *pa
     }
 
     auto do_impact = does_weapon_has_flag(player_ptr->impact, pa_ptr);
-    if ((!(o_ptr->tval == ItemKindType::SWORD) || !(o_ptr->sval == SV_POISON_NEEDLE)) && !(pa_ptr->mode == HISSATSU_KYUSHO)) {
+    if ((o_ptr->bi_key != BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE)) && !(pa_ptr->mode == HISSATSU_KYUSHO)) {
         pa_ptr->attack_damage = critical_norm(player_ptr, o_ptr->weight, o_ptr->to_h, pa_ptr->attack_damage, player_ptr->to_h[pa_ptr->hand], pa_ptr->mode, do_impact);
     }
 
@@ -370,7 +374,7 @@ static void calc_attack_damage(PlayerType *player_ptr, player_attack_type *pa_pt
         return;
     }
 
-    if (o_ptr->k_idx) {
+    if (o_ptr->is_valid()) {
         process_weapon_attack(player_ptr, pa_ptr, do_quake, vorpal_cut, vorpal_chance);
     }
 }
@@ -416,12 +420,13 @@ static void apply_damage_negative_effect(player_attack_type *pa_ptr, bool is_zan
         pa_ptr->attack_damage = 0;
     }
 
-    auto *r_ptr = &r_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
     if ((pa_ptr->mode == HISSATSU_ZANMA) && !(!monster_living(pa_ptr->m_ptr->r_idx) && r_ptr->kind_flags.has(MonsterKindType::EVIL))) {
         pa_ptr->attack_damage = 0;
     }
 
     if (is_zantetsu_nullified) {
+        sound(SOUND_ATTACK_FAILED);
         msg_print(_("こんな軟らかいものは切れん！", "You cannot cut such an elastic thing!"));
         pa_ptr->attack_damage = 0;
     }
@@ -464,7 +469,7 @@ static bool check_fear_death(PlayerType *player_ptr, player_attack_type *pa_ptr,
     }
 
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    if ((o_ptr->fixed_artifact_idx == FixedArtifactId::ZANTETSU) && is_lowlevel) {
+    if ((o_ptr->is_specific_artifact(FixedArtifactId::ZANTETSU)) && is_lowlevel) {
         msg_print(_("またつまらぬものを斬ってしまった．．．", "Sigh... Another trifling thing I've cut...."));
     }
 
@@ -483,7 +488,7 @@ static void apply_actual_attack(
     PlayerType *player_ptr, player_attack_type *pa_ptr, bool *do_quake, const bool is_zantetsu_nullified, const bool is_ej_nullified)
 {
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    int vorpal_chance = ((o_ptr->fixed_artifact_idx == FixedArtifactId::VORPAL_BLADE) || (o_ptr->fixed_artifact_idx == FixedArtifactId::CHAINSWORD)) ? 2 : 4;
+    int vorpal_chance = (o_ptr->is_specific_artifact(FixedArtifactId::VORPAL_BLADE) || o_ptr->is_specific_artifact(FixedArtifactId::CHAINSWORD)) ? 2 : 4;
 
     sound(SOUND_HIT);
     print_surprise_attack(pa_ptr);
@@ -499,8 +504,9 @@ static void apply_actual_attack(
     apply_damage_negative_effect(pa_ptr, is_zantetsu_nullified, is_ej_nullified);
     mineuchi(player_ptr, pa_ptr);
 
-    pa_ptr->attack_damage = mon_damage_mod(player_ptr, pa_ptr->m_ptr, pa_ptr->attack_damage,
-        ((o_ptr->tval == ItemKindType::POLEARM) && (o_ptr->sval == SV_DEATH_SCYTHE)) || (PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER) && one_in_(2)));
+    const auto is_death_scythe = o_ptr->bi_key == BaseitemKey(ItemKindType::POLEARM, SV_DEATH_SCYTHE);
+    const auto is_berserker = PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER);
+    pa_ptr->attack_damage = mon_damage_mod(player_ptr, pa_ptr->m_ptr, pa_ptr->attack_damage, is_death_scythe || (is_berserker && one_in_(2)));
     critical_attack(player_ptr, pa_ptr);
     msg_format_wizard(player_ptr, CHEAT_MONSTER, _("%dのダメージを与えた。(残りHP %d/%d(%d))", "You do %d damage. (left HP %d/%d(%d))"),
         pa_ptr->attack_damage, pa_ptr->m_ptr->hp - pa_ptr->attack_damage, pa_ptr->m_ptr->maxhp, pa_ptr->m_ptr->max_maxhp);
@@ -554,12 +560,12 @@ void exe_player_attack_to_monster(PlayerType *player_ptr, POSITION y, POSITION x
 
     /* Disturb the monster */
     (void)set_monster_csleep(player_ptr, pa_ptr->m_idx, 0);
-    monster_desc(player_ptr, pa_ptr->m_name, pa_ptr->m_ptr, 0);
+    angband_strcpy(pa_ptr->m_name, monster_desc(player_ptr, pa_ptr->m_ptr, 0).data(), sizeof(pa_ptr->m_name));
 
     int chance = calc_attack_quality(player_ptr, pa_ptr);
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    bool is_zantetsu_nullified = ((o_ptr->fixed_artifact_idx == FixedArtifactId::ZANTETSU) && (pa_ptr->r_ptr->d_char == 'j'));
-    bool is_ej_nullified = ((o_ptr->fixed_artifact_idx == FixedArtifactId::EXCALIBUR_J) && (pa_ptr->r_ptr->d_char == 'S'));
+    bool is_zantetsu_nullified = (o_ptr->is_specific_artifact(FixedArtifactId::ZANTETSU) && (pa_ptr->r_ptr->d_char == 'j'));
+    bool is_ej_nullified = (o_ptr->is_specific_artifact(FixedArtifactId::EXCALIBUR_J) && (pa_ptr->r_ptr->d_char == 'S'));
     calc_num_blow(player_ptr, pa_ptr);
 
     /* Attack once for each legal blow */
@@ -591,11 +597,11 @@ void exe_player_attack_to_monster(PlayerType *player_ptr, POSITION y, POSITION x
     }
 
     if (pa_ptr->weak && !(*mdeath)) {
-        msg_format(_("%sは弱くなったようだ。", "%^s seems weakened."), pa_ptr->m_name);
+        msg_format(_("%sは弱くなったようだ。", "%s^ seems weakened."), pa_ptr->m_name);
     }
 
     if ((pa_ptr->drain_left != MAX_VAMPIRIC_DRAIN) && one_in_(4)) {
-        chg_virtue(player_ptr, V_UNLIFE, 1);
+        chg_virtue(player_ptr, Virtue::UNLIFE, 1);
     }
 
     cause_earthquake(player_ptr, pa_ptr, do_quake, y, x);
@@ -608,13 +614,13 @@ void exe_player_attack_to_monster(PlayerType *player_ptr, POSITION y, POSITION x
 void massacre(PlayerType *player_ptr)
 {
     grid_type *g_ptr;
-    monster_type *m_ptr;
+    MonsterEntity *m_ptr;
     for (DIRECTION dir = 0; dir < 8; dir++) {
         POSITION y = player_ptr->y + ddy_ddd[dir];
         POSITION x = player_ptr->x + ddx_ddd[dir];
         g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
         m_ptr = &player_ptr->current_floor_ptr->m_list[g_ptr->m_idx];
-        if (g_ptr->m_idx && (m_ptr->ml || cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, FloorFeatureType::PROJECT))) {
+        if (g_ptr->m_idx && (m_ptr->ml || cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT))) {
             do_cmd_attack(player_ptr, y, x, HISSATSU_NONE);
         }
     }

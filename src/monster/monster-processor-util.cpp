@@ -8,11 +8,10 @@
  */
 
 #include "monster/monster-processor-util.h"
-#include "game-option/birth-options.h"
 #include "monster-race/monster-race.h"
 #include "monster/monster-status.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 
 /*!
  * @brief ターン経過フラグ構造体の初期化
@@ -291,8 +290,8 @@ void save_old_race_flags(MonsterRaceId monster_race_idx, old_race_flags *old_rac
         return;
     }
 
-    monster_race *r_ptr;
-    r_ptr = &r_info[monster_race_idx];
+    MonsterRaceInfo *r_ptr;
+    r_ptr = &monraces_info[monster_race_idx];
 
     old_race_flags_ptr->old_r_flags1 = r_ptr->r_flags1;
     old_race_flags_ptr->old_r_flags2 = r_ptr->r_flags2;
@@ -300,6 +299,7 @@ void save_old_race_flags(MonsterRaceId monster_race_idx, old_race_flags *old_rac
     old_race_flags_ptr->old_r_resistance_flags = r_ptr->r_resistance_flags;
     old_race_flags_ptr->old_r_ability_flags = r_ptr->r_ability_flags;
     old_race_flags_ptr->old_r_behavior_flags = r_ptr->r_behavior_flags;
+    old_race_flags_ptr->old_r_kind_flags = r_ptr->r_kind_flags;
     old_race_flags_ptr->old_r_drop_flags = r_ptr->r_drop_flags;
     old_race_flags_ptr->old_r_feature_flags = r_ptr->r_feature_flags;
 
@@ -309,26 +309,4 @@ void save_old_race_flags(MonsterRaceId monster_race_idx, old_race_flags *old_rac
     old_race_flags_ptr->old_r_blows3 = r_ptr->r_blows[3];
 
     old_race_flags_ptr->old_r_cast_spell = r_ptr->r_cast_spell;
-}
-
-/*!
- * @brief モンスターの加速値を決定する
- * @param m_ptr モンスターへの参照ポインタ
- * return モンスターの加速値
- */
-byte decide_monster_speed(monster_type *m_ptr)
-{
-    auto speed = m_ptr->mspeed;
-    if (ironman_nightmare) {
-        speed += 5;
-    }
-
-    if (monster_fast_remaining(m_ptr)) {
-        speed += 10;
-    }
-    if (monster_slow_remaining(m_ptr)) {
-        speed -= 10;
-    }
-
-    return speed;
 }

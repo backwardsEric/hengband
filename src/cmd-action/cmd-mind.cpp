@@ -50,9 +50,9 @@
 #include "term/screen-processor.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
-#include "util/buffer-shaper.h"
 #include "util/enum-converter.h"
 #include "view/display-messages.h"
+#include "view/display-util.h"
 
 /*!
  * @brief 職業別特殊技能の処理用構造体
@@ -239,7 +239,7 @@ static void check_mind_mindcrafter(PlayerType *player_ptr, cm_type *cm_ptr)
         return;
     }
 
-    msg_format(_("%sの力が制御できない氾流となって解放された！", "Your mind unleashes its power in an uncontrollable storm!"), cm_ptr->mind_explanation);
+    msg_print(_(format("%sの力が制御できない氾流となって解放された！", cm_ptr->mind_explanation), "Your mind unleashes its power in an uncontrollable storm!"));
     project(player_ptr, PROJECT_WHO_UNCTRL_POWER, 2 + cm_ptr->plev / 10, player_ptr->y, player_ptr->x, cm_ptr->plev * 2, AttributeType::MANA,
         PROJECT_JUMP | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM);
     player_ptr->csp = std::max(0, player_ptr->csp - cm_ptr->plev * std::max(1, cm_ptr->plev / 10));
@@ -267,7 +267,7 @@ static void check_mind_mirror_master(PlayerType *player_ptr, cm_type *cm_ptr)
         return;
     }
 
-    msg_format(_("%sの力が制御できない氾流となって解放された！", "Your mind unleashes its power in an uncontrollable storm!"), cm_ptr->mind_explanation);
+    msg_print(_(format("%sの力が制御できない氾流となって解放された！", cm_ptr->mind_explanation), "Your mind unleashes its power in an uncontrollable storm!"));
     project(player_ptr, PROJECT_WHO_UNCTRL_POWER, 2 + cm_ptr->plev / 10, player_ptr->y, player_ptr->x, cm_ptr->plev * 2, AttributeType::MANA,
         PROJECT_JUMP | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM);
     player_ptr->csp = std::max(0, player_ptr->csp - cm_ptr->plev * std::max(1, cm_ptr->plev / 10));
@@ -316,7 +316,7 @@ static bool switch_mind_class(PlayerType *player_ptr, cm_type *cm_ptr)
         cm_ptr->cast = cast_ninja_spell(player_ptr, i2enum<MindNinjaType>(cm_ptr->n));
         return true;
     default:
-        msg_format(_("謎の能力:%d, %d", "Mystery power:%d, %d"), cm_ptr->use_mind, cm_ptr->n);
+        msg_format(_("謎の能力:%d, %d", "Mystery power:%d, %d"), enum2i(cm_ptr->use_mind), cm_ptr->n);
         return false;
     }
 }
@@ -359,7 +359,7 @@ static void mind_reflection(PlayerType *player_ptr, cm_type *cm_ptr)
     }
 
     player_ptr->csp = std::max(0, player_ptr->csp - cm_ptr->mana_cost);
-    msg_format(_("%sを集中しすぎて気を失ってしまった！", "You faint from the effort!"), cm_ptr->mind_explanation);
+    msg_print(_(format("%sを集中しすぎて気を失ってしまった！", cm_ptr->mind_explanation), "You faint from the effort!"));
     (void)BadStatusSetter(player_ptr).mod_paralysis(randint1(5 * oops + 1));
     if (randint0(100) >= 50) {
         return;
@@ -425,7 +425,7 @@ void do_cmd_mind(PlayerType *player_ptr)
 
     mind_turn_passing(player_ptr, cm_ptr);
     process_hard_concentration(player_ptr, cm_ptr);
-    player_ptr->redraw |= PR_MANA;
+    player_ptr->redraw |= PR_MP;
     player_ptr->window_flags |= PW_PLAYER;
     player_ptr->window_flags |= PW_SPELL;
 }
@@ -454,7 +454,6 @@ static MindKindType decide_use_mind_browse(PlayerType *player_ptr)
 void do_cmd_mind_browse(PlayerType *player_ptr)
 {
     SPELL_IDX n = 0;
-    char temp[62 * 5];
     MindKindType use_mind = decide_use_mind_browse(player_ptr);
     screen_save();
     while (true) {
@@ -469,11 +468,7 @@ void do_cmd_mind_browse(PlayerType *player_ptr)
         term_erase(12, 18, 255);
         term_erase(12, 17, 255);
         term_erase(12, 16, 255);
-        shape_buffer(mind_tips[(int)use_mind][n], 62, temp, sizeof(temp));
-        for (int j = 0, line = 17; temp[j]; j += (1 + strlen(&temp[j]))) {
-            prt(&temp[j], line, 15);
-            line++;
-        }
+        display_wrap_around(mind_tips[enum2i(use_mind)][n], 62, 17, 15);
 
         switch (use_mind) {
         case MindKindType::MIRROR_MASTER:

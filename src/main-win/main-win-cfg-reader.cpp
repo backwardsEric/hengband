@@ -91,7 +91,7 @@ CfgData *CfgReader::read_sections(std::initializer_list<cfg_section> sections)
 {
     CfgData *result = new CfgData();
 
-    if (!check_file(this->cfg_path.c_str())) {
+    if (!check_file(this->cfg_path.data())) {
         return result;
     }
 
@@ -106,7 +106,7 @@ CfgData *CfgReader::read_sections(std::initializer_list<cfg_section> sections)
         int index = 0;
         concptr read_key;
         while ((read_key = section.key_at(index, key_buf)) != nullptr) {
-            GetPrivateProfileStringA(section.section_name, read_key, "", buf, MAIN_WIN_MAX_PATH, this->cfg_path.c_str());
+            GetPrivateProfileStringA(section.section_name, read_key, "", buf, MAIN_WIN_MAX_PATH, this->cfg_path.data());
             if (*buf != '\0') {
                 cfg_values *filenames = new cfg_values();
 #ifdef JP
@@ -114,7 +114,7 @@ CfgData *CfgReader::read_sections(std::initializer_list<cfg_section> sections)
                 guess_convert_to_system_encoding(buf, MAIN_WIN_MAX_PATH);
 #endif
                 const int num = tokenize_whitespace(buf, SAMPLE_MAX, tokens);
-                for (int j = 0; j < num; j++) {
+                for (auto j = 0; j < num; j++) {
                     path_build(path, MAIN_WIN_MAX_PATH, dir, tokens[j]);
                     if (check_file(path)) {
                         filenames->push_back(string_make(tokens[j]));

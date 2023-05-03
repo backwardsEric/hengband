@@ -9,15 +9,16 @@
 #include "grid/feature-flag-types.h"
 #include "grid/grid.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-mask.h"
 #include "monster-race/race-flags7.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-update.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
@@ -39,9 +40,7 @@
 void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_los)
 {
     grid_type *g_ptr;
-    ObjectType *o_ptr;
-    GAME_TEXT o_name[MAX_NLEN];
-
+    ItemEntity *o_ptr;
     if (!player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list.empty()) {
         msg_print(_("自分の足の下にある物は取れません。", "You can't fetch when you're already standing on something."));
         return;
@@ -88,7 +87,7 @@ void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_
             tx += ddx[dir];
             g_ptr = &player_ptr->current_floor_ptr->grid_array[ty][tx];
 
-            if ((distance(player_ptr->y, player_ptr->x, ty, tx) > get_max_range(player_ptr)) || !cave_has_flag_bold(player_ptr->current_floor_ptr, ty, tx, FloorFeatureType::PROJECT)) {
+            if ((distance(player_ptr->y, player_ptr->x, ty, tx) > get_max_range(player_ptr)) || !cave_has_flag_bold(player_ptr->current_floor_ptr, ty, tx, TerrainCharacteristics::PROJECT)) {
                 return;
             }
         }
@@ -103,29 +102,22 @@ void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_
     OBJECT_IDX i = g_ptr->o_idx_list.front();
     g_ptr->o_idx_list.pop_front();
     player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list.add(player_ptr->current_floor_ptr, i); /* 'move' it */
-
     o_ptr->iy = player_ptr->y;
     o_ptr->ix = player_ptr->x;
 
-    describe_flavor(player_ptr, o_name, o_ptr, OD_NAME_ONLY);
-    msg_format(_("%^sがあなたの足元に飛んできた。", "%^s flies through the air to your feet."), o_name);
-
+    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
+    msg_format(_("%s^があなたの足元に飛んできた。", "%s^ flies through the air to your feet."), item_name.data());
     note_spot(player_ptr, player_ptr->y, player_ptr->x);
     player_ptr->redraw |= PR_MAP;
 }
 
 bool fetch_monster(PlayerType *player_ptr)
 {
-    monster_type *m_ptr;
-    MONSTER_IDX m_idx;
-    GAME_TEXT m_name[MAX_NLEN];
-    POSITION ty, tx;
-
     if (!target_set(player_ptr, TARGET_KILL)) {
         return false;
     }
 
-    m_idx = player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx;
+    auto m_idx = player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx;
     if (!m_idx) {
         return false;
     }
@@ -139,11 +131,11 @@ bool fetch_monster(PlayerType *player_ptr)
         return false;
     }
 
-    m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    monster_desc(player_ptr, m_name, m_ptr, 0);
-    msg_format(_("%sを引き戻した。", "You pull back %s."), m_name);
+    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
+    const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+    msg_format(_("%sを引き戻した。", "You pull back %s."), m_name.data());
     projection_path path_g(player_ptr, get_max_range(player_ptr), target_row, target_col, player_ptr->y, player_ptr->x, 0);
-    ty = target_row, tx = target_col;
+    auto ty = target_row, tx = target_col;
     for (const auto &[ny, nx] : path_g) {
         auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[ny][nx];
 
@@ -161,8 +153,8 @@ bool fetch_monster(PlayerType *player_ptr)
     update_monster(player_ptr, m_idx, true);
     lite_spot(player_ptr, target_row, target_col);
     lite_spot(player_ptr, ty, tx);
-    if (r_info[m_ptr->r_idx].flags7 & (RF7_LITE_MASK | RF7_DARK_MASK)) {
-        player_ptr->update |= (PU_MON_LITE);
+    if (monraces_info[m_ptr->r_idx].brightness_flags.has_any_of(ld_mask)) {
+        player_ptr->update |= (PU_MONSTER_LITE);
     }
 
     if (m_ptr->ml) {

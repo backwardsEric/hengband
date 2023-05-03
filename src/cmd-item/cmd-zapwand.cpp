@@ -15,7 +15,6 @@
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
@@ -34,7 +33,8 @@
 #include "status/action-setter.h"
 #include "status/experience.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -59,7 +59,7 @@ bool wand_effect(PlayerType *player_ptr, OBJECT_SUBTYPE_VALUE sval, DIRECTION di
 
     /* XXX Hack -- Wand of wonder can do anything before it */
     if (sval == SV_WAND_WONDER) {
-        int vir = virtue_number(player_ptr, V_CHANCE);
+        int vir = virtue_number(player_ptr, Virtue::CHANCE);
         sval = (OBJECT_SUBTYPE_VALUE)randint0(SV_WAND_WONDER);
 
         if (vir) {
@@ -80,7 +80,7 @@ bool wand_effect(PlayerType *player_ptr, OBJECT_SUBTYPE_VALUE sval, DIRECTION di
             }
         }
         if (sval < SV_WAND_TELEPORT_AWAY) {
-            chg_virtue(player_ptr, V_CHANCE, 1);
+            chg_virtue(player_ptr, Virtue::CHANCE, 1);
         }
     }
 
@@ -109,7 +109,7 @@ bool wand_effect(PlayerType *player_ptr, OBJECT_SUBTYPE_VALUE sval, DIRECTION di
     }
 
     case SV_WAND_TELEPORT_AWAY: {
-        int distance = MAX_SIGHT * (powerful ? 8 : 5);
+        int distance = MAX_PLAYER_SIGHT * (powerful ? 8 : 5);
         if (teleport_monster(player_ptr, dir, distance)) {
             ident = true;
         }

@@ -4,24 +4,24 @@
  * @brief 投擲処理関連ヘッダ
  */
 
+#include "object-enchant/tr-flags.h"
 #include "system/angband.h"
 #include "system/system-variables.h"
-
-#include "object-enchant/tr-flags.h"
 #include "util/flag-group.h"
+#include <string>
 
 struct grid_type;
-struct monster_type;
-class ObjectType;
+class MonsterEntity;
+class ItemEntity;
 class PlayerType;
 class ObjectThrowEntity {
 public:
     ObjectThrowEntity() = default;
     ObjectThrowEntity(
-        PlayerType *player_ptr, ObjectType *q_ptr, const int delay_factor_val, const int mult, const bool boomerang, const OBJECT_IDX shuriken);
+        PlayerType *player_ptr, ItemEntity *q_ptr, const int delay_factor_val, const int mult, const bool boomerang, const OBJECT_IDX shuriken);
     virtual ~ObjectThrowEntity() = default;
 
-    ObjectType *q_ptr;
+    ItemEntity *q_ptr;
     OBJECT_IDX item{};
     POSITION y{};
     POSITION x{};
@@ -59,18 +59,18 @@ private:
     int tdis{};
     int cur_dis{};
     int visible{};
-    ObjectType *o_ptr{};
+    ItemEntity *o_ptr{};
     bool hit_wall = false;
     bool return_when_thrown = false;
-    GAME_TEXT o_name[MAX_NLEN]{};
+    std::string o_name{};
     TrFlags obj_flags{};
     bool come_back = false;
     bool do_drop = true;
     grid_type *g_ptr{};
-    monster_type *m_ptr{};
-    GAME_TEXT m_name[MAX_NLEN]{};
+    MonsterEntity *m_ptr{};
+    std::string m_name{};
     int back_chance{};
-    char o2_name[MAX_NLEN]{};
+    std::string o2_name{};
     bool super_boomerang{};
 
     bool check_what_throw();

@@ -17,7 +17,6 @@
 #include "monster-attack/monster-attack-player.h"
 #include "monster/monster-status.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "object/object-mark-types.h"
 #include "player-base/player-race.h"
 #include "player-info/race-info.h"
@@ -25,9 +24,10 @@
 #include "player/player-status-flags.h"
 #include "player/player-status-table.h"
 #include "status/experience.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/player-paralysis.h"
@@ -67,11 +67,11 @@ void process_eat_gold(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
     } else if (player_ptr->au > 0) {
         msg_print(_("財布が軽くなった気がする。", "Your purse feels lighter."));
         msg_format(_("$%ld のお金が盗まれた！", "%ld coins were stolen!"), (long)gold);
-        chg_virtue(player_ptr, V_SACRIFICE, 1);
+        chg_virtue(player_ptr, Virtue::SACRIFICE, 1);
     } else {
         msg_print(_("財布が軽くなった気がする。", "Your purse feels lighter."));
         msg_print(_("お金が全部盗まれた！", "All of your coins were stolen!"));
-        chg_virtue(player_ptr, V_SACRIFICE, 2);
+        chg_virtue(player_ptr, Virtue::SACRIFICE, 2);
     }
 
     player_ptr->redraw |= (PR_GOLD);
@@ -87,7 +87,7 @@ void process_eat_gold(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
  */
 bool check_eat_item(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
-    if (monster_confused_remaining(monap_ptr->m_ptr)) {
+    if (monap_ptr->m_ptr->is_confused()) {
         return false;
     }
 
@@ -117,16 +117,15 @@ static void move_item_to_monster(PlayerType *player_ptr, MonsterAttackPlayer *mo
         return;
     }
 
-    ObjectType *j_ptr;
-    j_ptr = &player_ptr->current_floor_ptr->o_list[o_idx];
+    auto *j_ptr = &player_ptr->current_floor_ptr->o_list[o_idx];
     j_ptr->copy_from(monap_ptr->o_ptr);
     j_ptr->number = 1;
-    if ((monap_ptr->o_ptr->tval == ItemKindType::ROD) || (monap_ptr->o_ptr->tval == ItemKindType::WAND)) {
+    if (monap_ptr->o_ptr->is_wand_rod()) {
         j_ptr->pval = monap_ptr->o_ptr->pval / monap_ptr->o_ptr->number;
         monap_ptr->o_ptr->pval -= j_ptr->pval;
     }
 
-    j_ptr->marked = OM_TOUCHED;
+    j_ptr->marked.clear().set(OmType::TOUCHED);
     j_ptr->held_m_idx = monap_ptr->m_idx;
     monap_ptr->m_ptr->hold_o_idx_list.add(player_ptr->current_floor_ptr, o_idx);
 }
@@ -143,21 +142,21 @@ void process_eat_item(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         OBJECT_IDX o_idx;
         INVENTORY_IDX i_idx = (INVENTORY_IDX)randint0(INVEN_PACK);
         monap_ptr->o_ptr = &player_ptr->inventory_list[i_idx];
-        if (!monap_ptr->o_ptr->k_idx) {
+        if (!monap_ptr->o_ptr->is_valid()) {
             continue;
         }
 
-        if (monap_ptr->o_ptr->is_artifact()) {
+        if (monap_ptr->o_ptr->is_fixed_or_random_artifact()) {
             continue;
         }
 
-        describe_flavor(player_ptr, monap_ptr->o_name, monap_ptr->o_ptr, OD_OMIT_PREFIX);
+        const auto item_name = describe_flavor(player_ptr, monap_ptr->o_ptr, OD_OMIT_PREFIX);
 #ifdef JP
-        msg_format("%s(%c)を%s盗まれた！", monap_ptr->o_name, index_to_label(i_idx), ((monap_ptr->o_ptr->number > 1) ? "一つ" : ""));
+        msg_format("%s(%c)を%s盗まれた！", item_name.data(), index_to_label(i_idx), ((monap_ptr->o_ptr->number > 1) ? "一つ" : ""));
 #else
-        msg_format("%sour %s (%c) was stolen!", ((monap_ptr->o_ptr->number > 1) ? "One of y" : "Y"), monap_ptr->o_name, index_to_label(i_idx));
+        msg_format("%sour %s (%c) was stolen!", ((monap_ptr->o_ptr->number > 1) ? "One of y" : "Y"), item_name.data(), index_to_label(i_idx));
 #endif
-        chg_virtue(player_ptr, V_SACRIFICE, 1);
+        chg_virtue(player_ptr, Virtue::SACRIFICE, 1);
         o_idx = o_pop(player_ptr->current_floor_ptr);
         move_item_to_monster(player_ptr, monap_ptr, o_idx);
         inven_item_increase(player_ptr, i_idx, -1);
@@ -173,19 +172,20 @@ void process_eat_food(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
     for (int i = 0; i < 10; i++) {
         INVENTORY_IDX i_idx = (INVENTORY_IDX)randint0(INVEN_PACK);
         monap_ptr->o_ptr = &player_ptr->inventory_list[i_idx];
-        if (!monap_ptr->o_ptr->k_idx) {
+        if (!monap_ptr->o_ptr->is_valid()) {
             continue;
         }
 
-        if ((monap_ptr->o_ptr->tval != ItemKindType::FOOD) && !((monap_ptr->o_ptr->tval == ItemKindType::CORPSE) && (monap_ptr->o_ptr->sval))) {
+        const auto tval = monap_ptr->o_ptr->bi_key.tval();
+        if ((tval != ItemKindType::FOOD) && !((tval == ItemKindType::CORPSE) && (monap_ptr->o_ptr->bi_key.sval() != 0))) {
             continue;
         }
 
-        describe_flavor(player_ptr, monap_ptr->o_name, monap_ptr->o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+        const auto item_name = describe_flavor(player_ptr, monap_ptr->o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 #ifdef JP
-        msg_format("%s(%c)を%s食べられてしまった！", monap_ptr->o_name, index_to_label(i_idx), ((monap_ptr->o_ptr->number > 1) ? "一つ" : ""));
+        msg_format("%s(%c)を%s食べられてしまった！", item_name.data(), index_to_label(i_idx), ((monap_ptr->o_ptr->number > 1) ? "一つ" : ""));
 #else
-        msg_format("%sour %s (%c) was eaten!", ((monap_ptr->o_ptr->number > 1) ? "One of y" : "Y"), monap_ptr->o_name, index_to_label(i_idx));
+        msg_format("%sour %s (%c) was eaten!", ((monap_ptr->o_ptr->number > 1) ? "One of y" : "Y"), item_name.data(), index_to_label(i_idx));
 #endif
         inven_item_increase(player_ptr, i_idx, -1);
         inven_item_optimize(player_ptr, i_idx);
@@ -210,7 +210,7 @@ void process_eat_lite(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         monap_ptr->obvious = true;
     }
 
-    player_ptr->window_flags |= (PW_EQUIP);
+    player_ptr->window_flags |= (PW_EQUIPMENT);
 }
 
 /*!
@@ -223,14 +223,14 @@ void process_eat_lite(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
  */
 bool process_un_power(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
-    if (((monap_ptr->o_ptr->tval != ItemKindType::STAFF) && (monap_ptr->o_ptr->tval != ItemKindType::WAND)) || (monap_ptr->o_ptr->pval == 0)) {
+    if (!monap_ptr->o_ptr->is_wand_staff() || (monap_ptr->o_ptr->pval == 0)) {
         return false;
     }
 
-    bool is_magic_mastery = has_magic_mastery(player_ptr) != 0;
-    object_kind *kind_ptr = &k_info[monap_ptr->o_ptr->k_idx];
-    PARAMETER_VALUE pval = kind_ptr->pval;
-    DEPTH level = monap_ptr->rlev;
+    const auto is_magic_mastery = has_magic_mastery(player_ptr) != 0;
+    const auto &baseitem = monap_ptr->o_ptr->get_baseitem();
+    const auto pval = baseitem.pval;
+    const auto level = monap_ptr->rlev;
     auto drain = is_magic_mastery ? std::min<short>(pval, pval * level / 400 + pval * randint1(level) / 400) : pval;
     drain = std::min(drain, monap_ptr->o_ptr->pval);
     if (drain <= 0) {
@@ -243,9 +243,9 @@ bool process_un_power(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
     }
 
     monap_ptr->obvious = true;
-    int recovery = drain * kind_ptr->level;
-
-    if (monap_ptr->o_ptr->tval == ItemKindType::STAFF) {
+    auto recovery = drain * baseitem.level;
+    const auto tval = monap_ptr->o_ptr->bi_key.tval();
+    if (tval == ItemKindType::STAFF) {
         recovery *= monap_ptr->o_ptr->number;
     }
 
@@ -261,8 +261,8 @@ bool process_un_power(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
     }
 
     monap_ptr->o_ptr->pval = !is_magic_mastery || (monap_ptr->o_ptr->pval == 1) ? 0 : monap_ptr->o_ptr->pval - drain;
-    player_ptr->update |= PU_COMBINE | PU_REORDER;
-    player_ptr->window_flags |= PW_INVEN;
+    player_ptr->update |= PU_COMBINATION | PU_REORDER;
+    player_ptr->window_flags |= PW_INVENTORY;
     return true;
 }
 
@@ -308,7 +308,7 @@ void process_drain_life(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr, 
     }
 
     if (monap_ptr->m_ptr->ml && did_heal) {
-        msg_format(_("%sは体力を回復したようだ。", "%^s appears healthier."), monap_ptr->m_name);
+        msg_format(_("%sは体力を回復したようだ。", "%s^ appears healthier."), monap_ptr->m_name);
     }
 }
 
@@ -326,7 +326,7 @@ void process_drain_mana(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         player_ptr->csp_frac = 0;
     }
 
-    player_ptr->redraw |= (PR_MANA);
+    player_ptr->redraw |= (PR_MP);
 }
 
 /*!

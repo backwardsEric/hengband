@@ -18,9 +18,9 @@
 #include "realm/realm-hex-numbers.h"
 #include "specific-object/torch.h"
 #include "spell-realm/spells-hex.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -28,11 +28,11 @@
  * @brief プレイヤー攻撃の種族スレイング倍率計算
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param mult 算出前の基本倍率(/10倍)
- * @param flgs スレイフラグ配列
+ * @param flags スレイフラグ配列
  * @param m_ptr 目標モンスターの構造体参照ポインタ
  * @return スレイング加味後の倍率(/10倍)
  */
-MULTIPLY mult_slaying(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs, monster_type *m_ptr)
+MULTIPLY mult_slaying(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr)
 {
     static const struct slay_table_t {
         tr_type slay_flag;
@@ -61,11 +61,11 @@ MULTIPLY mult_slaying(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs
         { TR_KILL_DRAGON, MonsterKindType::DRAGON, 50 },
     };
 
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
     for (size_t i = 0; i < sizeof(slay_table) / sizeof(slay_table[0]); ++i) {
         const struct slay_table_t *p = &slay_table[i];
 
-        if (flgs.has_not(p->slay_flag) || r_ptr->kind_flags.has_not(p->affect_race_flag)) {
+        if (flags.has_not(p->slay_flag) || r_ptr->kind_flags.has_not(p->affect_race_flag)) {
             continue;
         }
 
@@ -83,11 +83,11 @@ MULTIPLY mult_slaying(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs
  * @brief プレイヤー攻撃の属性スレイング倍率計算
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param mult 算出前の基本倍率(/10倍)
- * @param flgs スレイフラグ配列
+ * @param flags スレイフラグ配列
  * @param m_ptr 目標モンスターの構造体参照ポインタ
  * @return スレイング加味後の倍率(/10倍)
  */
-MULTIPLY mult_brand(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs, monster_type *m_ptr)
+MULTIPLY mult_brand(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr)
 {
     static const struct brand_table_t {
         tr_type brand_flag;
@@ -101,11 +101,11 @@ MULTIPLY mult_brand(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs, 
         { TR_BRAND_POIS, RFR_EFF_IM_POISON_MASK, MonsterResistanceType::MAX },
     };
 
-    auto *r_ptr = &r_info[m_ptr->r_idx];
+    auto *r_ptr = &monraces_info[m_ptr->r_idx];
     for (size_t i = 0; i < sizeof(brand_table) / sizeof(brand_table[0]); ++i) {
         const struct brand_table_t *p = &brand_table[i];
 
-        if (flgs.has_not(p->brand_flag)) {
+        if (flags.has_not(p->brand_flag)) {
             continue;
         }
 
@@ -150,35 +150,35 @@ MULTIPLY mult_brand(PlayerType *player_ptr, MULTIPLY mult, const TrFlags &flgs, 
  * Note that most brands and slays are x3, except Slay Animal (x2),\n
  * Slay Evil (x2), and Kill dragon (x5).\n
  */
-int calc_attack_damage_with_slay(PlayerType *player_ptr, ObjectType *o_ptr, int tdam, monster_type *m_ptr, combat_options mode, bool thrown)
+int calc_attack_damage_with_slay(PlayerType *player_ptr, ItemEntity *o_ptr, int tdam, MonsterEntity *m_ptr, combat_options mode, bool thrown)
 {
-    auto flgs = object_flags(o_ptr);
-    torch_flags(o_ptr, flgs); /* torches has secret flags */
+    auto flags = object_flags(o_ptr);
+    torch_flags(o_ptr, flags); /* torches has secret flags */
 
     if (!thrown) {
         if (player_ptr->special_attack & (ATTACK_ACID)) {
-            flgs.set(TR_BRAND_ACID);
+            flags.set(TR_BRAND_ACID);
         }
         if (player_ptr->special_attack & (ATTACK_COLD)) {
-            flgs.set(TR_BRAND_COLD);
+            flags.set(TR_BRAND_COLD);
         }
         if (player_ptr->special_attack & (ATTACK_ELEC)) {
-            flgs.set(TR_BRAND_ELEC);
+            flags.set(TR_BRAND_ELEC);
         }
         if (player_ptr->special_attack & (ATTACK_FIRE)) {
-            flgs.set(TR_BRAND_FIRE);
+            flags.set(TR_BRAND_FIRE);
         }
         if (player_ptr->special_attack & (ATTACK_POIS)) {
-            flgs.set(TR_BRAND_POIS);
+            flags.set(TR_BRAND_POIS);
         }
     }
 
     if (SpellHex(player_ptr).is_spelling_specific(HEX_RUNESWORD)) {
-        flgs.set(TR_SLAY_GOOD);
+        flags.set(TR_SLAY_GOOD);
     }
 
     MULTIPLY mult = 10;
-    switch (o_ptr->tval) {
+    switch (o_ptr->bi_key.tval()) {
     case ItemKindType::SHOT:
     case ItemKindType::ARROW:
     case ItemKindType::BOLT:
@@ -187,22 +187,22 @@ int calc_attack_damage_with_slay(PlayerType *player_ptr, ObjectType *o_ptr, int 
     case ItemKindType::SWORD:
     case ItemKindType::DIGGING:
     case ItemKindType::LITE: {
-        mult = mult_slaying(player_ptr, mult, flgs, m_ptr);
+        mult = mult_slaying(player_ptr, mult, flags, m_ptr);
 
-        mult = mult_brand(player_ptr, mult, flgs, m_ptr);
+        mult = mult_brand(player_ptr, mult, flags, m_ptr);
 
         PlayerClass pc(player_ptr);
         if (pc.equals(PlayerClassType::SAMURAI)) {
-            mult = mult_hissatsu(player_ptr, mult, flgs, m_ptr, mode);
+            mult = mult_hissatsu(player_ptr, mult, flags, m_ptr, mode);
         }
 
-        if (!pc.equals(PlayerClassType::SAMURAI) && (flgs.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (o_ptr->dd * o_ptr->ds / 5))) {
+        if (!pc.equals(PlayerClassType::SAMURAI) && (flags.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (o_ptr->dd * o_ptr->ds / 5))) {
             player_ptr->csp -= (1 + (o_ptr->dd * o_ptr->ds / 5));
-            player_ptr->redraw |= (PR_MANA);
+            player_ptr->redraw |= (PR_MP);
             mult = mult * 3 / 2 + 20;
         }
 
-        if ((o_ptr->fixed_artifact_idx == FixedArtifactId::NOTHUNG) && (m_ptr->r_idx == MonsterRaceId::FAFNER)) {
+        if ((o_ptr->is_specific_artifact(FixedArtifactId::NOTHUNG)) && (m_ptr->r_idx == MonsterRaceId::FAFNER)) {
             mult = 150;
         }
         break;
@@ -218,7 +218,7 @@ int calc_attack_damage_with_slay(PlayerType *player_ptr, ObjectType *o_ptr, int 
     return tdam * mult / 10;
 }
 
-AttributeFlags melee_attribute(PlayerType *player_ptr, ObjectType *o_ptr, combat_options mode)
+AttributeFlags melee_attribute(PlayerType *player_ptr, ItemEntity *o_ptr, combat_options mode)
 {
     AttributeFlags attribute_flags{};
     attribute_flags.set(AttributeType::PLAYER_MELEE);
@@ -244,26 +244,26 @@ AttributeFlags melee_attribute(PlayerType *player_ptr, ObjectType *o_ptr, combat
         }
     }
 
-    auto flgs = object_flags(o_ptr);
+    auto flags = object_flags(o_ptr);
 
     if (player_ptr->special_attack & (ATTACK_ACID)) {
-        flgs.set(TR_BRAND_ACID);
+        flags.set(TR_BRAND_ACID);
     }
     if (player_ptr->special_attack & (ATTACK_COLD)) {
-        flgs.set(TR_BRAND_COLD);
+        flags.set(TR_BRAND_COLD);
     }
     if (player_ptr->special_attack & (ATTACK_ELEC)) {
-        flgs.set(TR_BRAND_ELEC);
+        flags.set(TR_BRAND_ELEC);
     }
     if (player_ptr->special_attack & (ATTACK_FIRE)) {
-        flgs.set(TR_BRAND_FIRE);
+        flags.set(TR_BRAND_FIRE);
     }
     if (player_ptr->special_attack & (ATTACK_POIS)) {
-        flgs.set(TR_BRAND_POIS);
+        flags.set(TR_BRAND_POIS);
     }
 
     if (SpellHex(player_ptr).is_spelling_specific(HEX_RUNESWORD)) {
-        flgs.set(TR_SLAY_GOOD);
+        flags.set(TR_SLAY_GOOD);
     }
 
     static const struct brand_convert_table_t {
@@ -284,12 +284,12 @@ AttributeFlags melee_attribute(PlayerType *player_ptr, ObjectType *o_ptr, combat
     for (size_t i = 0; i < sizeof(brand_convert_table) / sizeof(brand_convert_table[0]); ++i) {
         const struct brand_convert_table_t *p = &brand_convert_table[i];
 
-        if (flgs.has(p->brand_type)) {
+        if (flags.has(p->brand_type)) {
             attribute_flags.set(p->attribute);
         }
     }
 
-    if ((flgs.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (o_ptr->dd * o_ptr->ds / 5))) {
+    if ((flags.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (o_ptr->dd * o_ptr->ds / 5))) {
         attribute_flags.set(AttributeType::MANA);
     }
 

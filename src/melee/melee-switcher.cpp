@@ -10,7 +10,7 @@
 #include "monster-attack/monster-attack-effect.h"
 #include "monster/monster-status-setter.h"
 #include "spell-kind/earthquake.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -164,7 +164,7 @@ void decide_monster_attack_effect(PlayerType *player_ptr, mam_type *mam_ptr)
             break;
         }
 
-        /* Fall through */
+        [[fallthrough]];
     case RaceBlowEffectType::HURT:
         mam_ptr->damage -= (mam_ptr->damage * ((mam_ptr->ac < 150) ? mam_ptr->ac : 150) / 250);
         break;
@@ -272,9 +272,9 @@ void describe_monster_missed_monster(PlayerType *player_ptr, mam_type *mam_ptr)
         (void)set_monster_csleep(player_ptr, mam_ptr->t_idx, 0);
         if (mam_ptr->see_m) {
 #ifdef JP
-            msg_format("%sは%^sの攻撃をかわした。", mam_ptr->t_name, mam_ptr->m_name);
+            msg_format("%sは%s^の攻撃をかわした。", mam_ptr->t_name, mam_ptr->m_name);
 #else
-            msg_format("%^s misses %s.", mam_ptr->m_name, mam_ptr->t_name);
+            msg_format("%s^ misses %s.", mam_ptr->m_name, mam_ptr->t_name);
 #endif
         }
 

@@ -7,7 +7,7 @@
 #include "object-enchant/object-ego.h"
 #include "object/tval-types.h"
 #include "sv-definition/sv-lite-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
@@ -21,11 +21,11 @@
 void reduce_lite_life(PlayerType *player_ptr)
 {
     auto *o_ptr = &player_ptr->inventory_list[INVEN_LITE];
-    if (o_ptr->tval != ItemKindType::LITE) {
+    if (o_ptr->bi_key.tval() != ItemKindType::LITE) {
         return;
     }
 
-    if (o_ptr->is_fixed_artifact() || (o_ptr->sval == SV_LITE_FEANOR) || (o_ptr->fuel <= 0)) {
+    if (o_ptr->is_fixed_artifact() || (o_ptr->bi_key.sval() == SV_LITE_FEANOR) || (o_ptr->fuel <= 0)) {
         return;
     }
 
@@ -45,10 +45,10 @@ void reduce_lite_life(PlayerType *player_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param o_ptr 現在光源として使っているオブジェクトの構造体参照ポインタ
  */
-void notice_lite_change(PlayerType *player_ptr, ObjectType *o_ptr)
+void notice_lite_change(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     if ((o_ptr->fuel < 100) || (!(o_ptr->fuel % 100))) {
-        player_ptr->window_flags |= (PW_EQUIP);
+        player_ptr->window_flags |= (PW_EQUIPMENT);
     }
 
     if (player_ptr->effects()->blindness()->is_blind()) {

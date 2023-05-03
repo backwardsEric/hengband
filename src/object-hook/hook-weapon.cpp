@@ -5,7 +5,7 @@
 #include "object/tval-types.h"
 #include "player/player-skill.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -14,61 +14,36 @@
  * @param o_ptr 対象のオブジェクト構造体ポインタ
  * @return オブジェクトが適正武器ならばTRUEを返す
  */
-bool object_is_favorite(PlayerType *player_ptr, const ObjectType *o_ptr)
+bool object_is_favorite(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
-    /* Only melee weapons match */
-    if (!(o_ptr->tval == ItemKindType::POLEARM || o_ptr->tval == ItemKindType::SWORD || o_ptr->tval == ItemKindType::DIGGING || o_ptr->tval == ItemKindType::HAFTED)) {
+    if (!o_ptr->is_melee_weapon()) {
         return false;
     }
 
     /* Favorite weapons are varied depend on the class */
+    const auto tval = o_ptr->bi_key.tval();
+    const auto sval = o_ptr->bi_key.sval().value();
     switch (player_ptr->pclass) {
     case PlayerClassType::PRIEST: {
-        auto flgs = object_flags_known(o_ptr);
-
-        if (flgs.has_not(TR_BLESSED) && !(o_ptr->tval == ItemKindType::HAFTED)) {
-            return false;
-        }
-        break;
+        const auto flags = object_flags_known(o_ptr);
+        return flags.has(TR_BLESSED) || (tval == ItemKindType::HAFTED);
     }
-
     case PlayerClassType::MONK:
     case PlayerClassType::FORCETRAINER:
         /* Icky to wield? */
-        if (player_ptr->weapon_exp_max[o_ptr->tval][o_ptr->sval] == PlayerSkill::weapon_exp_at(PlayerSkillRank::UNSKILLED)) {
-            return false;
-        }
-        break;
-
+        return player_ptr->weapon_exp_max[tval][sval] != PlayerSkill::weapon_exp_at(PlayerSkillRank::UNSKILLED);
     case PlayerClassType::BEASTMASTER:
     case PlayerClassType::CAVALRY: {
-        auto flgs = object_flags_known(o_ptr);
-
         /* Is it known to be suitable to using while riding? */
-        if (flgs.has_not(TR_RIDING)) {
-            return false;
-        }
-
-        break;
+        auto flags = object_flags_known(o_ptr);
+        return flags.has(TR_RIDING);
     }
-
     case PlayerClassType::SORCERER:
-        if (player_ptr->weapon_exp_max[o_ptr->tval][o_ptr->sval] < PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER)) {
-            return false;
-        }
-        break;
-
+        return player_ptr->weapon_exp_max[tval][sval] >= PlayerSkill::weapon_exp_at(PlayerSkillRank::MASTER);
     case PlayerClassType::NINJA:
         /* Icky to wield? */
-        if (player_ptr->weapon_exp_max[o_ptr->tval][o_ptr->sval] <= PlayerSkill::weapon_exp_at(PlayerSkillRank::BEGINNER)) {
-            return false;
-        }
-        break;
-
+        return player_ptr->weapon_exp_max[tval][sval] > PlayerSkill::weapon_exp_at(PlayerSkillRank::BEGINNER);
     default:
-        /* All weapons are okay for non-special classes */
         return true;
     }
-
-    return true;
 }

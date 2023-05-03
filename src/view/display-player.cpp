@@ -16,7 +16,6 @@
 #include "mind/mind-elementalist.h"
 #include "mutation/mutation-flag-types.h"
 #include "object/object-info.h"
-#include "object/object-kind.h"
 #include "player-base/player-class.h"
 #include "player-info/alignment.h"
 #include "player-info/class-info.h"
@@ -28,12 +27,13 @@
 #include "player/player-status-table.h"
 #include "player/player-status.h"
 #include "realm/realm-names-table.h"
+#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
-#include "util/buffer-shaper.h"
 #include "view/display-characteristic.h"
 #include "view/display-player-middle.h"
 #include "view/display-player-misc-info.h"
@@ -69,6 +69,7 @@ static bool display_player_info(PlayerType *player_ptr, int mode)
     }
 
     if (mode == 5) {
+        TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
         do_cmd_knowledge_mutations(player_ptr);
         return true;
     }
@@ -82,12 +83,8 @@ static bool display_player_info(PlayerType *player_ptr, int mode)
  */
 static void display_player_basic_info(PlayerType *player_ptr)
 {
-    char tmp[64];
-#ifdef JP
-    sprintf(tmp, "%s%s%s", ap_ptr->title, ap_ptr->no == 1 ? "の" : "", player_ptr->name);
-#else
-    sprintf(tmp, "%s %s", ap_ptr->title, player_ptr->name);
-#endif
+    std::string tmp = ap_ptr->title;
+    tmp.append(_(ap_ptr->no == 1 ? "の" : "", " ")).append(player_ptr->name);
 
     display_player_one_line(ENTRY_NAME, tmp, TERM_L_BLUE);
     display_player_one_line(ENTRY_SEX, sp_ptr->title, TERM_L_BLUE);
@@ -105,13 +102,14 @@ static void display_magic_realms(PlayerType *player_ptr)
         return;
     }
 
-    char tmp[64];
+    std::string tmp;
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
-        sprintf(tmp, "%s", get_element_title(player_ptr->element));
+        tmp = get_element_title(player_ptr->element);
     } else if (player_ptr->realm2) {
-        sprintf(tmp, "%s, %s", realm_names[player_ptr->realm1], realm_names[player_ptr->realm2]);
+        tmp = realm_names[player_ptr->realm1];
+        tmp.append(", ").append(realm_names[player_ptr->realm2]);
     } else {
-        strcpy(tmp, realm_names[player_ptr->realm1]);
+        tmp = realm_names[player_ptr->realm1];
     }
 
     display_player_one_line(ENTRY_REALM, tmp, TERM_L_BLUE);
@@ -137,7 +135,7 @@ static void display_phisique(PlayerType *player_ptr)
     display_player_one_line(ENTRY_SOCIAL, format("%d", (int)player_ptr->sc), TERM_L_BLUE);
 #endif
     std::string alg = PlayerAlignment(player_ptr).get_alignment_description();
-    display_player_one_line(ENTRY_ALIGN, format("%s", alg.c_str()), TERM_L_BLUE);
+    display_player_one_line(ENTRY_ALIGN, format("%s", alg.data()), TERM_L_BLUE);
 }
 
 /*!
@@ -146,20 +144,16 @@ static void display_phisique(PlayerType *player_ptr)
  */
 static void display_player_stats(PlayerType *player_ptr)
 {
-    char buf[80];
     for (int i = 0; i < A_MAX; i++) {
         if (player_ptr->stat_cur[i] < player_ptr->stat_max[i]) {
             put_str(stat_names_reduced[i], 3 + i, 53);
             int value = player_ptr->stat_use[i];
-            cnv_stat(value, buf);
-            c_put_str(TERM_YELLOW, buf, 3 + i, 60);
+            c_put_str(TERM_YELLOW, cnv_stat(value), 3 + i, 60);
             value = player_ptr->stat_top[i];
-            cnv_stat(value, buf);
-            c_put_str(TERM_L_GREEN, buf, 3 + i, 67);
+            c_put_str(TERM_L_GREEN, cnv_stat(value), 3 + i, 67);
         } else {
             put_str(stat_names[i], 3 + i, 53);
-            cnv_stat(player_ptr->stat_use[i], buf);
-            c_put_str(TERM_L_GREEN, buf, 3 + i, 60);
+            c_put_str(TERM_L_GREEN, cnv_stat(player_ptr->stat_use[i]), 3 + i, 60);
         }
 
         if (player_ptr->stat_max[i] == player_ptr->stat_max_max[i]) {
@@ -188,32 +182,32 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
 
     if (!floor_ptr->dun_level) {
 #ifdef JP
-        return std::string(format("…あなたは%sで%sに殺された。", map_name(player_ptr), player_ptr->died_from.c_str()));
+        return std::string(format("…あなたは%sで%sに殺された。", map_name(player_ptr), player_ptr->died_from.data()));
 #else
-        return std::string(format("...You were killed by %s in %s.", player_ptr->died_from.c_str(), map_name(player_ptr)));
+        return std::string(format("...You were killed by %s in %s.", player_ptr->died_from.data(), map_name(player_ptr)));
 #endif
     }
 
-    if (inside_quest(floor_ptr->quest_number) && quest_type::is_fixed(floor_ptr->quest_number)) {
+    if (inside_quest(floor_ptr->quest_number) && QuestType::is_fixed(floor_ptr->quest_number)) {
         const auto &quest_list = QuestList::get_instance();
 
         /* Get the quest text */
         /* Bewere that INIT_ASSIGN resets the cur_num. */
         init_flags = INIT_NAME_ONLY;
-        parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
+        parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
 
         const auto *q_ptr = &quest_list[floor_ptr->quest_number];
 #ifdef JP
-        return std::string(format("…あなたは、クエスト「%s」で%sに殺された。", q_ptr->name, player_ptr->died_from.c_str()));
+        return std::string(format("…あなたは、クエスト「%s」で%sに殺された。", q_ptr->name.data(), player_ptr->died_from.data()));
 #else
-        return std::string(format("...You were killed by %s in the quest '%s'.", player_ptr->died_from.c_str(), q_ptr->name));
+        return std::string(format("...You were killed by %s in the quest '%s'.", player_ptr->died_from.data(), q_ptr->name.data()));
 #endif
     }
 
 #ifdef JP
-    return std::string(format("…あなたは、%sの%d階で%sに殺された。", map_name(player_ptr), (int)floor_ptr->dun_level, player_ptr->died_from.c_str()));
+    return std::string(format("…あなたは、%sの%d階で%sに殺された。", map_name(player_ptr), (int)floor_ptr->dun_level, player_ptr->died_from.data()));
 #else
-    return std::string(format("...You were killed by %s on level %d of %s.", player_ptr->died_from.c_str(), floor_ptr->dun_level, map_name(player_ptr)));
+    return std::string(format("...You were killed by %s on level %d of %s.", player_ptr->died_from.data(), floor_ptr->dun_level, map_name(player_ptr)));
 #endif
 }
 
@@ -226,7 +220,7 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
 static std::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (!inside_quest(floor_ptr->quest_number) || !quest_type::is_fixed(floor_ptr->quest_number)) {
+    if (!inside_quest(floor_ptr->quest_number) || !QuestType::is_fixed(floor_ptr->quest_number)) {
         return std::nullopt;
     }
 
@@ -237,8 +231,8 @@ static std::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
     const auto &quest_list = QuestList::get_instance();
     quest_text_line = 0;
     init_flags = INIT_NAME_ONLY;
-    parse_fixed_map(player_ptr, "q_info.txt", 0, 0, 0, 0);
-    return std::string(format(_("…あなたは現在、 クエスト「%s」を遂行中だ。", "...Now, you are in the quest '%s'."), quest_list[floor_ptr->quest_number].name));
+    parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
+    return std::string(format(_("…あなたは現在、 クエスト「%s」を遂行中だ。", "...Now, you are in the quest '%s'."), quest_list[floor_ptr->quest_number].name.data()));
 }
 
 /*!
@@ -270,31 +264,6 @@ static std::string decide_current_floor(PlayerType *player_ptr)
 }
 
 /*!
- * @brief 今いる、または死亡した場所を表示する
- * @param statmsg メッセージバッファ
- * @return ダンプ表示行数の補正項
- * @details v2.2までは状況に関係なく必ず2行であり、v3.0では1～4行になり得、num_linesはその行数.
- * ギリギリ見切れる場合があるので行数は僅かに多めに取る.
- */
-static int display_current_floor(const std::string &statmsg)
-{
-    char temp[1000];
-    constexpr auto chars_per_line = 60;
-    shape_buffer(statmsg.c_str(), chars_per_line, temp, sizeof(temp));
-    auto t = temp;
-    auto statmsg_size = statmsg.size();
-    auto fraction = statmsg_size % (chars_per_line - 1);
-    auto num_lines = statmsg_size / (chars_per_line - 1);
-    num_lines += fraction > 0 ? 1 : 0;
-    for (auto i = 0U; i < num_lines; i++) {
-        put_str(t, i + 5 + 12, 10);
-        t += strlen(t) + 1;
-    }
-
-    return num_lines;
-}
-
-/*!
  * @brief プレイヤーのステータス表示メイン処理
  * Display the character on the screen (various modes)
  * @param player_ptr プレイヤーへの参照ポインタ
@@ -313,7 +282,10 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
 {
     auto has_any_mutation = (player_ptr->muta.any() || has_good_luck(player_ptr)) && display_mutations;
     auto mode = has_any_mutation ? tmp_mode % 6 : tmp_mode % 5;
-    clear_from(0);
+    {
+        TermOffsetSetter tos(0, 0);
+        clear_from(0);
+    }
     if (display_player_info(player_ptr, mode)) {
         return std::nullopt;
     }
@@ -321,7 +293,7 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
     display_player_basic_info(player_ptr);
     display_magic_realms(player_ptr);
     if (PlayerClass(player_ptr).equals(PlayerClassType::CHAOS_WARRIOR) || (player_ptr->muta.has(PlayerMutationType::CHAOS_GIFT))) {
-        display_player_one_line(ENTRY_PATRON, patron_list[player_ptr->chaos_patron].name.c_str(), TERM_L_BLUE);
+        display_player_one_line(ENTRY_PATRON, patron_list[player_ptr->chaos_patron].name, TERM_L_BLUE);
     }
 
     display_phisique(player_ptr);
@@ -338,11 +310,12 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
     }
 
     auto statmsg = decide_current_floor(player_ptr);
-    if (statmsg == "") {
+    if (statmsg.empty()) {
         return std::nullopt;
     }
 
-    return display_current_floor(statmsg);
+    constexpr auto chars_per_line = 60;
+    return display_wrap_around(statmsg, chars_per_line, 17, 10);
 }
 
 /*!
@@ -358,10 +331,10 @@ void display_player_equippy(PlayerType *player_ptr, TERM_LEN y, TERM_LEN x, BIT_
 {
     const auto max_i = (mode & DP_WP) ? INVEN_BOW + 1 : INVEN_TOTAL;
     for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
-        const auto &o_ref = player_ptr->inventory_list[i];
-        auto a = o_ref.get_color();
-        auto c = o_ref.get_symbol();
-        if (!equippy_chars || (o_ref.k_idx == 0)) {
+        const auto &item = player_ptr->inventory_list[i];
+        auto a = item.get_color();
+        auto c = item.get_symbol();
+        if (!equippy_chars || !item.is_valid()) {
             c = ' ';
             a = TERM_DARK;
         }

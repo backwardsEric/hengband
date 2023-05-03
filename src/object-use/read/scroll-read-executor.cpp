@@ -39,12 +39,12 @@
 #include "store/rumor.h"
 #include "sv-definition/sv-scroll-types.h"
 #include "system/floor-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
-ScrollReadExecutor::ScrollReadExecutor(PlayerType *player_ptr, ObjectType *o_ptr, bool known)
+ScrollReadExecutor::ScrollReadExecutor(PlayerType *player_ptr, ItemEntity *o_ptr, bool known)
     : player_ptr(player_ptr)
     , o_ptr(o_ptr)
     , known(known)
@@ -59,7 +59,7 @@ bool ScrollReadExecutor::is_identified() const
 bool ScrollReadExecutor::read()
 {
     auto used_up = true;
-    switch (this->o_ptr->sval) {
+    switch (this->o_ptr->bi_key.sval().value()) {
     case SV_SCROLL_DARKNESS:
         if (!has_resist_blind(this->player_ptr) && !has_resist_dark(this->player_ptr)) {
             (void)BadStatusSetter(this->player_ptr).mod_blindness(3 + randint1(5));
@@ -302,7 +302,7 @@ bool ScrollReadExecutor::read()
 
         msg_print(_("手が輝き始めた。", "Your hands begin to glow."));
         this->player_ptr->special_attack |= ATTACK_CONFUSE;
-        this->player_ptr->redraw |= PR_STATUS;
+        this->player_ptr->redraw |= PR_TIMED_EFFECT;
         this->ident = true;
         break;
     case SV_SCROLL_PROTECTION_FROM_EVIL: {

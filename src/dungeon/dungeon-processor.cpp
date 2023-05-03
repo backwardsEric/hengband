@@ -9,7 +9,6 @@
 #include "core/stuff-handler.h"
 #include "core/turn-compensator.h"
 #include "core/window-redrawer.h"
-#include "dungeon/dungeon.h"
 #include "dungeon/quest.h"
 #include "floor/floor-leaver.h"
 #include "floor/floor-save-util.h"
@@ -35,8 +34,9 @@
 #include "realm/realm-song-numbers.h"
 #include "realm/realm-song.h"
 #include "spell-realm/spells-song.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "util/bit-flags-calculator.h"
@@ -79,7 +79,7 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     disturb(player_ptr, true, true);
     auto quest_num = quest_number(player_ptr, floor_ptr->dun_level);
     const auto &quest_list = QuestList::get_instance();
-    auto *questor_ptr = &r_info[quest_list[quest_num].r_idx];
+    auto *questor_ptr = &monraces_info[quest_list[quest_num].r_idx];
     if (inside_quest(quest_num)) {
         set_bits(questor_ptr->flags1, RF1_QUESTOR);
     }
@@ -101,20 +101,20 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     msg_erase();
 
     w_ptr->character_xtra = true;
-    set_bits(player_ptr->window_flags, PW_INVEN | PW_EQUIP | PW_SPELL | PW_PLAYER | PW_MONSTER | PW_OVERHEAD | PW_DUNGEON);
+    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_SPELL | PW_PLAYER | PW_MONSTER_LORE | PW_OVERHEAD | PW_DUNGEON);
     set_bits(player_ptr->redraw, PR_WIPE | PR_BASIC | PR_EXTRA | PR_EQUIPPY | PR_MAP);
-    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_VIEW | PU_LITE | PU_MON_LITE | PU_TORCH | PU_MONSTERS | PU_DISTANCE | PU_FLOW);
+    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MP | PU_SPELLS | PU_VIEW | PU_LITE | PU_MONSTER_LITE | PU_TORCH | PU_MONSTER_STATUSES | PU_DISTANCE | PU_FLOW);
     handle_stuff(player_ptr);
 
     w_ptr->character_xtra = false;
-    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_COMBINE | PU_REORDER);
+    set_bits(player_ptr->update, PU_BONUS | PU_HP | PU_MP | PU_SPELLS | PU_COMBINATION | PU_REORDER);
     handle_stuff(player_ptr);
     term_fresh();
 
     auto no_feeling_quest = (quest_num == QuestId::OBERON);
     no_feeling_quest |= (quest_num == QuestId::SERPENT);
     no_feeling_quest |= none_bits(quest_list[quest_num].flags, QUEST_FLAG_PRESET);
-    if (inside_quest(quest_num) && quest_type::is_fixed(quest_num) && !no_feeling_quest) {
+    if (inside_quest(quest_num) && QuestType::is_fixed(quest_num) && !no_feeling_quest) {
         do_cmd_feeling(player_ptr);
     }
 
@@ -140,16 +140,18 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         quest_discovery(random_quest_number(player_ptr, floor_ptr->dun_level));
         floor_ptr->quest_number = random_quest_number(player_ptr, floor_ptr->dun_level);
     }
-    const auto guardian = d_info[player_ptr->dungeon_idx].final_guardian;
-    if ((floor_ptr->dun_level == d_info[player_ptr->dungeon_idx].maxdepth) && MonsterRace(guardian).is_valid()) {
-        if (r_info[guardian].max_num)
+
+    const auto &dungeon = dungeons_info[player_ptr->dungeon_idx];
+    const auto guardian = dungeon.final_guardian;
+    if ((floor_ptr->dun_level == dungeon.maxdepth) && MonsterRace(guardian).is_valid()) {
+        const auto &guardian_ref = monraces_info[guardian];
+        if (guardian_ref.max_num) {
 #ifdef JP
-            msg_format("この階には%sの主である%sが棲んでいる。", d_info[player_ptr->dungeon_idx].name.c_str(),
-                r_info[guardian].name.c_str());
+            msg_format("この階には%sの主である%sが棲んでいる。", dungeon.name.data(), guardian_ref.name.data());
 #else
-            msg_format("%^s lives in this level as the keeper of %s.", r_info[guardian].name.c_str(),
-                d_info[player_ptr->dungeon_idx].name.c_str());
+            msg_format("%s^ lives in this level as the keeper of %s.", guardian_ref.name.data(), dungeon.name.data());
 #endif
+        }
     }
 
     if (!load_game) {

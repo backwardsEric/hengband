@@ -10,9 +10,9 @@
 #include "player-info/equipment-info.h"
 #include "player-info/race-info.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -26,7 +26,7 @@ PlayerAlignment::PlayerAlignment(PlayerType *player_ptr)
  * @param with_value 徳の情報と一緒に表示する時だけtrue
  * @return アライメントの表記を返す。
  */
-concptr PlayerAlignment::get_alignment_description(bool with_value)
+std::string PlayerAlignment::get_alignment_description(bool with_value)
 {
     auto s = alignment_label();
     if (with_value || show_actual_value) {
@@ -46,12 +46,12 @@ void PlayerAlignment::update_alignment()
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
     for (MONSTER_IDX m_idx = floor_ptr->m_max - 1; m_idx >= 1; m_idx--) {
         auto *m_ptr = &floor_ptr->m_list[m_idx];
-        if (!monster_is_valid(m_ptr)) {
+        if (!m_ptr->is_valid()) {
             continue;
         }
-        auto *r_ptr = &r_info[m_ptr->r_idx];
+        auto *r_ptr = &monraces_info[m_ptr->r_idx];
 
-        if (!is_pet(m_ptr)) {
+        if (!m_ptr->is_pet()) {
             continue;
         }
 
@@ -92,7 +92,7 @@ void PlayerAlignment::update_alignment()
 
     for (int i = 0; i < 2; i++) {
         const auto &wielding_weapon = this->player_ptr->inventory_list[INVEN_MAIN_HAND + i];
-        if (!has_melee_weapon(this->player_ptr, INVEN_MAIN_HAND + i) || (wielding_weapon.fixed_artifact_idx != FixedArtifactId::IRON_BALL)) {
+        if (!has_melee_weapon(this->player_ptr, INVEN_MAIN_HAND + i) || !wielding_weapon.is_specific_artifact(FixedArtifactId::IRON_BALL)) {
             continue;
         }
 
@@ -103,16 +103,16 @@ void PlayerAlignment::update_alignment()
     int neutral[2];
     for (int i = 0; i < 8; i++) {
         switch (this->player_ptr->vir_types[i]) {
-        case V_JUSTICE:
+        case Virtue::JUSTICE:
             this->bias_good_alignment(this->player_ptr->virtues[i] * 2);
             break;
-        case V_CHANCE:
+        case Virtue::CHANCE:
             break;
-        case V_NATURE:
-        case V_HARMONY:
+        case Virtue::NATURE:
+        case Virtue::HARMONY:
             neutral[j++] = i;
             break;
-        case V_UNLIFE:
+        case Virtue::UNLIFE:
             this->bias_evil_alignment(this->player_ptr->virtues[i]);
             break;
         default:

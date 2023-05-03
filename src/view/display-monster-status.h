@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "system/angband.h"
+#include <string>
 
-struct monster_type;
-concptr look_mon_desc(monster_type *m_ptr, BIT_FLAGS mode);
+class MonsterEntity;
+std::string look_mon_desc(MonsterEntity *m_ptr, BIT_FLAGS mode);

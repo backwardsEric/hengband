@@ -19,7 +19,7 @@
 #include "io/cursor.h"
 #include "io/screen-util.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "target/target-preparation.h"
 #include "target/target-types.h"
@@ -126,7 +126,7 @@ void verify_panel(PlayerType *player_ptr)
     }
 
     panel_bounds_center();
-    player_ptr->update |= PU_MONSTERS;
+    player_ptr->update |= PU_MONSTER_STATUSES;
     player_ptr->redraw |= PR_MAP;
     player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
 }

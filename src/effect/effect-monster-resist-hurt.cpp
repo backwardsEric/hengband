@@ -1,6 +1,7 @@
 ﻿#include "effect/effect-monster-resist-hurt.h"
 #include "effect/effect-monster-util.h"
 #include "monster-race/monster-race.h"
+#include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-flags2.h"
@@ -11,8 +12,8 @@
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-definition.h"
-#include "system/monster-type-definition.h"
+#include "system/monster-entity.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 
@@ -504,7 +505,7 @@ ProcessResult effect_monster_inertial(PlayerType *player_ptr, effect_monster_typ
         return ProcessResult::PROCESS_CONTINUE;
     }
 
-    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, monster_slow_remaining(em_ptr->m_ptr) + 50)) {
+    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_deceleration() + 50)) {
         em_ptr->note = _("の動きが遅くなった。", " starts moving slower.");
     }
 
@@ -570,7 +571,7 @@ static void effect_monster_gravity_slow(PlayerType *player_ptr, effect_monster_t
         return;
     }
 
-    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, monster_slow_remaining(em_ptr->m_ptr) + 50)) {
+    if (set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_deceleration() + 50)) {
         em_ptr->note = _("の動きが遅くなった。", " starts moving slower.");
     }
     em_ptr->obvious = true;
@@ -727,9 +728,9 @@ ProcessResult effect_monster_abyss(PlayerType *player_ptr, effect_monster_type *
         em_ptr->obvious = true;
     }
 
-    BIT_FLAGS dark = RF7_SELF_DARK_1 | RF7_SELF_DARK_2 | RF7_HAS_DARK_1 | RF7_HAS_DARK_2;
+    auto dark = { MonsterBrightnessType::SELF_DARK_1, MonsterBrightnessType::SELF_DARK_2, MonsterBrightnessType::HAS_DARK_1, MonsterBrightnessType::HAS_DARK_2 };
 
-    if (any_bits(em_ptr->r_ptr->flags7, dark)) {
+    if (em_ptr->r_ptr->brightness_flags.has_any_of(dark)) {
         em_ptr->note = _("には耐性がある！", " resists!");
         em_ptr->dam *= 3;
         em_ptr->dam /= (randint1(6) + 6);
@@ -752,7 +753,7 @@ ProcessResult effect_monster_abyss(PlayerType *player_ptr, effect_monster_type *
         em_ptr->note = _("は深淵に囚われていく。", " is trapped in the abyss.");
         em_ptr->note_dies = _("は深淵に堕ちてしまった。", " has fallen into the abyss.");
 
-        if (one_in_(3) && set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, monster_slow_remaining(em_ptr->m_ptr) + 50)) {
+        if (one_in_(3) && set_monster_slow(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->m_ptr->get_remaining_deceleration() + 50)) {
             em_ptr->note = _("の動きが遅くなった。", " starts moving slower.");
         }
     }

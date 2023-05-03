@@ -10,8 +10,9 @@
 #include "object-hook/hook-expendable.h"
 #include "object/item-use-flags.h"
 #include "object/object-value.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "term/z-form.h"
 #include "view/display-messages.h"
 
 /*!
@@ -30,7 +31,7 @@ bool alchemy(PlayerType *player_ptr)
     concptr q = _("どのアイテムを金に変えますか？", "Turn which item to gold? ");
     concptr s = _("金に変えられる物がありません。", "You have nothing to turn to gold.");
     OBJECT_IDX item;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR));
     if (!o_ptr) {
         return false;
@@ -38,7 +39,7 @@ bool alchemy(PlayerType *player_ptr)
 
     int amt = 1;
     if (o_ptr->number > 1) {
-        amt = get_quantity(nullptr, o_ptr->number);
+        amt = get_quantity(std::nullopt, o_ptr->number);
         if (amt <= 0) {
             return false;
         }
@@ -46,14 +47,13 @@ bool alchemy(PlayerType *player_ptr)
 
     ITEM_NUMBER old_number = o_ptr->number;
     o_ptr->number = amt;
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
     o_ptr->number = old_number;
 
     if (!force) {
-        if (confirm_destroy || (object_value(o_ptr) > 0)) {
+        if (confirm_destroy || (o_ptr->get_price() > 0)) {
             char out_val[MAX_NLEN + 40];
-            sprintf(out_val, _("本当に%sを金に変えますか？", "Really turn %s to gold? "), o_name);
+            strnfmt(out_val, sizeof(out_val), _("本当に%sを金に変えますか？", "Really turn %s to gold? "), item_name.data());
             if (!get_check(out_val)) {
                 return false;
             }
@@ -61,13 +61,13 @@ bool alchemy(PlayerType *player_ptr)
     }
 
     if (!can_player_destroy_object(player_ptr, o_ptr)) {
-        msg_format(_("%sを金に変えることに失敗した。", "You fail to turn %s to gold!"), o_name);
+        msg_format(_("%sを金に変えることに失敗した。", "You fail to turn %s to gold!"), item_name.data());
         return false;
     }
 
     PRICE price = object_value_real(o_ptr);
     if (price <= 0) {
-        msg_format(_("%sをニセの金に変えた。", "You turn %s to fool's gold."), o_name);
+        msg_format(_("%sをニセの金に変えた。", "You turn %s to fool's gold."), item_name.data());
         vary_item(player_ptr, item, -amt);
         return true;
     }
@@ -81,8 +81,8 @@ bool alchemy(PlayerType *player_ptr)
     if (price > 30000) {
         price = 30000;
     }
-    msg_format(_("%sを＄%d の金に変えた。", "You turn %s to %ld coins worth of gold."), o_name, price);
 
+    msg_format(_("%sを＄%d の金に変えた。", "You turn %s to %d coins worth of gold."), item_name.data(), price);
     player_ptr->au += price;
     player_ptr->redraw |= PR_GOLD;
     player_ptr->window_flags |= PW_PLAYER;

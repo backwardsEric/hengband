@@ -11,7 +11,6 @@
 #include "core/stuff-handler.h"
 #include "core/turn-compensator.h"
 #include "core/visuals-reseter.h"
-#include "dungeon/dungeon.h"
 #include "game-option/special-options.h"
 #include "io-dump/character-dump.h"
 #include "io/inet.h"
@@ -24,6 +23,7 @@
 #include "player/player-status.h"
 #include "realm/realm-names-table.h"
 #include "system/angband-version.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
@@ -262,7 +262,7 @@ static errr make_dump(PlayerType *player_ptr, BUF *dumpbuf)
     angband_fclose(fff);
 
     /* Open for read */
-    fff = angband_fopen(file_name, "r");
+    fff = angband_fopen(file_name, FileOpenMode::READ);
 
     while (fgets(buf, 1024, fff)) {
         (void)buf_sprintf(dumpbuf, "%s", buf);
@@ -416,18 +416,12 @@ concptr make_screen_dump(PlayerType *player_ptr)
 bool report_score(PlayerType *player_ptr)
 {
     auto *score = buf_new();
-    char personality_desc[128];
-    char title[128];
-    put_version(title);
-#ifdef JP
-    sprintf(personality_desc, "%s%s", ap_ptr->title, (ap_ptr->no ? "の" : ""));
-#else
-    sprintf(personality_desc, "%s ", ap_ptr->title);
-#endif
+    std::string personality_desc = ap_ptr->title;
+    personality_desc.append(_(ap_ptr->no ? "の" : "", " "));
 
     auto realm1_name = PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST) ? get_element_title(player_ptr->element) : realm_names[player_ptr->realm1];
     buf_sprintf(score, "name: %s\n", player_ptr->name);
-    buf_sprintf(score, "version: %s\n", title);
+    buf_sprintf(score, "version: %s\n", get_version().data());
     buf_sprintf(score, "score: %d\n", calc_score(player_ptr));
     buf_sprintf(score, "level: %d\n", player_ptr->lev);
     buf_sprintf(score, "depth: %d\n", player_ptr->current_floor_ptr->dun_level);
@@ -438,10 +432,10 @@ bool report_score(PlayerType *player_ptr)
     buf_sprintf(score, "sex: %d\n", player_ptr->psex);
     buf_sprintf(score, "race: %s\n", rp_ptr->title);
     buf_sprintf(score, "class: %s\n", cp_ptr->title);
-    buf_sprintf(score, "seikaku: %s\n", personality_desc);
+    buf_sprintf(score, "seikaku: %s\n", personality_desc.data());
     buf_sprintf(score, "realm1: %s\n", realm1_name);
     buf_sprintf(score, "realm2: %s\n", realm_names[player_ptr->realm2]);
-    buf_sprintf(score, "killer: %s\n", player_ptr->died_from.c_str());
+    buf_sprintf(score, "killer: %s\n", player_ptr->died_from.data());
     buf_sprintf(score, "-----charcter dump-----\n");
 
     make_dump(player_ptr, score);

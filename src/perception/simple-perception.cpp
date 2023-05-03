@@ -22,7 +22,7 @@
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "player/player-status-flags.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/player-confusion.h"
 #include "timed-effect/timed-effects.h"
@@ -37,7 +37,6 @@
 static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool heavy)
 {
     auto *o_ptr = &player_ptr->inventory_list[slot];
-    GAME_TEXT o_name[MAX_NLEN];
     if (o_ptr->ident & (IDENT_SENSE)) {
         return;
     }
@@ -98,20 +97,20 @@ static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool
         disturb(player_ptr, false, false);
     }
 
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
     if (slot >= INVEN_MAIN_HAND) {
 #ifdef JP
-        msg_format("%s%s(%c)は%sという感じがする...", describe_use(player_ptr, slot), o_name, index_to_label(slot), game_inscriptions[feel]);
+        msg_format("%s%s(%c)は%sという感じがする...", describe_use(player_ptr, slot), item_name.data(), index_to_label(slot), game_inscriptions[feel]);
 #else
-        msg_format("You feel the %s (%c) you are %s %s %s...", o_name, index_to_label(slot), describe_use(player_ptr, slot),
+        msg_format("You feel the %s (%c) you are %s %s %s...", item_name.data(), index_to_label(slot), describe_use(player_ptr, slot),
             ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
 #endif
 
     } else {
 #ifdef JP
-        msg_format("ザックの中の%s(%c)は%sという感じがする...", o_name, index_to_label(slot), game_inscriptions[feel]);
+        msg_format("ザックの中の%s(%c)は%sという感じがする...", item_name.data(), index_to_label(slot), game_inscriptions[feel]);
 #else
-        msg_format("You feel the %s (%c) in your pack %s %s...", o_name, index_to_label(slot), ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
+        msg_format("You feel the %s (%c) in your pack %s %s...", item_name.data(), index_to_label(slot), ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
 #endif
     }
 
@@ -119,8 +118,8 @@ static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool
     o_ptr->feeling = feel;
 
     autopick_alter_item(player_ptr, slot, destroy_feeling);
-    player_ptr->update |= (PU_COMBINE | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVEN | PW_EQUIP);
+    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
+    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
 }
 
 /*!
@@ -139,7 +138,7 @@ void sense_inventory1(PlayerType *player_ptr)
 {
     PLAYER_LEVEL plev = player_ptr->lev;
     bool heavy = false;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     if (player_ptr->effects()->confusion()->is_confused()) {
         return;
     }
@@ -267,20 +266,19 @@ void sense_inventory1(PlayerType *player_ptr)
         break;
     }
 
-    if (compare_virtue(player_ptr, V_KNOWLEDGE, 100, VIRTUE_LARGE)) {
+    if (compare_virtue(player_ptr, Virtue::KNOWLEDGE, 100)) {
         heavy = true;
     }
 
     for (INVENTORY_IDX i = 0; i < INVEN_TOTAL; i++) {
-        bool okay = false;
-
         o_ptr = &player_ptr->inventory_list[i];
 
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        switch (o_ptr->tval) {
+        auto okay = false;
+        switch (o_ptr->bi_key.tval()) {
         case ItemKindType::SHOT:
         case ItemKindType::ARROW:
         case ItemKindType::BOLT:
@@ -298,11 +296,9 @@ void sense_inventory1(PlayerType *player_ptr)
         case ItemKindType::SOFT_ARMOR:
         case ItemKindType::HARD_ARMOR:
         case ItemKindType::DRAG_ARMOR:
-        case ItemKindType::CARD: {
+        case ItemKindType::CARD:
             okay = true;
             break;
-        }
-
         default:
             break;
         }
@@ -329,7 +325,7 @@ void sense_inventory1(PlayerType *player_ptr)
 void sense_inventory2(PlayerType *player_ptr)
 {
     PLAYER_LEVEL plev = player_ptr->lev;
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
 
     if (player_ptr->effects()->confusion()->is_confused()) {
         return;
@@ -405,11 +401,11 @@ void sense_inventory2(PlayerType *player_ptr)
     for (INVENTORY_IDX i = 0; i < INVEN_TOTAL; i++) {
         bool okay = false;
         o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
-        switch (o_ptr->tval) {
+        switch (o_ptr->bi_key.tval()) {
         case ItemKindType::RING:
         case ItemKindType::AMULET:
         case ItemKindType::LITE:
@@ -439,9 +435,9 @@ void sense_inventory2(PlayerType *player_ptr)
  * @param o_ptr 擬似鑑定を行うオブジェクトの参照ポインタ。
  * @return 擬似鑑定結果のIDを返す。
  */
-item_feel_type pseudo_value_check_heavy(ObjectType *o_ptr)
+item_feel_type pseudo_value_check_heavy(ItemEntity *o_ptr)
 {
-    if (o_ptr->is_artifact()) {
+    if (o_ptr->is_fixed_or_random_artifact()) {
         if (o_ptr->is_cursed() || o_ptr->is_broken()) {
             return FEEL_TERRIBLE;
         }
@@ -465,7 +461,8 @@ item_feel_type pseudo_value_check_heavy(ObjectType *o_ptr)
         return FEEL_BROKEN;
     }
 
-    if ((o_ptr->tval == ItemKindType::RING) || (o_ptr->tval == ItemKindType::AMULET)) {
+    const auto tval = o_ptr->bi_key.tval();
+    if ((tval == ItemKindType::RING) || (tval == ItemKindType::AMULET)) {
         return FEEL_AVERAGE;
     }
 
@@ -485,7 +482,7 @@ item_feel_type pseudo_value_check_heavy(ObjectType *o_ptr)
  * @param o_ptr 擬似鑑定を行うオブジェクトの参照ポインタ。
  * @return 擬似鑑定結果のIDを返す。
  */
-item_feel_type pseudo_value_check_light(ObjectType *o_ptr)
+item_feel_type pseudo_value_check_light(ItemEntity *o_ptr)
 {
     if (o_ptr->is_cursed()) {
         return FEEL_CURSED;
@@ -495,7 +492,7 @@ item_feel_type pseudo_value_check_light(ObjectType *o_ptr)
         return FEEL_BROKEN;
     }
 
-    if (o_ptr->is_artifact()) {
+    if (o_ptr->is_fixed_or_random_artifact()) {
         return FEEL_UNCURSED;
     }
 

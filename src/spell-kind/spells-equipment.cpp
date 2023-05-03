@@ -8,7 +8,7 @@
 #include "object-hook/hook-weapon.h"
 #include "object/object-info.h"
 #include "racial/racial-android.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -50,9 +50,9 @@ bool apply_disenchant(PlayerType *player_ptr, BIT_FLAGS mode)
         break;
     }
 
-    ObjectType *o_ptr;
+    ItemEntity *o_ptr;
     o_ptr = &player_ptr->inventory_list[t];
-    if (!o_ptr->k_idx) {
+    if (!o_ptr->is_valid()) {
         return false;
     }
 
@@ -64,13 +64,12 @@ bool apply_disenchant(PlayerType *player_ptr, BIT_FLAGS mode)
         return false;
     }
 
-    GAME_TEXT o_name[MAX_NLEN];
-    describe_flavor(player_ptr, o_name, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    if (o_ptr->is_artifact() && (randint0(100) < 71)) {
+    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+    if (o_ptr->is_fixed_or_random_artifact() && (randint0(100) < 71)) {
 #ifdef JP
-        msg_format("%s(%c)は劣化を跳ね返した！", o_name, index_to_label(t));
+        msg_format("%s(%c)は劣化を跳ね返した！", item_name.data(), index_to_label(t));
 #else
-        msg_format("Your %s (%c) resist%s disenchantment!", o_name, index_to_label(t), ((o_ptr->number != 1) ? "" : "s"));
+        msg_format("Your %s (%c) resist%s disenchantment!", item_name.data(), index_to_label(t), ((o_ptr->number != 1) ? "" : "s"));
 #endif
         return true;
     }
@@ -114,14 +113,14 @@ bool apply_disenchant(PlayerType *player_ptr, BIT_FLAGS mode)
     }
 
 #ifdef JP
-    msg_format("%s(%c)は劣化してしまった！", o_name, index_to_label(t));
+    msg_format("%s(%c)は劣化してしまった！", item_name.data(), index_to_label(t));
 #else
-    msg_format("Your %s (%c) %s disenchanted!", o_name, index_to_label(t), ((o_ptr->number != 1) ? "were" : "was"));
+    msg_format("Your %s (%c) %s disenchanted!", item_name.data(), index_to_label(t), ((o_ptr->number != 1) ? "were" : "was"));
 #endif
-    chg_virtue(player_ptr, V_HARMONY, 1);
-    chg_virtue(player_ptr, V_ENCHANT, -2);
+    chg_virtue(player_ptr, Virtue::HARMONY, 1);
+    chg_virtue(player_ptr, Virtue::ENCHANT, -2);
     player_ptr->update |= (PU_BONUS);
-    player_ptr->window_flags |= (PW_EQUIP | PW_PLAYER);
+    player_ptr->window_flags |= (PW_EQUIPMENT | PW_PLAYER);
 
     calc_android_exp(player_ptr);
     return true;

@@ -8,11 +8,13 @@
 #include "object/object-flags.h"
 #include "object/object-info.h"
 #include "system/artifact-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
+#include "term/z-form.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/enum-range.h"
 #include "util/quarks.h"
+#include "util/string-processor.h"
 #include "wizard/spoiler-util.h"
 
 /*!
@@ -51,9 +53,9 @@ static concptr *spoiler_flag_aux(const TrFlags &art_flags, const flag_desc *flag
  * @param o_ptr 記述を得たいオブジェクトの参照ポインタ
  * @param desc_ptr 記述内容を返すための文字列参照ポインタ
  */
-static void analyze_general(PlayerType *player_ptr, ObjectType *o_ptr, char *desc_ptr)
+static std::string analyze_general(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    describe_flavor(player_ptr, desc_ptr, o_ptr, OD_NAME_AND_ENCHANT | OD_STORE | OD_DEBUG);
+    return describe_flavor(player_ptr, o_ptr, OD_NAME_AND_ENCHANT | OD_STORE | OD_DEBUG);
 }
 
 /*!
@@ -63,7 +65,7 @@ static void analyze_general(PlayerType *player_ptr, ObjectType *o_ptr, char *des
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param pi_ptr pval修正構造体の参照ポインタ
  */
-static void analyze_pval(ObjectType *o_ptr, pval_info_type *pi_ptr)
+static void analyze_pval(ItemEntity *o_ptr, pval_info_type *pi_ptr)
 {
     concptr *affects_list;
     if (!o_ptr->pval) {
@@ -71,16 +73,16 @@ static void analyze_pval(ObjectType *o_ptr, pval_info_type *pi_ptr)
         return;
     }
 
-    auto flgs = object_flags(o_ptr);
+    auto flags = object_flags(o_ptr);
     affects_list = pi_ptr->pval_affects;
-    sprintf(pi_ptr->pval_desc, "%s%d", o_ptr->pval >= 0 ? "+" : "", o_ptr->pval);
-    if (flgs.has_all_of(EnumRange(TR_STR, TR_CHR))) {
+    strnfmt(pi_ptr->pval_desc, sizeof(pi_ptr->pval_desc), "%s%d", o_ptr->pval >= 0 ? "+" : "", o_ptr->pval);
+    if (flags.has_all_of(EnumRange(TR_STR, TR_CHR))) {
         *affects_list++ = _("全能力", "All stats");
-    } else if (flgs.has_any_of(EnumRange(TR_STR, TR_CHR))) {
-        affects_list = spoiler_flag_aux(flgs, stat_flags_desc, affects_list, N_ELEMENTS(stat_flags_desc));
+    } else if (flags.has_any_of(EnumRange(TR_STR, TR_CHR))) {
+        affects_list = spoiler_flag_aux(flags, stat_flags_desc, affects_list, N_ELEMENTS(stat_flags_desc));
     }
 
-    affects_list = spoiler_flag_aux(flgs, pval_flags1_desc, affects_list, N_ELEMENTS(pval_flags1_desc));
+    affects_list = spoiler_flag_aux(flags, pval_flags1_desc, affects_list, N_ELEMENTS(pval_flags1_desc));
     *affects_list = nullptr;
 }
 
@@ -90,10 +92,10 @@ static void analyze_pval(ObjectType *o_ptr, pval_info_type *pi_ptr)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param slay_list 種族スレイ構造体の参照ポインタ
  */
-static void analyze_slay(ObjectType *o_ptr, concptr *slay_list)
+static void analyze_slay(ItemEntity *o_ptr, concptr *slay_list)
 {
-    auto flgs = object_flags(o_ptr);
-    slay_list = spoiler_flag_aux(flgs, slay_flags_desc, slay_list, N_ELEMENTS(slay_flags_desc));
+    auto flags = object_flags(o_ptr);
+    slay_list = spoiler_flag_aux(flags, slay_flags_desc, slay_list, N_ELEMENTS(slay_flags_desc));
     *slay_list = nullptr;
 }
 
@@ -103,10 +105,10 @@ static void analyze_slay(ObjectType *o_ptr, concptr *slay_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param brand_list 属性ブランド構造体の参照ポインタ
  */
-static void analyze_brand(ObjectType *o_ptr, concptr *brand_list)
+static void analyze_brand(ItemEntity *o_ptr, concptr *brand_list)
 {
-    auto flgs = object_flags(o_ptr);
-    brand_list = spoiler_flag_aux(flgs, brand_flags_desc, brand_list, N_ELEMENTS(brand_flags_desc));
+    auto flags = object_flags(o_ptr);
+    brand_list = spoiler_flag_aux(flags, brand_flags_desc, brand_list, N_ELEMENTS(brand_flags_desc));
     *brand_list = nullptr;
 }
 
@@ -116,10 +118,10 @@ static void analyze_brand(ObjectType *o_ptr, concptr *brand_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param resist_list 通常耐性構造体の参照ポインタ
  */
-static void analyze_resist(ObjectType *o_ptr, concptr *resist_list)
+static void analyze_resist(ItemEntity *o_ptr, concptr *resist_list)
 {
-    auto flgs = object_flags(o_ptr);
-    resist_list = spoiler_flag_aux(flgs, resist_flags_desc, resist_list, N_ELEMENTS(resist_flags_desc));
+    auto flags = object_flags(o_ptr);
+    resist_list = spoiler_flag_aux(flags, resist_flags_desc, resist_list, N_ELEMENTS(resist_flags_desc));
     *resist_list = nullptr;
 }
 
@@ -129,10 +131,10 @@ static void analyze_resist(ObjectType *o_ptr, concptr *resist_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param immune_list 免疫構造体の参照ポインタ
  */
-static void analyze_immune(ObjectType *o_ptr, concptr *immune_list)
+static void analyze_immune(ItemEntity *o_ptr, concptr *immune_list)
 {
-    auto flgs = object_flags(o_ptr);
-    immune_list = spoiler_flag_aux(flgs, immune_flags_desc, immune_list, N_ELEMENTS(immune_flags_desc));
+    auto flags = object_flags(o_ptr);
+    immune_list = spoiler_flag_aux(flags, immune_flags_desc, immune_list, N_ELEMENTS(immune_flags_desc));
     *immune_list = nullptr;
 }
 
@@ -142,10 +144,10 @@ static void analyze_immune(ObjectType *o_ptr, concptr *immune_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param immune_list 弱点構造体の参照ポインタ
  */
-static void analyze_vulnerable(ObjectType *o_ptr, concptr *vulnerable_list)
+static void analyze_vulnerable(ItemEntity *o_ptr, concptr *vulnerable_list)
 {
-    auto flgs = object_flags(o_ptr);
-    vulnerable_list = spoiler_flag_aux(flgs, vulnerable_flags_desc, vulnerable_list, N_ELEMENTS(vulnerable_flags_desc));
+    auto flags = object_flags(o_ptr);
+    vulnerable_list = spoiler_flag_aux(flags, vulnerable_flags_desc, vulnerable_list, N_ELEMENTS(vulnerable_flags_desc));
     *vulnerable_list = nullptr;
 }
 
@@ -155,13 +157,13 @@ static void analyze_vulnerable(ObjectType *o_ptr, concptr *vulnerable_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param sustain_list 維持特性構造体の参照ポインタ
  */
-static void analyze_sustains(ObjectType *o_ptr, concptr *sustain_list)
+static void analyze_sustains(ItemEntity *o_ptr, concptr *sustain_list)
 {
-    auto flgs = object_flags(o_ptr);
-    if (flgs.has_all_of(EnumRange(TR_SUST_STR, TR_SUST_CHR))) {
+    auto flags = object_flags(o_ptr);
+    if (flags.has_all_of(EnumRange(TR_SUST_STR, TR_SUST_CHR))) {
         *sustain_list++ = _("全能力", "All stats");
-    } else if (flgs.has_any_of(EnumRange(TR_SUST_STR, TR_SUST_CHR))) {
-        sustain_list = spoiler_flag_aux(flgs, sustain_flags_desc, sustain_list, N_ELEMENTS(sustain_flags_desc));
+    } else if (flags.has_any_of(EnumRange(TR_SUST_STR, TR_SUST_CHR))) {
+        sustain_list = spoiler_flag_aux(flags, sustain_flags_desc, sustain_list, N_ELEMENTS(sustain_flags_desc));
     }
 
     *sustain_list = nullptr;
@@ -174,35 +176,33 @@ static void analyze_sustains(ObjectType *o_ptr, concptr *sustain_list)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param misc_list その他の特性構造体の参照ポインタ
  */
-static void analyze_misc_magic(ObjectType *o_ptr, concptr *misc_list)
+static void analyze_misc_magic(ItemEntity *o_ptr, concptr *misc_list)
 {
-    char desc[256];
-
-    auto flgs = object_flags(o_ptr);
-    misc_list = spoiler_flag_aux(flgs, misc_flags2_desc, misc_list, N_ELEMENTS(misc_flags2_desc));
-    misc_list = spoiler_flag_aux(flgs, misc_flags3_desc, misc_list, N_ELEMENTS(misc_flags3_desc));
+    auto flags = object_flags(o_ptr);
+    misc_list = spoiler_flag_aux(flags, misc_flags2_desc, misc_list, N_ELEMENTS(misc_flags2_desc));
+    misc_list = spoiler_flag_aux(flags, misc_flags3_desc, misc_list, N_ELEMENTS(misc_flags3_desc));
     POSITION rad = 0;
-    if (flgs.has(TR_LITE_1)) {
+    if (flags.has(TR_LITE_1)) {
         rad += 1;
     }
 
-    if (flgs.has(TR_LITE_2)) {
+    if (flags.has(TR_LITE_2)) {
         rad += 2;
     }
 
-    if (flgs.has(TR_LITE_3)) {
+    if (flags.has(TR_LITE_3)) {
         rad += 3;
     }
 
-    if (flgs.has(TR_LITE_M1)) {
+    if (flags.has(TR_LITE_M1)) {
         rad -= 1;
     }
 
-    if (flgs.has(TR_LITE_M2)) {
+    if (flags.has(TR_LITE_M2)) {
         rad -= 2;
     }
 
-    if (flgs.has(TR_LITE_M3)) {
+    if (flags.has(TR_LITE_M3)) {
         rad -= 3;
     }
 
@@ -210,25 +210,24 @@ static void analyze_misc_magic(ObjectType *o_ptr, concptr *misc_list)
         rad++;
     }
 
-    if (flgs.has(TR_LITE_FUEL)) {
+    std::string desc;
+    if (flags.has(TR_LITE_FUEL)) {
         if (rad > 0) {
-            sprintf(desc, _("それは燃料補給によって明かり(半径 %d)を授ける。", "It provides light (radius %d) when fueled."), (int)rad);
+            desc = format(_("それは燃料補給によって明かり(半径 %d)を授ける。", "It provides light (radius %d) when fueled."), (int)rad);
         }
     } else {
         if (rad > 0) {
-            sprintf(desc, _("永久光源(半径 %d)", "Permanent Light(radius %d)"), (int)rad);
-        }
-
-        if (rad < 0) {
-            sprintf(desc, _("永久光源(半径-%d)。", "Permanent Light(radius -%d)"), (int)-rad);
+            desc = format(_("永久光源(半径 %d)", "Permanent Light(radius %d)"), (int)rad);
+        } else if (rad < 0) {
+            desc = format(_("永久光源(半径-%d)。", "Permanent Light(radius -%d)"), (int)-rad);
         }
     }
 
     if (rad != 0) {
-        *misc_list++ = quark_str(quark_add(desc));
+        *misc_list++ = quark_str(quark_add(desc.data()));
     }
 
-    if (flgs.has(TR_TY_CURSE)) {
+    if (flags.has(TR_TY_CURSE)) {
         *misc_list++ = _("太古の怨念", "Ancient Curse");
     }
 
@@ -240,11 +239,11 @@ static void analyze_misc_magic(ObjectType *o_ptr, concptr *misc_list)
         *misc_list++ = _("呪い", "Cursed");
     }
 
-    if (flgs.has(TR_ADD_L_CURSE)) {
+    if (flags.has(TR_ADD_L_CURSE)) {
         *misc_list++ = _("呪いを増やす", "Cursing");
     }
 
-    if (flgs.has(TR_ADD_H_CURSE)) {
+    if (flags.has(TR_ADD_H_CURSE)) {
         *misc_list++ = _("強力な呪いを増やす", "Heavily Cursing");
     }
 
@@ -256,33 +255,34 @@ static void analyze_misc_magic(ObjectType *o_ptr, concptr *misc_list)
  * Note additional ability and/or resistance of fixed artifacts
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param addition 追加ランダム耐性構造体の参照ポインタ
+ * @param addition_sz addition に書き込めるバイト数
  */
-static void analyze_addition(ObjectType *o_ptr, char *addition)
+static void analyze_addition(ItemEntity *o_ptr, char *addition, size_t addition_sz)
 {
-    const auto &a_ref = a_info.at(o_ptr->fixed_artifact_idx);
+    const auto &artifact = o_ptr->get_fixed_artifact();
     strcpy(addition, "");
 
-    if (a_ref.gen_flags.has_all_of({ ItemGenerationTraitType::XTRA_POWER, ItemGenerationTraitType::XTRA_H_RES })) {
-        strcat(addition, _("能力and耐性", "Ability and Resistance"));
-    } else if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_POWER)) {
-        strcat(addition, _("能力", "Ability"));
-        if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
-            strcat(addition, _("(1/2でand耐性)", "(plus Resistance about 1/2)"));
+    if (artifact.gen_flags.has_all_of({ ItemGenerationTraitType::XTRA_POWER, ItemGenerationTraitType::XTRA_H_RES })) {
+        angband_strcat(addition, _("能力and耐性", "Ability and Resistance"), addition_sz);
+    } else if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_POWER)) {
+        angband_strcat(addition, _("能力", "Ability"), addition_sz);
+        if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
+            angband_strcat(addition, _("(1/2でand耐性)", "(plus Resistance about 1/2)"), addition_sz);
         }
-    } else if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_H_RES)) {
-        strcat(addition, _("耐性", "Resistance"));
-        if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
-            strcat(addition, _("(1/2でand能力)", "(plus Ability about 1/2)"));
+    } else if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_H_RES)) {
+        angband_strcat(addition, _("耐性", "Resistance"), addition_sz);
+        if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
+            angband_strcat(addition, _("(1/2でand能力)", "(plus Ability about 1/2)"), addition_sz);
         }
-    } else if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
-        strcat(addition, _("能力or耐性", "Ability or Resistance"));
+    } else if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_RES_OR_POWER)) {
+        angband_strcat(addition, _("能力or耐性", "Ability or Resistance"), addition_sz);
     }
 
-    if (a_ref.gen_flags.has(ItemGenerationTraitType::XTRA_DICE)) {
+    if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_DICE)) {
         if (strlen(addition) > 0) {
-            strcat(addition, _("、", ", "));
+            angband_strcat(addition, _("、", ", "), addition_sz);
         }
-        strcat(addition, _("ダイス数", "Dice number"));
+        angband_strcat(addition, _("ダイス数", "Dice number"), addition_sz);
     }
 }
 
@@ -292,12 +292,14 @@ static void analyze_addition(ObjectType *o_ptr, char *addition)
  * and its value in gold pieces
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param misc_desc 基本情報を収める文字列参照ポインタ
+ * @param misc_desc_sz misc_desc に書き込めるバイト数
  */
-static void analyze_misc(ObjectType *o_ptr, char *misc_desc)
+static void analyze_misc(ItemEntity *o_ptr, char *misc_desc, size_t misc_desc_sz)
 {
-    const auto &a_ref = a_info.at(o_ptr->fixed_artifact_idx);
-    sprintf(misc_desc, _("レベル %d, 希少度 %u, %d.%d kg, ＄%ld", "Level %d, Rarity %u, %d.%d lbs, %ld Gold"), (int)a_ref.level, a_ref.rarity,
-        _(lb_to_kg_integer(a_ref.weight), a_ref.weight / 10), _(lb_to_kg_fraction(a_ref.weight), a_ref.weight % 10), (long int)a_ref.cost);
+    const auto &artifact = o_ptr->get_fixed_artifact();
+    const auto *mes = _("レベル %d, 希少度 %u, %d.%d kg, ＄%ld", "Level %d, Rarity %u, %d.%d lbs, %ld Gold");
+    strnfmt(misc_desc, misc_desc_sz, mes, (int)artifact.level, artifact.rarity,
+        _(lb_to_kg_integer(artifact.weight), artifact.weight / 10), _(lb_to_kg_fraction(artifact.weight), artifact.weight % 10), (long int)artifact.cost);
 }
 
 /*!
@@ -308,9 +310,9 @@ static void analyze_misc(ObjectType *o_ptr, char *misc_desc)
  * @param o_ptr オブジェクト構造体の参照ポインタ
  * @param desc_ptr 全アーティファクト情報を収める文字列参照ポインタ
  */
-void object_analyze(PlayerType *player_ptr, ObjectType *o_ptr, obj_desc_list *desc_ptr)
+void object_analyze(PlayerType *player_ptr, ItemEntity *o_ptr, obj_desc_list *desc_ptr)
 {
-    analyze_general(player_ptr, o_ptr, desc_ptr->description);
+    angband_strcpy(desc_ptr->description, analyze_general(player_ptr, o_ptr).data(), MAX_NLEN);
     analyze_pval(o_ptr, &desc_ptr->pval_info);
     analyze_brand(o_ptr, desc_ptr->brands);
     analyze_slay(o_ptr, desc_ptr->slays);
@@ -319,8 +321,8 @@ void object_analyze(PlayerType *player_ptr, ObjectType *o_ptr, obj_desc_list *de
     analyze_vulnerable(o_ptr, desc_ptr->vulnerables);
     analyze_sustains(o_ptr, desc_ptr->sustains);
     analyze_misc_magic(o_ptr, desc_ptr->misc_magic);
-    analyze_addition(o_ptr, desc_ptr->addition);
-    analyze_misc(o_ptr, desc_ptr->misc_desc);
+    analyze_addition(o_ptr, desc_ptr->addition, sizeof(desc_ptr->addition));
+    analyze_misc(o_ptr, desc_ptr->misc_desc, sizeof(desc_ptr->misc_desc));
     desc_ptr->activation = activation_explanation(o_ptr);
 }
 
@@ -331,9 +333,9 @@ void object_analyze(PlayerType *player_ptr, ObjectType *o_ptr, obj_desc_list *de
  * @param o_ptr ランダムアーティファクトのオブジェクト構造体参照ポインタ
  * @param desc_ptr 記述内容を収める構造体参照ポインタ
  */
-void random_artifact_analyze(PlayerType *player_ptr, ObjectType *o_ptr, obj_desc_list *desc_ptr)
+void random_artifact_analyze(PlayerType *player_ptr, ItemEntity *o_ptr, obj_desc_list *desc_ptr)
 {
-    analyze_general(player_ptr, o_ptr, desc_ptr->description);
+    angband_strcpy(desc_ptr->description, analyze_general(player_ptr, o_ptr).data(), MAX_NLEN);
     analyze_pval(o_ptr, &desc_ptr->pval_info);
     analyze_brand(o_ptr, desc_ptr->brands);
     analyze_slay(o_ptr, desc_ptr->slays);
@@ -343,6 +345,6 @@ void random_artifact_analyze(PlayerType *player_ptr, ObjectType *o_ptr, obj_desc
     analyze_sustains(o_ptr, desc_ptr->sustains);
     analyze_misc_magic(o_ptr, desc_ptr->misc_magic);
     desc_ptr->activation = activation_explanation(o_ptr);
-    sprintf(desc_ptr->misc_desc, _("重さ %d.%d kg", "Weight %d.%d lbs"), _(lb_to_kg_integer(o_ptr->weight), o_ptr->weight / 10),
+    strnfmt(desc_ptr->misc_desc, sizeof(desc_ptr->misc_desc), _("重さ %d.%d kg", "Weight %d.%d lbs"), _(lb_to_kg_integer(o_ptr->weight), o_ptr->weight / 10),
         _(lb_to_kg_fraction(o_ptr->weight), o_ptr->weight % 10));
 }

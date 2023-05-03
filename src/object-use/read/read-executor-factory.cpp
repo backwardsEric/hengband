@@ -5,23 +5,24 @@
 #include "object-use/read/ring-power-read-executor.h"
 #include "object-use/read/scroll-read-executor.h"
 #include "object/tval-types.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 
-std::unique_ptr<ReadExecutorBase> ReadExecutorFactory::create(PlayerType *player_ptr, ObjectType *o_ptr, bool known)
+std::unique_ptr<ReadExecutorBase> ReadExecutorFactory::create(PlayerType *player_ptr, ItemEntity *o_ptr, bool known)
 {
-    if (o_ptr->tval == ItemKindType::SCROLL) {
+    const auto tval = o_ptr->bi_key.tval();
+    if (tval == ItemKindType::SCROLL) {
         return std::make_unique<ScrollReadExecutor>(player_ptr, o_ptr, known);
     }
 
-    if (o_ptr->fixed_artifact_idx == FixedArtifactId::GHB) {
+    if (o_ptr->is_specific_artifact(FixedArtifactId::GHB)) {
         return std::make_unique<GbhShirtReadExecutor>();
     }
 
-    if (o_ptr->fixed_artifact_idx == FixedArtifactId::POWER) {
+    if (o_ptr->is_specific_artifact(FixedArtifactId::POWER)) {
         return std::make_unique<RingOfPowerReadExecutor>();
     }
 
-    if (o_ptr->tval == ItemKindType::PARCHMENT) {
+    if (tval == ItemKindType::PARCHMENT) {
         return std::make_unique<ParchmentReadExecutor>(player_ptr, o_ptr);
     }
 

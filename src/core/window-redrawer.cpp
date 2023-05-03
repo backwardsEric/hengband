@@ -18,7 +18,6 @@
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "view/display-player.h"
-#include "window/display-sub-window-spells.h"
 #include "window/display-sub-windows.h"
 #include "window/main-window-left-frame.h"
 #include "window/main-window-row-column.h"
@@ -50,14 +49,17 @@ void redraw_window(void)
  */
 static void print_dungeon(PlayerType *player_ptr)
 {
-    c_put_str(TERM_WHITE, "             ", ROW_DUNGEON, COL_DUNGEON);
+    TERM_LEN width, height;
+    term_get_size(&width, &height);
+
+    c_put_str(TERM_WHITE, "             ", height + ROW_DUNGEON, COL_DUNGEON);
     concptr dungeon_name = map_name(player_ptr);
     TERM_LEN col = COL_DUNGEON + 6 - strlen(dungeon_name) / 2;
     if (col < 0) {
         col = 0;
     }
 
-    c_put_str(TERM_L_UMBER, format("%s", dungeon_name), ROW_DUNGEON, col);
+    c_put_str(TERM_L_UMBER, format("%s", dungeon_name), height + ROW_DUNGEON, col);
 }
 
 /*!
@@ -91,9 +93,9 @@ void redraw_stuff(PlayerType *player_ptr)
 
     if (player_ptr->redraw & (PR_BASIC)) {
         player_ptr->redraw &= ~(PR_BASIC);
-        player_ptr->redraw &= ~(PR_MISC | PR_TITLE | PR_STATS);
-        player_ptr->redraw &= ~(PR_LEV | PR_EXP | PR_GOLD);
-        player_ptr->redraw &= ~(PR_ARMOR | PR_HP | PR_MANA);
+        player_ptr->redraw &= ~(PR_MISC | PR_TITLE | PR_ABILITY_SCORE);
+        player_ptr->redraw &= ~(PR_LEVEL | PR_EXP | PR_GOLD);
+        player_ptr->redraw &= ~(PR_AC | PR_HP | PR_MP);
         player_ptr->redraw &= ~(PR_DEPTH | PR_HEALTH | PR_UHEALTH);
         print_frame_basic(player_ptr);
         WorldTurnProcessor(player_ptr).print_time();
@@ -115,8 +117,8 @@ void redraw_stuff(PlayerType *player_ptr)
         print_title(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_LEV)) {
-        player_ptr->redraw &= ~(PR_LEV);
+    if (player_ptr->redraw & (PR_LEVEL)) {
+        player_ptr->redraw &= ~(PR_LEVEL);
         print_level(player_ptr);
     }
 
@@ -125,8 +127,8 @@ void redraw_stuff(PlayerType *player_ptr)
         print_exp(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_STATS)) {
-        player_ptr->redraw &= ~(PR_STATS);
+    if (player_ptr->redraw & (PR_ABILITY_SCORE)) {
+        player_ptr->redraw &= ~(PR_ABILITY_SCORE);
         print_stat(player_ptr, A_STR);
         print_stat(player_ptr, A_INT);
         print_stat(player_ptr, A_WIS);
@@ -135,13 +137,13 @@ void redraw_stuff(PlayerType *player_ptr)
         print_stat(player_ptr, A_CHR);
     }
 
-    if (player_ptr->redraw & (PR_STATUS)) {
-        player_ptr->redraw &= ~(PR_STATUS);
+    if (player_ptr->redraw & (PR_TIMED_EFFECT)) {
+        player_ptr->redraw &= ~(PR_TIMED_EFFECT);
         print_status(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_ARMOR)) {
-        player_ptr->redraw &= ~(PR_ARMOR);
+    if (player_ptr->redraw & (PR_AC)) {
+        player_ptr->redraw &= ~(PR_AC);
         print_ac(player_ptr);
     }
 
@@ -150,8 +152,8 @@ void redraw_stuff(PlayerType *player_ptr)
         print_hp(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_MANA)) {
-        player_ptr->redraw &= ~(PR_MANA);
+    if (player_ptr->redraw & (PR_MP)) {
+        player_ptr->redraw &= ~(PR_MP);
         print_sp(player_ptr);
     }
 
@@ -165,21 +167,21 @@ void redraw_stuff(PlayerType *player_ptr)
         print_depth(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_HEALTH)) {
-        player_ptr->redraw &= ~(PR_HEALTH);
-        health_redraw(player_ptr, false);
-    }
-
     if (player_ptr->redraw & (PR_UHEALTH)) {
         player_ptr->redraw &= ~(PR_UHEALTH);
-        health_redraw(player_ptr, true);
+        print_health(player_ptr, true);
+    }
+
+    if (player_ptr->redraw & (PR_HEALTH)) {
+        player_ptr->redraw &= ~(PR_HEALTH);
+        print_health(player_ptr, false);
     }
 
     if (player_ptr->redraw & (PR_EXTRA)) {
         player_ptr->redraw &= ~(PR_EXTRA);
         player_ptr->redraw &= ~(PR_CUT | PR_STUN);
         player_ptr->redraw &= ~(PR_HUNGER);
-        player_ptr->redraw &= ~(PR_STATE | PR_SPEED | PR_STUDY | PR_IMITATION | PR_STATUS);
+        player_ptr->redraw &= ~(PR_ACTION | PR_SPEED | PR_STUDY | PR_IMITATION | PR_TIMED_EFFECT);
         print_frame_extra(player_ptr);
     }
 
@@ -198,8 +200,8 @@ void redraw_stuff(PlayerType *player_ptr)
         print_hunger(player_ptr);
     }
 
-    if (player_ptr->redraw & (PR_STATE)) {
-        player_ptr->redraw &= ~(PR_STATE);
+    if (player_ptr->redraw & (PR_ACTION)) {
+        player_ptr->redraw &= ~(PR_ACTION);
         print_state(player_ptr);
     }
 
@@ -235,20 +237,20 @@ void window_stuff(PlayerType *player_ptr)
     }
 
     BIT_FLAGS mask = 0L;
-    for (int j = 0; j < 8; j++) {
-        if (angband_term[j] && !angband_term[j]->never_fresh) {
-            mask |= window_flag[j];
+    for (auto i = 0U; i < angband_terms.size(); ++i) {
+        if (angband_terms[i] && !angband_terms[i]->never_fresh) {
+            mask |= window_flag[i];
         }
     }
     BIT_FLAGS window_flags = player_ptr->window_flags & mask;
 
-    if (window_flags & (PW_INVEN)) {
-        player_ptr->window_flags &= ~(PW_INVEN);
+    if (window_flags & (PW_INVENTORY)) {
+        player_ptr->window_flags &= ~(PW_INVENTORY);
         fix_inventory(player_ptr);
     }
 
-    if (window_flags & (PW_EQUIP)) {
-        player_ptr->window_flags &= ~(PW_EQUIP);
+    if (window_flags & (PW_EQUIPMENT)) {
+        player_ptr->window_flags &= ~(PW_EQUIPMENT);
         fix_equip(player_ptr);
     }
 
@@ -263,8 +265,8 @@ void window_stuff(PlayerType *player_ptr)
     }
 
     // モンスターBGM対応のため、視界内モンスター表示のサブウインドウなし時も処理を行う
-    if (player_ptr->window_flags & (PW_MONSTER_LIST)) {
-        player_ptr->window_flags &= ~(PW_MONSTER_LIST);
+    if (player_ptr->window_flags & (PW_SIGHT_MONSTERS)) {
+        player_ptr->window_flags &= ~(PW_SIGHT_MONSTERS);
         fix_monster_list(player_ptr);
     }
 
@@ -283,19 +285,24 @@ void window_stuff(PlayerType *player_ptr)
         fix_dungeon(player_ptr);
     }
 
-    if (window_flags & (PW_MONSTER)) {
-        player_ptr->window_flags &= ~(PW_MONSTER);
+    if (window_flags & (PW_MONSTER_LORE)) {
+        player_ptr->window_flags &= ~(PW_MONSTER_LORE);
         fix_monster(player_ptr);
     }
 
-    if (window_flags & (PW_OBJECT)) {
-        player_ptr->window_flags &= ~(PW_OBJECT);
+    if (window_flags & (PW_ITEM_KNOWLEDGTE)) {
+        player_ptr->window_flags &= ~(PW_ITEM_KNOWLEDGTE);
         fix_object(player_ptr);
     }
 
-    if (any_bits(window_flags, PW_FLOOR_ITEM_LIST)) {
-        reset_bits(player_ptr->window_flags, PW_FLOOR_ITEM_LIST);
+    if (any_bits(window_flags, PW_FLOOR_ITEMS)) {
+        reset_bits(player_ptr->window_flags, PW_FLOOR_ITEMS);
         // ウィンドウサイズ変更に対応できず。カーソル位置を取る必要がある。
         fix_floor_item_list(player_ptr, player_ptr->y, player_ptr->x);
+    }
+
+    if (any_bits(window_flags, PW_FOUND_ITEMS)) {
+        reset_bits(player_ptr->window_flags, PW_FOUND_ITEMS);
+        fix_found_item_list(player_ptr);
     }
 }

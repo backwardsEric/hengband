@@ -1,7 +1,6 @@
 ﻿#include "specific-object/torch.h"
 #include "core/player-update-types.h"
 #include "dungeon/dungeon-flag-types.h"
-#include "dungeon/dungeon.h"
 #include "floor/cave.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
@@ -12,9 +11,10 @@
 #include "object/tval-types.h"
 #include "player/special-defense-types.h"
 #include "sv-definition/sv-lite-types.h"
+#include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
-#include "system/object-type-definition.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/point-2d.h"
@@ -25,26 +25,26 @@
  * @param o_ptr オブジェクトの構造体参照ポインタ
  * @return 残量アリの松明ならtrue
  */
-bool is_active_torch(ObjectType *o_ptr)
+bool is_active_torch(ItemEntity *o_ptr)
 {
-    return (o_ptr->tval == ItemKindType::LITE) && (o_ptr->sval == SV_LITE_TORCH) && (o_ptr->fuel > 0);
+    return (o_ptr->bi_key == BaseitemKey(ItemKindType::LITE, SV_LITE_TORCH)) && (o_ptr->fuel > 0);
 }
 
 /*!
  * @brief 投擲時たいまつに投げやすい/焼棄/アンデッドスレイの特別効果を返す。
  * Torches have special abilities when they are flaming.
  * @param o_ptr 投擲するオブジェクトの構造体参照ポインタ
- * @param flgs 特別に追加するフラグを返す参照ポインタ
+ * @param flags 特別に追加するフラグを返す参照ポインタ
  */
-void torch_flags(ObjectType *o_ptr, TrFlags &flgs)
+void torch_flags(ItemEntity *o_ptr, TrFlags &flags)
 {
     if (!is_active_torch(o_ptr)) {
         return;
     }
 
-    flgs.set(TR_BRAND_FIRE);
-    flgs.set(TR_KILL_UNDEAD);
-    flgs.set(TR_THROW);
+    flags.set(TR_BRAND_FIRE);
+    flags.set(TR_KILL_UNDEAD);
+    flags.set(TR_THROW);
 }
 
 /*!
@@ -54,7 +54,7 @@ void torch_flags(ObjectType *o_ptr, TrFlags &flgs)
  * @param dd 特別なダイス数を返す参照ポインタ
  * @param ds 特別なダイス面数を返す参照ポインタ
  */
-void torch_dice(ObjectType *o_ptr, DICE_NUMBER *dd, DICE_SID *ds)
+void torch_dice(ItemEntity *o_ptr, DICE_NUMBER *dd, DICE_SID *ds)
 {
     if (!is_active_torch(o_ptr)) {
         return;
@@ -69,7 +69,7 @@ void torch_dice(ObjectType *o_ptr, DICE_NUMBER *dd, DICE_SID *ds)
  * Torches have special abilities when they are flaming.
  * @param o_ptr 投擲するオブジェクトの構造体参照ポインタ
  */
-void torch_lost_fuel(ObjectType *o_ptr)
+void torch_lost_fuel(ItemEntity *o_ptr)
 {
     if (!is_active_torch(o_ptr)) {
         return;
@@ -90,11 +90,11 @@ void update_lite_radius(PlayerType *player_ptr)
 {
     player_ptr->cur_lite = 0;
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        ObjectType *o_ptr;
+        ItemEntity *o_ptr;
         o_ptr = &player_ptr->inventory_list[i];
-        auto flgs = object_flags(o_ptr);
+        auto flags = object_flags(o_ptr);
 
-        if (!o_ptr->k_idx) {
+        if (!o_ptr->is_valid()) {
             continue;
         }
 
@@ -102,47 +102,48 @@ void update_lite_radius(PlayerType *player_ptr)
             player_ptr->cur_lite++;
         }
 
-        if (flgs.has_not(TR_DARK_SOURCE)) {
-            if (o_ptr->tval == ItemKindType::LITE) {
-                if ((o_ptr->sval == SV_LITE_TORCH) && !(o_ptr->fuel > 0)) {
+        if (flags.has_not(TR_DARK_SOURCE)) {
+            if (o_ptr->bi_key.tval() == ItemKindType::LITE) {
+                const auto sval = o_ptr->bi_key.sval();
+                if ((sval == SV_LITE_TORCH) && (o_ptr->fuel <= 0)) {
                     continue;
                 }
 
-                if ((o_ptr->sval == SV_LITE_LANTERN) && !(o_ptr->fuel > 0)) {
+                if ((sval == SV_LITE_LANTERN) && (o_ptr->fuel <= 0)) {
                     continue;
                 }
             }
         }
 
         POSITION rad = 0;
-        if (flgs.has(TR_LITE_1) && flgs.has_not(TR_DARK_SOURCE)) {
+        if (flags.has(TR_LITE_1) && flags.has_not(TR_DARK_SOURCE)) {
             rad += 1;
         }
 
-        if (flgs.has(TR_LITE_2) && flgs.has_not(TR_DARK_SOURCE)) {
+        if (flags.has(TR_LITE_2) && flags.has_not(TR_DARK_SOURCE)) {
             rad += 2;
         }
 
-        if (flgs.has(TR_LITE_3) && flgs.has_not(TR_DARK_SOURCE)) {
+        if (flags.has(TR_LITE_3) && flags.has_not(TR_DARK_SOURCE)) {
             rad += 3;
         }
 
-        if (flgs.has(TR_LITE_M1)) {
+        if (flags.has(TR_LITE_M1)) {
             rad -= 1;
         }
 
-        if (flgs.has(TR_LITE_M2)) {
+        if (flags.has(TR_LITE_M2)) {
             rad -= 2;
         }
 
-        if (flgs.has(TR_LITE_M3)) {
+        if (flags.has(TR_LITE_M3)) {
             rad -= 3;
         }
 
         player_ptr->cur_lite += rad;
     }
 
-    if (d_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS) && player_ptr->cur_lite > 1) {
+    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::DARKNESS) && player_ptr->cur_lite > 1) {
         player_ptr->cur_lite = 1;
     }
 
@@ -162,7 +163,7 @@ void update_lite_radius(PlayerType *player_ptr)
         return;
     }
 
-    player_ptr->update |= PU_LITE | PU_MON_LITE | PU_MONSTERS;
+    player_ptr->update |= PU_LITE | PU_MONSTER_LITE | PU_MONSTER_STATUSES;
     player_ptr->old_lite = player_ptr->cur_lite;
 
     if (player_ptr->cur_lite > 0) {
@@ -200,7 +201,7 @@ void update_lite(PlayerType *player_ptr)
     std::vector<Pos2D> points;
 
     POSITION p = player_ptr->cur_lite;
-    floor_type *const floor_ptr = player_ptr->current_floor_ptr;
+    FloorType *const floor_ptr = player_ptr->current_floor_ptr;
 
     // 前回照らされていた座標たちを記録。
     for (int i = 0; i < floor_ptr->lite_n; i++) {
@@ -336,5 +337,5 @@ void update_lite(PlayerType *player_ptr)
         cave_redraw_later(floor_ptr, y, x);
     }
 
-    player_ptr->update |= PU_DELAY_VIS;
+    player_ptr->update |= PU_DELAY_VISIBILITY;
 }

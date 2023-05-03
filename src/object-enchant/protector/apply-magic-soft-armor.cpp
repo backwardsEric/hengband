@@ -6,8 +6,10 @@
 
 #include "object-enchant/protector/apply-magic-soft-armor.h"
 #include "object/object-kind-hook.h"
+#include "object/tval-types.h"
 #include "sv-definition/sv-armor-types.h"
-#include "system/object-type-definition.h"
+#include "system/baseitem-info.h"
+#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 
 /*
@@ -17,7 +19,7 @@
  * @param level 生成基準階
  * @param power 生成ランク
  */
-SoftArmorEnchanter::SoftArmorEnchanter(PlayerType *player_ptr, ObjectType *o_ptr, DEPTH level, int power)
+SoftArmorEnchanter::SoftArmorEnchanter(PlayerType *player_ptr, ItemEntity *o_ptr, DEPTH level, int power)
     : ArmorEnchanter{ player_ptr, o_ptr, level, power }
 {
 }
@@ -45,7 +47,12 @@ void SoftArmorEnchanter::apply_magic()
 
 void SoftArmorEnchanter::sval_enchant()
 {
-    switch (this->o_ptr->sval) {
+    const auto sval = this->o_ptr->bi_key.sval();
+    if (!sval.has_value()) {
+        return;
+    }
+
+    switch (sval.value()) {
     case SV_KUROSHOUZOKU:
         this->o_ptr->pval = randint1(4);
         return;
@@ -74,7 +81,8 @@ void SoftArmorEnchanter::sval_enchant()
  */
 void SoftArmorEnchanter::give_high_ego_index()
 {
-    if ((this->o_ptr->sval != SV_ROBE) || (randint0(100) >= 15)) {
+    const auto sval = this->o_ptr->bi_key.sval();
+    if ((sval != SV_ROBE) || (randint0(100) >= 15)) {
         return;
     }
 
@@ -85,8 +93,9 @@ void SoftArmorEnchanter::give_high_ego_index()
         return;
     }
 
-    this->o_ptr->k_idx = lookup_kind(ItemKindType::SOFT_ARMOR, SV_TWILIGHT_ROBE);
-    this->o_ptr->sval = SV_TWILIGHT_ROBE;
+    const BaseitemKey key(ItemKindType::SOFT_ARMOR, SV_TWILIGHT_ROBE);
+    this->o_ptr->bi_id = lookup_baseitem_id(key);
+    this->o_ptr->bi_key = key;
     this->o_ptr->ac = 0;
     this->o_ptr->to_a = 0;
     return;

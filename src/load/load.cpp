@@ -215,7 +215,7 @@ static errr exe_reading_savefile(PlayerType *player_ptr)
     ap_ptr = &personality_info[player_ptr->ppersonality];
 
     set_zangband_class(player_ptr);
-    mp_ptr = &m_info[short_pclass];
+    mp_ptr = &class_magics_info[short_pclass];
 
     load_spells(player_ptr);
     if (PlayerClass(player_ptr).equals(PlayerClassType::MINDCRAFTER)) {
@@ -268,7 +268,7 @@ static errr exe_reading_savefile(PlayerType *player_ptr)
 static errr rd_savefile(PlayerType *player_ptr)
 {
     safe_setuid_grab(player_ptr);
-    loading_savefile = angband_fopen(savefile, "rb");
+    loading_savefile = angband_fopen(savefile, FileOpenMode::READ, true);
     safe_setuid_drop();
     if (!loading_savefile) {
         return -1;
@@ -440,7 +440,7 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
     }
 
     if (err) {
-        msg_format(_("エラー(%s)がバージョン%d.%d.%d.%d 用セーブファイル読み込み中に発生。", "Error (%s) reading %d.%d.%d.% savefile."), what,
+        msg_format(_("エラー(%s)がバージョン %d.%d.%d.%d 用セーブファイル読み込み中に発生。", "Error (%s) reading %d.%d.%d.%d savefile."), what,
             w_ptr->h_ver_major, w_ptr->h_ver_minor, w_ptr->h_ver_patch, w_ptr->h_ver_extra);
         msg_print(nullptr);
         return false;

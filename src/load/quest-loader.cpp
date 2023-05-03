@@ -13,14 +13,14 @@
 #include "system/angband-exceptions.h"
 #include "system/artifact-type-definition.h"
 #include "system/floor-type-definition.h"
-#include "system/monster-race-definition.h"
+#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/enum-converter.h"
 
 errr load_town(void)
 {
     auto max_towns_load = rd_u16b();
-    if (max_towns_load <= max_towns) {
+    if (max_towns_load <= towns_info.size()) {
         return 0;
     }
 
@@ -41,7 +41,7 @@ std::tuple<uint16_t, byte> load_quest_info()
     return std::make_tuple(max_quests_load, max_rquests_load);
 }
 
-static void load_quest_completion(quest_type *q_ptr)
+static void load_quest_completion(QuestType *q_ptr)
 {
     q_ptr->status = i2enum<QuestStatusType>(rd_s16b());
     q_ptr->level = rd_s16b();
@@ -59,7 +59,7 @@ static void load_quest_completion(quest_type *q_ptr)
     }
 }
 
-static void load_quest_details(PlayerType *player_ptr, quest_type *q_ptr, const QuestId loading_quest_index)
+static void load_quest_details(PlayerType *player_ptr, QuestType *q_ptr, const QuestId loading_quest_index)
 {
     q_ptr->cur_num = rd_s16b();
     q_ptr->max_num = rd_s16b();
@@ -71,8 +71,8 @@ static void load_quest_details(PlayerType *player_ptr, quest_type *q_ptr, const 
         determine_random_questor(player_ptr, &quest_list[loading_quest_index]);
     }
     q_ptr->reward_artifact_idx = i2enum<FixedArtifactId>(rd_s16b());
-    if (q_ptr->reward_artifact_idx != FixedArtifactId::NONE) {
-        a_info.at(q_ptr->reward_artifact_idx).gen_flags.set(ItemGenerationTraitType::QUESTITEM);
+    if (q_ptr->has_reward()) {
+        q_ptr->get_reward().gen_flags.set(ItemGenerationTraitType::QUESTITEM);
     }
 
     q_ptr->flags = rd_byte();
@@ -179,8 +179,8 @@ void analyze_quests(PlayerType *player_ptr, const uint16_t max_quests_load, cons
         }
 
         if (q_ptr->status == QuestStatusType::TAKEN || q_ptr->status == QuestStatusType::UNTAKEN) {
-            if (r_info[q_ptr->r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
-                r_info[q_ptr->r_idx].flags1 |= RF1_QUESTOR;
+            if (monraces_info[q_ptr->r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
+                monraces_info[q_ptr->r_idx].flags1 |= RF1_QUESTOR;
             }
         }
     }
