@@ -11,6 +11,33 @@
     <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | 3.0.0 Changes | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
+        <LI>May 4, 2023.  3.0.0 Alpha81 incorporates all of the changes in
+          Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha81.  You can
+          find Hengband's notes, in Japanese, on what has changed at
+          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
+          or this fork are:
+          <UL>
+            <LI>For the Mac frontend, implement the option for background
+              music like the Window frontend has.  As part of that, rearranges
+              how all sounds are handled.  The volume of incidental sounds that
+              aren't the system alert sound can be configured.  The use of the
+              system alert sound will be turned off when incidental sounds are
+              turned off.
+            <LI>For the Mac frontend, disable sending commands from the command
+              menu and changing the tile set or wide tile mode when in an
+              in-game menu.
+            <LI>For the Mac frontend, better center the splash screen.
+            <LI>For the Mac frontend, change some Japanese labels in the menus.
+              Resolves https://github.com/backwardsEric/hengband/issues/30 .
+            <LI>For the Mac frontend, cover F17 to F19 in pref-mac.prf.
+              Resolves https://github.com/backwardsEric/hengband/issues/25 .
+            <LI>For the Mac front end, add paranoia about a big cursor
+              extending beyond a terminal's bounds.
+            <LI>Fix handling of the PRIVATE_USER_PATH case in
+              create_needed_dirs().
+            <LI>This release now requires macOS 10.15 or later rather than
+              10.13 or later.  It was built on macOS 12.6.5.
+          </UL>
         <LI>September 19, 2022.  3.0.0 Alpha67 incorporates all of the changes
           in Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha67.  You
           can find Hengband's notes, in Japanese, on what has changed at
