@@ -82,8 +82,9 @@ jobs:
             version="${version}-Alpha${extra}"
             tag_version="${tag_version}-alpha${extra}"
           fi
-          version="${version}-"`git rev-parse --verify --short`
-          tag_version="${tag_version}-"`git rev-parse --verify --short`
+          head=`git rev-parse --verify --short HEAD`
+          version="${version}-${head}"
+          tag_version="${tag_version}-${head}"
           if git diff-index --quiet HEAD ; 
             version="$version"-dirty
             tag_version="$tag_version"-dirty
