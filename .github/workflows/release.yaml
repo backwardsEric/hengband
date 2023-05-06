@@ -63,7 +63,7 @@ jobs:
       - name: Extract Names from configure.ac
         id: get_names
         run: |
-          name=`sed -E -n -e 's/^[[:blank:]]*AC_INIT\([[:blank]]*[\[]*//p' configure.ac | tail -1 | cut -d ']' -f 1 | cut -d ',' -f 1`
+          name=`sed -E -n -e 's/^[[:blank:]]*AC_INIT\([[:blank]]*\\[?//p' configure.ac | tail -1 | cut -d ']' -f 1 | cut -d ',' -f 1`
           echo "name=$name" >> $GITHUB_OUTPUT
           cap_name=`echo $name | sed -E -e 's/^a/A/' -e 's/^b/B/' -e 's/^c/C/' -e 's/^d/D/' -e 's/^e/E/' -e 's/^f/F/' -e 's/^g/G/' -e 's/^h/H/' -e 's/^i/I/' -e 's/^j/J/' -e 's/^k/K/' -e 's/^l/L/' -e 's/^m/M/' -e 's/^n/N/' -e 's/^o/O/' -e 's/^p/P/' -e 's/^q/Q' -e 's/^r/R' -e 's/^s/S' -e 's/^t/T' -e 's/^u/U' -e 's/^v/V' -e 's/^w/W' -e 's/^x/X' -e 's/^y/Y' -e 's/^z/Z'`
           echo "cap_name=$cap_name" >> $GITHUB_OUTPUT
