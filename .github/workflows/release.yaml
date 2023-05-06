@@ -2,7 +2,7 @@ name: create-github-release
 
 on:
   push:
-    branches: [ macos-develop ]
+    branches: [ test-workflow ]
 
 env:
     # If set and is not empty or all whitespace, this should be the list of
