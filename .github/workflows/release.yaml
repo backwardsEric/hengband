@@ -65,8 +65,8 @@ jobs:
         run: |
           name=`sed -E -n -e 's/^[[:blank:]]*AC_INIT\([[:blank:]]*\\[?//p' configure.ac | tail -1 | cut -d ']' -f 1 | cut -d ',' -f 1`
           echo "name=$name" >> $GITHUB_OUTPUT
-          cap_name=`echo $name | sed -E -e 's/^a/A/' -e 's/^b/B/' -e 's/^c/C/' -e 's/^d/D/' -e 's/^e/E/' -e 's/^f/F/' -e 's/^g/G/' -e 's/^h/H/' -e 's/^i/I/' -e 's/^j/J/' -e 's/^k/K/' -e 's/^l/L/' -e 's/^m/M/' -e 's/^n/N/' -e 's/^o/O/' -e 's/^p/P/' -e 's/^q/Q/' -e 's/^r/R/' -e 's/^s/S/' -e 's/^t/T/' -e 's/^u/U/' -e 's/^v/V/' -e 's/^w/W/' -e 's/^x/X/' -e 's/^y/Y/' -e 's/^z/Z/'`
-          echo "cap_name=$cap_name" >> $GITHUB_OUTPUT
+          cap=`echo $name | sed -E -e 's/^a/A/' -e 's/^b/B/' -e 's/^c/C/' -e 's/^d/D/' -e 's/^e/E/' -e 's/^f/F/' -e 's/^g/G/' -e 's/^h/H/' -e 's/^i/I/' -e 's/^j/J/' -e 's/^k/K/' -e 's/^l/L/' -e 's/^m/M/' -e 's/^n/N/' -e 's/^o/O/' -e 's/^p/P/' -e 's/^q/Q/' -e 's/^r/R/' -e 's/^s/S/' -e 's/^t/T/' -e 's/^u/U/' -e 's/^v/V/' -e 's/^w/W/' -e 's/^x/X/' -e 's/^y/Y/' -e 's/^z/Z/'`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
 
       - name: Set Release Version
         id: get_release_vars
@@ -105,7 +105,7 @@ jobs:
       - name: Create Artifact with Configuration Details
         run: |
           echo name= '${{ steps.get_names.outputs.name }}' > $CONFIG_ARTIFACT_PATH
-          echo cap_name= '${{ steps.get_names.outputs.cap_name }}' >> $CONFIG_ARTIFACT_PATH
+          echo cap= '${{ steps.get_names.outputs.cap }}' >> $CONFIG_ARTIFACT_PATH
           echo version= '${{ steps.get_release_vars.outputs.version }}' >> $CONFIG_ARTIFACT_PATH
           echo tag_version= '${{ steps.get_release_vars.outputs.tag_version }}' >> $CONFIG_ARTIFACT_PATH
           echo prerelease= '${{ steps.get_release_vars.outputs.prerelease }}' >> $CONFIG_ARTIFACT_PATH
@@ -190,8 +190,8 @@ jobs:
         run: |
           name=`sed -E -n -e 's/name= //p' $CONFIG_ARTIFACT_PATH`
           echo "name=$name" >> $GITHUB_OUTPUT
-          cap_name=`sed -E -n -e 's/cap_name= //p' $CONFIG_ARTIFACT_PATH`
-          echo "cap_name=$cap_name" >> $GITHUB_OUTPUT
+          cap=`sed -E -n -e 's/cap= //p' $CONFIG_ARTIFACT_PATH`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
           version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -251,7 +251,7 @@ jobs:
           mkdir disttemp
           mv "{{ steps.store_config.outputs.name }}".app disttemp
           hdiutil create -quiet -volname -srcfolder disttemp disttemp.dmg
-          archive_prefix="${{ steps.store_config.outputs.cap_name }}-${{ steps.store_config.outputs.version }}-English"
+          archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English"
           echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
           hdiutil convert disttemp.dmg -quiet --format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
           cd src
@@ -289,8 +289,8 @@ jobs:
         run: |
           name=`sed -E -n -e 's/name= //p' $CONFIG_ARTIFACT_PATH`
           echo "name=$name" >> $GITHUB_OUTPUT
-          cap_name=`sed -E -n -e 's/cap_name= //p' $CONFIG_ARTIFACT_PATH`
-          echo "cap_name=$cap_name" >> $GITHUB_OUTPUT
+          cap=`sed -E -n -e 's/cap= //p' $CONFIG_ARTIFACT_PATH`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
           version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -352,7 +352,7 @@ jobs:
           mkdir disttemp
           mv "{{ steps.store_config.outputs.name }}".app disttemp
           hdiutil create -quiet -volname -srcfolder disttemp disttemp.dmg
-          archive_prefix="${{ steps.store_config.outputs.cap_name }}-${{ steps.store_config.outputs.version }}-Japanese"
+          archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-Japanese"
           echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
           hdiutil convert disttemp.dmg -quiet --format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
           cd src
