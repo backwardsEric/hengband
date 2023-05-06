@@ -152,7 +152,7 @@ jobs:
           out="${{ steps.store_config.outputs.name }}"-"${{ steps.store_config.outputs.version }}"
           echo "archive_file=${out}.tar.gz" >> $GITHUB_OUTPUT
           ./bootstrap
-          ./configure --disable-world-score
+          ./configure --disable-worldscore
           make distdir
           mv "${{ steps.store_config.outputs.name }}"-* "$out"
           tar -cBf - "$out" | gzip -c - >"$out".tar.gz
