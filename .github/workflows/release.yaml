@@ -72,10 +72,10 @@ jobs:
         id: get_release_vars
         run: |
           verfile=src/system/angband-version.h
-          major=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MAJOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -d '\t' -f 1 | cut -d '/' -f 1`
-          minor=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MINOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -d '\t' -f 1 | cut -d '/' -f 1`
-          patch=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_PATCH[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -d '\t' -f 1 | cut -d '/' -f 1`
-          extra=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_EXTRA[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -d '\t' -f 1 | cut -d '/' -f 1`
+          major=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MAJOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          minor=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MINOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          patch=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_PATCH[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          extra=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_EXTRA[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
           version="$major"."$minor"."$patch"
           tag_version="$version"
           if test x$extra != x0 ; then
