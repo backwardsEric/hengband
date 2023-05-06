@@ -85,7 +85,7 @@ jobs:
           head=`git rev-parse --verify --short HEAD`
           version="${version}-${head}"
           tag_version="${tag_version}-${head}"
-          if git diff-index --quiet HEAD ; 
+          if git diff-index --quiet HEAD ; then
             version="$version"-dirty
             tag_version="$tag_version"-dirty
           fi
