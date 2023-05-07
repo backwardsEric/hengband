@@ -253,7 +253,7 @@ jobs:
           hdiutil create -quiet -volname "${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English" -srcfolder disttemp disttemp.dmg
           archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English"
           echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
-          hdiutil convert disttemp.dmg -quiet --format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
+          hdiutil convert disttemp.dmg -quiet -format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
 
       - name: Create Artifact with Mac English Archive Path
         run: |
@@ -353,7 +353,7 @@ jobs:
           hdiutil create -quiet -volname "$${ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version}}-Japanese" -srcfolder disttemp disttemp.dmg
           archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-Japanese"
           echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
-          hdiutil convert disttemp.dmg -quiet --format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
+          hdiutil convert disttemp.dmg -quiet -format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
 
       - name: Create Artifact with Mac Japanese Archive Path
         run: |
