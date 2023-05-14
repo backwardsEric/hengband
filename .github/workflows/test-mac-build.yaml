@@ -8,9 +8,6 @@ on:
     branches: [ 'check-ranges' ]
   pull_request:
 
-env:
-  SDK_OVERRIDE: macosx13.3
-
 jobs:
   english:
     name: English
@@ -33,11 +30,7 @@ jobs:
 
       - name: Build
         run: |
-          xcodebuild -showsdks
-          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
-            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
-            export SDKROOT
-          fi
+          xcode-select --switch /Applications/Xcode_14.3.app
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           ./configure --disable-japanese --disable-worldscore
@@ -65,10 +58,7 @@ jobs:
 
       - name: Build
         run: |
-          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
-            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
-            export SDKROOT
-          fi
+          xcode-select --switch /Applications/Xcode_14.3.app
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           ./configure --disable-worldscore
