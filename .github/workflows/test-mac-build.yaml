@@ -1,0 +1,77 @@
+# Verify that the software builds on a Mac either with English or Japanese
+# enabled.
+
+name: test-mac-build
+
+on:
+  push:
+    branches: [ 'check-ranges' ]
+  pull_request:
+
+env:
+  SDK_OVERRIDE: macosx13.3
+
+jobs:
+  english:
+    name: English
+    runs-on: macos-13
+    env:
+      # This will be passed to all invocations of configure for this test.
+      DEFAULT_CONFIGURE_OPTIONS: --enable-cocoa --disable-japanese --disable-pch
+
+    steps:
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      # Requires automake and autoconf; install those via homebrew (available
+      # by default).  Use autoconf 2.69 since autoconf 2.71 does not work well
+      # with the version of m4 (GNU M4 1.4.6) include with macOS 11 and 12.
+      - name: Install Build Dependencies
+        run: |
+          brew install m4
+          brew install autoconf@2.69
+          brew install automake
+
+      - name: Build
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
+          ./bootstrap
+          ./configure --disable-japanese --disable-worldscore
+          make
+
+  japanese:
+    name: Japanese
+    runs-on: macos-13
+
+    steps:
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      # Requires automake, autoconf, and, unless building the 1.6.2 version,
+      # nkf; install those via homebrew (available by default).  For the same
+      # reason as above, use autoconf 2.69.
+      - name: Install Build Dependencies
+        run: |
+          brew install m4
+          brew install autoconf@2.69
+          brew install automake
+          brew install nkf
+
+      - name: Build
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
+          ./bootstrap
+          ./configure --disable-worldscore
+          make
