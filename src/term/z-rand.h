@@ -11,7 +11,9 @@
 #pragma once
 
 #include "system/h-basic.h"
+#include <initializer_list>
 #include <iterator>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 
@@ -107,4 +109,21 @@ void rand_shuffle(Iter first, Iter last)
             swap(first[n], first[m]);
         }
     }
+}
+
+template <typename T>
+    requires std::ranges::borrowed_range<T> && std::ranges::sized_range<T>
+decltype(auto) rand_choice(T &&range)
+{
+    const auto index = randint0(std::ranges::size(range));
+
+    return *(std::next(std::ranges::begin(range), index));
+}
+
+template <typename T>
+T rand_choice(std::initializer_list<T> list)
+{
+    const auto index = randint0(list.size());
+
+    return *(list.begin() + index);
 }
