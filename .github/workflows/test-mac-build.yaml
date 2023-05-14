@@ -33,13 +33,12 @@ jobs:
 
       - name: Build
         run: |
+          xcodebuild -showsdks
           if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
             SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
             export SDKROOT
           fi
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
-          which autoconf
-          m4 --version
           ./bootstrap
           ./configure --disable-japanese --disable-worldscore
           make
