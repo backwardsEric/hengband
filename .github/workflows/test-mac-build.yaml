@@ -30,7 +30,7 @@ jobs:
 
       - name: Build
         run: |
-          xcode-select --switch /Applications/Xcode_14.3.app
+          sudo xcode-select --switch /Applications/Xcode_14.3.app
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           ./configure --disable-japanese --disable-worldscore
@@ -58,7 +58,7 @@ jobs:
 
       - name: Build
         run: |
-          xcode-select --switch /Applications/Xcode_14.3.app
+          sudo xcode-select --switch /Applications/Xcode_14.3.app
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           ./configure --disable-worldscore
