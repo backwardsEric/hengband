@@ -15,9 +15,6 @@ jobs:
   english:
     name: English
     runs-on: macos-13
-    env:
-      # This will be passed to all invocations of configure for this test.
-      DEFAULT_CONFIGURE_OPTIONS: --enable-cocoa --disable-japanese --disable-pch
 
     steps:
       - name: Clone Project
@@ -41,6 +38,8 @@ jobs:
             export SDKROOT
           fi
           PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
+          which autoconf
+          m4 --version
           ./bootstrap
           ./configure --disable-japanese --disable-worldscore
           make
