@@ -898,7 +898,7 @@ LIBS = -lncursesw
 
 
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 
 #
