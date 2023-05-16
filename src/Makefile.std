@@ -628,7 +628,7 @@ OBJS = \
 	realm/realm-demon.o \
 	realm/realm-death.o \
 	realm/realm-hex.o \
-	realm/realm-hissats.o \
+	realm/realm-hissatsu.o \
 	realm/realm-life.o \
 	realm/realm-names-table.o \
 	realm/realm-nature.o \
