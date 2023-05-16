@@ -1,0 +1,920 @@
+# File: Makefile
+
+# This is not a very "nice" Makefile, but it usually works.
+
+#
+# Note that you may have to make modifications below according
+# to your machine, available libraries, compilation options,
+# and your "visual module" of choice.  This Makefile is intended
+# for use with Unix machines running X11, Curses, Ncurses, or Vt100,
+# or possibly for "Atari" or "Amiga" computers with "Curses" ports,
+# see below for more information.
+#
+# Note that "main-win.c", the visual module for Windows,
+# must be compiled in a special way, see elsewhere.
+#
+# If you are able to construct "main-xxx.c" and/or "Makefile.xxx"
+# files for a currently unsupported system, please send them to me
+# (benh@phial.com) for inclusion in future versions.
+#
+
+
+#
+# The "source" and "object" files.
+#
+
+OBJS = \
+	action/action-limited.o \
+	action/activation-execution.o \
+	action/movement-execution.o \
+	action/mutation-execution.o \
+	action/open-util.o \
+	action/open-close-execution.o \
+	action/racial-execution.o \
+	action/run-execution.o \
+	action/travel-execution.o \
+	action/tunnel-execution.o \
+	action/weapon-shield.o \
+	artifact/artifact-info.o \
+	artifact/fixed-art-generator.o \
+	artifact/random-art-activation.o \
+	artifact/random-art-characteristics.o \
+	artifact/random-art-generator.o \
+	artifact/random-art-misc.o \
+	artifact/random-art-pval-investor.o \
+	artifact/random-art-resistance.o \
+	artifact/random-art-slay.o \
+	autopick/autopick.o \
+	autopick/autopick-menu-data-table.o \
+	autopick/autopick-util.o \
+	autopick/autopick-entry.o \
+	autopick/autopick-initializer.o \
+	autopick/autopick-matcher.o \
+	autopick/autopick-describer.o \
+	autopick/autopick-destroyer.o \
+	autopick/autopick-reader-writer.o \
+	autopick/autopick-finder.o \
+	autopick/autopick-pref-processor.o \
+	autopick/autopick-drawer.o \
+	autopick/autopick-inserter-killer.o \
+	autopick/autopick-registry.o \
+	autopick/autopick-command-menu.o \
+	autopick/autopick-editor-util.o \
+	autopick/autopick-editor-command.o \
+	avatar/avatar.o \
+	avatar/avatar-changer.o \
+	birth/birth-explanations-table.o \
+	birth/character-builder.o \
+	birth/history.o \
+	birth/birth-util.o \
+	birth/birth-select-realm.o \
+	birth/quick-start.o \
+	birth/birth-stat.o \
+	birth/history-generator.o \
+	birth/birth-body-spec.o \
+	birth/initial-equipments-table.o \
+	birth/inventory-initializer.o \
+	birth/game-play-initializer.o \
+	birth/history-editor.o \
+	birth/birth-select-race.o \
+	birth/birth-select-class.o \
+	birth/birth-select-personality.o \
+	birth/auto-roller.o \
+	birth/birth-wizard.o \
+	blue-magic/blue-magic-ball-bolt.o \
+	blue-magic/blue-magic-breath.o \
+	blue-magic/blue-magic-caster.o \
+	blue-magic/blue-magic-checker.o \
+	blue-magic/blue-magic-spirit-curse.o \
+	blue-magic/blue-magic-status.o \
+	blue-magic/blue-magic-summon.o \
+	blue-magic/blue-magic-util.o \
+	blue-magic/learnt-info.o \
+	blue-magic/learnt-power-getter.o \
+	cmd-action/cmd-attack.o \
+	cmd-action/cmd-hissatsu.o \
+	cmd-action/cmd-mane.o \
+	cmd-action/cmd-mind.o \
+	cmd-action/cmd-move.o \
+	cmd-action/cmd-open-close.o \
+	cmd-action/cmd-others.o \
+	cmd-action/cmd-pet.o \
+	cmd-action/cmd-racial.o \
+	cmd-action/cmd-shoot.o \
+	cmd-action/cmd-spell.o \
+	cmd-action/cmd-travel.o \
+	cmd-action/cmd-tunnel.o \
+	cmd-building/cmd-building.o \
+	cmd-building/cmd-inn.o \
+	cmd-io/cmd-autopick.o \
+	cmd-io/cmd-diary.o \
+	cmd-io/cmd-dump.o \
+	cmd-io/cmd-floor.o \
+	cmd-io/cmd-gameoption.o \
+	cmd-io/cmd-help.o \
+	cmd-io/cmd-knowledge.o \
+	cmd-io/cmd-lore.o \
+	cmd-io/cmd-macro.o \
+	cmd-io/cmd-menu-content-table.o \
+	cmd-io/cmd-process-screen.o \
+	cmd-io/cmd-save.o \
+	cmd-io/diary-subtitle-table.o \
+	cmd-io/feeling-table.o \
+	cmd-io/macro-util.o \
+	cmd-item/cmd-destroy.o \
+	cmd-item/cmd-eat.o \
+	cmd-item/cmd-equipment.o \
+	cmd-item/cmd-item.o \
+	cmd-item/cmd-magiceat.o \
+	cmd-item/cmd-quaff.o \
+	cmd-item/cmd-read.o \
+	cmd-item/cmd-refill.o \
+	cmd-item/cmd-throw.o \
+	cmd-item/cmd-usestaff.o \
+	cmd-item/cmd-zaprod.o \
+	cmd-item/cmd-zapwand.o \
+	cmd-visual/cmd-draw.o \
+	cmd-visual/cmd-map.o \
+	cmd-visual/cmd-visuals.o \
+	combat/attack-power-table.o \
+	combat/aura-counterattack.o \
+	combat/hallucination-attacks-table.o \
+	combat/martial-arts-table.o \
+	combat/attack-accuracy.o \
+	combat/slaying.o \
+	combat/attack-criticality.o \
+	combat/shoot.o \
+	core/asking-player.o \
+	core/disturbance.o \
+	core/game-closer.o \
+	core/game-play.o \
+	core/magic-effects-timeout-reducer.o \
+	core/object-compressor.o \
+	core/player-processor.o \
+	core/score-util.o \
+	core/scores.o \
+	core/show-file.o \
+	core/speed-table.o \
+	core/stuff-handler.o \
+	core/turn-compensator.o \
+	core/visuals-reseter.o \
+	core/window-redrawer.o \
+	dungeon/dungeon-processor.o \
+	dungeon/quest.o \
+	dungeon/quest-completion-checker.o \
+	dungeon/quest-monster-placer.o \
+	effect/effect-feature.o \
+	effect/effect-item.o \
+	effect/spells-effect-util.o \
+	effect/effect-player.o \
+	effect/effect-monster.o \
+	effect/effect-monster-curse.o \
+	effect/effect-monster-util.o \
+	effect/effect-monster-resist-hurt.o \
+	effect/effect-monster-psi.o \
+	effect/effect-monster-oldies.o \
+	effect/effect-monster-charm.o \
+	effect/effect-monster-lite-dark.o \
+	effect/effect-monster-evil.o \
+	effect/effect-monster-spirit.o \
+	effect/effect-monster-switcher.o \
+	effect/effect-player-resist-hurt.o \
+	effect/effect-player-oldies.o \
+	effect/effect-player-curse.o \
+	effect/effect-player-spirit.o \
+	effect/effect-player-switcher.o \
+	effect/effect-processor.o \
+	flavor/flag-inscriptions-table.o \
+	flavor/flavor-describer.o \
+	flavor/flavor-util.o \
+	flavor/named-item-describer.o \
+	flavor/object-flavor.o \
+	flavor/tval-description-switcher.o \
+	floor/cave.o \
+	floor/cave-generator.o \
+	floor/dungeon-tunnel-util.o \
+	floor/fixed-map-generator.o \
+	floor/floor-changer.o \
+	floor/floor-events.o \
+	floor/floor-generator.o \
+	floor/floor-leaver.o \
+	floor/floor-mode-changer.o \
+	floor/floor-object.o \
+	floor/floor-save.o \
+	floor/floor-save-util.o \
+	floor/floor-streams.o \
+	floor/floor-town.o \
+	floor/floor-util.o \
+	floor/geometry.o \
+	floor/line-of-sight.o \
+	floor/object-allocator.o \
+	floor/object-scanner.o \
+	floor/pattern-walk.o \
+	floor/tunnel-generator.o \
+	floor/wild.o \
+	game-option/auto-destruction-options.o \
+	game-option/birth-options.o \
+	game-option/cheat-options.o \
+	game-option/disturbance-options.o \
+	game-option/game-play-options.o \
+	game-option/input-options.o \
+	game-option/keymap-directory-getter.o \
+	game-option/map-screen-options.o \
+	game-option/option-flags.o \
+	game-option/option-types-table.o \
+	game-option/play-record-options.o \
+	game-option/runtime-arguments.o \
+	game-option/special-options.o \
+	game-option/text-display-options.o \
+	grid/door.o \
+	grid/feature-action-flags.o \
+	grid/feature-generator.o \
+	grid/feature.o \
+	grid/grid.o \
+	grid/lighting-colors-table.o \
+	grid/object-placer.o \
+	grid/stair.o \
+	grid/trap.o \
+	hpmp/hp-mp-processor.o \
+	hpmp/hp-mp-regenerator.o \
+	info-reader/artifact-reader.o \
+	info-reader/baseitem-reader.o \
+	info-reader/baseitem-tokens-table.o \
+	info-reader/dungeon-info-tokens-table.o \
+	info-reader/dungeon-reader.o \
+	info-reader/ego-reader.o \
+	info-reader/feature-info-tokens-table.o \
+	info-reader/feature-reader.o \
+	info-reader/fixed-map-parser.o \
+	info-reader/general-parser.o \
+	info-reader/info-reader-util.o \
+	info-reader/magic-reader.o \
+	info-reader/race-info-tokens-table.o \
+	info-reader/race-reader.o \
+	info-reader/skill-reader.o \
+	info-reader/vault-reader.o \
+	inventory/floor-item-getter.o \
+	inventory/inventory-curse.o \
+	inventory/inventory-damage.o \
+	inventory/inventory-describer.o \
+	inventory/inventory-object.o \
+	inventory/inventory-util.o \
+	inventory/item-getter.o \
+	inventory/item-selection-util.o \
+	inventory/pack-overflow.o \
+	inventory/player-inventory.o \
+	inventory/recharge-processor.o \
+	io/command-repeater.o \
+	io/cursor.o \
+	io/exit-panic.o \
+	io/files-util.o \
+	io/gf-descriptions.o \
+	io/inet.o \
+	io/input-key-acceptor.o \
+	io/input-key-processor.o \
+	io/input-key-requester.o \
+	io/interpret-pref-file.o \
+	io/mutations-dump.o \
+	io/pref-file-expressor.o \
+	io/read-pref-file.o \
+	io/record-play-movie.o \
+	io/report.o \
+	io/screen-util.o \
+	io/signal-handlers.o \
+	io/tokenizer.o \
+	io/uid-checker.o \
+	io/write-diary.o \
+	io-dump/character-dump.o \
+	io-dump/dump-remover.o \
+	io-dump/dump-util.o \
+	io-dump/player-status-dump.o \
+	io-dump/random-art-info-dumper.o \
+	io-dump/special-class-dump.o \
+	item-info/flavor-initializer.o \
+	knowledge/knowledge-autopick.o \
+	knowledge/knowledge-experiences.o \
+	knowledge/knowledge-features.o \
+	knowledge/knowledge-inventory.o \
+	knowledge/knowledge-items.o \
+	knowledge/knowledge-monsters.o \
+	knowledge/knowledge-mutations.o \
+	knowledge/knowledge-uniques.o \
+	knowledge/knowledge-self.o \
+	knowledge/knowledge-quests.o \
+	knowledge/lighting-level-table.o \
+	knowledge/monster-group-table.o \
+	knowledge/object-group-table.o \
+	load/angband-version-comparer.o \
+	load/birth-loader.o \
+	load/dummy-loader.o \
+	load/dungeon-loader.o \
+	load/extra-loader.o \
+	load/floor-loader.o \
+	load/info-loader.o \
+	load/inventory-loader.o \
+	load/load-util.o \
+	load/load-zangband.o \
+	load/quest-loader.o \
+	load/load.o \
+	load/lore-loader.o \
+	load/option-loader.o \
+	load/player-attack-loader.o \
+	load/player-class-specific-data-loader.o \
+	load/player-info-loader.o \
+	load/store-loader.o \
+	load/world-loader.o \
+	load/item/item-loader-base.o \
+	load/item/item-loader-factory.o \
+	load/monster/monster-loader-factory.o \
+	load/old/item-loader-savefile50.o \
+	load/old/load-v1-5-0.o \
+	load/old/load-v1-7-0.o \
+	load/old/monster-loader-savefile50.o \
+	locale/english.o \
+	locale/japanese.o \
+	locale/utf-8.o \
+	lore/combat-types-setter.o \
+	lore/lore-calculator.o \
+	lore/lore-store.o \
+	lore/lore-util.o \
+	lore/magic-types-setter.o \
+	lore/monster-lore.o \
+	main/angband-headers.o \
+	main/angband-initializer.o \
+	main/game-data-initializer.o \
+	main/info-initializer.o \
+	main/init-error-messages-table.o \
+	main/music-definitions-table.o \
+	main/scene-table.o \
+	main/scene-table-floor.o \
+	main/scene-table-monster.o \
+	main/sound-definitions-table.o \
+	main/sound-of-music.o \
+	main/x11-gamma-builder.o \
+	main/x11-type-string.o \
+	market/arena-info-table.o \
+	market/building-initializer.o \
+	market/building-util.o \
+	market/play-gamble.o \
+	market/poker.o \
+	market/arena.o \
+	market/bounty-prize-table.o \
+	market/bounty.o \
+	market/building-recharger.o \
+	market/building-quest.o \
+	market/building-service.o \
+	market/building-craft-weapon.o \
+	market/building-craft-armor.o \
+	market/building-craft-fix.o \
+	market/building-monster.o \
+	market/building-enchanter.o \
+	melee/monster-attack-monster.o \
+	melee/melee-postprocess.o \
+	melee/melee-spell.o \
+	melee/melee-spell-flags-checker.o \
+	melee/melee-spell-util.o \
+	melee/melee-switcher.o \
+	melee/melee-util.o \
+	mind/mind-archer.o \
+	mind/mind-berserker.o \
+	mind/mind-blue-mage.o \
+	mind/mind-cavalry.o \
+	mind/mind-chaos-warrior.o \
+	mind/mind-elementalist.o \
+	mind/mind-explanations-table.o \
+	mind/mind-force-trainer.o \
+	mind/mind-info.o \
+	mind/mind-hobbit.o \
+	mind/mind-mage.o \
+	mind/mind-magic-eater.o \
+	mind/mind-magic-resistance.o \
+	mind/mind-mindcrafter.o \
+	mind/mind-mirror-master.o \
+	mind/mind-monk.o \
+	mind/mind-ninja.o \
+	mind/mind-power-getter.o \
+	mind/mind-priest.o \
+	mind/mind-samurai.o \
+	mind/mind-sniper.o \
+	mind/mind-warrior.o \
+	mind/mind-warrior-mage.o \
+	mind/mind-weaponsmith.o \
+	mind/monk-attack.o \
+	mind/stances-table.o \
+	monster/horror-descriptions.o \
+	monster/monster-compaction.o \
+	monster/monster-damage.o \
+	monster/monster-describer.o \
+	monster/monster-info.o \
+	monster/monster-list.o \
+	monster/monster-pain-describer.o \
+	monster/monster-processor.o \
+	monster/monster-processor-util.o \
+	monster/monster-status.o \
+	monster/monster-status-setter.o \
+	monster/monster-update.o \
+	monster/monster-util.o \
+	monster-attack/insults-moans.o \
+	monster-attack/monster-attack-describer.o \
+	monster-attack/monster-attack-lose.o \
+	monster-attack/monster-attack-player.o \
+	monster-attack/monster-attack-processor.o \
+	monster-attack/monster-attack-status.o \
+	monster-attack/monster-attack-switcher.o \
+	monster-attack/monster-attack-table.o \
+	monster-attack/monster-eating.o \
+	monster-floor/monster-death.o \
+	monster-floor/monster-death-util.o \
+	monster-floor/monster-direction.o \
+	monster-floor/monster-dist-offsets.o \
+	monster-floor/monster-generator.o \
+	monster-floor/monster-move.o \
+	monster-floor/monster-object.o \
+	monster-floor/monster-remover.o \
+	monster-floor/monster-runaway.o \
+	monster-floor/monster-safety-hiding.o \
+	monster-floor/monster-summon.o \
+	monster-floor/monster-sweep-grid.o \
+	monster-floor/monster-lite.o \
+	monster-floor/monster-lite-util.o \
+	monster-floor/one-monster-placer.o \
+	monster-floor/quantum-effect.o \
+	monster-floor/special-death-switcher.o \
+	monster-race/monster-kind-mask.o \
+	monster-race/monster-race.o \
+	monster-race/monster-race-hook.o \
+	monster-race/race-ability-mask.o \
+	monster-race/race-brightness-mask.o \
+	monster-race/race-feature-mask.o \
+	monster-race/race-resistance-mask.o \
+	mspell/assign-monster-spell.o \
+	mspell/element-resistance-checker.o \
+	mspell/high-resistance-checker.o \
+	mspell/improper-mspell-remover.o \
+	mspell/monster-power-table.o \
+	mspell/mspell-attack.o \
+	mspell/mspell-attack-util.o \
+	mspell/mspell-checker.o \
+	mspell/mspell-damage-calculator.o \
+	mspell/mspell-data.o \
+	mspell/mspell-dispel.o \
+	mspell/mspell-floor.o \
+	mspell/mspell-judgement.o \
+	mspell/mspell-learn-checker.o \
+	mspell/mspell-lite.o \
+	mspell/mspell-special.o \
+	mspell/mspell-summon.o \
+	mspell/mspell-status.o \
+	mspell/mspell-selector.o \
+	mspell/mspell-util.o \
+	mspell/smart-mspell-util.o \
+	mspell/specified-summon.o \
+	mspell/summon-checker.o \
+	mspell/mspell-attack/abstract-mspell.o \
+	mspell/mspell-attack/mspell-ball.o \
+	mspell/mspell-attack/mspell-bolt.o \
+	mspell/mspell-attack/mspell-breath.o \
+	mspell/mspell-attack/mspell-curse.o \
+	mspell/mspell-attack/mspell-particularity.o \
+	mutation/gain-mutation-switcher.o \
+	mutation/lose-mutation-switcher.o \
+	mutation/mutation-calculator.o \
+	mutation/mutation-investor-remover.o \
+	mutation/mutation-util.o \
+	mutation/mutation-processor.o \
+	mutation/mutation-techniques.o \
+	object/item-tester-hooker.o \
+	object/object-broken.o \
+	object/object-flags.o \
+	object/object-index-list.o \
+	object/object-info.o \
+	object/object-kind-hook.o \
+	object/object-stack.o \
+	object/object-value.o \
+	object/object-value-calc.o \
+	object/lite-processor.o \
+	object/warning.o \
+	object-activation/activation-bolt-ball.o \
+	object-activation/activation-breath.o \
+	object-activation/activation-charm.o \
+	object-activation/activation-genocide.o \
+	object-activation/activation-others.o \
+	object-activation/activation-resistance.o \
+	object-activation/activation-switcher.o \
+	object-activation/activation-teleport.o \
+	object-activation/activation-util.o \
+	object-enchant/activation-info-table.o \
+	object-enchant/dragon-breaths-table.o \
+	object-enchant/enchanter-factory.o \
+	object-enchant/item-magic-applier.o \
+	object-enchant/object-boost.o \
+	object-enchant/object-curse.o \
+	object-enchant/object-ego.o \
+	object-enchant/vorpal-weapon.o \
+	object-enchant/others/apply-magic-amulet.o \
+	object-enchant/others/apply-magic-lite.o \
+	object-enchant/others/apply-magic-ring.o \
+	object-enchant/others/apply-magic-others.o \
+	object-enchant/protector/abstract-protector-enchanter.o \
+	object-enchant/protector/apply-magic-armor.o \
+	object-enchant/protector/apply-magic-boots.o \
+	object-enchant/protector/apply-magic-cloak.o \
+	object-enchant/protector/apply-magic-crown.o \
+	object-enchant/protector/apply-magic-dragon-armor.o \
+	object-enchant/protector/apply-magic-gloves.o \
+	object-enchant/protector/apply-magic-hard-armor.o \
+	object-enchant/protector/apply-magic-helm.o \
+	object-enchant/protector/apply-magic-shield.o \
+	object-enchant/protector/apply-magic-soft-armor.o \
+	object-enchant/weapon/abstract-weapon-enchanter.o \
+	object-enchant/weapon/apply-magic-arrow.o \
+	object-enchant/weapon/apply-magic-bow.o \
+	object-enchant/weapon/apply-magic-digging.o \
+	object-enchant/weapon/apply-magic-hafted.o \
+	object-enchant/weapon/apply-magic-polearm.o \
+	object-enchant/weapon/apply-magic-sword.o \
+	object-enchant/weapon/melee-weapon-enchanter.o \
+	object-hook/hook-armor.o \
+	object-hook/hook-expendable.o \
+	object-hook/hook-magic.o \
+	object-hook/hook-perception.o \
+	object-hook/hook-quest.o \
+	object-hook/hook-weapon.o \
+	object-use/item-use-checker.o \
+	object-use/throw-execution.o \
+	object-use/use-execution.o \
+	object-use/zaprod-execution.o \
+	object-use/zapwand-execution.o \
+	object-use/quaff/quaff-effects.o \
+	object-use/quaff/quaff-execution.o \
+	object-use/read/read-execution.o \
+	object-use/read/gbh-shirt-read-executor.o \
+	object-use/read/parchment-read-executor.o \
+	object-use/read/read-executor-factory.o \
+	object-use/read/ring-power-read-executor.o \
+	object-use/read/scroll-read-executor.o \
+	perception/identification.o \
+	perception/object-perception.o \
+	perception/simple-perception.o \
+	pet/pet-fall-off.o \
+	pet/pet-util.o \
+	player/eldritch-horror.o \
+	player/patron.o \
+	player/process-death.o \
+	player/process-name.o \
+	player/race-info-table.o \
+	player/race-resistances.o \
+	player/permanent-resistances.o \
+	player/temporary-resistances.o \
+	player/digestion-processor.o \
+	player/player-damage.o \
+	player/player-move.o \
+	player/player-personality.o \
+	player/player-realm.o \
+	player/player-skill.o \
+	player/player-status.o \
+	player/player-status-flags.o \
+	player/player-status-table.o \
+	player/player-status-resist.o \
+	player/player-sex.o \
+	player/player-view.o \
+	player-ability/player-charisma.o \
+	player-ability/player-constitution.o \
+	player-ability/player-dexterity.o \
+	player-ability/player-intelligence.o \
+	player-ability/player-strength.o \
+	player-ability/player-wisdom.o \
+	player-attack/attack-chaos-effect.o \
+	player-attack/blood-sucking-processor.o \
+	player-attack/player-attack.o \
+	player-base/player-class.o \
+	player-base/player-race.o \
+	player-info/alignment.o \
+	player-info/alignment.o \
+	player-info/base-status-info.o \
+	player-info/body-improvement-info.o \
+	player-info/class-ability-info.o \
+	player-info/class-info.o \
+	player-info/equipment-info.o \
+	player-info/magic-eater-data-type.o \
+	player-info/mimic-info-table.o \
+	player-info/mutation-info.o \
+	player-info/race-ability-info.o \
+	player-info/race-info.o \
+	player-info/resistance-info.o \
+	player-info/self-info.o \
+	player-info/self-info-util.o \
+	player-info/weapon-effect-info.o \
+	player-status/player-infravision.o \
+	player-status/player-basic-statistics.o \
+	player-status/player-energy.o \
+	player-status/player-speed.o \
+	player-status/player-status-base.o \
+	player-status/player-stealth.o \
+	racial/class-racial-switcher.o \
+	racial/mutation-racial-selector.o \
+	racial/race-racial-command-setter.o \
+	racial/racial-android.o \
+	racial/racial-balrog.o \
+	racial/racial-draconian.o \
+	racial/racial-kutar.o \
+	racial/racial-switcher.o \
+	racial/racial-util.o \
+	racial/racial-vampire.o \
+	realm/realm-arcane.o \
+	realm/realm-chaos.o \
+	realm/realm-craft.o \
+	realm/realm-crusade.o \
+	realm/realm-demon.o \
+	realm/realm-death.o \
+	realm/realm-hex.o \
+	realm/realm-hissats.o \
+	realm/realm-life.o \
+	realm/realm-names-table.o \
+	realm/realm-nature.o \
+	realm/realm-song.o \
+	realm/realm-sorcery.o \
+	realm/realm-trump.o \
+	room/cave-filler.o \
+	room/door-definition.o \
+	room/room-generator.o \
+	room/room-info-table.o \
+	room/rooms-builder.o \
+	room/rooms-city.o \
+	room/rooms-fractal.o \
+	room/rooms-maze-vault.o \
+	room/rooms-normal.o \
+	room/rooms-pit-nest.o \
+	room/rooms-special.o \
+	room/rooms-trap.o \
+	room/rooms-vault.o \
+	room/space-finder.o \
+	room/treasure-deployment.o \
+	room/vault-builder.o \
+	save/floor-writer.o \
+	save/info-writer.o \
+	save/item-writer.o \
+	save/monster-writer.o \
+	save/player-class-specific-data-writer.o \
+	save/player-writer.o \
+	save/save.o \
+	save/save-util.o \
+	smith/object-smith.o \
+	smith/smith-info.o \
+	smith/smith-tables.o \
+	specific-object/blade-turner.o \
+	specific-object/bloody-moon.o \
+	specific-object/chest.o \
+	specific-object/death-crimson.o \
+	specific-object/death-scythe.o \
+	specific-object/monster-ball.o \
+	specific-object/muramasa.o \
+	specific-object/ring-of-power.o \
+	specific-object/stone-of-lore.o \
+	specific-object/toragoroshi.o \
+	specific-object/torch.o \
+	spell/range-calc.o \
+	spell/spells-describer.o \
+	spell/spells-diceroll.o \
+	spell/spells-execution.o \
+	spell/spell-info.o \
+	spell/spells-object.o \
+	spell/spells-staff-only.o \
+	spell/spells-summon.o \
+	spell/spells-status.o \
+	spell/technic-info-table.o \
+	spell-class/spells-mirror-master.o \
+	spell-kind/blood-curse.o \
+	spell-kind/earthquake.o \
+	spell-kind/magic-item-recharger.o \
+	spell-kind/spells-beam.o \
+	spell-kind/spells-charm.o \
+	spell-kind/spells-curse-removal.o \
+	spell-kind/spells-detection.o \
+	spell-kind/spells-enchant.o \
+	spell-kind/spells-equipment.o \
+	spell-kind/spells-fetcher.o \
+	spell-kind/spells-floor.o \
+	spell-kind/spells-genocide.o \
+	spell-kind/spells-grid.o \
+	spell-kind/spells-launcher.o \
+	spell-kind/spells-lite.o \
+	spell-kind/spells-neighbor.o \
+	spell-kind/spells-pet.o \
+	spell-kind/spells-perception.o \
+	spell-kind/spells-polymorph.o \
+	spell-kind/spells-random.o \
+	spell-kind/spells-sight.o \
+	spell-kind/spells-specific-bolt.o \
+	spell-kind/spells-teleport.o \
+	spell-kind/spells-world.o \
+	spell-realm/spells-arcane.o \
+	spell-realm/spells-chaos.o \
+	spell-realm/spells-craft.o \
+	spell-realm/spells-crusade.o \
+	spell-realm/spells-demon.o \
+	spell-realm/spells-hex.o \
+	spell-realm/spells-nature.o \
+	spell-realm/spells-song.o \
+	spell-realm/spells-sorcery.o \
+	spell-realm/spells-trump.o \
+	status/action-setter.o \
+	status/bad-status-setter.o \
+	status/base-status.o \
+	status/body-improvement.o \
+	status/buff-setter.o \
+	status/element-resistance.o \
+	status/experience.o \
+	status/shape-changer.o \
+	status/sight-setter.o \
+	status/temporary-resistance.o \
+	store/home.o \
+	store/store.o \
+	store/articles-on-sale.o \
+	store/black-market.o \
+	store/cmd-store.o \
+	store/gold-magnification-table.o \
+	store/museum.o \
+	store/pricing.o \
+	store/purchase-order.o \
+	store/rumor.o \
+	store/say-comments.o \
+	store/sell-order.o \
+	store/service-checker.o \
+	store/store-key-processor.o \
+	store/store-util.o \
+	store/store-owners.o \
+	store/store-owner-comments.o \
+	system/alloc-entries.o \
+	system/angband-version.o \
+	system/artifact-type-definition.o \
+	system/baseitem-info.o \
+	system/building-type-definition.o \
+	system/dungeon-info.o \
+	system/floor-type-definition.o \
+	system/grid-type-definition.o \
+	system/item-entity.o \
+	system/monster-entity.o \
+	system/monster-race-info.o \
+	system/player-type-definition.o \
+	system/redrawing-flags-updater.o \
+	system/system-variables.o \
+	system/terrain-type-definition.o \
+	target/grid-selector.o \
+	target/projection-path-calculator.o \
+	target/target-checker.o \
+	target/target-describer.o \
+	target/target-getter.o \
+	target/target-preparation.o \
+	target/target-setter.o \
+	term/gameterm.o \
+	term/screen-processor.o \
+	term/z-form.o \
+	term/z-rand.o \
+	term/z-term.o \
+	term/z-util.o \
+	term/z-virt.o \
+	timed-effect/player-acceleration.o \
+	timed-effect/player-blindness.o \
+	timed-effect/player-confusion.o \
+	timed-effect/player-cut.o \
+	timed-effect/player-deceleration.o \
+	timed-effect/player-fear.o \
+	timed-effect/player-hallucination.o \
+	timed-effect/player-paralysis.o \
+	timed-effect/player-poison.o \
+	timed-effect/player-stun.o \
+	timed-effect/timed-effects.o \
+	util/angband-files.o \
+	util/buffer-shaper.o \
+	util/object-sort.o \
+	util/quarks.o \
+	util/rng-xoshiro.o \
+	util/sort.o \
+	util/string-processor.o \
+	view/display-birth.o \
+	view/display-characteristic.o \
+	view/display-fruit.o \
+	view/display-inventory.o \
+	view/display-lore-attacks.o \
+	view/display-lore-drops.o \
+	view/display-lore-magics.o \
+	view/display-lore-status.o \
+	view/display-lore.o \
+	view/display-map.o \
+	view/display-messages.o \
+	view/display-monster-status.o \
+	view/display-player-stat-info.o \
+	view/display-player-misc-info.o \
+	view/display-player-middle.o \
+	view/display-player.o \
+	view/display-scores.o \
+	view/display-self-info.o \
+	view/display-store.o \
+	view/display-util.o \
+	view/object-describer.o \
+	view/status-first-page.o \
+	view/status-bars-table.o \
+	window/display-sub-windows.o \
+	window/main-window-left-frame.o \
+	window/main-window-row-column.o \
+	window/main-window-stat-poster.o \
+	window/main-window-util.o \
+	window/main-window-equipments.o \
+	wizard/artifact-analyzer.o \
+	wizard/artifact-bias-table.o \
+	wizard/cmd-wizard.o \
+	wizard/fixed-artifacts-spoiler.o \
+	wizard/items-spoiler.o \
+	wizard/monster-info-spoiler.o \
+	wizard/spoiler-table.o \
+	wizard/spoiler-util.o \
+	wizard/tval-descriptions-table.o \
+	wizard/wizard-game-modifier.o \
+	wizard/wizard-item-modifier.o \
+	wizard/wizard-player-modifier.o \
+	wizard/wizard-messages.o \
+	wizard/wizard-spells.o \
+	wizard/wizard-spoiler.o \
+	wizard/wizard-special-process.o \
+	world/world.o \
+	world/world-object.o \
+	world/world-movement-processor.o \
+	world/world-turn-processor.o \
+
+
+##
+## Following are some "system" definitions
+##
+## No changes are needed to compile a version that will run on both
+## X11 and Curses, in debugging mode, with maximal warnings, on many
+## normal Unix machines of the Sun OS variety (non-solaris).
+##
+## To use an "alternative" definition, simply "modify" (or "replace")
+## the definition below with one that you like.  For example, you can
+## change the compiler to "cc", or remove the "debugging" options, or
+## remove the X11 or Curses support, etc, as desired.
+##
+## See also "z-config.h" and "h-config.h" for important information.
+##
+## Some "examples" are given below, they can be used by simply
+## removing the FIRST column of "#" signs from the "block" of lines
+## you wish to use, and commenting out "standard" block below.
+##
+## This is not intended to be a "good" Makefile, just a "simple" one.
+##
+
+
+#
+# This is my compiler of choice, it seems to work most everywhere
+#
+CXX = g++
+
+
+#
+# Standard version (see main-x11.c and main-gcu.c)
+#
+# This version supports both "X11" and "curses" in a single executable.
+#
+# You may have to add various X11 include/library directories to the
+# "CFLAGS", if your machine places files in a weird location.
+#
+# You may be able to remove "-ltermcap" on some machines (ex: Solaris).
+#
+# You may have to replace "-lcurses" with "-lncurses" to use the
+# "new curses" library instead of the "old curses" library, and
+# you may have to add "-l/usr/include/ncurses" to the "CFLAGS".
+#
+# See "main-gcu.c" and "z-config.h" for some optional "curses" defines,
+# including "USE_GETCH" and "USE_CURS_SET".  Note that "z-config.h" will
+# attempt to "guess" at many of these flags based on your system.
+
+##
+## Variation -- Only support "main-gcu.c" (not "main-x11.c")
+##
+CXXFLAGS = -Wall -O2 -g -std=gnu++20 -I. -D"USE_GCU"
+MAIN_OBJS = main.o main-gcu.o
+LIBS = -lncursesw
+
+
+.cpp.o:
+	$(CXX) $(CXXFLAGS) -c $<
+
+
+#
+# Build the "Angband" program
+#
+
+hengband: $(OBJS) $(MAIN_OBJS)
+	$(CXX) $(CXXFLAGS) -o hengband $(OBJS) $(MAIN_OBJS) $(LDFLAGS) $(LIBS)
+
+
+#
+# Clean up old junk
+#
+
+clean:
+	-\rm -f *.bak *.o */*.o */*/*.o
+
+distclean: clean
+	-\rm -f hengband ../hengband
