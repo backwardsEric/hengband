@@ -892,9 +892,9 @@ CXX = g++
 ##
 ## Variation -- Only support "main-gcu.c" (not "main-x11.c")
 ##
-CXXFLAGS = -Wall -O2 -g -std=gnu++20 -I. -DHAVE_SYS_TIME_H -D"USE_GCU"
+CXXFLAGS = -Wall -O2 -g -std=gnu++20 -mmacosx-version-min=10.15 -Wunguarded-availability -I. -DHAVE_SYS_TIME_H -D"USE_GCU"
 MAIN_OBJS = main.o main-gcu.o
-LIBS = -lncursesw
+LIBS = -lncurses
 
 
 .cpp.o:
