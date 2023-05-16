@@ -590,7 +590,6 @@ OBJS = \
 	player-base/player-class.o \
 	player-base/player-race.o \
 	player-info/alignment.o \
-	player-info/alignment.o \
 	player-info/base-status-info.o \
 	player-info/body-improvement-info.o \
 	player-info/class-ability-info.o \
