@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 
+void (*file_open_hook)(const std::filesystem::path &path, const FileOpenType ftype) = 0;
+
 #ifdef SET_UID
 
 #ifndef HAVE_USLEEP
@@ -207,11 +209,17 @@ static std::string make_file_mode(const FileOpenMode mode, const bool is_binary)
  * @param is_binary バイナリモードか否か (無指定の場合false：テキストモード)
  * @return ファイルポインタ
  */
-FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary)
+FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary, const FileOpenType ftype)
 {
+    FILE *result;
+
     const auto &parsed_path = path_parse(path);
     const auto &open_mode = make_file_mode(mode, is_binary);
-    return fopen(parsed_path.string().data(), open_mode.data());
+    result = fopen(parsed_path.string().data(), open_mode.data());
+    if (result && mode != FileOpenMode::READ && file_open_hook) {
+        file_open_hook(path, ftype);
+    }
+    return result;
 }
 
 /*

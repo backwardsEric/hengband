@@ -265,7 +265,8 @@ static bool save_player_aux(PlayerType *player_ptr, const std::filesystem::path 
     if (fd >= 0) {
         (void)fd_close(fd);
         safe_setuid_grab();
-        saving_savefile = angband_fopen(path, FileOpenMode::WRITE, true);
+        saving_savefile = angband_fopen(path, FileOpenMode::WRITE, true,
+            FileOpenType::SAVE);
         safe_setuid_drop();
         if (saving_savefile) {
             if (wr_savefile_new(player_ptr, type)) {

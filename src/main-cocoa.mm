@@ -21,6 +21,12 @@
 #include "system/grafmode.h"
 
 #ifdef MACH_O_COCOA
+
+/* Default creator signature */
+#ifndef ANGBAND_CREATOR
+# define ANGBAND_CREATOR 'H300'
+#endif
+
 /* Mac headers */
 #import "cocoa/AppDelegate.h"
 #import "cocoa/SoundAndMusic.h"
@@ -5531,6 +5537,34 @@ static void init_windows(void)
 }
 
 /**
+ * Set HFS file type and creator codes on a path
+ */
+static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOpenType ftype)
+{
+    @autoreleasepool {
+	NSString *pathString = [NSString stringWithUTF8String:path.native().data()];
+	if (pathString)
+        {
+	    uint32_t mac_type = 'TEXT';
+            if (ftype == FileOpenType::RAW)
+                mac_type = 'DATA';
+            else if (ftype == FileOpenType::SAVE)
+                mac_type = 'HENG';
+
+	    NSDictionary *attrs =
+		[NSDictionary dictionaryWithObjectsAndKeys:
+			      [NSNumber numberWithUnsignedLong:mac_type],
+			      NSFileHFSTypeCode,
+			      [NSNumber numberWithUnsignedLong:ANGBAND_CREATOR],
+			      NSFileHFSCreatorCode,
+			      nil];
+	    [[NSFileManager defaultManager]
+		setAttributes:attrs ofItemAtPath:pathString error:NULL];
+	}
+    }
+}
+
+/**
  * ------------------------------------------------------------------------
  * Main program
  * ------------------------------------------------------------------------ */
@@ -5694,6 +5728,9 @@ static void init_windows(void)
 	/* Hooks in some "z-util.c" hooks */
 	plog_aux = hook_plog;
 	quit_aux = hook_quit;
+
+	/* Hook in to the file open routine */
+	file_open_hook = cocoa_file_open_hook;
 
 	/* Initialize file paths */
 	prepare_paths_and_directories();

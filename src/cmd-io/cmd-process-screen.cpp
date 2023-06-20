@@ -200,7 +200,8 @@ void do_cmd_save_screen_html_aux(char *filename, int message)
 {
     TERM_LEN wid, hgt;
     term_get_size(&wid, &hgt);
-    auto *fff = angband_fopen(filename, FileOpenMode::WRITE);
+    auto *fff = angband_fopen(filename, FileOpenMode::WRITE, false,
+        FileOpenType::HTML);
     if (!check_screen_html_can_open(fff, filename, message)) {
         return;
     }

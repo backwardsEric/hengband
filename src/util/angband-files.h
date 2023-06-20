@@ -41,9 +41,19 @@ enum class FileOpenMode {
     APPEND,
 };
 
+// Specifies what king of thing a file is, when writing.  See file_open().
+enum class FileOpenType {
+    TEXT,
+    SAVE,
+    RAW,
+    HTML,
+};
+
+extern void (*file_open_hook)(const std::filesystem::path &path, const FileOpenType ftype);
+
 std::filesystem::path path_parse(const std::filesystem::path &path);
 std::filesystem::path path_build(const std::filesystem::path &path, std::string_view file);
-FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary = false);
+FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary = false, const FileOpenType ftype = FileOpenType::TEXT);
 FILE *angband_fopen_temp(char *buf, int max);
 errr angband_fgets(FILE *fff, char *buf, ulong n);
 errr angband_fputs(FILE *fff, concptr buf, ulong n);
