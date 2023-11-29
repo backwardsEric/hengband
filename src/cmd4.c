@@ -6861,6 +6861,10 @@ void plural_aux(char *Name)
 	{
 		strcpy(&(Name[NameLen - 4]), "ice");
 	}
+	else if (suffix(Name, "ous"))
+	{
+		strcpy(&(Name[NameLen - 3]), "i");
+	}
 	else if (suffix(Name, "us"))
 	{
 		strcpy(&(Name[NameLen - 2]), "i");
