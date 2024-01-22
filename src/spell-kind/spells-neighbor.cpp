@@ -1,6 +1,4 @@
-﻿#include "spell-kind/spells-neighbor.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
+#include "spell-kind/spells-neighbor.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
@@ -10,6 +8,7 @@
 #include "grid/grid.h"
 #include "spell-kind/earthquake.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 
 /*!
@@ -67,8 +66,9 @@ bool wall_stone(PlayerType *player_ptr)
 {
     BIT_FLAGS flg = PROJECT_GRID | PROJECT_ITEM | PROJECT_HIDE;
     bool dummy = project(player_ptr, 0, 1, player_ptr->y, player_ptr->x, 0, AttributeType::STONE_WALL, flg).notice;
-    player_ptr->update |= (PU_FLOW);
-    player_ptr->redraw |= (PR_MAP);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::FLOW);
+    rfu.set_flag(MainWindowRedrawingFlag::MAP);
     return dummy;
 }
 
@@ -125,22 +125,24 @@ bool animate_dead(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION 
  */
 void wall_breaker(PlayerType *player_ptr)
 {
-    POSITION y = 0, x = 0;
-    int attempts = 1000;
+    auto y = 0;
+    auto x = 0;
+    auto attempts = 1000;
     if (randint1(80 + player_ptr->lev) < 70) {
         while (attempts--) {
             scatter(player_ptr, &y, &x, player_ptr->y, player_ptr->x, 4, PROJECT_NONE);
-
             if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT)) {
                 continue;
             }
 
-            if (!player_bold(player_ptr, y, x)) {
+            const Pos2D pos(y, x);
+            if (!player_ptr->is_located_at(pos)) {
                 break;
             }
         }
 
-        project(player_ptr, 0, 0, y, x, 20 + randint1(30), AttributeType::KILL_WALL, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL));
+        constexpr auto flags = PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
+        project(player_ptr, 0, 0, y, x, 20 + randint1(30), AttributeType::KILL_WALL, flags);
         return;
     }
 
@@ -153,12 +155,13 @@ void wall_breaker(PlayerType *player_ptr)
     for (int i = 0; i < num; i++) {
         while (true) {
             scatter(player_ptr, &y, &x, player_ptr->y, player_ptr->x, 10, PROJECT_NONE);
-
-            if (!player_bold(player_ptr, y, x)) {
+            const Pos2D pos(y, x);
+            if (!player_ptr->is_located_at(pos)) {
                 break;
             }
         }
 
-        project(player_ptr, 0, 0, y, x, 20 + randint1(30), AttributeType::KILL_WALL, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL));
+        constexpr auto flags = PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
+        project(player_ptr, 0, 0, y, x, 20 + randint1(30), AttributeType::KILL_WALL, flags);
     }
 }

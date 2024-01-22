@@ -1,4 +1,4 @@
-﻿#include "cmd-io/cmd-help.h"
+#include "cmd-io/cmd-help.h"
 #include "core/show-file.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
@@ -12,6 +12,6 @@
 void do_cmd_help(PlayerType *player_ptr)
 {
     screen_save();
-    (void)show_file(player_ptr, true, _("jhelp.hlp", "help.hlp"), nullptr, 0, 0);
+    (void)show_file(player_ptr, true, _("jhelp.hlp", "help.hlp"), 0, 0);
     screen_load();
 }

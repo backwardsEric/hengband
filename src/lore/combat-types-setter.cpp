@@ -1,4 +1,4 @@
-﻿#include "lore/combat-types-setter.h"
+#include "lore/combat-types-setter.h"
 #include "lore/lore-util.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
@@ -7,7 +7,7 @@
 
 void set_monster_blow_method(lore_type *lore_ptr, int m)
 {
-    RaceBlowMethodType method = lore_ptr->r_ptr->blow[m].method;
+    RaceBlowMethodType method = lore_ptr->r_ptr->blows[m].method;
     lore_ptr->p = nullptr;
     lore_ptr->pc = TERM_WHITE;
     switch (method) {
@@ -110,7 +110,7 @@ void set_monster_blow_method(lore_type *lore_ptr, int m)
 
 void set_monster_blow_effect(lore_type *lore_ptr, int m)
 {
-    RaceBlowEffectType effect = lore_ptr->r_ptr->blow[m].effect;
+    RaceBlowEffectType effect = lore_ptr->r_ptr->blows[m].effect;
     lore_ptr->q = nullptr;
     lore_ptr->qc = TERM_WHITE;
     switch (effect) {
@@ -256,6 +256,10 @@ void set_monster_blow_effect(lore_type *lore_ptr, int m)
     case RaceBlowEffectType::HUNGRY:
         lore_ptr->q = _("空腹を進行させる", "increase hunger");
         lore_ptr->qc = TERM_L_BLUE;
+        break;
+    case RaceBlowEffectType::CHAOS:
+        lore_ptr->q = _("カオスを呼び起こす", "call chaotic.");
+        lore_ptr->qc = TERM_VIOLET;
         break;
     case RaceBlowEffectType::FLAVOR:
         // フレーバー打撃には何の効果もないので付加説明もない。

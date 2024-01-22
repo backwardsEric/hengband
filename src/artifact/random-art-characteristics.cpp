@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file random-art-characteristics.cpp
  * @brief ランダムアーティファクトのバイアス付加処理実装
  */
@@ -9,7 +9,6 @@
 #include "io/files-util.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
-#include "object/object-flags.h"
 #include "player-base/player-class.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -103,30 +102,26 @@ void curse_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
  * @param armour 防具かどうか
  * @param power 生成パワー
  * @return ファイル名
- * @detail ss << tmp_grade; と直接呼ぶとC4866警告が出るので、別変数で受けて抑制中.
  */
 static std::string get_random_art_filename(const bool armour, const int power)
 {
-    const std::string_view prefix(armour ? "a_" : "w_");
-    constexpr std::string_view suffix(_("_j.txt", ".txt"));
-    std::string_view tmp_grade;
+    std::stringstream ss;
+    ss << (armour ? "a_" : "w_");
     switch (power) {
     case 0:
-        tmp_grade = "cursed";
+        ss << "cursed";
         break;
     case 1:
-        tmp_grade = "low";
+        ss << "low";
         break;
     case 2:
-        tmp_grade = "med";
+        ss << "med";
         break;
     default:
-        tmp_grade = "high";
+        ss << "high";
     }
 
-    std::stringstream ss;
-    const auto &grade = tmp_grade;
-    ss << prefix << grade << suffix;
+    ss << _("_j.txt", ".txt");
     return ss.str();
 }
 
@@ -155,20 +150,20 @@ std::string get_random_name(const ItemEntity &item, bool armour, int power)
     auto filename = get_random_art_filename(armour, power);
     auto random_artifact_name = get_random_line(filename.data(), item.artifact_bias);
 #ifdef JP
-    if (random_artifact_name.has_value()) {
-        return random_artifact_name.value();
+    if (random_artifact_name) {
+        return *random_artifact_name;
     }
 
     return get_table_name();
 #else
-    return random_artifact_name.value();
+    return *random_artifact_name;
 #endif
 }
 
 /*対邪平均ダメージの計算処理*/
 static int calc_arm_avgdamage(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    auto flags = object_flags(o_ptr);
+    const auto flags = o_ptr->get_flags();
     int base, forced, vorpal;
     int s_evil = forced = vorpal = 0;
     int dam = base = (o_ptr->dd * o_ptr->ds + o_ptr->dd) / 2;
@@ -193,13 +188,14 @@ static int calc_arm_avgdamage(PlayerType *player_ptr, ItemEntity *o_ptr)
     }
 
     dam = dam + o_ptr->to_d;
-    msg_format_wizard(player_ptr, CHEAT_OBJECT, "素:%d> 対邪:%d> 理力:%d> 切:%d> 最終:%d", base, s_evil, forced, vorpal, dam);
+    constexpr auto fmt = _("素:%d> 対邪:%d> 理力:%d> 切:%d> 最終:%d", "Normal:%d> Evil:%d> Force:%d> Vorpal:%d> Total:%d");
+    msg_format_wizard(player_ptr, CHEAT_OBJECT, fmt, base, s_evil, forced, vorpal, dam);
     return dam;
 }
 
 bool has_extreme_damage_rate(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    auto flags = object_flags(o_ptr);
+    const auto flags = o_ptr->get_flags();
     if (flags.has(TR_VAMPIRIC)) {
         if (flags.has(TR_BLOWS) && (o_ptr->pval == 1) && (calc_arm_avgdamage(player_ptr, o_ptr) > 52)) {
             return true;

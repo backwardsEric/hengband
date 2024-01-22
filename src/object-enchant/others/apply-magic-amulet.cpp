@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief アミュレットを強化生成する処理
  * @date 2021/04/30
  * @author Hourier
@@ -69,11 +69,11 @@ void AmuletEnchanter::apply_magic()
 void AmuletEnchanter::sval_enchant()
 {
     const auto sval = this->o_ptr->bi_key.sval();
-    if (!sval.has_value()) {
+    if (!sval) {
         return;
     }
 
-    switch (sval.value()) {
+    switch (*sval) {
     case SV_AMULET_INTELLIGENCE:
     case SV_AMULET_WISDOM:
     case SV_AMULET_CHARISMA:
@@ -265,11 +265,11 @@ void AmuletEnchanter::give_ego_index()
 void AmuletEnchanter::give_high_ego_index()
 {
     const auto sval = this->o_ptr->bi_key.sval();
-    if (!sval.has_value()) {
+    if (!sval) {
         return;
     }
 
-    switch (sval.value()) {
+    switch (*sval) {
     case SV_AMULET_TELEPORT:
         if (m_bonus(10, this->level) > 9) {
             this->o_ptr->ego_idx = EgoType::AMU_D_DOOR;

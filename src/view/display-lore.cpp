@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief モンスターの思い出を表示する処理
  * @date 2020/06/09
  * @author Hourier
@@ -49,7 +49,7 @@ void roff_top(MonsterRaceId r_idx)
     TERM_COLOR a1 = r_ptr->d_attr;
     TERM_COLOR a2 = r_ptr->x_attr;
 
-    term_erase(0, 0, 255);
+    term_erase(0, 0);
     term_gotoxy(0, 0);
 
 #ifdef JP
@@ -65,7 +65,7 @@ void roff_top(MonsterRaceId r_idx)
         term_addstr(-1, TERM_WHITE, "] ");
     }
 
-    term_addstr(-1, TERM_WHITE, (r_ptr->name.data()));
+    term_addstr(-1, TERM_WHITE, r_ptr->name);
 
     term_addstr(-1, TERM_WHITE, " ('");
     term_add_bigch(a1, c1);
@@ -85,7 +85,7 @@ void roff_top(MonsterRaceId r_idx)
 void screen_roff(PlayerType *player_ptr, MonsterRaceId r_idx, monster_lore_mode mode)
 {
     msg_erase();
-    term_erase(0, 1, 255);
+    term_erase(0, 1);
     hook_c_roff = c_roff;
     process_monster_lore(player_ptr, r_idx, mode);
     roff_top(r_idx);
@@ -99,7 +99,7 @@ void screen_roff(PlayerType *player_ptr, MonsterRaceId r_idx, monster_lore_mode 
 void display_roff(PlayerType *player_ptr)
 {
     for (int y = 0; y < game_term->hgt; y++) {
-        term_erase(0, y, 255);
+        term_erase(0, y);
     }
 
     term_gotoxy(0, 1);
@@ -536,11 +536,18 @@ static void display_monster_escort_contents(lore_type *lore_ptr)
 
 #ifdef JP
 #else
-    hooked_roff(" contain ");
+    hooked_roff(" contain");
+    auto max_idx = lore_ptr->r_ptr->reinforces.size() - 1;
+    auto idx = 0 * max_idx;
 #endif
 
     for (auto [r_idx, dd, ds] : lore_ptr->r_ptr->reinforces) {
         auto is_reinforced = MonsterRace(r_idx).is_valid();
+#ifndef JP
+        const char *prefix = (idx == 0) ? " " : (idx == max_idx) ? " and "
+                                                                 : ", ";
+        ++idx;
+#endif
         is_reinforced &= dd > 0;
         is_reinforced &= ds > 0;
         if (!is_reinforced) {
@@ -549,7 +556,7 @@ static void display_monster_escort_contents(lore_type *lore_ptr)
 
         const auto *rf_ptr = &monraces_info[r_idx];
         if (rf_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-            hooked_roff(format(_("、%s", ", %s"), rf_ptr->name.data()));
+            hooked_roff(format("%s%s", _("、", prefix), rf_ptr->name.data()));
             continue;
         }
 
@@ -562,11 +569,11 @@ static void display_monster_escort_contents(lore_type *lore_ptr)
         if (plural) {
             plural_aux(name);
         }
-        hooked_roff(format(",%dd%d %s", dd, ds, name));
+        hooked_roff(format("%s%dd%d %s", prefix, dd, ds, name));
 #endif
     }
 
-    hooked_roff(_("で成り立っている。", "."));
+    hooked_roff(_("で成り立っている。", ".  "));
 }
 
 void display_monster_collective(lore_type *lore_ptr)
@@ -606,11 +613,11 @@ void display_monster_launching(PlayerType *player_ptr, lore_type *lore_ptr)
     int n = 0; /* Number of blows */
     const int max_blows = 4;
     for (int m = 0; m < max_blows; m++) {
-        if (lore_ptr->r_ptr->blow[m].method != RaceBlowMethodType::NONE) {
+        if (lore_ptr->r_ptr->blows[m].method != RaceBlowMethodType::NONE) {
             n++;
         } /* Count blows */
 
-        if (lore_ptr->r_ptr->blow[m].method == RaceBlowMethodType::SHOOT) {
+        if (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::SHOOT) {
             p = m; /* Remember position */
             break;
         }
@@ -626,8 +633,8 @@ void display_monster_launching(PlayerType *player_ptr, lore_type *lore_ptr)
     }
 
     if (know_armour(lore_ptr->r_idx, lore_ptr->know_everything)) {
-        strnfmt(lore_ptr->tmp_msg[lore_ptr->vn], sizeof(lore_ptr->tmp_msg[lore_ptr->vn]), _("威力 %dd%d の射撃をする", "fire an arrow (Power:%dd%d)"), lore_ptr->r_ptr->blow[p].d_dice,
-            lore_ptr->r_ptr->blow[p].d_side);
+        strnfmt(lore_ptr->tmp_msg[lore_ptr->vn], sizeof(lore_ptr->tmp_msg[lore_ptr->vn]), _("威力 %dd%d の射撃をする", "fire an arrow (Power:%dd%d)"), lore_ptr->r_ptr->blows[p].d_dice,
+            lore_ptr->r_ptr->blows[p].d_side);
     } else {
         angband_strcpy(lore_ptr->tmp_msg[lore_ptr->vn], _("射撃をする", "fire an arrow"), sizeof(lore_ptr->tmp_msg[lore_ptr->vn]));
     }
@@ -647,8 +654,8 @@ void display_monster_sometimes(lore_type *lore_ptr)
     for (int n = 0; n < lore_ptr->vn; n++) {
 #ifdef JP
         if (n != lore_ptr->vn - 1) {
-            jverb(lore_ptr->vp[n], lore_ptr->jverb_buf, JVERB_OR);
-            hook_c_roff(lore_ptr->color[n], lore_ptr->jverb_buf);
+            const auto verb = conjugate_jverb(lore_ptr->vp[n], JVerbConjugationType::OR);
+            hook_c_roff(lore_ptr->color[n], verb);
             hook_c_roff(lore_ptr->color[n], "り");
             hooked_roff("、");
         } else {

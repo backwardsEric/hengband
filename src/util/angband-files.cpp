@@ -1,8 +1,11 @@
-﻿#include "util/angband-files.h"
+#include "util/angband-files.h"
 #include "locale/japanese.h"
+#include "system/angband-exceptions.h"
 #include "util/string-processor.h"
 #include <sstream>
 #include <string>
+
+void (*file_open_hook)(const std::filesystem::path &path, const FileOpenType ftype) = 0;
 
 #ifdef SET_UID
 
@@ -69,7 +72,7 @@ void user_name(char *buf, int id)
 
 #endif /* SET_UID */
 
-std::filesystem::path path_parse(std::string_view file)
+std::filesystem::path path_parse(const std::filesystem::path &path)
 #ifdef SET_UID
 {
     /*
@@ -79,6 +82,7 @@ std::filesystem::path path_parse(std::string_view file)
      * Replace "~user/" by the home directory of the user named "user"
      * Replace "~/" by the home directory of the current user
      */
+    const auto &file = path.string();
     if (file.empty() || (file[0] != '~')) {
         return file;
     }
@@ -88,7 +92,7 @@ std::filesystem::path path_parse(std::string_view file)
     constexpr auto user_size = 128;
     char user[user_size]{};
     if ((s != nullptr) && (s >= u + user_size)) {
-        throw std::runtime_error("User name is too long!");
+        THROW_EXCEPTION(std::runtime_error, "User name is too long!");
     }
 
     if (s != nullptr) {
@@ -112,7 +116,7 @@ std::filesystem::path path_parse(std::string_view file)
     }
 
     if (pw == nullptr) {
-        throw std::runtime_error("Failed to get User ID!");
+        THROW_EXCEPTION(std::runtime_error, "Failed to get User ID!");
     }
 
     if (s == nullptr) {
@@ -125,7 +129,7 @@ std::filesystem::path path_parse(std::string_view file)
 }
 #else
 {
-    return file;
+    return path;
 }
 #endif /* SET_UID */
 
@@ -138,7 +142,7 @@ std::filesystem::path path_parse(std::string_view file)
  */
 static errr path_temp(char *buf, int max)
 {
-    concptr s = tmpnam(nullptr);
+    auto s = tmpnam(nullptr);
     if (!s) {
         return -1;
     }
@@ -155,24 +159,24 @@ static errr path_temp(char *buf, int max)
 
 /*!
  * @brief OSの差異を吸収しつつ、絶対パスを生成する.
- * @param buf ファイルのフルを返すバッファ
- * @param max bufのサイズ
- * @param directory ディレクトリ
+ * @param path file 引数があるディレクトリ
  * @param file ファイル名またはディレクトリ名
- * @todo buf, max は削除してファイル名が長すぎたら例外を送出する。またreturn で絶対パスを返すように書き換える.
  */
-void path_build(char *buf, int max, const std::filesystem::path &path, std::string_view file)
+std::filesystem::path path_build(const std::filesystem::path &path, std::string_view file)
 {
-    if (file[0] == '~') {
-        (void)strnfmt(buf, max, "%s", file.data());
-    } else if (prefix(file, PATH_SEP)) {
-        (void)strnfmt(buf, max, "%s", file.data());
-    } else if (!path.string()[0]) {
-        (void)strnfmt(buf, max, "%s", file.data());
-    } else {
-        const auto &path_str = path.string();
-        (void)strnfmt(buf, max, "%s%s%s", path_str.data(), PATH_SEP, file.data());
+    if ((file[0] == '~') || (prefix(file, PATH_SEP)) || path.empty()) {
+        return file;
     }
+
+    auto parsed_path = path_parse(path);
+    const auto &path_ret = parsed_path.append(file);
+    constexpr auto max_path_length = 1024;
+    const auto path_str = path_ret.string();
+    if (path_str.length() > max_path_length) {
+        THROW_EXCEPTION(std::runtime_error, format("Path is too long! %s", path_str.data()));
+    }
+
+    return path_ret;
 }
 
 static std::string make_file_mode(const FileOpenMode mode, const bool is_binary)
@@ -189,7 +193,7 @@ static std::string make_file_mode(const FileOpenMode mode, const bool is_binary)
         ss << 'a';
         break;
     default:
-        throw std::logic_error("Invalid file mode is specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid file mode is specified!");
     }
 
     if (is_binary) {
@@ -201,16 +205,22 @@ static std::string make_file_mode(const FileOpenMode mode, const bool is_binary)
 
 /*!
  * @brief OSごとの差異を吸収してファイルを開く
- * @param file ファイルの相対パスまたは絶対パス
+ * @param path ファイルの相対パスまたは絶対パス
  * @param mode ファイルを開くモード
  * @param is_binary バイナリモードか否か (無指定の場合false：テキストモード)
  * @return ファイルポインタ
  */
-FILE *angband_fopen(const std::filesystem::path &file, const FileOpenMode mode, const bool is_binary)
+FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary, const FileOpenType ftype)
 {
-    const auto &path = path_parse(file.string());
+    FILE *result;
+
+    const auto &parsed_path = path_parse(path);
     const auto &open_mode = make_file_mode(mode, is_binary);
-    return fopen(path.string().data(), open_mode.data());
+    result = fopen(parsed_path.string().data(), open_mode.data());
+    if (result && mode != FileOpenMode::READ && file_open_hook) {
+        file_open_hook(path, ftype);
+    }
+    return result;
 }
 
 /*
@@ -266,12 +276,12 @@ errr angband_fgets(FILE *fff, char *buf, ulong n)
     // Reserve for null termination
     --n;
 
-    std::vector<char> file_read__tmp(FILE_READ_BUFF_SIZE);
-    if (fgets(file_read__tmp.data(), file_read__tmp.size(), fff)) {
+    std::vector<char> file_read_tmp(FILE_READ_BUFF_SIZE);
+    if (fgets(file_read_tmp.data(), file_read_tmp.size(), fff)) {
 #ifdef JP
-        guess_convert_to_system_encoding(file_read__tmp.data(), FILE_READ_BUFF_SIZE);
+        guess_convert_to_system_encoding(file_read_tmp.data(), FILE_READ_BUFF_SIZE);
 #endif
-        for (s = file_read__tmp.data(); *s; s++) {
+        for (s = file_read_tmp.data(); *s; s++) {
 #ifdef MACH_O_COCOA
             /*
              * Be nice to the Macintosh, where a file can have Mac or Unix
@@ -355,58 +365,49 @@ errr angband_fputs(FILE *fff, concptr buf, ulong n)
  * @brief OSごとの差異を吸収してファイルを削除する
  * @param file ファイルの相対パスまたは絶対パス
  */
-void fd_kill(std::string_view file)
+void fd_kill(const std::filesystem::path &path)
 {
-    const auto &path = path_parse(file);
-    if (!std::filesystem::exists(path)) {
-        return;
-    }
+    const auto &parsed_path = path_parse(path);
 
-    std::filesystem::remove(path);
+    std::error_code ec;
+    std::filesystem::remove(parsed_path, ec);
 }
 
 /*!
  * @brief OSごとの差異を吸収してファイルを移動する
- * @param from 移動元のファイルの相対パスまたは絶対パス
- * @param to 移動先のファイルの相対パスまたは絶対パス
+ * @param path_from 移動元のファイルの相対パスまたは絶対パス
+ * @param path_to 移動先のファイルの相対パスまたは絶対パス
  */
-void fd_move(std::string_view from, std::string_view to)
+void fd_move(const std::filesystem::path &path_from, const std::filesystem::path &path_to)
 {
-    const auto &path_from = path_parse(from);
-    if (!std::filesystem::exists(path_from)) {
-        return;
-    }
+    const auto &abs_path_from = path_parse(path_from);
+    const auto &abs_path_to = path_parse(path_to);
 
-    const auto &path_to = path_parse(to);
-    const auto directory = std::filesystem::path(path_to).remove_filename();
-    if (!std::filesystem::exists(directory)) {
-        std::filesystem::create_directory(directory);
-    }
-
-    std::filesystem::rename(path_from, path_to);
+    std::error_code ec;
+    std::filesystem::rename(abs_path_from, abs_path_to, ec);
 }
 
 /*!
  * @brief OSごとの差異を吸収してファイルを作成する
- * @param file 作成先ファイルの相対パスまたは絶対パス
+ * @param path 作成先ファイルの相対パスまたは絶対パス
  * @param can_write_group グループに書き込みを許可するか否か
  */
-int fd_make(std::string_view file, bool can_write_group)
+int fd_make(const std::filesystem::path &path, bool can_write_group)
 {
     const auto permission = can_write_group ? 0644 : 0664;
-    const auto &path = path_parse(file);
-    return open(path.string().data(), O_CREAT | O_EXCL | O_WRONLY | O_BINARY, permission);
+    const auto &parsed_path = path_parse(path);
+    return open(parsed_path.string().data(), O_CREAT | O_EXCL | O_WRONLY | O_BINARY, permission);
 }
 
 /*
  * @brief OSごとの差異を吸収してファイルを開く
- * @param file ファイルの相対パスまたは絶対パス
+ * @param path ファイルの相対パスまたは絶対パス
  * @param mode ファイルのオープンモード (読み書き、Append/Trunc等)
  */
-int fd_open(std::string_view file, int mode)
+int fd_open(const std::filesystem::path &path, int mode)
 {
-    const auto &path = path_parse(file);
-    return open(path.string().data(), mode | O_BINARY, 0);
+    const auto &path_abs = path_parse(path);
+    return open(path_abs.string().data(), mode | O_BINARY, 0);
 }
 
 /*

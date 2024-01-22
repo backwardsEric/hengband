@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 攻撃コマンド処理
  * @date 2020/05/23
  * @author Hourier
@@ -11,7 +11,6 @@
 #include "combat/attack-criticality.h"
 #include "core/asking-player.h"
 #include "core/disturbance.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "effect/effect-characteristics.h"
@@ -72,7 +71,7 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
 {
     WEIGHT n_weight = 0;
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
 
     int dice_num, dice_side;
     concptr atk_desc;
@@ -152,7 +151,7 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
     case PlayerMutationType::TENTACLES:
     default: {
         MonsterDamageProcessor mdp(player_ptr, m_idx, k, fear, AttributeType::ATTACK);
-        *mdeath = mdp.mon_take_hit(nullptr);
+        *mdeath = mdp.mon_take_hit("");
         break;
     }
     }
@@ -171,11 +170,18 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
  */
 bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_options mode)
 {
-    auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[g_ptr->m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto *g_ptr = &floor.grid_array[y][x];
+    auto *m_ptr = &floor.m_list[g_ptr->m_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
 
-    const std::initializer_list<PlayerMutationType> mutation_attack_methods = { PlayerMutationType::HORNS, PlayerMutationType::BEAK, PlayerMutationType::SCOR_TAIL, PlayerMutationType::TRUNK, PlayerMutationType::TENTACLES };
+    const auto mutation_attack_methods = {
+        PlayerMutationType::HORNS,
+        PlayerMutationType::BEAK,
+        PlayerMutationType::SCOR_TAIL,
+        PlayerMutationType::TRUNK,
+        PlayerMutationType::TENTACLES,
+    };
 
     disturb(player_ptr, false, true);
 
@@ -200,7 +206,7 @@ bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_option
 
     auto is_confused = effects->confusion()->is_confused();
     auto is_stunned = effects->stun()->is_stunned();
-    if (any_bits(r_ptr->flags1, RF1_FEMALE) && !(is_stunned || is_confused || is_hallucinated || !m_ptr->ml)) {
+    if (is_female(*r_ptr) && !(is_stunned || is_confused || is_hallucinated || !m_ptr->ml)) {
         // @todo 「特定の武器を装備している」旨のメソッドを別途作る
         constexpr auto zantetsu = FixedArtifactId::ZANTETSU;
         const auto is_main_hand_zantetsu = player_ptr->inventory_list[INVEN_MAIN_HAND].is_specific_artifact(zantetsu);
@@ -212,7 +218,7 @@ bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_option
         }
     }
 
-    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MELEE)) {
+    if (floor.get_dungeon_definition().flags.has(DungeonFeatureType::NO_MELEE)) {
         sound(SOUND_ATTACK_FAILED);
         msg_print(_("なぜか攻撃することができない。", "Something prevents you from attacking."));
         return false;
@@ -236,7 +242,7 @@ bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_option
             chg_virtue(player_ptr, Virtue::JUSTICE, -1);
             chg_virtue(player_ptr, Virtue::COMPASSION, -1);
         } else if (!PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER)) {
-            if (get_check(_("本当に攻撃しますか？", "Really hit it? "))) {
+            if (input_check(_("本当に攻撃しますか？", "Really hit it? "))) {
                 chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
                 chg_virtue(player_ptr, Virtue::HONOUR, -1);
                 chg_virtue(player_ptr, Virtue::JUSTICE, -1);

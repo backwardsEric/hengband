@@ -1,4 +1,4 @@
-﻿#include "floor/object-allocator.h"
+#include "floor/object-allocator.h"
 #include "dungeon/quest.h"
 #include "floor/cave.h"
 #include "floor/dungeon-tunnel-util.h"
@@ -81,31 +81,32 @@ static bool alloc_stairs_aux(PlayerType *player_ptr, POSITION y, POSITION x, int
 bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
 {
     int shaft_num = 0;
-    auto *f_ptr = &terrains_info[feat];
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (f_ptr->flags.has(TerrainCharacteristics::LESS)) {
-        if (ironman_downward || !floor_ptr->dun_level) {
+    const auto &terrain = TerrainList::get_instance()[feat];
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto &dungeon = floor.get_dungeon_definition();
+    if (terrain.flags.has(TerrainCharacteristics::LESS)) {
+        if (ironman_downward || !floor.dun_level) {
             return true;
         }
 
-        if (floor_ptr->dun_level > dungeons_info[floor_ptr->dungeon_idx].mindepth) {
+        if (floor.dun_level > dungeon.mindepth) {
             shaft_num = (randint1(num + 1)) / 2;
         }
-    } else if (f_ptr->flags.has(TerrainCharacteristics::MORE)) {
-        auto q_idx = quest_number(player_ptr, floor_ptr->dun_level);
+    } else if (terrain.flags.has(TerrainCharacteristics::MORE)) {
+        auto q_idx = floor.get_quest_id();
         const auto &quest_list = QuestList::get_instance();
-        if (floor_ptr->dun_level > 1 && inside_quest(q_idx)) {
+        if (floor.dun_level > 1 && inside_quest(q_idx)) {
             auto *r_ptr = &monraces_info[quest_list[q_idx].r_idx];
             if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) || 0 < r_ptr->max_num) {
                 return true;
             }
         }
 
-        if (floor_ptr->dun_level >= dungeons_info[floor_ptr->dungeon_idx].maxdepth) {
+        if (floor.dun_level >= dungeon.maxdepth) {
             return true;
         }
 
-        if ((floor_ptr->dun_level < dungeons_info[floor_ptr->dungeon_idx].maxdepth - 1) && !inside_quest(quest_number(player_ptr, floor_ptr->dun_level + 1))) {
+        if ((floor.dun_level < dungeon.maxdepth - 1) && !inside_quest(floor.get_quest_id(1))) {
             shaft_num = (randint1(num) + 1) / 2;
         }
     } else {
@@ -114,10 +115,10 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
 
     for (int i = 0; i < num; i++) {
         while (true) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             int candidates = 0;
-            const POSITION max_x = floor_ptr->width - 1;
-            for (POSITION y = 1; y < floor_ptr->height - 1; y++) {
+            const POSITION max_x = floor.width - 1;
+            for (POSITION y = 1; y < floor.height - 1; y++) {
                 for (POSITION x = 1; x < max_x; x++) {
                     if (alloc_stairs_aux(player_ptr, y, x, walls)) {
                         candidates++;
@@ -137,8 +138,8 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
             int pick = randint1(candidates);
             POSITION y;
             POSITION x = max_x;
-            for (y = 1; y < floor_ptr->height - 1; y++) {
-                for (x = 1; x < floor_ptr->width - 1; x++) {
+            for (y = 1; y < floor.height - 1; y++) {
+                for (x = 1; x < floor.width - 1; x++) {
                     if (alloc_stairs_aux(player_ptr, y, x, walls)) {
                         pick--;
                         if (pick == 0) {
@@ -152,9 +153,9 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
                 }
             }
 
-            g_ptr = &floor_ptr->grid_array[y][x];
+            g_ptr = &floor.grid_array[y][x];
             g_ptr->mimic = 0;
-            g_ptr->feat = (i < shaft_num) ? feat_state(player_ptr->current_floor_ptr, feat, TerrainCharacteristics::SHAFT) : feat;
+            g_ptr->feat = (i < shaft_num) ? feat_state(&floor, feat, TerrainCharacteristics::SHAFT) : feat;
             g_ptr->info &= ~(CAVE_FLOOR);
             break;
         }
@@ -185,7 +186,6 @@ void alloc_object(PlayerType *player_ptr, dap_type set, dungeon_allocation_type 
     POSITION y = 0;
     POSITION x = 0;
     int dummy = 0;
-    grid_type *g_ptr;
     auto *floor_ptr = player_ptr->current_floor_ptr;
     num = num * floor_ptr->height * floor_ptr->width / (MAX_HGT * MAX_WID) + 1;
     for (int k = 0; k < num; k++) {
@@ -193,16 +193,17 @@ void alloc_object(PlayerType *player_ptr, dap_type set, dungeon_allocation_type 
             dummy++;
             y = randint0(floor_ptr->height);
             x = randint0(floor_ptr->width);
-            g_ptr = &floor_ptr->grid_array[y][x];
-            if (!g_ptr->is_floor() || !g_ptr->o_idx_list.empty() || g_ptr->m_idx) {
+            const Pos2D pos(y, x);
+            const auto &grid = floor_ptr->get_grid(pos);
+            if (!grid.is_floor() || !grid.o_idx_list.empty() || grid.m_idx) {
                 continue;
             }
 
-            if (player_bold(player_ptr, y, x)) {
+            if (player_ptr->is_located_at(pos)) {
                 continue;
             }
 
-            auto is_room = floor_ptr->grid_array[y][x].is_room();
+            auto is_room = grid.is_room();
             if (((set == ALLOC_SET_CORR) && is_room) || ((set == ALLOC_SET_ROOM) && !is_room)) {
                 continue;
             }
@@ -221,7 +222,7 @@ void alloc_object(PlayerType *player_ptr, dap_type set, dungeon_allocation_type 
             floor_ptr->grid_array[y][x].info &= ~(CAVE_FLOOR);
             break;
         case ALLOC_TYP_TRAP:
-            place_trap(player_ptr, y, x);
+            place_trap(floor_ptr, y, x);
             floor_ptr->grid_array[y][x].info &= ~(CAVE_FLOOR);
             break;
         case ALLOC_TYP_GOLD:

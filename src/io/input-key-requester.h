@@ -1,7 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "game-option/keymap-directory-getter.h"
 #include "system/angband.h"
+#include <optional>
 #include <string>
 
 extern concptr keymap_act[KEYMAP_MODES][256];
@@ -17,7 +18,6 @@ extern TERM_LEN command_gap;
 extern int16_t command_wrk;
 extern int16_t command_new;
 
-class ItemEntity;
 class PlayerType;
 class SpecialMenuContent;
 class InputKeyRequestor {
@@ -38,7 +38,7 @@ private:
     bool is_max_num_odd = false;
     char sub_cmd = 0;
 
-    void input_command();
+    void process_input_command();
     short get_command();
     char inkey_from_menu();
     bool process_repeat_num(short &cmd);
@@ -48,7 +48,7 @@ private:
     void change_shopping_command();
     int get_caret_command();
     void sweep_confirmation_equipments();
-    void confirm_command(ItemEntity &o_ref, const int caret_command);
+    void confirm_command(const std::optional<std::string> &inscription, const int caret_command);
 
     void make_commands_frame();
     std::string switch_special_menu_condition(const SpecialMenuContent &special_menu);

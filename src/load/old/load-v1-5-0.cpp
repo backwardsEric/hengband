@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 変愚蛮怒 v1.5.0以前の旧いセーブデータを読み込む処理
  * @date 2020/07/04
  * @author Hourier
@@ -49,7 +49,6 @@
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
-#include "util/quarks.h"
 #include "world/world-object.h"
 #include "world/world.h"
 
@@ -370,7 +369,7 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
     }
 
     if (h_older_than(1, 0, 14)) {
-        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        auto *r_ptr = &m_ptr->get_monrace();
 
         m_ptr->sub_align = SUB_ALIGN_NEUTRAL;
         if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
@@ -533,7 +532,7 @@ void set_old_lore(MonsterRaceInfo *r_ptr, BIT_FLAGS f4, const MonsterRaceId r_id
     move_RF4_BR_to_RFR(r_ptr, f4, RF4_BR_WALL, MonsterResistanceType::RESIST_FORCE);
 
     if (f4 & RF4_BR_CONF) {
-        r_ptr->r_flags3 |= RF3_NO_CONF;
+        r_ptr->r_resistance_flags.set(MonsterResistanceType::NO_CONF);
     }
 
     if (r_idx == MonsterRaceId::STORMBRINGER) {
@@ -557,9 +556,9 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     auto *floor_ptr = player_ptr->current_floor_ptr;
     floor_ptr->dun_level = rd_s16b();
     if (h_older_than(0, 3, 8)) {
-        player_ptr->dungeon_idx = DUNGEON_ANGBAND;
+        floor_ptr->set_dungeon_index(DUNGEON_ANGBAND);
     } else {
-        player_ptr->dungeon_idx = rd_byte();
+        floor_ptr->set_dungeon_index(rd_byte());
     }
 
     floor_ptr->base_level = floor_ptr->dun_level;
@@ -591,7 +590,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         }
 
         for (int i = count; i > 0; i--) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &floor_ptr->grid_array[y][x];
             g_ptr->info = info;
             if (++x >= xmax) {
@@ -607,7 +606,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp8u = rd_byte();
         for (int i = count; i > 0; i--) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &floor_ptr->grid_array[y][x];
             g_ptr->feat = (int16_t)tmp8u;
             if (++x >= xmax) {
@@ -623,7 +622,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp8u = rd_byte();
         for (int i = count; i > 0; i--) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &floor_ptr->grid_array[y][x];
             g_ptr->mimic = (int16_t)tmp8u;
             if (++x >= xmax) {
@@ -639,7 +638,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp16s = rd_s16b();
         for (int i = count; i > 0; i--) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &floor_ptr->grid_array[y][x];
             g_ptr->special = tmp16s;
             if (++x >= xmax) {
@@ -662,7 +661,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (h_older_than(1, 1, 1, 0)) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                grid_type *g_ptr;
+                Grid *g_ptr;
                 g_ptr = &floor_ptr->grid_array[y][x];
 
                 /* Very old */
@@ -683,7 +682,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (h_older_than(1, 3, 1, 0)) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                grid_type *g_ptr;
+                Grid *g_ptr;
                 g_ptr = &floor_ptr->grid_array[y][x];
 
                 /* Old CAVE_IN_MIRROR flag */
@@ -696,7 +695,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
                 } else if (g_ptr->info & CAVE_TRAP) {
                     g_ptr->info &= ~CAVE_TRAP;
                     g_ptr->mimic = g_ptr->feat;
-                    g_ptr->feat = choose_random_trap(player_ptr);
+                    g_ptr->feat = choose_random_trap(floor_ptr);
                 } else if (g_ptr->feat == OLD_FEAT_INVIS) {
                     g_ptr->mimic = feat_floor;
                     g_ptr->feat = feat_trap_open;
@@ -709,7 +708,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (!vanilla_town) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                grid_type *g_ptr;
+                Grid *g_ptr;
                 g_ptr = &floor_ptr->grid_array[y][x];
 
                 if ((g_ptr->special == OLD_QUEST_WATER_CAVE) && !floor_ptr->dun_level) {
@@ -766,7 +765,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         monster_loader->rd_monster(m_ptr);
         auto *g_ptr = &floor_ptr->grid_array[m_ptr->fy][m_ptr->fx];
         g_ptr->m_idx = m_idx;
-        m_ptr->get_real_r_ref().cur_num++;
+        m_ptr->get_real_monrace().cur_num++;
     }
 
     if (h_older_than(0, 3, 13) && !floor_ptr->dun_level && !floor_ptr->inside_arena) {

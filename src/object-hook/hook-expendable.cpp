@@ -1,6 +1,5 @@
-﻿#include "object-hook/hook-expendable.h"
+#include "object-hook/hook-expendable.h"
 #include "artifact/fixed-art-types.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "monster-race/monster-race.h"
 #include "object-enchant/item-feeling.h"
@@ -15,6 +14,7 @@
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/string-processor.h"
 
 /*!
@@ -37,7 +37,7 @@ bool item_tester_hook_eatable(PlayerType *player_ptr, const ItemEntity *o_ptr)
         }
     } else if (food_type == PlayerRaceFoodType::CORPSE) {
         auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        if ((o_ptr->bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE)) && angband_strchr("pht", monraces_info[corpse_r_idx].d_char)) {
+        if (o_ptr->is_corpse() && angband_strchr("pht", monraces_info[corpse_r_idx].d_char)) {
             return true;
         }
     }
@@ -62,12 +62,11 @@ bool item_tester_hook_quaff(PlayerType *player_ptr, const ItemEntity *o_ptr)
 }
 
 /*!
- * @brief 破壊可能なアイテムかを返す /
- * Determines whether an object can be destroyed, and makes fake inscription.
+ * @brief 破壊可能なアイテムかを返す
  * @param o_ptr 破壊可能かを確認したいオブジェクトの構造体参照ポインタ
  * @return オブジェクトが破壊可能ならばTRUEを返す
  */
-bool can_player_destroy_object(PlayerType *player_ptr, ItemEntity *o_ptr)
+bool can_player_destroy_object(ItemEntity *o_ptr)
 {
     /* Artifacts cannot be destroyed */
     if (!o_ptr->is_fixed_or_random_artifact()) {
@@ -82,8 +81,13 @@ bool can_player_destroy_object(PlayerType *player_ptr, ItemEntity *o_ptr)
 
         o_ptr->feeling = feel;
         o_ptr->ident |= IDENT_SENSE;
-        player_ptr->update |= (PU_COMBINATION);
-        player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
+        rfu.set_flag(StatusRecalculatingFlag::COMBINATION);
+        static constexpr auto flags = {
+            SubWindowRedrawingFlag::INVENTORY,
+            SubWindowRedrawingFlag::EQUIPMENT,
+        };
+        rfu.set_flags(flags);
         return false;
     }
 

@@ -1,6 +1,4 @@
-﻿#include "io/cursor.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
+#include "io/cursor.h"
 #include "core/stuff-handler.h"
 #include "effect/effect-characteristics.h"
 #include "effect/spells-effect-util.h"
@@ -10,10 +8,12 @@
 #include "grid/feature.h"
 #include "io/screen-util.h"
 #include "player/player-status.h"
+#include "system/angband-system.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "system/terrain-type-definition.h"
 #include "target/projection-path-calculator.h"
 #include "term/term-color-types.h"
@@ -45,8 +45,8 @@ void print_path(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    projection_path path_g(player_ptr, (project_length ? project_length : get_max_range(player_ptr)), player_ptr->y, player_ptr->x, y, x, PROJECT_PATH | PROJECT_THRU);
-    player_ptr->redraw |= (PR_MAP);
+    projection_path path_g(player_ptr, (project_length ? project_length : AngbandSystem::get_instance().get_max_range()), player_ptr->y, player_ptr->x, y, x, PROJECT_PATH | PROJECT_THRU);
+    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MAP);
     handle_stuff(player_ptr);
     for (const auto &[ny, nx] : path_g) {
         auto *g_ptr = &floor_ptr->grid_array[ny][nx];
@@ -105,9 +105,7 @@ void print_path(PlayerType *player_ptr, POSITION y, POSITION x)
  */
 bool change_panel(PlayerType *player_ptr, POSITION dy, POSITION dx)
 {
-    TERM_LEN wid, hgt;
-    get_screen_size(&wid, &hgt);
-
+    const auto &[wid, hgt] = get_screen_size();
     POSITION y = panel_row_min + dy * hgt / 2;
     POSITION x = panel_col_min + dx * wid / 2;
 
@@ -133,9 +131,9 @@ bool change_panel(PlayerType *player_ptr, POSITION dy, POSITION dx)
     panel_row_min = y;
     panel_col_min = x;
     panel_bounds_center();
-
-    player_ptr->update |= (PU_MONSTER_STATUSES);
-    player_ptr->redraw |= (PR_MAP);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+    rfu.set_flag(MainWindowRedrawingFlag::MAP);
     handle_stuff(player_ptr);
     return true;
 }
@@ -146,8 +144,7 @@ bool change_panel(PlayerType *player_ptr, POSITION dy, POSITION dx)
  */
 void panel_bounds_center(void)
 {
-    TERM_LEN wid, hgt;
-    get_screen_size(&wid, &hgt);
+    const auto &[wid, hgt] = get_screen_size();
     panel_row_max = panel_row_min + hgt - 1;
     panel_row_prt = panel_row_min - 1;
     panel_col_max = panel_col_min + wid - 1;

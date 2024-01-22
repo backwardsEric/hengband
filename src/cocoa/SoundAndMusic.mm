@@ -36,14 +36,16 @@
 - (BOOL)isSoundEnabled
 {
 	return ([self soundEnabledControl]
-		&& [self soundEnabledControl].state != NSOffState) ? YES : NO;
+		&& [self soundEnabledControl].state != NSControlStateValueOff)
+		? YES : NO;
 }
 
 
 - (void)setSoundEnabled:(BOOL)v
 {
 	if ([self soundEnabledControl]) {
-		[self soundEnabledControl].state = (v) ? NSOnState : NSOffState;
+		[self soundEnabledControl].state = (v) ?
+			NSControlStateValueOn : NSControlStateValueOff;
 	}
 }
 
@@ -71,14 +73,16 @@
 - (BOOL)isMusicEnabled
 {
 	return ([self musicEnabledControl]
-		&& [self musicEnabledControl].state != NSOffState) ? YES : NO;
+		&& [self musicEnabledControl].state != NSControlStateValueOff)
+		? YES : NO;
 }
 
 
 - (void)setMusicEnabled:(BOOL)v
 {
 	if ([self musicEnabledControl]) {
-		[self musicEnabledControl].state = (v) ? NSOnState : NSOffState;
+		[self musicEnabledControl].state = (v) ?
+			NSControlStateValueOn : NSControlStateValueOff;
 	}
 }
 
@@ -86,8 +90,8 @@
 - (BOOL)isMusicPausedWhenInactive
 {
 	return ([self musicPausedWhenInactiveControl]
-		&& [self musicPausedWhenInactiveControl].state != NSOnState)
-		? NO : YES;
+		&& [self musicPausedWhenInactiveControl].state
+		!= NSControlStateValueOn) ? NO : YES;
 }
 
 
@@ -95,7 +99,7 @@
 {
 	if ([self musicPausedWhenInactiveControl]) {
 		[self musicPausedWhenInactiveControl].state =
-			(v) ? NSOnState : NSOffState;
+			(v) ? NSControlStateValueOn : NSControlStateValueOff;
 	}
 }
 

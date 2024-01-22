@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief その他の小さなコマンド処理群 (探索、汎用グリッド処理、自殺/引退/切腹)
  * @date 2014/01/02
  * @author
@@ -15,7 +15,6 @@
 #include "cmd-action/cmd-attack.h"
 #include "core/asking-player.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
 #include "floor/geometry.h"
 #include "game-option/game-play-options.h"
 #include "grid/grid.h"
@@ -34,6 +33,7 @@
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "system/terrain-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -48,7 +48,7 @@ void do_cmd_search(PlayerType *player_ptr)
 {
     if (command_arg) {
         command_rep = command_arg - 1;
-        player_ptr->redraw |= PR_ACTION;
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::ACTION);
         command_arg = 0;
     }
 
@@ -67,37 +67,33 @@ static bool exe_alter(PlayerType *player_ptr)
         return false;
     }
 
-    POSITION y = player_ptr->y + ddy[dir];
-    POSITION x = player_ptr->x + ddx[dir];
-    grid_type *g_ptr;
-    g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-    FEAT_IDX feat = g_ptr->get_feat_mimic();
-    TerrainType *f_ptr;
-    f_ptr = &terrains_info[feat];
+    const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+    const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+    const auto &terrain = grid.get_terrain_mimic();
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    if (g_ptr->m_idx) {
-        do_cmd_attack(player_ptr, y, x, HISSATSU_NONE);
+    if (grid.m_idx) {
+        do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
         return false;
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::OPEN)) {
-        return exe_open(player_ptr, y, x);
+    if (terrain.flags.has(TerrainCharacteristics::OPEN)) {
+        return exe_open(player_ptr, pos.y, pos.x);
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::BASH)) {
-        return exe_bash(player_ptr, y, x, dir);
+    if (terrain.flags.has(TerrainCharacteristics::BASH)) {
+        return exe_bash(player_ptr, pos.y, pos.x, dir);
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::TUNNEL)) {
-        return exe_tunnel(player_ptr, y, x);
+    if (terrain.flags.has(TerrainCharacteristics::TUNNEL)) {
+        return exe_tunnel(player_ptr, pos.y, pos.x);
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::CLOSE)) {
-        return exe_close(player_ptr, y, x);
+    if (terrain.flags.has(TerrainCharacteristics::CLOSE)) {
+        return exe_close(player_ptr, pos.y, pos.x);
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::DISARM)) {
-        return exe_disarm(player_ptr, y, x, dir);
+    if (terrain.flags.has(TerrainCharacteristics::DISARM)) {
+        return exe_disarm(player_ptr, pos.y, pos.x, dir);
     }
 
     msg_print(_("何もない空中を攻撃した。", "You attack the empty air."));
@@ -114,7 +110,7 @@ void do_cmd_alter(PlayerType *player_ptr)
 
     if (command_arg) {
         command_rep = command_arg - 1;
-        player_ptr->redraw |= PR_ACTION;
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::ACTION);
         command_arg = 0;
     }
 
@@ -147,16 +143,21 @@ static void accept_winner_message(PlayerType *player_ptr)
         return;
     }
 
-    char buf[1024] = "";
     play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_WINNER);
-    do {
-        while (!get_string(_("*勝利*メッセージ: ", "*Winning* message: "), buf, sizeof(buf))) {
-            ;
+    std::optional<std::string> buf;
+    while (true) {
+        buf = input_string(_("*勝利*メッセージ: ", "*Winning* message: "), 1024);
+        if (!buf) {
+            continue;
         }
-    } while (!get_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), CHECK_NO_HISTORY));
 
-    if (buf[0]) {
-        player_ptr->last_message = string_make(buf);
+        if (input_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), UserCheck::NO_HISTORY)) {
+            break;
+        }
+    }
+
+    if (!buf->empty()) {
+        player_ptr->last_message = *buf;
         msg_print(player_ptr->last_message);
     }
 }
@@ -170,11 +171,11 @@ void do_cmd_suicide(PlayerType *player_ptr)
 {
     flush();
     if (w_ptr->total_winner) {
-        if (!get_check_strict(player_ptr, _("引退しますか? ", "Do you want to retire? "), CHECK_NO_HISTORY)) {
+        if (!input_check_strict(player_ptr, _("引退しますか? ", "Do you want to retire? "), UserCheck::NO_HISTORY)) {
             return;
         }
     } else {
-        if (!get_check(_("本当に自殺しますか？", "Do you really want to commit suicide? "))) {
+        if (!input_check(_("本当に自殺しますか？", "Do you really want to commit suicide? "))) {
             return;
         }
     }
@@ -183,22 +184,18 @@ void do_cmd_suicide(PlayerType *player_ptr)
         return;
     }
 
-    if (player_ptr->last_message) {
-        string_free(player_ptr->last_message);
-    }
-
-    player_ptr->last_message = nullptr;
+    player_ptr->last_message = "";
     player_ptr->playing = false;
     player_ptr->is_dead = true;
     player_ptr->leaving = true;
     if (w_ptr->total_winner) {
         accept_winner_message(player_ptr);
-        add_retired_class(player_ptr->pclass);
+        w_ptr->add_retired_class(player_ptr->pclass);
     } else {
         play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_GAMEOVER);
-        exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, _("ダンジョンの探索に絶望して自殺した。", "gave up all hope to commit suicide."));
-        exe_write_diary(player_ptr, DIARY_GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
-        exe_write_diary(player_ptr, DIARY_DESCRIPTION, 1, "\n\n\n\n");
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("ダンジョンの探索に絶望して自殺した。", "gave up all hope to commit suicide."));
+        exe_write_diary(player_ptr, DiaryKind::GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 1, "\n\n\n\n");
     }
 
     player_ptr->died_from = _("途中終了", "Quitting");

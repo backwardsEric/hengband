@@ -1,12 +1,10 @@
-﻿/*!
+/*!
  * @brief 落馬処理
  * @date 2020/05/31
  * @author Hourier
  */
 
 #include "pet/pet-fall-off.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "floor/cave.h"
@@ -25,6 +23,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "system/terrain-type-definition.h"
 #include "target/target-checker.h"
 #include "view/display-messages.h"
@@ -93,7 +92,7 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
     POSITION sx = 0;
     int sn = 0;
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
 
     if (!player_ptr->riding || player_ptr->wild_mode) {
         return false;
@@ -109,7 +108,7 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
             POSITION y = player_ptr->y + ddy_ddd[i];
             POSITION x = player_ptr->x + ddx_ddd[i];
 
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
 
             if (g_ptr->m_idx) {
@@ -160,16 +159,28 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
     player_ptr->pet_extra_flags &= ~(PF_TWO_HANDS);
     player_ptr->riding_ryoute = player_ptr->old_riding_ryoute = false;
 
-    player_ptr->update |= (PU_BONUS | PU_VIEW | PU_LITE | PU_FLOW | PU_MONSTER_LITE | PU_MONSTER_STATUSES);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::VIEW,
+        StatusRecalculatingFlag::LITE,
+        StatusRecalculatingFlag::FLOW,
+        StatusRecalculatingFlag::MONSTER_LITE,
+        StatusRecalculatingFlag::MONSTER_STATUSES,
+    };
+    rfu.set_flags(flags_srf);
     handle_stuff(player_ptr);
-
-    player_ptr->window_flags |= (PW_OVERHEAD | PW_DUNGEON);
-    player_ptr->redraw |= (PR_EXTRA);
-
-    /* Update health track of mount */
-    player_ptr->redraw |= (PR_UHEALTH);
-
-    bool fall_dam = false;
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::OVERHEAD,
+        SubWindowRedrawingFlag::DUNGEON,
+    };
+    rfu.set_flags(flags_swrf);
+    static constexpr auto flags_mwrf = {
+        MainWindowRedrawingFlag::EXTRA,
+        MainWindowRedrawingFlag::UHEALTH,
+    };
+    rfu.set_flags(flags_mwrf);
+    auto fall_dam = false;
     if (player_ptr->levitation && !force) {
         const auto m_name = monster_desc(player_ptr, m_ptr, 0);
         msg_format(_("%sから落ちたが、空中でうまく体勢を立て直して着地した。", "You are thrown from %s but make a good landing."), m_name.data());

@@ -1,4 +1,4 @@
-﻿#include "io/input-key-acceptor.h"
+#include "io/input-key-acceptor.h"
 #include "cmd-io/macro-util.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
@@ -6,6 +6,7 @@
 #include "game-option/map-screen-options.h"
 #include "io/signal-handlers.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
 #include "util/string-processor.h"
 #include "world/world.h"
@@ -53,7 +54,7 @@ static void all_term_fresh()
     term_activate(angband_terms[0]);
     term_locate(&x, &y);
 
-    p_ptr->window_flags |= PW_ALL;
+    RedrawingFlagsUpdater::get_instance().fill_up_sub_flags();
     handle_stuff(p_ptr);
 
     term_activate(angband_terms[0]);
@@ -173,7 +174,7 @@ static char inkey_aux(void)
         return ch;
     }
 
-    concptr pat = macro__pat[k].data();
+    concptr pat = macro_patterns[k].data();
     n = strlen(pat);
     while (p > n) {
         if (term_key_push(buf[--p])) {
@@ -186,7 +187,7 @@ static char inkey_aux(void)
         return 0;
     }
 
-    concptr act = macro__act[k].data();
+    concptr act = macro_actions[k].data();
 
     n = strlen(act);
     while (n > 0) {

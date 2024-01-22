@@ -1,4 +1,4 @@
-﻿#include "realm/realm-arcane.h"
+#include "realm/realm-arcane.h"
 #include "avatar/avatar.h"
 #include "cmd-action/cmd-spell.h"
 #include "core/asking-player.h"
@@ -594,7 +594,7 @@ std::optional<std::string> do_arcane_spell(PlayerType *player_ptr, SPELL_IDX spe
 
         {
             if (cast) {
-                if (!get_check(_("本当に他の階にテレポートしますか？", "Are you sure? (Teleport Level)"))) {
+                if (!input_check(_("本当に他の階にテレポートしますか？", "Are you sure? (Teleport Level)"))) {
                     return std::nullopt;
                 }
                 teleport_level(player_ptr, 0);
@@ -644,27 +644,18 @@ std::optional<std::string> do_arcane_spell(PlayerType *player_ptr, SPELL_IDX spe
             }
 
             if (cast) {
-                AttributeType type;
-
                 if (!get_aim_dir(player_ptr, &dir)) {
                     return std::nullopt;
                 }
 
-                switch (randint1(4)) {
-                case 1:
-                    type = AttributeType::FIRE;
-                    break;
-                case 2:
-                    type = AttributeType::ELEC;
-                    break;
-                case 3:
-                    type = AttributeType::COLD;
-                    break;
-                default:
-                    type = AttributeType::ACID;
-                    break;
-                }
+                constexpr static auto element_types = {
+                    AttributeType::FIRE,
+                    AttributeType::ELEC,
+                    AttributeType::COLD,
+                    AttributeType::ACID,
+                };
 
+                const auto type = rand_choice(element_types);
                 fire_ball(player_ptr, type, dir, dam, rad);
             }
         }

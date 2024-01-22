@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief アイテムが特定種別のものであるかどうかの判定関数群
  * @date 2018/12/15
  * @author deskull
@@ -197,7 +197,7 @@ static const std::map<ItemKindType, std::vector<int>> &create_baseitems_cache()
             continue;
         }
 
-        cache[tval].push_back(bi_key.sval().value());
+        cache[tval].push_back(*bi_key.sval());
     }
 
     return cache;
@@ -250,7 +250,7 @@ static short exe_lookup(const BaseitemKey &key)
 short lookup_baseitem_id(const BaseitemKey &key)
 {
     const auto sval = key.sval();
-    if (sval.has_value()) {
+    if (sval) {
         return exe_lookup(key);
     }
 
@@ -261,6 +261,5 @@ short lookup_baseitem_id(const BaseitemKey &key)
     }
 
     const auto &svals = itr->second;
-    const auto sval_indice = randint0(svals.size());
-    return exe_lookup({ key.tval(), svals.at(sval_indice) });
+    return exe_lookup({ key.tval(), rand_choice(svals) });
 }

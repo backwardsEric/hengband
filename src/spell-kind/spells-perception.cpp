@@ -1,7 +1,6 @@
-﻿#include "spell-kind/spells-perception.h"
+#include "spell-kind/spells-perception.h"
 #include "autopick/autopick.h"
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
@@ -24,6 +23,7 @@
 #include "perception/object-perception.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -67,22 +67,34 @@ bool identify_item(PlayerType *player_ptr, ItemEntity *o_ptr)
     }
 
     object_aware(player_ptr, o_ptr);
-    object_known(o_ptr);
+    o_ptr->mark_as_known();
     o_ptr->marked.set(OmType::TOUCHED);
 
-    set_bits(player_ptr->update, PU_BONUS | PU_COMBINATION | PU_REORDER);
-    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
-
-    angband_strcpy(record_o_name, known_item_name.data(), MAX_NLEN);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::COMBINATION,
+        StatusRecalculatingFlag::REORDER,
+    };
+    rfu.set_flags(flags_srf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::FLOOR_ITEMS,
+        SubWindowRedrawingFlag::FOUND_ITEMS,
+    };
+    rfu.set_flags(flags_swrf);
+    angband_strcpy(record_o_name, known_item_name, MAX_NLEN);
     record_turn = w_ptr->game_turn;
 
     const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
     if (record_fix_art && !old_known && o_ptr->is_fixed_artifact()) {
-        exe_write_diary(player_ptr, DIARY_ART, 0, item_name.data());
+        exe_write_diary(player_ptr, DiaryKind::ART, 0, item_name);
     }
 
     if (record_rand_art && !old_known && o_ptr->is_random_artifact()) {
-        exe_write_diary(player_ptr, DIARY_ART, 0, item_name.data());
+        exe_write_diary(player_ptr, DiaryKind::ART, 0, item_name);
     }
 
     return old_known;
@@ -114,26 +126,25 @@ bool ident_spell(PlayerType *player_ptr, bool only_equip)
         q = _("すべて鑑定済みです。 ", "All items are identified. ");
     }
 
-    concptr s = _("鑑定するべきアイテムがない。", "You have nothing to identify.");
-    OBJECT_IDX item;
-    ItemEntity *o_ptr;
-    o_ptr = choose_object(player_ptr, &item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
+    constexpr auto s = _("鑑定するべきアイテムがない。", "You have nothing to identify.");
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
     if (!o_ptr) {
         return false;
     }
 
-    bool old_known = identify_item(player_ptr, o_ptr);
+    auto old_known = identify_item(player_ptr, o_ptr);
 
     const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
-    if (item >= INVEN_MAIN_HAND) {
-        msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, item), item_name.data(), index_to_label(item));
-    } else if (item >= 0) {
-        msg_format(_("ザック中: %s(%c)。", "In your pack: %s (%c)."), item_name.data(), index_to_label(item));
+    if (i_idx >= INVEN_MAIN_HAND) {
+        msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, i_idx), item_name.data(), index_to_label(i_idx));
+    } else if (i_idx >= 0) {
+        msg_format(_("ザック中: %s(%c)。", "In your pack: %s (%c)."), item_name.data(), index_to_label(i_idx));
     } else {
         msg_format(_("床上: %s。", "On the ground: %s."), item_name.data());
     }
 
-    autopick_alter_item(player_ptr, item, (bool)(destroy_identify && !old_known));
+    autopick_alter_item(player_ptr, i_idx, (bool)(destroy_identify && !old_known));
     return true;
 }
 
@@ -163,34 +174,30 @@ bool identify_fully(PlayerType *player_ptr, bool only_equip)
         q = _("すべて*鑑定*済みです。 ", "All items are *identified*. ");
     }
 
-    concptr s = _("*鑑定*するべきアイテムがない。", "You have nothing to *identify*.");
+    constexpr auto s = _("*鑑定*するべきアイテムがない。", "You have nothing to *identify*.");
 
-    OBJECT_IDX item;
-    ItemEntity *o_ptr;
-    o_ptr = choose_object(player_ptr, &item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
     if (!o_ptr) {
         return false;
     }
 
-    bool old_known = identify_item(player_ptr, o_ptr);
+    auto old_known = identify_item(player_ptr, o_ptr);
 
     o_ptr->ident |= (IDENT_FULL_KNOWN);
 
-    /* Refrect item informaiton onto subwindows without updating inventory */
-    player_ptr->update &= ~(PU_COMBINATION | PU_REORDER);
-    handle_stuff(player_ptr);
-    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
+    window_stuff(player_ptr);
 
     const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
-    if (item >= INVEN_MAIN_HAND) {
-        msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, item), item_name.data(), index_to_label(item));
-    } else if (item >= 0) {
-        msg_format(_("ザック中: %s(%c)。", "In your pack: %s (%c)."), item_name.data(), index_to_label(item));
+    if (i_idx >= INVEN_MAIN_HAND) {
+        msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, i_idx), item_name.data(), index_to_label(i_idx));
+    } else if (i_idx >= 0) {
+        msg_format(_("ザック中: %s(%c)。", "In your pack: %s (%c)."), item_name.data(), index_to_label(i_idx));
     } else {
         msg_format(_("床上: %s。", "On the ground: %s."), item_name.data());
     }
 
     (void)screen_object(player_ptr, o_ptr, 0L);
-    autopick_alter_item(player_ptr, item, (bool)(destroy_identify && !old_known));
+    autopick_alter_item(player_ptr, i_idx, (bool)(destroy_identify && !old_known));
     return true;
 }

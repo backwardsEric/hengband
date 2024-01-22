@@ -1,4 +1,4 @@
-﻿#include "birth/game-play-initializer.h"
+#include "birth/game-play-initializer.h"
 #include "dungeon/quest.h"
 #include "floor/floor-util.h"
 #include "game-option/birth-options.h"
@@ -23,7 +23,10 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/enum-range.h"
+#include "util/string-processor.h"
 #include "world/world.h"
+#include <algorithm>
+#include <string>
 
 /*!
  * @brief ベースアイテム構造体の鑑定済みフラグをリセットする。
@@ -45,11 +48,7 @@ static void reset_baseitem_idenditication_flags()
  */
 void player_wipe_without_name(PlayerType *player_ptr)
 {
-    auto tmp = *player_ptr;
-    if (player_ptr->last_message) {
-        string_free(player_ptr->last_message);
-    }
-
+    const std::string backup_name = player_ptr->name;
     *player_ptr = {};
 
     // TODO: キャラ作成からゲーム開始までに  current_floor_ptr を参照しなければならない処理は今後整理して外す。
@@ -88,9 +87,9 @@ void player_wipe_without_name(PlayerType *player_ptr)
             continue;
         }
         r_ref.cur_num = 0;
-        r_ref.max_num = 100;
+        r_ref.max_num = MAX_MONSTER_NUM;
         if (r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
-            r_ref.max_num = 1;
+            r_ref.max_num = MAX_UNIQUE_NUM;
         } else if (r_ref.population_flags.has(MonsterPopulationType::NAZGUL)) {
             r_ref.max_num = MAX_NAZGUL_NUM;
         }
@@ -148,10 +147,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
 
     player_ptr->max_plv = player_ptr->lev = 1;
     player_ptr->arena_number = 0;
-    player_ptr->current_floor_ptr->inside_arena = false;
-    player_ptr->current_floor_ptr->quest_number = QuestId::NONE;
-
-    player_ptr->exit_bldg = true;
+    w_ptr->set_arena(true);
     player_ptr->knows_daily_bounty = false;
     update_gambling_monsters(player_ptr);
     player_ptr->muta.clear();
@@ -160,24 +156,13 @@ void player_wipe_without_name(PlayerType *player_ptr)
         player_ptr->virtues[i] = 0;
     }
 
-    player_ptr->dungeon_idx = 0;
     if (vanilla_town || ironman_downward) {
         player_ptr->recall_dungeon = DUNGEON_ANGBAND;
     } else {
         player_ptr->recall_dungeon = DUNGEON_GALGALS;
     }
 
-    memcpy(player_ptr->name, tmp.name, sizeof(tmp.name));
-
-#ifdef SET_UID
-    player_ptr->player_uid = tmp.player_uid;
-#ifdef SAFE_SETUID
-#ifdef SAFE_SETUID_POSIX
-    player_ptr->player_euid = tmp.player_euid;
-    player_ptr->player_egid = tmp.player_egid;
-#endif
-#endif
-#endif
+    std::copy_n(backup_name.begin(), backup_name.length(), player_ptr->name);
 }
 
 /*!

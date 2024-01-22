@@ -1,4 +1,4 @@
-﻿#include "monster/monster-compaction.h"
+#include "monster/monster-compaction.h"
 #include "core/stuff-handler.h"
 #include "game-option/play-record-options.h"
 #include "io/write-diary.h"
@@ -36,7 +36,7 @@ static void compact_monsters_aux(PlayerType *player_ptr, MONSTER_IDX i1, MONSTER
 
     POSITION y = m_ptr->fy;
     POSITION x = m_ptr->fx;
-    grid_type *g_ptr;
+    Grid *g_ptr;
     g_ptr = &floor_ptr->grid_array[y][x];
     g_ptr->m_idx = i2;
 
@@ -113,7 +113,7 @@ void compact_monsters(PlayerType *player_ptr, int size)
         int cur_dis = 5 * (20 - cnt);
         for (MONSTER_IDX i = 1; i < floor_ptr->m_max; i++) {
             auto *m_ptr = &floor_ptr->m_list[i];
-            auto *r_ptr = &monraces_info[m_ptr->r_idx];
+            auto *r_ptr = &m_ptr->get_monrace();
             if (!m_ptr->is_valid()) {
                 continue;
             }
@@ -142,7 +142,7 @@ void compact_monsters(PlayerType *player_ptr, int size)
 
             if (record_named_pet && m_ptr->is_named_pet()) {
                 const auto m_name = monster_desc(player_ptr, m_ptr, MD_INDEF_VISIBLE);
-                exe_write_diary(player_ptr, DIARY_NAMED_PET, RECORD_NAMED_PET_COMPACT, m_name.data());
+                exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_COMPACT, m_name);
             }
 
             delete_monster_idx(player_ptr, i);

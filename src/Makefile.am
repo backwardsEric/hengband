@@ -17,7 +17,6 @@ hengband_SOURCES = \
 	action/tunnel-execution.cpp action/tunnel-execution.h \
 	action/weapon-shield.cpp action/weapon-shield.h \
 	\
-	artifact/artifact-info.cpp artifact/artifact-info.h \
 	artifact/fixed-art-generator.cpp artifact/fixed-art-generator.h \
 	artifact/fixed-art-types.h \
 	artifact/random-art-activation.cpp artifact/random-art-activation.h \
@@ -152,8 +151,6 @@ hengband_SOURCES = \
 	core/magic-effects-timeout-reducer.cpp core/magic-effects-timeout-reducer.h \
 	core/object-compressor.cpp core/object-compressor.h \
 	core/player-processor.cpp core/player-processor.h \
-	core/player-redraw-types.h \
-	core/player-update-types.h \
 	core/score-util.cpp core/score-util.h \
 	core/scores.cpp core/scores.h \
 	core/show-file.cpp core/show-file.h \
@@ -194,6 +191,9 @@ hengband_SOURCES = \
 	effect/effect-player-switcher.cpp effect/effect-player-switcher.h \
 	effect/effect-processor.cpp effect/effect-processor.h \
 	effect/effect-characteristics.h \
+	\
+	external-lib/include-json.h \
+	external-lib/json.hpp \
 	\
 	flavor/flag-inscriptions-table.cpp flavor/flag-inscriptions-table.h \
 	flavor/flavor-describer.cpp flavor/flavor-describer.h \
@@ -296,7 +296,6 @@ hengband_SOURCES = \
 	io/exit-panic.cpp io/exit-panic.h \
 	io/files-util.cpp io/files-util.h \
 	io/gf-descriptions.cpp io/gf-descriptions.h \
-	io/inet.cpp io/inet.h \
 	io/input-key-acceptor.cpp io/input-key-acceptor.h \
 	io/input-key-processor.cpp io/input-key-processor.h \
 	io/input-key-requester.cpp io/input-key-requester.h \
@@ -397,8 +396,10 @@ hengband_SOURCES = \
 	main/scene-table-monster.cpp main/scene-table-monster.h \
 	main/sound-definitions-table.cpp main/sound-definitions-table.h \
 	main/sound-of-music.cpp main/sound-of-music.h \
-	main/x11-gamma-builder.cpp main/x11-gamma-builder.h \
-	main/x11-type-string.cpp main/x11-type-string.h \
+	\
+	main-unix/unix-user-ids.cpp main-unix/unix-user-ids.h \
+	main-unix/x11-gamma-builder.cpp main-unix/x11-gamma-builder.h \
+	main-unix/x11-type-string.cpp main-unix/x11-type-string.h \
 	\
 	market/arena-info-table.cpp market/arena-info-table.h \
 	market/building-initializer.cpp market/building-initializer.h \
@@ -526,6 +527,7 @@ hengband_SOURCES = \
 	monster-race/race-kind-flags.h \
 	monster-race/race-population-flags.h \
 	monster-race/race-resistance-mask.cpp monster-race/race-resistance-mask.h \
+	monster-race/race-sex-const.cpp monster-race/race-sex-const.h \
 	monster-race/race-speak-flags.h \
 	monster-race/race-visual-flags.h \
 	monster-race/race-wilderness-flags.h \
@@ -571,9 +573,13 @@ hengband_SOURCES = \
 	mutation/mutation-processor.cpp mutation/mutation-processor.h \
 	mutation/mutation-techniques.cpp mutation/mutation-techniques.h \
 	\
+	net/curl-easy-session.cpp net/curl-easy-session.h \
+	net/curl-slist.cpp net/curl-slist.h \
+	net/http-client.cpp net/http-client.h \
+	net/report-error.cpp net/report-error.h \
+	\
 	object/item-tester-hooker.cpp object/item-tester-hooker.h \
 	object/object-broken.cpp object/object-broken.h \
-	object/object-flags.cpp object/object-flags.h \
 	object/object-index-list.cpp object/object-index-list.h \
 	object/object-info.cpp object/object-info.h \
 	object/object-kind-hook.cpp object/object-kind-hook.h \
@@ -700,7 +706,6 @@ hengband_SOURCES = \
 	player-ability/player-strength.cpp player-ability/player-strength.h \
 	player-ability/player-wisdom.cpp player-ability/player-wisdom.h \
 	\
-	player-attack/player-attack-util.h \
 	player-attack/attack-chaos-effect.cpp player-attack/attack-chaos-effect.h \
 	player-attack/blood-sucking-processor.cpp player-attack/blood-sucking-processor.h \
 	player-attack/player-attack.cpp player-attack/player-attack.h \
@@ -910,6 +915,7 @@ hengband_SOURCES = \
 	system/alloc-entries.cpp system/alloc-entries.h \
 	system/angband.h \
 	system/angband-exceptions.h \
+	system/angband-system.h system/angband-system.cpp \
 	system/angband-version.cpp system/angband-version.h \
 	system/artifact-type-definition.cpp system/artifact-type-definition.h \
 	system/baseitem-info.cpp system/baseitem-info.h \
@@ -961,15 +967,17 @@ hengband_SOURCES = \
 	util/angband-files.cpp util/angband-files.h \
 	util/buffer-shaper.cpp util/buffer-shaper.h \
 	util/bit-flags-calculator.h \
+	util/candidate-selector.cpp util/candidate-selector.h \
 	util/enum-converter.h \
 	util/enum-range.h \
+	util/finalizer.h \
 	util/flag-group.h \
 	util/int-char-converter.h \
 	util/object-sort.cpp util/object-sort.h \
 	util/point-2d.h \
 	util/probability-table.h \
-	util/quarks.cpp util/quarks.h \
 	util/rng-xoshiro.cpp util/rng-xoshiro.h \
+	util/sha256.cpp util/sha256.h \
 	util/sort.cpp util/sort.h \
 	util/string-processor.cpp util/string-processor.h \
 	\
@@ -1033,6 +1041,7 @@ EXTRA_hengband_SOURCES = \
 	main-win/main-win-bg.cpp main-win/main-win-bg.h \
 	main-win/main-win-cfg-reader.cpp main-win/main-win-cfg-reader.h \
 	main-win/main-win-define.h \
+	main-win/main-win-exception.cpp main-win/main-win-exception.h \
 	main-win/main-win-file-utils.cpp main-win/main-win-file-utils.h \
 	main-win/main-win-mci.cpp main-win/main-win-mci.h \
 	main-win/main-win-menuitem.h \
@@ -1044,6 +1053,7 @@ EXTRA_hengband_SOURCES = \
 	main-win/main-win-utils.cpp main-win/main-win-utils.h \
 	main-win/wav-reader.cpp main-win/wav-reader.h \
 	main-cap.cpp \
+	test/test-sha256.cpp \
 	wall.bmp \
 	stdafx.cpp stdafx.h
 
@@ -1067,12 +1077,16 @@ cocoa_en_strings_files = \
 	cocoa/en.lproj/Localizable.strings \
 	cocoa/en.lproj/CommandMenu.strings \
 	cocoa/en.lproj/GraphicsMenu.strings
+cocoa_en_misc_files = \
+	cocoa/en.lproj/Credits.html
 cocoa_ja_strings_files = \
 	cocoa/ja.lproj/MainMenu.strings \
 	cocoa/ja.lproj/SoundAndMusic.strings \
 	cocoa/ja.lproj/Localizable.strings \
 	cocoa/ja.lproj/CommandMenu.strings \
 	cocoa/ja.lproj/GraphicsMenu.strings
+cocoa_ja_misc_files = \
+	cocoa/ja.lproj/Credits.html
 
 EXTRA_DIST = \
 	gcc-wrap \
@@ -1083,7 +1097,9 @@ EXTRA_DIST = \
 	$(cocoa_plist_files) \
 	$(cocoa_en_nib_files) \
 	$(cocoa_en_strings_files) \
-	$(cocoa_ja_strings_files)
+	$(cocoa_en_misc_files) \
+	$(cocoa_ja_strings_files) \
+	$(cocoa_ja_misc_files)
 
 if COCOA
 hengband_SOURCES += \
@@ -1128,9 +1144,11 @@ appplist_DATA = $(cocoa_plist_files)
 appplistdir = $(APPRES)
 appennib_DATA = $(cocoa_en_nib_files)
 appennibdir = $(APPRES)/Base.lproj
-appen_DATA = $(cocoa_en_strings_files)
+appen_DATA = $(cocoa_en_strings_files) $(cocoa_en_misc_files) \
+	../THIRD-PARTY-NOTICES.txt
 appendir = $(APPRES)/en.lproj
-appja_DATA = $(cocoa_ja_strings_files)
+appja_DATA = $(cocoa_ja_strings_files) $(cocoa_ja_misc_files) \
+	../THIRD-PARTY-NOTICES.txt
 appjadir = $(APPRES)/ja.lproj
 else
 EXTRA_hengband_SOURCES += main-cocoa.mm system/grafmode.h system/grafmode.cpp \
@@ -1142,7 +1160,7 @@ endif
 # directives in the cocoa/*.{h,mm} files when building here or rebuilding the
 # nib files in Xcode according to the procedure in cocoa/AppDelegate.m.
 DEFAULT_INCLUDES = -I$(srcdir) -I$(top_builddir)/src -I$(top_builddir)/src/cocoa
-CPPFLAGS += $(XFT_CFLAGS) $(libcurl_CFLAGS)
+CPPFLAGS += $(XFT_CFLAGS) $(libssl_CFLAGS) $(libcrypto_CFLAGS)
 LIBS += $(XFT_LIBS) $(libcurl_LIBS)
 COMPILE = $(srcdir)/gcc-wrap $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)

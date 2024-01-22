@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file game-data-initializer.cpp
  * @brief 変愚蛮怒のゲームデータ初期化定義
  */
@@ -19,10 +19,10 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
 #include "util/angband-files.h"
 #include "util/bit-flags-calculator.h"
-#include "util/quarks.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <algorithm>
@@ -56,14 +56,12 @@ void init_other(PlayerType *player_ptr)
     }
 
     max_dlv.assign(dungeons_info.size(), {});
-    floor_ptr->grid_array.assign(MAX_HGT, std::vector<grid_type>(MAX_WID));
+    floor_ptr->grid_array.assign(MAX_HGT, std::vector<Grid>(MAX_WID));
     init_gf_colors();
 
-    macro__pat.assign(MACRO_MAX, {});
-    macro__act.assign(MACRO_MAX, {});
-    macro__buf.assign(FILE_READ_BUFF_SIZE, {});
-    quark_init();
-
+    macro_patterns.assign(MACRO_MAX, {});
+    macro_actions.assign(MACRO_MAX, {});
+    macro_buffers.assign(FILE_READ_BUFF_SIZE, {});
     for (auto i = 0; option_info[i].o_desc; i++) {
         int os = option_info[i].o_set;
         int ob = option_info[i].o_bit;
@@ -71,38 +69,62 @@ void init_other(PlayerType *player_ptr)
             continue;
         }
 
-        option_mask[os] |= (1UL << ob);
+        g_option_masks[os] |= (1UL << ob);
         if (option_info[i].o_norm) {
-            set_bits(option_flag[os], 1U << ob);
+            set_bits(g_option_flags[os], 1U << ob);
         } else {
-            reset_bits(option_flag[os], 1U << ob);
+            reset_bits(g_option_flags[os], 1U << ob);
         }
     }
 
-    for (auto n = 0; n < 8; n++) {
+    for (auto &window_mask : g_window_masks) {
         for (auto i = 0; i < 32; i++) {
             if (window_flag_desc[i]) {
-                set_bits(window_mask[n], 1U << i);
+                window_mask.set(i2enum<SubWindowRedrawingFlag>(i));
             }
         }
     }
 
-    /*
-     *  Set the "default" window flags
-     *  Window 1 : Display messages
-     *  Window 2 : Display inven/equip
-     */
-    window_flag[1] = 1U << A_MAX;
-    window_flag[2] = 1U << 0;
-    (void)format("%s (%s).", "Mr.Hoge", MAINTAINER);
+    g_window_flags[1].clear();
+    g_window_flags[1].set(SubWindowRedrawingFlag::MESSAGE);
+    g_window_flags[2].clear();
+    g_window_flags[2].set(SubWindowRedrawingFlag::INVENTORY);
 }
 
 /*!
- * @brief オブジェクト配列を初期化する /
- * Initialize some other arrays
- * @return エラーコード
+ * @brief モンスター生成テーブルを初期化する
  */
-static void init_object_alloc()
+void init_monsters_alloc()
+{
+    std::vector<const MonsterRaceInfo *> elements;
+    for (const auto &[r_idx, r_ref] : monraces_info) {
+        if (MonsterRace(r_ref.idx).is_valid()) {
+            elements.push_back(&r_ref);
+        }
+    }
+
+    std::sort(elements.begin(), elements.end(),
+        [](const MonsterRaceInfo *r1_ptr, const MonsterRaceInfo *r2_ptr) {
+            return r1_ptr->level < r2_ptr->level;
+        });
+
+    alloc_race_table.clear();
+    for (const auto r_ptr : elements) {
+        if (r_ptr->rarity == 0) {
+            continue;
+        }
+
+        const auto index = static_cast<short>(r_ptr->idx);
+        const auto level = r_ptr->level;
+        const auto prob = static_cast<PROB>(100 / r_ptr->rarity);
+        alloc_race_table.push_back({ index, level, prob, prob });
+    }
+}
+
+/*!
+ * @brief アイテム生成テーブルを初期化する
+ */
+void init_items_alloc()
 {
     short num[MAX_DEPTH]{};
     auto alloc_kind_size = 0;
@@ -142,38 +164,4 @@ static void init_object_alloc()
             aux[x]++;
         }
     }
-}
-
-/*!
- * @brief モンスター配列と生成テーブルを初期化する /
- * Initialize some other arrays
- * @return エラーコード
- */
-void init_alloc(void)
-{
-    std::vector<const MonsterRaceInfo *> elements;
-    for (const auto &[r_idx, r_ref] : monraces_info) {
-        if (MonsterRace(r_ref.idx).is_valid()) {
-            elements.push_back(&r_ref);
-        }
-    }
-
-    std::sort(elements.begin(), elements.end(),
-        [](const MonsterRaceInfo *r1_ptr, const MonsterRaceInfo *r2_ptr) {
-            return r1_ptr->level < r2_ptr->level;
-        });
-
-    alloc_race_table.clear();
-    for (const auto r_ptr : elements) {
-        if (r_ptr->rarity == 0) {
-            continue;
-        }
-
-        const auto index = static_cast<short>(r_ptr->idx);
-        const auto level = r_ptr->level;
-        const auto prob = static_cast<PROB>(100 / r_ptr->rarity);
-        alloc_race_table.push_back({ index, level, prob, prob });
-    }
-
-    init_object_alloc();
 }

@@ -1,8 +1,7 @@
-﻿#include "dungeon/quest.h"
+#include "dungeon/quest.h"
 #include "artifact/fixed-art-types.h"
 #include "cmd-io/cmd-dump.h"
 #include "core/asking-player.h"
-#include "core/player-update-types.h"
 #include "floor/cave.h"
 #include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
@@ -13,6 +12,7 @@
 #include "locale/english.h"
 #include "main/music-definitions-table.h"
 #include "main/sound-of-music.h"
+#include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
@@ -29,7 +29,7 @@
 #include "player/player-status.h"
 #include "system/artifact-type-definition.h"
 #include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/floor-type-definition.h" // @todo 相互参照、将来的に削除する.
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
@@ -185,36 +185,37 @@ void determine_random_questor(PlayerType *player_ptr, QuestType *q_ptr)
     get_mon_num_prep(player_ptr, mon_hook_quest, nullptr);
     MonsterRaceId r_idx;
     while (true) {
-        /*
-         * Random monster 5 - 10 levels out of depth
-         * (depending on level)
-         */
-        r_idx = get_mon_num(player_ptr, 0, q_ptr->level + 5 + randint1(q_ptr->level / 10), GMN_ARENA);
-        MonsterRaceInfo *r_ptr;
-        r_ptr = &monraces_info[r_idx];
+        r_idx = get_mon_num(player_ptr, 0, q_ptr->level + 5 + randint1(q_ptr->level / 10), PM_ARENA);
+        const auto &monrace = monraces_info[r_idx];
+        if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+            continue;
+        }
 
-        if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
+        if (monrace.flags8 & RF8_NO_QUEST) {
             continue;
         }
-        if (r_ptr->flags8 & RF8_NO_QUEST) {
+
+        if (monrace.flags1 & RF1_QUESTOR) {
             continue;
         }
-        if (r_ptr->flags1 & RF1_QUESTOR) {
+
+        if (monrace.rarity > 100) {
             continue;
         }
-        if (r_ptr->rarity > 100) {
+
+        if (monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY)) {
             continue;
         }
-        if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY)) {
+
+        if (monrace.feature_flags.has(MonsterFeatureType::AQUATIC)) {
             continue;
         }
-        if (r_ptr->feature_flags.has(MonsterFeatureType::AQUATIC)) {
+
+        if (monrace.wilderness_flags.has(MonsterWildernessType::WILD_ONLY)) {
             continue;
         }
-        if (r_ptr->wilderness_flags.has(MonsterWildernessType::WILD_ONLY)) {
-            continue;
-        }
-        if (no_questor_or_bounty_uniques(r_idx)) {
+
+        if (MonraceList::get_instance().can_unify_separate(r_idx)) {
             continue;
         }
 
@@ -222,7 +223,7 @@ void determine_random_questor(PlayerType *player_ptr, QuestType *q_ptr)
          * Accept monsters that are 2 - 6 levels
          * out of depth depending on the quest level
          */
-        if (r_ptr->level > (q_ptr->level + (q_ptr->level / 20))) {
+        if (monrace.level > (q_ptr->level + (q_ptr->level / 20))) {
             break;
         }
     }
@@ -240,7 +241,7 @@ void record_quest_final_status(QuestType *q_ptr, PLAYER_LEVEL lev, QuestStatusTy
 {
     q_ptr->status = stat;
     q_ptr->complev = lev;
-    update_playtime();
+    w_ptr->update_playtime();
     q_ptr->comptime = w_ptr->play_time;
 }
 
@@ -257,12 +258,12 @@ void complete_quest(PlayerType *player_ptr, QuestId quest_num)
     switch (q_ptr->type) {
     case QuestKindType::RANDOM:
         if (record_rand_quest) {
-            exe_write_diary_quest(player_ptr, DIARY_RAND_QUEST_C, quest_num);
+            exe_write_diary_quest(player_ptr, DiaryKind::RAND_QUEST_C, quest_num);
         }
         break;
     default:
         if (record_fix_quest) {
-            exe_write_diary_quest(player_ptr, DIARY_FIX_QUEST_C, quest_num);
+            exe_write_diary_quest(player_ptr, DiaryKind::FIX_QUEST_C, quest_num);
         }
         break;
     }
@@ -340,65 +341,6 @@ void quest_discovery(QuestId q_idx)
 }
 
 /*!
- * @brief 新しく入ったダンジョンの階層に固定されている一般のクエストを探し出しIDを返す。
- * / Hack -- Check if a level is a "quest" level
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param level 検索対象になる階
- * @return クエストIDを返す。該当がない場合0を返す。
- */
-QuestId quest_number(PlayerType *player_ptr, DEPTH level)
-{
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    const auto &quest_list = QuestList::get_instance();
-    if (inside_quest(floor_ptr->quest_number)) {
-        return floor_ptr->quest_number;
-    }
-
-    for (const auto &[q_idx, quest] : quest_list) {
-        if (quest.status != QuestStatusType::TAKEN) {
-            continue;
-        }
-
-        auto depth_quest = (quest.type == QuestKindType::KILL_LEVEL);
-        depth_quest &= !(quest.flags & QUEST_FLAG_PRESET);
-        depth_quest &= (quest.level == level);
-        depth_quest &= (quest.dungeon == player_ptr->dungeon_idx);
-        if (depth_quest) {
-            return q_idx;
-        }
-    }
-
-    return random_quest_number(player_ptr, level);
-}
-
-/*!
- * @brief 新しく入ったダンジョンの階層に固定されているランダムクエストを探し出しIDを返す。
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param level 検索対象になる階
- * @return クエストIDを返す。該当がない場合0を返す。
- */
-QuestId random_quest_number(PlayerType *player_ptr, DEPTH level)
-{
-    if (player_ptr->dungeon_idx != DUNGEON_ANGBAND) {
-        return QuestId::NONE;
-    }
-
-    const auto &quest_list = QuestList::get_instance();
-    for (auto q_idx : EnumRange(QuestId::RANDOM_QUEST1, QuestId::RANDOM_QUEST10)) {
-        const auto &quest = quest_list[q_idx];
-        auto is_random_quest = (quest.type == QuestKindType::RANDOM);
-        is_random_quest &= (quest.status == QuestStatusType::TAKEN);
-        is_random_quest &= (quest.level == level);
-        is_random_quest &= (quest.dungeon == DUNGEON_ANGBAND);
-        if (is_random_quest) {
-            return q_idx;
-        }
-    }
-
-    return QuestId::NONE;
-}
-
-/*!
  * @brief クエスト階層から離脱する際の処理
  * @param player_ptr プレイヤーへの参照ポインタ
  */
@@ -438,13 +380,13 @@ void leave_quest_check(PlayerType *player_ptr)
     /* Record finishing a quest */
     if (q_ptr->type == QuestKindType::RANDOM) {
         if (record_rand_quest) {
-            exe_write_diary_quest(player_ptr, DIARY_RAND_QUEST_F, leaving_quest);
+            exe_write_diary_quest(player_ptr, DiaryKind::RAND_QUEST_F, leaving_quest);
         }
         return;
     }
 
     if (record_fix_quest) {
-        exe_write_diary_quest(player_ptr, DIARY_FIX_QUEST_F, leaving_quest);
+        exe_write_diary_quest(player_ptr, DiaryKind::FIX_QUEST_F, leaving_quest);
     }
 }
 
@@ -468,7 +410,7 @@ void leave_tower_check(PlayerType *player_ptr)
     }
     tower1.status = QuestStatusType::FAILED;
     tower1.complev = player_ptr->lev;
-    update_playtime();
+    w_ptr->update_playtime();
     tower1.comptime = w_ptr->play_time;
 }
 
@@ -504,7 +446,7 @@ void do_cmd_quest(PlayerType *player_ptr)
     }
 
     msg_print(_("ここにはクエストへの入口があります。", "There is an entry of a quest."));
-    if (!get_check(_("クエストに入りますか？", "Do you enter? "))) {
+    if (!input_check(_("クエストに入りますか？", "Do you enter? "))) {
         return;
     }
     if (is_echizen(player_ptr)) {

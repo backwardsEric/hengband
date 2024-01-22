@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ベースアイテム情報の構造体 / Information about object "kinds", including player knowledge.
  * @date 2019/05/01
  * @author deskull
@@ -13,23 +13,18 @@
 #include "sv-definition/sv-bow-types.h"
 #include "sv-definition/sv-food-types.h"
 #include "sv-definition/sv-lite-types.h"
+#include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-rod-types.h"
 #include "sv-definition/sv-weapon-types.h"
+#include "system/angband-exceptions.h"
 #include <set>
-#include <stdexcept>
 #include <unordered_map>
 
 namespace {
 constexpr auto ITEM_NOT_BOW = "This item is not a bow!";
 constexpr auto ITEM_NOT_ROD = "This item is not a rod!";
 constexpr auto ITEM_NOT_LITE = "This item is not a lite!";
-}
-
-BaseitemKey::BaseitemKey(const ItemKindType type_value, const std::optional<int> &subtype_value)
-    : type_value(type_value)
-    , subtype_value(subtype_value)
-{
 }
 
 bool BaseitemKey::operator==(const BaseitemKey &other) const
@@ -61,17 +56,22 @@ std::optional<int> BaseitemKey::sval() const
     return this->subtype_value;
 }
 
+bool BaseitemKey::is(ItemKindType tval) const
+{
+    return this->type_value == tval;
+}
+
 /*!
  * @brief 射撃武器に対応する矢/弾薬のベースアイテムIDを返す
  * @return 対応する矢/弾薬のベースアイテムID
  */
 ItemKindType BaseitemKey::get_arrow_kind() const
 {
-    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value.has_value()) {
-        throw std::logic_error(ITEM_NOT_BOW);
+    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value) {
+        THROW_EXCEPTION(std::logic_error, ITEM_NOT_BOW);
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_SLING:
         return ItemKindType::SHOT;
     case SV_SHORT_BOW:
@@ -278,32 +278,7 @@ bool BaseitemKey::is_weapon() const
 
 bool BaseitemKey::is_equipement() const
 {
-    switch (this->type_value) {
-    case ItemKindType::SHOT:
-    case ItemKindType::ARROW:
-    case ItemKindType::BOLT:
-    case ItemKindType::BOW:
-    case ItemKindType::DIGGING:
-    case ItemKindType::HAFTED:
-    case ItemKindType::POLEARM:
-    case ItemKindType::SWORD:
-    case ItemKindType::BOOTS:
-    case ItemKindType::GLOVES:
-    case ItemKindType::HELM:
-    case ItemKindType::CROWN:
-    case ItemKindType::SHIELD:
-    case ItemKindType::CLOAK:
-    case ItemKindType::SOFT_ARMOR:
-    case ItemKindType::HARD_ARMOR:
-    case ItemKindType::DRAG_ARMOR:
-    case ItemKindType::LITE:
-    case ItemKindType::AMULET:
-    case ItemKindType::RING:
-    case ItemKindType::CARD:
-        return true;
-    default:
-        return false;
-    }
+    return this->is_wearable() || this->is_ammo();
 }
 
 bool BaseitemKey::is_melee_ammo() const
@@ -343,11 +318,11 @@ bool BaseitemKey::is_broken_weapon() const
         return false;
     }
 
-    if (!this->subtype_value.has_value()) {
+    if (!this->subtype_value) {
         return false;
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_BROKEN_DAGGER:
     case SV_BROKEN_SWORD:
         return true;
@@ -401,13 +376,13 @@ bool BaseitemKey::is_rare() const
         { ItemKindType::DRAG_ARMOR, { /* Any */ } },
     };
 
-    if (!this->subtype_value.has_value()) {
+    if (!this->subtype_value) {
         return false;
     }
 
     if (auto it = rare_table.find(this->type_value); it != rare_table.end()) {
         const auto &svals = it->second;
-        return svals.empty() || (svals.find(this->subtype_value.value()) != svals.end());
+        return svals.empty() || (svals.find(*this->subtype_value) != svals.end());
     }
 
     return false;
@@ -415,11 +390,11 @@ bool BaseitemKey::is_rare() const
 
 short BaseitemKey::get_bow_energy() const
 {
-    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value.has_value()) {
-        throw std::logic_error(ITEM_NOT_BOW);
+    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value) {
+        THROW_EXCEPTION(std::logic_error, ITEM_NOT_BOW);
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_SLING:
         return 8000;
     case SV_NAMAKE_BOW:
@@ -435,11 +410,11 @@ short BaseitemKey::get_bow_energy() const
 
 int BaseitemKey::get_arrow_magnification() const
 {
-    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value.has_value()) {
-        throw std::logic_error(ITEM_NOT_BOW);
+    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value) {
+        THROW_EXCEPTION(std::logic_error, ITEM_NOT_BOW);
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_SLING:
     case SV_SHORT_BOW:
         return 2;
@@ -456,11 +431,11 @@ int BaseitemKey::get_arrow_magnification() const
 
 bool BaseitemKey::is_aiming_rod() const
 {
-    if ((this->type_value != ItemKindType::ROD) || !this->subtype_value.has_value()) {
-        throw std::logic_error(ITEM_NOT_ROD);
+    if ((this->type_value != ItemKindType::ROD) || !this->subtype_value) {
+        THROW_EXCEPTION(std::logic_error, ITEM_NOT_ROD);
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_ROD_TELEPORT_AWAY:
     case SV_ROD_DISARMING:
     case SV_ROD_LITE:
@@ -485,11 +460,11 @@ bool BaseitemKey::is_aiming_rod() const
 
 bool BaseitemKey::is_lite_requiring_fuel() const
 {
-    if ((this->type_value != ItemKindType::LITE) || !this->subtype_value.has_value()) {
-        throw std::logic_error(ITEM_NOT_LITE);
+    if ((this->type_value != ItemKindType::LITE) || !this->subtype_value) {
+        THROW_EXCEPTION(std::logic_error, ITEM_NOT_LITE);
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_LITE_TORCH:
     case SV_LITE_LANTERN:
         return true;
@@ -525,11 +500,11 @@ bool BaseitemKey::is_armour() const
 
 bool BaseitemKey::is_cross_bow() const
 {
-    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value.has_value()) {
+    if ((this->type_value != ItemKindType::BOW) || !this->subtype_value) {
         return false;
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_LIGHT_XBOW:
     case SV_HEAVY_XBOW:
         return true;
@@ -538,13 +513,68 @@ bool BaseitemKey::is_cross_bow() const
     }
 }
 
+bool BaseitemKey::should_refuse_enchant() const
+{
+    return *this == BaseitemKey(ItemKindType::SWORD, SV_POISON_NEEDLE);
+}
+
+/*!
+ * @brief ベースアイテムが発動効果を持つ時、その記述を生成する
+ * @return 発動効果
+ */
+std::string BaseitemKey::explain_activation() const
+{
+    switch (this->type_value) {
+    case ItemKindType::WHISTLE:
+        return _("ペット呼び寄せ : 100+d100ターン毎", "call pet every 100+d100 turns");
+    case ItemKindType::CAPTURE:
+        return _("モンスターを捕える、又は解放する。", "captures or releases a monster.");
+    default:
+        return _("何も起きない", "Nothing");
+    }
+}
+
+bool BaseitemKey::is_convertible() const
+{
+    auto is_convertible = this->is(ItemKindType::JUNK) || this->is(ItemKindType::SKELETON);
+    is_convertible |= *this == BaseitemKey(ItemKindType::CORPSE, SV_SKELETON);
+    return is_convertible;
+}
+
+bool BaseitemKey::is_fuel() const
+{
+    auto is_fuel = *this == BaseitemKey(ItemKindType::LITE, SV_LITE_TORCH);
+    is_fuel |= *this == BaseitemKey(ItemKindType::LITE, SV_LITE_LANTERN);
+    is_fuel |= *this == BaseitemKey(ItemKindType::FLASK, SV_FLASK_OIL);
+    return is_fuel;
+}
+
+bool BaseitemKey::is_lance() const
+{
+    auto is_lance = *this == BaseitemKey(ItemKindType::POLEARM, SV_LANCE);
+    is_lance |= *this == BaseitemKey(ItemKindType::POLEARM, SV_HEAVY_LANCE);
+    return is_lance;
+}
+
+bool BaseitemKey::is_readable() const
+{
+    auto can_read = this->is(ItemKindType::SCROLL);
+    can_read |= this->is(ItemKindType::PARCHMENT);
+    return can_read;
+}
+
+bool BaseitemKey::is_corpse() const
+{
+    return *this == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE);
+}
+
 bool BaseitemKey::is_mushrooms() const
 {
-    if (!this->subtype_value.has_value()) {
+    if (!this->subtype_value) {
         return false;
     }
 
-    switch (this->subtype_value.value()) {
+    switch (*this->subtype_value) {
     case SV_FOOD_POISON:
     case SV_FOOD_BLINDNESS:
     case SV_FOOD_PARANOIA:
@@ -613,6 +643,14 @@ void BaseitemInfo::decide_easy_know()
         this->easy_know = false;
         return;
     }
+}
+
+/*!
+ * @brief オブジェクトを試行済にする
+ */
+void BaseitemInfo::mark_as_tried()
+{
+    this->tried = true;
 }
 
 std::vector<BaseitemInfo> baseitems_info;

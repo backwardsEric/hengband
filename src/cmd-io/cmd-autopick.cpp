@@ -1,4 +1,4 @@
-﻿#include "cmd-io/cmd-autopick.h"
+#include "cmd-io/cmd-autopick.h"
 #include "autopick/autopick-command-menu.h"
 #include "autopick/autopick-commands-table.h"
 #include "autopick/autopick-dirty-flags.h"
@@ -118,7 +118,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     tb->old_wid = tb->old_hgt = -1;
     tb->old_com_id = 0;
 
-    tb->yank = nullptr;
+    tb->yank.clear();
     tb->search_o_ptr = nullptr;
     tb->search_str = nullptr;
     tb->last_destroyed = nullptr;
@@ -137,7 +137,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
         old_autosave_turn = w_ptr->game_turn;
     }
 
-    update_playtime();
+    w_ptr->update_playtime();
     init_autopick();
     if (autopick_last_destroyed_object.is_valid()) {
         autopick_entry_from_object(player_ptr, entry, &autopick_last_destroyed_object);
@@ -204,7 +204,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     const auto filename = pickpref_filename(player_ptr, tb->filename_mode);
 
     if (quit == APE_QUIT_AND_SAVE) {
-        write_text_lines(filename.data(), tb->lines_list);
+        write_text_lines(filename, tb->lines_list);
     }
 
     free_text_lines(tb->lines_list);
@@ -212,7 +212,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
     string_free(tb->last_destroyed);
     kill_yank_chain(tb);
 
-    process_autopick_file(player_ptr, filename.data());
+    process_autopick_file(player_ptr, filename);
     w_ptr->start_time = (uint32_t)time(nullptr);
     cx_save = tb->cx;
     cy_save = tb->cy;

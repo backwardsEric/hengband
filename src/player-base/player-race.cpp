@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief プレイヤーの種族に基づく耐性・能力の判定処理等を行うクラス
  * @date 2021/09/08
  * @author Hourier
@@ -9,6 +9,7 @@
 #include "player-base/player-class.h"
 #include "player-info/mimic-info-table.h"
 #include "player/race-info-table.h"
+#include "system/angband-exceptions.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
@@ -44,8 +45,8 @@ TrFlags PlayerRace::tr_flags() const
         if (this->player_ptr->lev < cond.level) {
             continue;
         }
-        if (cond.pclass.has_value()) {
-            auto is_class_equal = PlayerClass(this->player_ptr).equals(cond.pclass.value());
+        if (cond.pclass) {
+            auto is_class_equal = PlayerClass(this->player_ptr).equals(*cond.pclass);
             if (cond.not_class && is_class_equal) {
                 continue;
             }
@@ -79,7 +80,7 @@ const player_race_info *PlayerRace::get_info() const
     case MimicKindType::VAMPIRE:
         return &mimic_info.at(this->player_ptr->mimic_form);
     default:
-        throw("Invalid MimicKindType was specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid MimicKindType was specified!");
     }
 }
 
@@ -148,9 +149,9 @@ int16_t PlayerRace::speed() const
     }
 
     if (this->equals(PlayerRaceType::MERFOLK)) {
-        auto *floor_ptr = this->player_ptr->current_floor_ptr;
-        auto *f_ptr = &terrains_info[floor_ptr->grid_array[this->player_ptr->y][this->player_ptr->x].feat];
-        if (f_ptr->flags.has(TerrainCharacteristics::WATER)) {
+        const auto &floor = *this->player_ptr->current_floor_ptr;
+        const auto &terrain = floor.get_grid(this->player_ptr->get_position()).get_terrain();
+        if (terrain.flags.has(TerrainCharacteristics::WATER)) {
             result += (2 + this->player_ptr->lev / 10);
         } else if (!this->player_ptr->levitation) {
             result -= 2;
@@ -167,7 +168,7 @@ int16_t PlayerRace::speed() const
     case MimicKindType::VAMPIRE:
         return result + 3;
     default:
-        throw("Invalid MimicKindType was specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid MimicKindType was specified!");
     }
 }
 
@@ -247,4 +248,25 @@ int16_t PlayerRace::additional_constitution() const
     }
 
     return result;
+}
+
+/*!
+ * @brief 救援召喚時のモンスターシンボルを返す
+ * @param player_ptr プレイヤー情報への参照ポインタ
+ * @return シンボル文字
+ */
+char PlayerRace::get_summon_symbol() const
+{
+    auto symbol = 'N';
+    auto mmc_ptr = this->get_info();
+
+    auto l = strlen(mmc_ptr->symbol);
+    auto mul = 1;
+    for (size_t i = 0; i < l; i++) {
+        if (one_in_(mul)) {
+            symbol = mmc_ptr->symbol[i];
+        }
+        mul *= 13;
+    }
+    return symbol;
 }

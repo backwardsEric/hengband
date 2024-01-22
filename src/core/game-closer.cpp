@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @file game-closer.cpp
  * @brief ゲーム終了処理
  * @author Hourier
@@ -48,8 +48,8 @@ static void send_world_score_on_closing(PlayerType *player_ptr, bool do_send)
         return;
     }
 
-    if (!get_check_strict(
-            player_ptr, _("後でスコアを登録するために待機しますか？", "Stand by for later score registration? "), (CHECK_NO_ESCAPE | CHECK_NO_HISTORY))) {
+    if (!input_check_strict(
+            player_ptr, _("後でスコアを登録するために待機しますか？", "Stand by for later score registration? "), { UserCheck::NO_ESCAPE, UserCheck::NO_HISTORY })) {
         return;
     }
 
@@ -124,9 +124,9 @@ static void kingly(PlayerType *player_ptr)
 #endif
 
     if (!seppuku) {
-        exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, _("ダンジョンの探索から引退した。", "retired exploring dungeons."));
-        exe_write_diary(player_ptr, DIARY_GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
-        exe_write_diary(player_ptr, DIARY_DESCRIPTION, 1, "\n\n\n\n");
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("ダンジョンの探索から引退した。", "retired exploring dungeons."));
+        exe_write_diary(player_ptr, DiaryKind::GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 1, "\n\n\n\n");
     }
 
     flush();
@@ -150,10 +150,9 @@ void close_game(PlayerType *player_ptr)
     signals_ignore_tstp();
 
     w_ptr->character_icky_depth = 1;
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_APEX, "scores.raw");
-    safe_setuid_grab(player_ptr);
-    highscore_fd = fd_open(buf, O_RDWR);
+    const auto &path = path_build(ANGBAND_DIR_APEX, "scores.raw");
+    safe_setuid_grab();
+    highscore_fd = fd_open(path, O_RDWR);
     safe_setuid_drop();
 
     if (!check_death(player_ptr)) {
@@ -165,9 +164,11 @@ void close_game(PlayerType *player_ptr)
         kingly(player_ptr);
     }
 
+    print_tomb(player_ptr);
+
     auto do_send = true;
-    if (!cheat_save || get_check(_("死んだデータをセーブしますか？ ", "Save death? "))) {
-        update_playtime();
+    if (!cheat_save || input_check(_("死んだデータをセーブしますか？ ", "Save death? "))) {
+        w_ptr->update_playtime();
         w_ptr->sf_play_time += w_ptr->play_time;
 
         if (!save_player(player_ptr, SaveType::CLOSE_GAME)) {
@@ -177,7 +178,6 @@ void close_game(PlayerType *player_ptr)
         do_send = false;
     }
 
-    print_tomb(player_ptr);
     flush();
     show_death_info(player_ptr);
     term_clear();

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 魔法によるプレイヤーへの効果まとめ
  * @date 2020/04/29
  * @author Hourier
@@ -123,9 +123,9 @@ static bool process_bolt_reflection(PlayerType *player_ptr, EffectPlayerType *ep
  * @param x 目標X座標
  * @return 当たらなかったらFALSE、反射したらTRUE、当たったらCONTINUE
  */
-static ProcessResult check_continue_player_effect(PlayerType *player_ptr, EffectPlayerType *ep_ptr, POSITION y, POSITION x, project_func project)
+static ProcessResult check_continue_player_effect(PlayerType *player_ptr, EffectPlayerType *ep_ptr, const Pos2D &pos, project_func project)
 {
-    if (!player_bold(player_ptr, y, x)) {
+    if (!player_ptr->is_located_at(pos)) {
         return ProcessResult::PROCESS_FALSE;
     }
 
@@ -158,8 +158,8 @@ static void describe_effect_source(PlayerType *player_ptr, EffectPlayerType *ep_
 {
     if (ep_ptr->who > 0) {
         ep_ptr->m_ptr = &player_ptr->current_floor_ptr->m_list[ep_ptr->who];
-        ep_ptr->rlev = (&monraces_info[ep_ptr->m_ptr->r_idx])->level >= 1 ? (&monraces_info[ep_ptr->m_ptr->r_idx])->level : 1;
-        angband_strcpy(ep_ptr->m_name, monster_desc(player_ptr, ep_ptr->m_ptr, 0).data(), sizeof(ep_ptr->m_name));
+        ep_ptr->rlev = ep_ptr->m_ptr->get_monrace().level >= 1 ? ep_ptr->m_ptr->get_monrace().level : 1;
+        angband_strcpy(ep_ptr->m_name, monster_desc(player_ptr, ep_ptr->m_ptr, 0), sizeof(ep_ptr->m_name));
         angband_strcpy(ep_ptr->killer, who_name, sizeof(ep_ptr->killer));
         return;
     }
@@ -197,7 +197,7 @@ bool affect_player(MONSTER_IDX who, PlayerType *player_ptr, concptr who_name, in
 {
     EffectPlayerType tmp_effect(who, dam, attribute, flag);
     auto *ep_ptr = &tmp_effect;
-    auto check_result = check_continue_player_effect(player_ptr, ep_ptr, y, x, project);
+    auto check_result = check_continue_player_effect(player_ptr, ep_ptr, { y, x }, project);
     if (check_result != ProcessResult::PROCESS_CONTINUE) {
         return check_result == ProcessResult::PROCESS_TRUE;
     }

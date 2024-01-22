@@ -1,6 +1,5 @@
-﻿#include "effect/effect-monster-oldies.h"
+#include "effect/effect-monster-oldies.h"
 #include "avatar/avatar.h"
-#include "core/player-redraw-types.h"
 #include "effect/effect-monster-util.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-race/monster-race.h"
@@ -16,11 +15,12 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
 // Powerful monsters can resist.
-ProcessResult effect_monster_old_poly(effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_poly(EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -41,18 +41,17 @@ ProcessResult effect_monster_old_poly(effect_monster_type *em_ptr)
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_old_clone(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_clone(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
     }
 
-    bool has_resistance = (player_ptr->current_floor_ptr->inside_arena);
+    auto has_resistance = (player_ptr->current_floor_ptr->inside_arena);
     has_resistance |= em_ptr->m_ptr->is_pet();
     has_resistance |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
     has_resistance |= any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
-    has_resistance |= em_ptr->r_ptr->population_flags.has(MonsterPopulationType::NAZGUL);
-    has_resistance |= any_bits(em_ptr->r_ptr->flags7, RF7_UNIQUE2);
+    has_resistance |= em_ptr->r_ptr->population_flags.has_any_of({ MonsterPopulationType::NAZGUL, MonsterPopulationType::ONLY_ONE });
 
     if (has_resistance) {
         em_ptr->note = _("には効果がなかった。", " is unaffected.");
@@ -69,7 +68,7 @@ ProcessResult effect_monster_old_clone(PlayerType *player_ptr, effect_monster_ty
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_star_heal(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_star_heal(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -84,12 +83,14 @@ ProcessResult effect_monster_star_heal(PlayerType *player_ptr, effect_monster_ty
         em_ptr->m_ptr->maxhp = em_ptr->m_ptr->max_maxhp;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (!em_ptr->dam) {
         if (player_ptr->health_who == em_ptr->g_ptr->m_idx) {
-            player_ptr->redraw |= (PR_HEALTH);
+            rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
         }
+
         if (player_ptr->riding == em_ptr->g_ptr->m_idx) {
-            player_ptr->redraw |= (PR_UHEALTH);
+            rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
         }
 
         return ProcessResult::PROCESS_FALSE;
@@ -100,7 +101,7 @@ ProcessResult effect_monster_star_heal(PlayerType *player_ptr, effect_monster_ty
 }
 
 // who == 0ならばプレイヤーなので、それの判定.
-static void effect_monster_old_heal_check_player(PlayerType *player_ptr, effect_monster_type *em_ptr)
+static void effect_monster_old_heal_check_player(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->who != 0) {
         return;
@@ -126,7 +127,7 @@ static void effect_monster_old_heal_check_player(PlayerType *player_ptr, effect_
     }
 }
 
-static void effect_monster_old_heal_recovery(PlayerType *player_ptr, effect_monster_type *em_ptr)
+static void effect_monster_old_heal_recovery(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->m_ptr->get_remaining_stun()) {
         if (em_ptr->seen_msg) {
@@ -153,7 +154,7 @@ static void effect_monster_old_heal_recovery(PlayerType *player_ptr, effect_mons
     }
 }
 
-ProcessResult effect_monster_old_heal(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_heal(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -177,11 +178,13 @@ ProcessResult effect_monster_old_heal(PlayerType *player_ptr, effect_monster_typ
         }
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (player_ptr->health_who == em_ptr->g_ptr->m_idx) {
-        player_ptr->redraw |= (PR_HEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
     }
+
     if (player_ptr->riding == em_ptr->g_ptr->m_idx) {
-        player_ptr->redraw |= (PR_UHEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
     em_ptr->note = _("は体力を回復したようだ。", " looks healthier.");
@@ -189,7 +192,7 @@ ProcessResult effect_monster_old_heal(PlayerType *player_ptr, effect_monster_typ
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_old_speed(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_speed(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -212,7 +215,7 @@ ProcessResult effect_monster_old_speed(PlayerType *player_ptr, effect_monster_ty
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_old_slow(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_slow(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -241,20 +244,20 @@ ProcessResult effect_monster_old_slow(PlayerType *player_ptr, effect_monster_typ
  * @todo 「ユニークは (魔法では)常に眠らない」はMonsterRaceDefinitionの趣旨に反すると思われる
  * 眠る確率を半分にするとかしておいた方が良さそう
  */
-ProcessResult effect_monster_old_sleep(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_sleep(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
     }
 
     bool has_resistance = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    has_resistance |= any_bits(em_ptr->r_ptr->flags3, RF3_NO_SLEEP);
+    has_resistance |= em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_SLEEP);
     has_resistance |= (em_ptr->r_ptr->level > randint1(std::max(1, em_ptr->dam - 10)) + 10);
 
     if (has_resistance) {
-        if (em_ptr->r_ptr->flags3 & RF3_NO_SLEEP) {
+        if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_SLEEP)) {
             if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
-                em_ptr->r_ptr->r_flags3 |= (RF3_NO_SLEEP);
+                em_ptr->r_ptr->resistance_flags.set(MonsterResistanceType::NO_SLEEP);
             }
         }
 
@@ -273,7 +276,7 @@ ProcessResult effect_monster_old_sleep(PlayerType *player_ptr, effect_monster_ty
  * @todo 「ユニークは (魔法では)常に混乱しない」はMonsterRaceDefinitionの趣旨に反すると思われる
  * 眠る確率を半分にするとかしておいた方が良さそう
  */
-ProcessResult effect_monster_old_conf(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_old_conf(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -282,12 +285,12 @@ ProcessResult effect_monster_old_conf(PlayerType *player_ptr, effect_monster_typ
     em_ptr->do_conf = damroll(3, (em_ptr->dam / 2)) + 1;
 
     bool has_resistance = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    has_resistance |= any_bits(em_ptr->r_ptr->flags3, RF3_NO_CONF);
+    has_resistance |= em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF);
     has_resistance |= (em_ptr->r_ptr->level > randint1(std::max(1, em_ptr->dam - 10)) + 10);
     if (has_resistance) {
-        if (em_ptr->r_ptr->flags3 & (RF3_NO_CONF)) {
+        if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
             if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
-                em_ptr->r_ptr->r_flags3 |= (RF3_NO_CONF);
+                em_ptr->r_ptr->resistance_flags.set(MonsterResistanceType::NO_CONF);
             }
         }
 
@@ -300,7 +303,7 @@ ProcessResult effect_monster_old_conf(PlayerType *player_ptr, effect_monster_typ
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_stasis(effect_monster_type *em_ptr, bool to_evil)
+ProcessResult effect_monster_stasis(EffectMonster *em_ptr, bool to_evil)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -325,7 +328,7 @@ ProcessResult effect_monster_stasis(effect_monster_type *em_ptr, bool to_evil)
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_stun(effect_monster_type *em_ptr)
+ProcessResult effect_monster_stun(EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;

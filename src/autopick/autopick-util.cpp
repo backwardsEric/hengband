@@ -1,6 +1,5 @@
-﻿#include "autopick/autopick-util.h"
+#include "autopick/autopick-util.h"
 #include "autopick/autopick-menu-data-table.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "game-option/input-options.h"
 #include "main/sound-of-music.h"
@@ -8,7 +7,8 @@
 #include "object-enchant/item-feeling.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
-#include "util/quarks.h"
+#include "system/redrawing-flags-updater.h"
+#include "util/bit-flags-calculator.h"
 
 /*!
  * @brief 自動拾い/破壊設定のリストに関する変数 / List for auto-picker/destroyer entries
@@ -26,6 +26,16 @@ ItemEntity autopick_last_destroyed_object;
 bool autopick_type::has(int flag) const
 {
     return this->flags[flag / 32] & (1UL << (flag % 32));
+}
+
+void autopick_type::add(int flag)
+{
+    set_bits(this->flags[flag / 32], 1UL << (flag % 32));
+}
+
+void autopick_type::remove(int flag)
+{
+    reset_bits(this->flags[flag / 32], 1UL << (flag % 32));
 }
 
 /*!
@@ -57,7 +67,7 @@ int get_com_id(char key)
 /*!
  * @brief Auto inscription
  */
-void auto_inscribe_item(PlayerType *player_ptr, ItemEntity *o_ptr, int idx)
+void auto_inscribe_item(ItemEntity *o_ptr, int idx)
 {
     if (idx < 0 || autopick_list[idx].insc.empty()) {
         return;
@@ -67,9 +77,17 @@ void auto_inscribe_item(PlayerType *player_ptr, ItemEntity *o_ptr, int idx)
         o_ptr->inscription = autopick_list[idx].insc;
     }
 
-    player_ptr->window_flags |= (PW_EQUIPMENT | PW_INVENTORY);
-    player_ptr->update |= (PU_BONUS);
-    player_ptr->update |= (PU_COMBINATION);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+    };
+    rfu.set_flags(flags_swrf);
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::COMBINATION,
+    };
+    rfu.set_flags(flags_srf);
 }
 
 /*!

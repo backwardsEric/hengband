@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief モンスターの思い出を記憶する処理
  * @date 2020/06/09
  * @author Hourier
@@ -14,6 +14,7 @@
 #include "system/monster-entity.h" //!< @todo 違和感、m_ptr は外から与えることとしたい.
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 
 template <class T>
 static int count_lore_mflag_group(const EnumClassFlagGroup<T> &flags, const EnumClassFlagGroup<T> &r_flags)
@@ -43,8 +44,8 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
     }
     r_ptr->r_wake = r_ptr->r_ignore = MAX_UCHAR;
 
-    for (int i = 0; i < 4; i++) {
-        if (r_ptr->blow[i].effect != RaceBlowEffectType::NONE || r_ptr->blow[i].method != RaceBlowMethodType::NONE) {
+    for (auto i = 0; i < 4; i++) {
+        if (r_ptr->blows[i].effect != RaceBlowEffectType::NONE || r_ptr->blows[i].method != RaceBlowMethodType::NONE) {
             if (r_ptr->r_blows[i] != MAX_UCHAR) {
                 n++;
             }
@@ -52,15 +53,21 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
         }
     }
 
-    byte tmp_byte = ((r_ptr->drop_flags.has(MonsterDropType::DROP_4D2) ? 8 : 0) + (r_ptr->drop_flags.has(MonsterDropType::DROP_3D2) ? 6 : 0) + (r_ptr->drop_flags.has(MonsterDropType::DROP_2D2) ? 4 : 0) + (r_ptr->drop_flags.has(MonsterDropType::DROP_1D2) ? 2 : 0) + (r_ptr->drop_flags.has(MonsterDropType::DROP_90) ? 1 : 0) + (r_ptr->drop_flags.has(MonsterDropType::DROP_60) ? 1 : 0));
+    using Mdt = MonsterDropType;
+    byte tmp_byte = (r_ptr->drop_flags.has(Mdt::DROP_4D2) ? 8 : 0);
+    tmp_byte += (r_ptr->drop_flags.has(Mdt::DROP_3D2) ? 6 : 0);
+    tmp_byte += (r_ptr->drop_flags.has(Mdt::DROP_2D2) ? 4 : 0);
+    tmp_byte += (r_ptr->drop_flags.has(Mdt::DROP_1D2) ? 2 : 0);
+    tmp_byte += (r_ptr->drop_flags.has(Mdt::DROP_90) ? 1 : 0);
+    tmp_byte += (r_ptr->drop_flags.has(Mdt::DROP_60) ? 1 : 0);
 
-    if (r_ptr->drop_flags.has_not(MonsterDropType::ONLY_GOLD)) {
+    if (r_ptr->drop_flags.has_not(Mdt::ONLY_GOLD)) {
         if (r_ptr->r_drop_item != tmp_byte) {
             n++;
         }
         r_ptr->r_drop_item = tmp_byte;
     }
-    if (r_ptr->drop_flags.has_not(MonsterDropType::ONLY_ITEM)) {
+    if (r_ptr->drop_flags.has_not(Mdt::ONLY_ITEM)) {
         if (r_ptr->r_drop_gold != tmp_byte) {
             n++;
         }
@@ -105,7 +112,7 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
     r_ptr->r_can_evolve = true;
 
     if (player_ptr->monster_race_idx == r_idx) {
-        player_ptr->window_flags |= (PW_MONSTER_LORE);
+        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
     }
 
     return n;
@@ -121,7 +128,7 @@ int lore_do_probe(PlayerType *player_ptr, MonsterRaceId r_idx)
 void lore_treasure(PlayerType *player_ptr, MONSTER_IDX m_idx, ITEM_NUMBER num_item, ITEM_NUMBER num_gold)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
 
     if (!m_ptr->is_original_ap()) {
         return;
@@ -141,6 +148,6 @@ void lore_treasure(PlayerType *player_ptr, MONSTER_IDX m_idx, ITEM_NUMBER num_it
         r_ptr->r_drop_flags.set(MonsterDropType::DROP_GREAT);
     }
     if (player_ptr->monster_race_idx == m_ptr->r_idx) {
-        player_ptr->window_flags |= (PW_MONSTER_LORE);
+        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
     }
 }

@@ -1,5 +1,5 @@
-,dnl Process this file with autoconf to produce a configure script.
-AC_INIT(hengband, 3.0.0.0)
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(hengband, 3.0.1.6-Beta)
 
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS(src/autoconf.h)
@@ -59,10 +59,14 @@ AC_ARG_ENABLE(fontset,
 [  --disable-fontset       disable fontset support], use_fontset=no, use_fontset=yes)
 AC_ARG_ENABLE([xft],
 	AS_HELP_STRING([--enable-xft], [Enable xft support]))
+AC_ARG_ENABLE(net,
+[  --disable-net           disable networking support], use_net=no)
 AC_ARG_ENABLE(worldscore,
 [  --disable-worldscore    disable worldscore support], worldscore=no)
-AC_ARG_ENABLE(chuukei,
-[  --enable-chuukei        enable internet chuukei support], AC_DEFINE(CHUUKEI, 1, [Chuukei mode]))
+AC_ARG_ENABLE([pch],
+[  --disable-pch           disable use of precompiled headers],
+enable_pch=no, enable_pch=yes)
+AM_CONDITIONAL([PCH], [test x$enable_pch = xyes])
 AC_ARG_ENABLE([cocoa],
 [  --enable-cocoa          enable a Cocoa user interface (OS X only)],
 [AC_DEFINE([MACH_O_COCOA], [1], [Use a Cocoa interface (OS X only)])], [])
@@ -80,10 +84,6 @@ if test x"$enable_cocoa" = xyes ; then
   AC_DEFINE(SAFE_DIRECTORY, 1, [Mark var directory with version string])
   AC_DEFINE(VERSION_STRING, "3.0.0", [Version string to use for var directory])
 fi
-AC_ARG_ENABLE([pch],
-[  --disable-pch           disable use of precompiled headers],
-enable_pch=no, enable_pch=yes)
-AM_CONDITIONAL([PCH], [test x$enable_pch = xyes])
 
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:
@@ -102,13 +102,18 @@ fi
 
 AC_CHECK_LIB(iconv, iconv_open)
 
+if test "$use_net" = no; then
+  AC_DEFINE(DISABLE_NET, 1, [Disable networking support])
+  worldscore=no;
+else
+  PKG_CHECK_MODULES(libcurl, [libcurl], , [AC_CHECK_LIB([curl], [curl_global_init], [libcurl_LIBS=-lcurl], [AC_MSG_ERROR([Could not find libcurl for networking support])])])
+fi
+
 dnl The world score server is currently only available in Japanese.
 if test "$use_japanese" = no; then
   worldscore=no
 fi
 if test "$worldscore" != no; then
-  PKG_CHECK_MODULES([libcurl], [libcurl], [true], [
-    AC_SEARCH_LIBS([curl_global_init], [curl curl-gnutls curl-nss], [true], [AC_MSG_ERROR([libcurl is necessary for posting scores])])])
   AC_DEFINE(WORLD_SCORE, 1, [Allow the game to send scores to the score server])
 fi
 
@@ -179,7 +184,13 @@ AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MEMCMP
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(gethostname mkdir select socket strtol vsnprintf mkstemp usleep)
+AC_CHECK_FUNCS(gethostname mkdir select socket strtol mkstemp usleep)
 
-AC_CONFIG_FILES(Makefile src/Makefile lib/Makefile lib/apex/Makefile lib/bone/Makefile lib/data/Makefile lib/edit/Makefile lib/edit/quests/Makefile lib/edit/towns/Makefile lib/file/Makefile lib/help/Makefile lib/info/Makefile lib/pref/Makefile lib/save/Makefile lib/script/Makefile lib/user/Makefile lib/xtra/Makefile lib/xtra/graf/Makefile lib/xtra/music/Makefile lib/xtra/sound/Makefile)
+AC_CONFIG_FILES(Makefile src/Makefile lib/Makefile lib/apex/Makefile \
+	lib/bone/Makefile lib/data/Makefile \
+	lib/edit/Makefile lib/edit/quests/Makefile lib/edit/towns/Makefile \
+	lib/file/Makefile lib/file/books/Makefile lib/help/Makefile \
+	lib/info/Makefile lib/pref/Makefile lib/save/Makefile \
+	lib/script/Makefile lib/user/Makefile lib/xtra/Makefile \
+	lib/xtra/graf/Makefile lib/xtra/music/Makefile lib/xtra/sound/Makefile)
 AC_OUTPUT()

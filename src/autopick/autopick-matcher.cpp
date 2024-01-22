@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 床のアイテムが自動拾いに一致するかどうかを調べる関数だけを格納したファイル
  * @date 2020/04/25
  * @author Hourier
@@ -113,7 +113,7 @@ static bool check_item_features(PlayerType *player_ptr, const autopick_type &ent
     }
 
     if (entry.has(FLG_HELMS)) {
-        return (tval != ItemKindType::CROWN) && (tval != ItemKindType::HELM);
+        return (tval == ItemKindType::CROWN) || (tval == ItemKindType::HELM);
     }
 
     if (entry.has(FLG_GLOVES)) {
@@ -297,7 +297,7 @@ bool is_autopick_match(PlayerType *player_ptr, ItemEntity *o_ptr, const autopick
     // @details このタイミングでは、svalは絶対にnulloptにならない、はず.
     const auto &bi_key = o_ptr->bi_key;
     const auto tval = bi_key.tval();
-    const auto sval = bi_key.sval().value();
+    const auto sval = *bi_key.sval();
     const auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
     if (entry.has(FLG_UNIQUE) && ((tval != ItemKindType::CORPSE && tval != ItemKindType::STATUE) || monraces_info[r_idx].kind_flags.has_not(MonsterKindType::UNIQUE))) {
         return false;
@@ -347,7 +347,7 @@ bool is_autopick_match(PlayerType *player_ptr, ItemEntity *o_ptr, const autopick
             return false;
         }
     } else {
-        if (angband_strstr(item_name.data(), entry.name.data()) == nullptr) {
+        if (!str_find(std::string(item_name), entry.name)) {
             return false;
         }
     }

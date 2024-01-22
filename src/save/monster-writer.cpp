@@ -1,4 +1,4 @@
-﻿#include "save/monster-writer.h"
+#include "save/monster-writer.h"
 #include "load/old/monster-flag-types-savefile50.h"
 #include "monster-race/monster-race.h"
 #include "monster/monster-info.h"
@@ -8,7 +8,6 @@
 #include "system/monster-race-info.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
-#include "util/quarks.h"
 
 static void write_monster_flags(MonsterEntity *m_ptr, BIT_FLAGS *flags)
 {

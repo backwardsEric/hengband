@@ -1,4 +1,4 @@
-﻿#include <cstdlib>
+#include <cstdlib>
 
 #include "autopick/autopick-dirty-flags.h"
 #include "autopick/autopick-editor-util.h"
@@ -44,29 +44,29 @@ void toggle_keyword(text_body_type *tb, BIT_FLAGS flg)
         if (FLG_NOUN_BEGIN <= flg && flg <= FLG_NOUN_END) {
             int i;
             for (i = FLG_NOUN_BEGIN; i <= FLG_NOUN_END; i++) {
-                REM_FLG(i);
+                entry->remove(i);
             }
         } else if (FLG_UNAWARE <= flg && flg <= FLG_STAR_IDENTIFIED) {
             int i;
             for (i = FLG_UNAWARE; i <= FLG_STAR_IDENTIFIED; i++) {
-                REM_FLG(i);
+                entry->remove(i);
             }
         } else if (FLG_ARTIFACT <= flg && flg <= FLG_AVERAGE) {
             int i;
             for (i = FLG_ARTIFACT; i <= FLG_AVERAGE; i++) {
-                REM_FLG(i);
+                entry->remove(i);
             }
         } else if (FLG_RARE <= flg && flg <= FLG_COMMON) {
             int i;
             for (i = FLG_RARE; i <= FLG_COMMON; i++) {
-                REM_FLG(i);
+                entry->remove(i);
             }
         }
 
         if (add) {
-            ADD_FLG(flg);
+            entry->add(flg);
         } else {
-            REM_FLG(flg);
+            entry->remove(flg);
         }
 
         tb->lines_list[y] = autopick_line_from_entry(*entry);
@@ -190,11 +190,11 @@ void add_keyword(text_body_type *tb, BIT_FLAGS flg)
         if (FLG_NOUN_BEGIN <= flg && flg <= FLG_NOUN_END) {
             int i;
             for (i = FLG_NOUN_BEGIN; i <= FLG_NOUN_END; i++) {
-                REM_FLG(i);
+                entry->remove(i);
             }
         }
 
-        ADD_FLG(flg);
+        entry->add(flg);
         tb->lines_list[y] = autopick_line_from_entry(*entry);
         tb->dirty_flags |= DIRTY_ALL;
         tb->changed = true;
@@ -218,50 +218,16 @@ bool add_empty_line(text_body_type *tb)
     return true;
 }
 
-static chain_str_type *new_chain_str(concptr str)
-{
-    size_t len = strlen(str);
-    auto *chain = static_cast<chain_str_type *>(std::malloc(sizeof(chain_str_type) + len * sizeof(char)));
-    strcpy(chain->s, str);
-    chain->next = nullptr;
-    return chain;
-}
-
 void kill_yank_chain(text_body_type *tb)
 {
-    chain_str_type *chain = tb->yank;
-    tb->yank = nullptr;
+    tb->yank.clear();
     tb->yank_eol = true;
-
-    while (chain) {
-        chain_str_type *next = chain->next;
-
-        std::free(chain);
-
-        chain = next;
-    }
 }
 
 void add_str_to_yank(text_body_type *tb, concptr str)
 {
     tb->yank_eol = false;
-    if (tb->yank == nullptr) {
-        tb->yank = new_chain_str(str);
-        return;
-    }
-
-    chain_str_type *chain;
-    chain = tb->yank;
-
-    while (true) {
-        if (!chain->next) {
-            chain->next = new_chain_str(str);
-            return;
-        }
-
-        /* Go to next */
-        chain = chain->next;
-    }
+    tb->yank.emplace_back(str);
 }
 
 /*!

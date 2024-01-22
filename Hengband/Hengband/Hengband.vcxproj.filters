@@ -479,9 +479,6 @@
     <ClCompile Include="..\..\src\object\warning.cpp">
       <Filter>object</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\inet.cpp">
-      <Filter>io</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\dungeon\quest.cpp">
       <Filter>dungeon</Filter>
     </ClCompile>
@@ -1004,9 +1001,6 @@
     <ClCompile Include="..\..\src\core\visuals-reseter.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\object\object-flags.cpp">
-      <Filter>object</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\object\object-info.cpp">
       <Filter>object</Filter>
     </ClCompile>
@@ -1192,9 +1186,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\io\input-key-acceptor.cpp">
       <Filter>io</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\util\quarks.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\view\display-messages.cpp">
       <Filter>view</Filter>
@@ -1566,9 +1557,6 @@
       <Filter>artifact</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\artifact\fixed-art-generator.cpp">
-      <Filter>artifact</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\artifact\artifact-info.cpp">
       <Filter>artifact</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\system\artifact-type-definition.cpp">
@@ -2481,6 +2469,33 @@
     <ClCompile Include="..\..\src\system\redrawing-flags-updater.cpp">
       <Filter>system</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\net\curl-easy-session.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\net\curl-slist.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\net\http-client.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\util\sha256.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\net\report-error.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main-win\main-win-exception.cpp">
+      <Filter>main-win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\util\candidate-selector.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\angband-system.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\monster-race\race-sex-const.cpp">
+      <Filter>monster-race</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\combat\shoot.h">
@@ -2995,9 +3010,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\object\warning.h">
       <Filter>object</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\io\inet.h">
-      <Filter>io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\dungeon\quest.h">
       <Filter>dungeon</Filter>
@@ -3518,9 +3530,6 @@
     <ClInclude Include="..\..\src\player-attack\player-attack.h">
       <Filter>player-attack</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\player-attack\player-attack-util.h">
-      <Filter>player-attack</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\monster-attack\insults-moans.h">
       <Filter>monster-attack</Filter>
     </ClInclude>
@@ -3628,9 +3637,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\object-enchant\trg-types.h">
       <Filter>object-enchant</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\object\object-flags.h">
-      <Filter>object</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\object\object-info.h">
       <Filter>object</Filter>
@@ -3880,9 +3886,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\io\input-key-acceptor.h">
       <Filter>io</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\util\quarks.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\view\display-messages.h">
       <Filter>view</Filter>
@@ -4181,12 +4184,6 @@
     <ClInclude Include="..\..\src\load\quest-loader.h">
       <Filter>load</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\core\player-update-types.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\core\player-redraw-types.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\flavor\object-flavor-types.h">
       <Filter>flavor</Filter>
     </ClInclude>
@@ -4305,9 +4302,6 @@
       <Filter>artifact</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\artifact\fixed-art-generator.h">
-      <Filter>artifact</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\artifact\artifact-info.h">
       <Filter>artifact</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\system\artifact-type-definition.h">
@@ -5379,6 +5373,42 @@
     <ClInclude Include="..\..\src\system\redrawing-flags-updater.h">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\net\http-client.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\net\curl-easy-session.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\net\curl-slist.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\util\finalizer.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\util\sha256.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\external-lib\json.hpp">
+      <Filter>external-lib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\external-lib\include-json.h">
+      <Filter>external-lib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\net\report-error.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\main-win\main-win-exception.h">
+      <Filter>main-win</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\util\candidate-selector.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\angband-system.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\monster-race\race-sex-const.h">
+      <Filter>monster-race</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\wall.bmp" />
@@ -5636,6 +5666,12 @@
     </Filter>
     <Filter Include="item-info">
       <UniqueIdentifier>{3aefd2e8-8dd8-41dd-bc6b-7dadd75dfd6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="net">
+      <UniqueIdentifier>{6f311bdc-4407-49b7-96ab-bc2ed187b61c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external-lib">
+      <UniqueIdentifier>{7a77d993-afa0-4750-97c6-d52b440fafa9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

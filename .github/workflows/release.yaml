@@ -1,0 +1,455 @@
+name: create-github-release
+
+on:
+  push:
+    branches: [ macos-develop ]
+
+env:
+    # If set and is not empty or all whitespace, this should be the list of
+    # architectures to build into a universal binary.  If not set, empty, or
+    # all whitespace, the default architecture for the combination of runner
+    # and hardware will be used.
+    UNIVERSAL_ARCHS: x86_64 arm64
+    # If set and is not empty or all whitespace, sets the name of the SDK to
+    # use.  Otherwise the default SDK for the runner will be used.  Want an
+    # SDK that can build all the architectures in UNIVERSAL_ARCHS.  For valid
+    # values of the sdk name, look at the xcrun man page.
+    #SDK_OVERRIDE: macosx11.3
+    # Used as the name when uploading or downloading the artifact for passing
+    # configuration data from the Setup job to those dependent on it.
+    CONFIG_ARTIFACT: release-config
+    # Used as the path for the file with the configuration data passed from
+    # the Setup job to those dependent on it.
+    CONFIG_ARTIFACT_PATH: release-config.txt
+    # Used as the name when uploading or downloading the artifact for passing
+    # the name of the source archive.
+    SRC_ARTIFACT: release-src
+    # Used as the path for the file with the name of the source archive in it.
+    SRC_ARTIFACT_PATH: release-src.txt
+    # Used as the name when uploading or downloading the artifact holding
+    # the source archive.
+    SRC_ARCHIVE_ARTIFACT: release-src-archive
+    # Used as the name when uploading or downloading the artifact for passing
+    # the name of the Mac archive for the English version.
+    MAC_ENGLISH_ARTIFACT: release-mac-en
+    # Used as the path for the file with the name of the Mac archive for the
+    # English version in it.
+    MAC_ENGLISH_ARTIFACT_PATH: release-mac-en.txt
+    # Used as the name when uploading or downloading the artifact holding
+    # the Mac archive for the English version.
+    MAC_ENGLISH_ARCHIVE_ARTIFACT: release-mac-en-archive
+    # Used as the name when uploading or downloading the artifact for passing
+    # the name of the Mac archive for the English version.
+    MAC_JAPANESE_ARTIFACT: release-mac-ja
+    # Used as the path for the file with the name of the Mac archive for the
+    # English version in it.
+    MAC_JAPANESE_ARTIFACT_PATH: release-mac-ja.txt
+    # Used as the name when uploading or downloading the artifact holding
+    # the Mac archive for the English version.
+    MAC_JAPANESE_ARCHIVE_ARTIFACT: release-mac-ja-archive
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      # Need commit history and tags to get the version so use 0 for
+      # fetch-depth.  Don't need the submodule(s) here.
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Extract Names from configure.ac
+        id: get_names
+        run: |
+          name=`sed -E -n -e 's/^[[:blank:]]*AC_INIT\([[:blank:]]*\\[?//p' configure.ac | tail -1 | cut -d ']' -f 1 | cut -d ',' -f 1`
+          echo "name=$name" >> $GITHUB_OUTPUT
+          cap=`echo $name | sed -E -e 's/^a/A/' -e 's/^b/B/' -e 's/^c/C/' -e 's/^d/D/' -e 's/^e/E/' -e 's/^f/F/' -e 's/^g/G/' -e 's/^h/H/' -e 's/^i/I/' -e 's/^j/J/' -e 's/^k/K/' -e 's/^l/L/' -e 's/^m/M/' -e 's/^n/N/' -e 's/^o/O/' -e 's/^p/P/' -e 's/^q/Q/' -e 's/^r/R/' -e 's/^s/S/' -e 's/^t/T/' -e 's/^u/U/' -e 's/^v/V/' -e 's/^w/W/' -e 's/^x/X/' -e 's/^y/Y/' -e 's/^z/Z/'`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
+
+      - name: Set Release Version
+        id: get_release_vars
+        run: |
+          verfile=src/system/angband-version.h
+          major=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MAJOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          minor=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_MINOR[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          patch=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_PATCH[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          extra=`sed -E -n -e 's/^[[:blank:]]*#define[[:blank:]]+H_VER_EXTRA[[:blank:]]+//p' "$verfile" | cut -d ' ' -f 1 | cut -f 1 | cut -d '/' -f 1`
+          version="$major"."$minor"."$patch"
+          tag=vauto"$version"
+          if test x$extra != x0 ; then
+            version="${version}-Alpha${extra}"
+            tag="${tag}-alpha${extra}"
+          fi
+          head=`git rev-parse --verify --short HEAD`
+          version="${version}-${head}"
+          tag="${tag}-${head}"
+          if git diff-index --quiet HEAD ; then
+            true
+          else
+            version="$version"-dirty
+            tag="$tag"-dirty
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          prerelease=true
+          echo "prerelease=$prerelease" >> $GITHUB_OUTPUT
+          # Mark anything that isn't a prerelease as a draft.
+          draft=true
+          if test x$prerelease = xtrue ; then
+              draft=false
+          fi
+          echo "draft=$draft" >> $GITHUB_OUTPUT
+
+      # The quoting here may be too simple-minded:  what if there are single
+      # quotes in the steps.*.outputs.* stuff.
+      - name: Create Artifact with Configuration Details
+        run: |
+          echo name= '${{ steps.get_names.outputs.name }}' > $CONFIG_ARTIFACT_PATH
+          echo cap= '${{ steps.get_names.outputs.cap }}' >> $CONFIG_ARTIFACT_PATH
+          echo version= '${{ steps.get_release_vars.outputs.version }}' >> $CONFIG_ARTIFACT_PATH
+          echo tag= '${{ steps.get_release_vars.outputs.tag }}' >> $CONFIG_ARTIFACT_PATH
+          echo prerelease= '${{ steps.get_release_vars.outputs.prerelease }}' >> $CONFIG_ARTIFACT_PATH
+          echo draft= '${{ steps.get_release_vars.outputs.draft }}' >> $CONFIG_ARTIFACT_PATH
+
+      - name: Upload Artifact for Use by Dependent Steps
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.CONFIG_ARTIFACT }}
+          path: ${{ env.CONFIG_ARTIFACT_PATH }}
+          retention-days: 1
+
+  source:
+    needs: setup
+    name: Source Archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact with Configuration Information
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.CONFIG_ARTIFACT }}
+
+      - name: Extract Configuration Information and Store in Step Outputs
+        id: store_config
+        run: |
+          name=`sed -E -n -e 's/name= //p' $CONFIG_ARTIFACT_PATH`
+          echo "name=$name" >> $GITHUB_OUTPUT
+          version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install automake autoconf make tar gzip
+
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Create Source Archive
+        id: create_source_archive
+        run: |
+          out="${{ steps.store_config.outputs.name }}"-"${{ steps.store_config.outputs.version }}"
+          echo "archive_file=${out}.tar.gz" >> $GITHUB_OUTPUT
+          ./bootstrap
+          ./configure --disable-japanese --disable-net
+          make distdir
+          mv "${{ steps.store_config.outputs.name }}"-* "$out"
+          tar -cBf - "$out" | gzip -c - >"$out".tar.gz
+
+      - name: Create Artifact with Source Archive Path
+        run: |
+          echo archive_path= '${{ steps.create_source_archive.outputs.archive_file }}' > $SRC_ARTIFACT_PATH
+
+      - name: Upload Artifact with Source Archive Path
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.SRC_ARTIFACT }}
+          path: ${{ env.SRC_ARTIFACT_PATH }}
+          retention-days: 1
+
+      - name: Upload Source Archive as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.SRC_ARCHIVE_ARTIFACT }}
+          path: ${{ steps.create_source_archive.outputs.archive_file }}
+          retention-days: 1
+
+  mac_en:
+    needs: [setup]
+    name: Mac English
+    runs-on: macos-latest
+    steps:
+      - name: Download Artifact with Configuration Information
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.CONFIG_ARTIFACT }}
+
+      - name: Extract Configuration Information and Store in Step Outputs
+        id: store_config
+        run: |
+          name=`sed -E -n -e 's/name= //p' $CONFIG_ARTIFACT_PATH`
+          echo "name=$name" >> $GITHUB_OUTPUT
+          cap=`sed -E -n -e 's/cap= //p' $CONFIG_ARTIFACT_PATH`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
+          version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      # Requires automake and autoconf; install those via homebrew (available
+      # by default).
+      - name: Install Build Dependencies
+        run: |
+          brew install m4
+          brew install autoconf
+          brew install automake
+
+      - name: Create Mac English Archive
+        id: create_mac_en_archive
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          ./bootstrap
+          CFLAGS=""
+          CXXFLAGS=""
+          OBJCXXFLAGS=""
+          LDFLAGS=""
+          DEPENDENCY_TRACKING=""
+          if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
+            DEPENDENCY_TRACKING="--disable-dependency-tracking --disable-pch"
+            # Include what configure normally infers for the compiler flags.
+            # Without -O2, the generated executables take painfully long to
+            # read the data files.
+            CFLAGS="$CFLAGS -g -O2"
+            CXXFLAGS="$CXXFLAGS -g -O2"
+            OBJCXXFLAGS="$OBJCXXFLAGS -g -O2"
+            for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
+              option="-arch $arch"
+              CFLAGS="$CFLAGS $option"
+              CXXFLAGS="$CXXFLAGS $option"
+              OBJCXXFLAGS="$OBJCXXFLAGS $option"
+              LDFLAGS="$LDFLAGS $option"
+            done
+            echo "Performing a univeral build:"
+            echo "  CFLAGS = $CFLAGS"
+            echo "  CXXFLAGS = $CXXFLAGS"
+            echo "  OBJCXXFLAGS = $OBJCXXFLAGS"
+            echo "  LDFLAGS = $LDFLAGS"
+          fi
+          env CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" \
+            OBJCXXFLAGS="$OBJCXXFLAGS" LDFLAGS="$LDFLAGS" \
+            ./configure --enable-cocoa --disable-japanese $DEPENDENCY_TRACKING
+          make install
+          mkdir disttemp
+          mv "${{ steps.store_config.outputs.name }}".app disttemp
+          hdiutil create -quiet -volname "${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English" -srcfolder disttemp disttemp.dmg
+          archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English"
+          echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
+          hdiutil convert disttemp.dmg -quiet -format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
+
+      - name: Create Artifact with Mac English Archive Path
+        run: |
+          echo archive_path= '${{ steps.create_mac_en_archive.outputs.archive_file }}' > $MAC_ENGLISH_ARTIFACT_PATH
+
+      - name: Upload Artifact with Mac English Archive Path
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.MAC_ENGLISH_ARTIFACT }}
+          path: ${{ env.MAC_ENGLISH_ARTIFACT_PATH }}
+          retention-days: 1
+
+      - name: Upload Mac English Archive as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.MAC_ENGLISH_ARCHIVE_ARTIFACT }}
+          path: ${{ steps.create_mac_en_archive.outputs.archive_file }}
+          retention-days: 1
+
+  mac_ja:
+    needs: [setup]
+    name: Mac Japanese
+    runs-on: macos-latest
+    steps:
+      - name: Download Artifact with Configuration Information
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.CONFIG_ARTIFACT }}
+
+      - name: Extract Configuration Information and Store in Step Outputs
+        id: store_config
+        run: |
+          name=`sed -E -n -e 's/name= //p' $CONFIG_ARTIFACT_PATH`
+          echo "name=$name" >> $GITHUB_OUTPUT
+          cap=`sed -E -n -e 's/cap= //p' $CONFIG_ARTIFACT_PATH`
+          echo "cap=$cap" >> $GITHUB_OUTPUT
+          version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Clone Project
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      # Requires automake, autoconf, and nkf; install those via homebrew
+      # (available by default).
+      - name: Install Build Dependencies
+        run: |
+          brew install m4
+          brew install autoconf
+          brew install automake
+          brew install nkf
+
+      - name: Create Mac Japanese Archive
+        id: create_mac_ja_archive
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          ./bootstrap
+          CFLAGS=""
+          CXXFLAGS=""
+          OBJCXXFLAGS=""
+          LDFLAGS=""
+          DEPENDENCY_TRACKING=""
+          if test -n `echo "${{ env.UNIVERSAL_ARCHS }}" | tr -d ' \t\r\n'` ; then
+            DEPENDENCY_TRACKING="--disable-dependency-tracking --disable-pch"
+            # Include what configure normally infers for the compiler flags.
+            # Without -O2, the generated executables take painfully long to
+            # read the data files.
+            CFLAGS="$CFLAGS -g -O2"
+            CXXFLAGS="$CXXFLAGS -g -O2"
+            OBJCXXFLAGS="$OBJCXXFLAGS -g -O2"
+            for arch in ${{ env.UNIVERSAL_ARCHS }} ; do
+              option="-arch $arch"
+              CFLAGS="$CFLAGS $option"
+              CXXFLAGS="$CXXFLAGS $option"
+              OBJCXXFLAGS="$OBJCXXFLAGS $option"
+              LDFLAGS="$LDFLAGS $option"
+            done
+            echo "Performing a univeral build:"
+            echo "  CFLAGS = $CFLAGS"
+            echo "  CXXFLAGS = $CXXFLAGS"
+            echo "  OBJCXXFLAGS = $OBJCXXFLAGS"
+            echo "  LDFLAGS = $LDFLAGS"
+          fi
+          env CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" \
+            OBJCXXFLAGS="$OBJCXXFLAGS" LDFLAGS="$LDFLAGS" \
+            ./configure --enable-cocoa $DEPENDENCY_TRACKING
+          make install
+          mkdir disttemp
+          mv "${{ steps.store_config.outputs.name }}".app disttemp
+          hdiutil create -quiet -volname "${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version}}-Japanese" -srcfolder disttemp disttemp.dmg
+          archive_prefix="${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-Japanese"
+          echo "archive_file=${archive_prefix}.dmg" >> $GITHUB_OUTPUT
+          hdiutil convert disttemp.dmg -quiet -format UDZO -imagekey zlib-level=6 -o "${archive_prefix}.dmg"
+
+      - name: Create Artifact with Mac Japanese Archive Path
+        run: |
+          echo archive_path= '${{ steps.create_mac_ja_archive.outputs.archive_file }}' > $MAC_JAPANESE_ARTIFACT_PATH
+
+      - name: Upload Artifact with Mac Japanese Archive Path
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.MAC_JAPANESE_ARTIFACT }}
+          path: ${{ env.MAC_JAPANESE_ARTIFACT_PATH }}
+          retention-days: 1
+
+      - name: Upload Mac Japanese Archive as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.MAC_JAPANESE_ARCHIVE_ARTIFACT }}
+          path: ${{ steps.create_mac_ja_archive.outputs.archive_file }}
+          retention-days: 1
+
+  release:
+    needs: [ setup, source, mac_en, mac_ja ]
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact with Configuration Information
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.CONFIG_ARTIFACT }}
+
+      - name: Extract Configuration Information and Store in Step Outputs
+        id: store_config
+        run: |
+          version=`sed -E -n -e 's/version= //p' $CONFIG_ARTIFACT_PATH`
+          echo "version=$version" >> $GITHUB_OUTPUT
+          tag=`sed -E -n -e 's/tag= //p' $CONFIG_ARTIFACT_PATH`
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          prerelease=`sed -E -n -e 's/prerelease= //p' $CONFIG_ARTIFACT_PATH`
+          echo "prerelease=$prerelease" >> $GITHUB_OUTPUT
+          draft=`sed -E -n -e 's/draft= //p' $CONFIG_ARTIFACT_PATH`
+          echo "draft=$draft" >> $GITHUB_OUTPUT
+
+      - name: Download Artifact with Source Archive Path
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.SRC_ARTIFACT }}
+
+      - name: Extract Source Archive Path and Store in Step Outputs
+        id: store_src
+        run: |
+          archive_path=`sed -E -n -e 's/archive_path= //p' $SRC_ARTIFACT_PATH`
+          echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
+
+      - name: Download Artifact with Source Archive
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.SRC_ARCHIVE_ARTIFACT }}
+
+      - name: Download Artifact with Mac English Archive Path
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.MAC_ENGLISH_ARTIFACT }}
+
+      - name: Extract Mac English Archive Path and Store in Step Outputs
+        id: store_mac_en
+        run: |
+          archive_path=`sed -E -n -e 's/archive_path= //p' $MAC_ENGLISH_ARTIFACT_PATH`
+          echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
+
+      - name: Download Artifact with Mac English Archive
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.MAC_ENGLISH_ARCHIVE_ARTIFACT }}
+
+      - name: Download Artifact with Mac Japanese Archive Path
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.MAC_JAPANESE_ARTIFACT }}
+
+      - name: Extract Mac Japanese Archive Path and Store in Step Outputs
+        id: store_mac_ja
+        run: |
+          archive_path=`sed -E -n -e 's/archive_path= //p' $MAC_JAPANESE_ARTIFACT_PATH`
+          echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
+
+      - name: Download Artifact with Mac Japanese Archive
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.MAC_JAPANESE_ARCHIVE_ARTIFACT }}
+
+      - name: Populate Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "${{ steps.store_config.outputs.tag }}"
+          name: ${{ steps.store_config.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          draft: ${{ steps.store_config.outputs.draft }}
+          prerelease: ${{ steps.store_config.outputs.prerelease }}
+          files: |
+            ${{ steps.store_src.outputs.archive_path }}
+            ${{ steps.store_mac_en.outputs.archive_path }}
+            ${{ steps.store_mac_ja.outputs.archive_path }}
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,8 +1,6 @@
-﻿#include "mind/mind-force-trainer.h"
+#include "mind/mind-force-trainer.h"
 #include "avatar/avatar.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "effect/attribute-types.h"
 #include "effect/spells-effect-util.h"
@@ -34,6 +32,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -89,7 +88,7 @@ bool clear_mind(PlayerType *player_ptr)
         player_ptr->csp_frac = 0;
     }
 
-    player_ptr->redraw |= (PR_MP);
+    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
     return true;
 }
 
@@ -139,7 +138,8 @@ void set_lightspeed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
-    player_ptr->update |= (PU_BONUS);
+
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 }
 
@@ -176,8 +176,7 @@ bool set_tim_sh_force(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->tim_sh_touki = v;
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
-
+    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     if (!notice) {
         return false;
     }
@@ -185,6 +184,7 @@ bool set_tim_sh_force(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
+
     handle_stuff(player_ptr);
     return true;
 }
@@ -220,7 +220,7 @@ bool shock_power(PlayerType *player_ptr)
     POSITION oy = y, ox = x;
     MONSTER_IDX m_idx = player_ptr->current_floor_ptr->grid_array[y][x].m_idx;
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
     const auto m_name = monster_desc(player_ptr, m_ptr, 0);
 
     if (randint1(r_ptr->level * 3 / 2) > randint0(dam / 2) + dam / 2) {
@@ -256,7 +256,7 @@ bool shock_power(PlayerType *player_ptr)
     lite_spot(player_ptr, ty, tx);
 
     if (r_ptr->brightness_flags.has_any_of(ld_mask)) {
-        player_ptr->update |= (PU_MONSTER_LITE);
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);
     }
 
     return true;
@@ -277,6 +277,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
         boost /= 2;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     switch (spell) {
     case MindForceTrainerType::SMALL_FORCE_BALL:
         if (!get_aim_dir(player_ptr, &dir)) {
@@ -305,7 +306,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
     case MindForceTrainerType::IMPROVE_FORCE:
         msg_print(_("気を練った。", "You improved the Force."));
         set_current_ki(player_ptr, false, 70 + plev);
-        player_ptr->update |= (PU_BONUS);
+        rfu.set_flag(StatusRecalculatingFlag::BONUS);
         if (randint1(get_current_ki(player_ptr)) > (plev * 4 + 120)) {
             msg_print(_("気が暴走した！", "The Force exploded!"));
             fire_ball(player_ptr, AttributeType::MANA, 0, get_current_ki(player_ptr) / 2, 10);
@@ -334,8 +335,11 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
             return false;
         }
 
-        MONSTER_IDX m_idx = player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx;
-        if ((m_idx == 0) || !player_has_los_bold(player_ptr, target_row, target_col) || !projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col)) {
+        const Pos2D pos(target_row, target_col);
+        const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+        const auto m_idx = grid.m_idx;
+        const auto is_projectable = projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col);
+        if ((m_idx == 0) || !grid.has_los() || !is_projectable) {
             break;
         }
 
@@ -376,6 +380,6 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
     }
 
     set_current_ki(player_ptr, true, 0);
-    player_ptr->update |= PU_BONUS;
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     return true;
 }

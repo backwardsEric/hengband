@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 雑多なその他の処理2 / effects of various "objects"
  * @date 2014/02/06
  * @author
@@ -11,8 +11,6 @@
 
 #include "target/target-checker.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/map-screen-options.h"
@@ -21,6 +19,7 @@
 #include "system/floor-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/target-preparation.h"
 #include "target/target-types.h"
 #include "window/main-window-util.h"
@@ -44,8 +43,7 @@ void verify_panel(PlayerType *player_ptr)
 {
     POSITION y = player_ptr->y;
     POSITION x = player_ptr->x;
-    TERM_LEN wid, hgt;
-    get_screen_size(&wid, &hgt);
+    const auto &[wid, hgt] = get_screen_size();
     int max_prow_min = player_ptr->current_floor_ptr->height - hgt;
     int max_pcol_min = player_ptr->current_floor_ptr->width - wid;
     if (max_prow_min < 0) {
@@ -126,9 +124,14 @@ void verify_panel(PlayerType *player_ptr)
     }
 
     panel_bounds_center();
-    player_ptr->update |= PU_MONSTER_STATUSES;
-    player_ptr->redraw |= PR_MAP;
-    player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+    rfu.set_flag(MainWindowRedrawingFlag::MAP);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::OVERHEAD,
+        SubWindowRedrawingFlag::DUNGEON,
+    };
+    rfu.set_flags(flags);
 }
 
 /*

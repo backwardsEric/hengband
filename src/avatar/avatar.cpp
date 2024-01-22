@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ウルティマ4を参考にした徳のシステムの実装 / Enable an Ultima IV style "avatar" game where you try to achieve perfection in various virtues.
  * @date 2013/12/23
  * @author
@@ -13,13 +13,14 @@
  */
 
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "game-option/text-display-options.h"
 #include "player-info/class-info.h"
 #include "player-info/race-types.h"
 #include "realm/realm-names-table.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/enum-converter.h"
+#include "util/probability-table.h"
 
 /*!
  * 徳の名称 / The names of the virtues
@@ -82,60 +83,24 @@ int virtue_number(PlayerType *player_ptr, Virtue virtue)
  */
 static void get_random_virtue(PlayerType *player_ptr, int which)
 {
-    auto type = Virtue::NONE;
-    while ((type == Virtue::NONE) || virtue_number(player_ptr, type)) {
-        switch (randint1(29)) {
-        case 1:
-        case 2:
-        case 3:
-            type = Virtue::SACRIFICE;
-            break;
-        case 4:
-        case 5:
-        case 6:
-            type = Virtue::COMPASSION;
-            break;
-        case 7:
-        case 8:
-        case 9:
-        case 10:
-        case 11:
-        case 12:
-            type = Virtue::VALOUR;
-            break;
-        case 13:
-        case 14:
-        case 15:
-        case 16:
-        case 17:
-            type = Virtue::HONOUR;
-            break;
-        case 18:
-        case 19:
-        case 20:
-        case 21:
-            type = Virtue::JUSTICE;
-            break;
-        case 22:
-        case 23:
-            type = Virtue::TEMPERANCE;
-            break;
-        case 24:
-        case 25:
-            type = Virtue::HARMONY;
-            break;
-        case 26:
-        case 27:
-        case 28:
-            type = Virtue::PATIENCE;
-            break;
-        default:
-            type = Virtue::DILIGENCE;
-            break;
+    ProbabilityTable<Virtue> pt;
+    pt.entry_item(Virtue::SACRIFICE, 3);
+    pt.entry_item(Virtue::COMPASSION, 3);
+    pt.entry_item(Virtue::VALOUR, 6);
+    pt.entry_item(Virtue::HONOUR, 5);
+    pt.entry_item(Virtue::JUSTICE, 4);
+    pt.entry_item(Virtue::TEMPERANCE, 2);
+    pt.entry_item(Virtue::HARMONY, 2);
+    pt.entry_item(Virtue::PATIENCE, 3);
+    pt.entry_item(Virtue::DILIGENCE, 1);
+
+    while (true) {
+        const auto type = pt.pick_one_at_random();
+        if (virtue_number(player_ptr, type) == 0) {
+            player_ptr->vir_types[which] = type;
+            return;
         }
     }
-
-    player_ptr->vir_types[which] = type;
 }
 
 /*!
@@ -497,7 +462,7 @@ void chg_virtue(PlayerType *player_ptr, Virtue virtue_id, int amount)
             }
         }
 
-        player_ptr->update |= PU_BONUS;
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
         return;
     }
 }
@@ -531,7 +496,7 @@ void dump_virtues(PlayerType *player_ptr, FILE *out_file)
         GAME_TEXT vir_name[20];
         int tester = player_ptr->virtues[v_nr];
         strcpy(vir_name, virtue_names.at(player_ptr->vir_types[v_nr]).data());
-        const std::string vir_val_str = format(" (%d)", tester);
+        const auto vir_val_str = format(" (%d)", tester);
         const auto vir_val = show_actual_value ? vir_val_str.data() : "";
         if ((player_ptr->vir_types[v_nr] == Virtue::NONE) || (player_ptr->vir_types[v_nr] >= Virtue::MAX)) {
             fprintf(out_file, _("おっと。%sの情報なし。", "Oops. No info about %s."), vir_name);

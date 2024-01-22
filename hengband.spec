@@ -1,6 +1,5 @@
-%define version 3.0.0Alpha78
+%define version 3.0.1.5
 %define release 1
-%global debug_package %{nil}
 
 Summary: hengband %{version}
 Name: hengband
@@ -10,8 +9,8 @@ License: unknown
 Group: Amusements/Games
 Url: https://hengband.github.io
 Source: hengband-%{version}.tar.gz
-Requires: ncurses-libs libstdc++ libcurl
-BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf
+Requires: ncurses-libs libstdc++ libcurl libX11
+BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf libX11-devel
 
 %description
 Hengband is a variant of ZAngband.
@@ -32,7 +31,7 @@ https://hengband.github.io
 詳しくは /usr/share/doc/hengband/readme.md を参照。
 
 %prep
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 
 %setup -n %{name}-%{version}
 ./bootstrap
@@ -42,18 +41,18 @@ rm -rf $RPM_BUILD_ROOT
 %make_build
 
 %install
-mkdir -p $RPM_BUILD_ROOT/%{_bindir}
-mkdir -p $RPM_BUILD_ROOT/%{_datadir}/games/hengband
-%makeinstall
-cp -R lib/ -p $RPM_BUILD_ROOT/%{_datadir}/games/hengband/
-find $RPM_BUILD_ROOT/%{_datadir}/games/hengband/ -type f -name "Makefile*" -exec rm {} \;
-find $RPM_BUILD_ROOT/%{_datadir}/games/hengband/ -type f -name "delete.me*" -exec rm {} \;
-find $RPM_BUILD_ROOT/%{_datadir}/games/hengband/ -name ".git*" -exec rm -rf {} \;
-rm -rf $RPM_BUILD_ROOT/%{_datadir}/games/hengband/lib/xtra/{sound,music}
-touch $RPM_BUILD_ROOT/%{_datadir}/games/hengband/lib/apex/scores.raw
+mkdir -p %{buildroot}/%{_bindir}
+mkdir -p %{buildroot}/%{_datadir}/games/hengband
+%make_install bindir=%{_bindir}
+cp -R lib/ -p %{buildroot}/%{_datadir}/games/hengband/
+find %{buildroot}/%{_datadir}/games/hengband/ -type f -name "Makefile*" -exec rm {} \;
+find %{buildroot}/%{_datadir}/games/hengband/ -type f -name "delete.me*" -exec rm {} \;
+find %{buildroot}/%{_datadir}/games/hengband/ -name ".git*" -exec rm -rf {} \;
+rm -rf %{buildroot}/%{_datadir}/games/hengband/lib/xtra/{sound,music}
+touch %{buildroot}/%{_datadir}/games/hengband/lib/apex/scores.raw
 
 %clean
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 
 %preun
 if [ -e %{_datadir}/games/hengband/lib/data/f_info_j.raw ]
@@ -71,6 +70,7 @@ exit 0
 %attr(775,root,games) %dir %{_datadir}/games/hengband/lib/data
 %dir %{_datadir}/games/hengband/lib/edit
 %dir %{_datadir}/games/hengband/lib/file
+%dir %{_datadir}/games/hengband/lib/file/books
 %dir %{_datadir}/games/hengband/lib/help
 %dir %{_datadir}/games/hengband/lib/info
 %dir %{_datadir}/games/hengband/lib/pref
@@ -86,6 +86,7 @@ exit 0
 %{_datadir}/games/hengband/lib/edit/quests/*.txt
 %{_datadir}/games/hengband/lib/edit/towns/*.txt
 %{_datadir}/games/hengband/lib/file/*.txt
+%{_datadir}/games/hengband/lib/file/books/*.txt
 %{_datadir}/games/hengband/lib/help/*.hlp
 %{_datadir}/games/hengband/lib/help/*.txt
 %{_datadir}/games/hengband/lib/pref/*.prf
@@ -94,6 +95,63 @@ exit 0
 %license lib/help/jlicense.txt
 
 %changelog
+* Tue Jan 09 2024 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.5(Beta)
+
+* Wed Dec 27 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.4(Beta)
+
+* Mon Dec 11 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.3(Beta)
+
+* Mon Nov 27 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.2(Beta)
+
+* Fri Nov 17 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.1(Beta)
+
+* Mon Oct 30 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.1.0(Beta)
+
+* Sun Oct 22 2023 Shiro Hara <white@vx-xv.com>
+- Fix the graphic mode is not available on X11
+
+* Wed Oct 18 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.91(Alpha)
+
+* Mon Oct 16 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.90(Alpha)
+
+* Tue Aug 8 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.89(Alpha)
+
+* Mon Jul 24 2023 Shiro Hara <white@vx-xv.com>
+- Enable X11
+
+* Sun Jul 23 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.88(Alpha)
+
+* Sun Jul 09 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.87(Alpha)
+
+* Mon Jun 26 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.86(Alpha)
+
+* Wed Jun 14 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0.85(Alpha)
+
+* Mon May 29 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0Alpha release 84
+
+* Wed May 17 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0Alpha release 83
+- Replace RPM_BUILD_ROOT to builddir macro
+
+* Sat May 06 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0Alpha release 82
+
+* Thu May 04 2023 Shiro Hara <white@vx-xv.com>
+- hengband RPM 3.0.0Alpha release 81
 
 * Mon Feb 20 2023 Shiro Hara <white@vx-xv.com>
 - hengband RPM 3.0.0Alpha release 78
@@ -129,4 +187,3 @@ exit 0
 
 * Sun Jun 16 2002 Takahiro MIZUNO <tow@plum.freemail.ne.jp> 
 - hengband RPM 1.0.0 release 1
-

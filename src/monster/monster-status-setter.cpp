@@ -1,13 +1,10 @@
-﻿#include "monster/monster-status-setter.h"
+#include "monster/monster-status-setter.h"
 #include "avatar/avatar.h"
 #include "cmd-visual/cmd-draw.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/speed-table.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "dungeon/quest-completion-checker.h"
-#include "floor/cave.h"
 #include "monster-floor/monster-move.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/monster-race.h"
@@ -16,18 +13,20 @@
 #include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
-#include "monster/monster-info.h"
 #include "monster/monster-processor.h"
 #include "monster/monster-status.h" //!< @todo 相互依存. 後で何とかする.
 #include "monster/monster-util.h"
 #include "monster/smart-learn-types.h"
+#include "system/angband-system.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <string>
 
 /*!
  * @brief モンスターをペットにする
@@ -38,23 +37,9 @@ void set_pet(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
     QuestCompletionChecker(player_ptr, m_ptr).complete();
     m_ptr->mflag2.set(MonsterConstantFlagType::PET);
-    if (monraces_info[m_ptr->r_idx].kind_flags.has_none_of(alignment_mask)) {
+    if (m_ptr->get_monrace().kind_flags.has_none_of(alignment_mask)) {
         m_ptr->sub_align = SUB_ALIGN_NEUTRAL;
     }
-}
-
-/*!
- * @brief モンスターを敵に回す
- * Makes the monster hostile towards the player
- * @param m_ptr モンスター情報構造体の参照ポインタ
- */
-void set_hostile(PlayerType *player_ptr, MonsterEntity *m_ptr)
-{
-    if (player_ptr->phase_out) {
-        return;
-    }
-
-    m_ptr->mflag2.reset({ MonsterConstantFlagType::PET, MonsterConstantFlagType::FRIENDLY });
 }
 
 /*!
@@ -64,13 +49,13 @@ void set_hostile(PlayerType *player_ptr, MonsterEntity *m_ptr)
  */
 void anger_monster(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
-    if (player_ptr->phase_out || !m_ptr->is_friendly()) {
+    if (AngbandSystem::get_instance().is_phase_out() || !m_ptr->is_friendly()) {
         return;
     }
 
     const auto m_name = monster_desc(player_ptr, m_ptr, 0);
     msg_format(_("%s^は怒った！", "%s^ gets angry!"), m_name.data());
-    set_hostile(player_ptr, m_ptr);
+    m_ptr->set_hostile();
     chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
     chg_virtue(player_ptr, Virtue::HONOUR, -1);
     chg_virtue(player_ptr, Virtue::JUSTICE, -1);
@@ -123,18 +108,19 @@ bool set_monster_csleep(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
         return false;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (m_ptr->ml) {
         if (player_ptr->health_who == m_idx) {
-            player_ptr->redraw |= PR_HEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
         }
 
         if (player_ptr->riding == m_idx) {
-            player_ptr->redraw |= PR_UHEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
         }
     }
 
-    if (monraces_info[m_ptr->r_idx].brightness_flags.has_any_of(has_ld_mask)) {
-        player_ptr->update |= PU_MONSTER_LITE;
+    if (m_ptr->get_monrace().brightness_flags.has_any_of(has_ld_mask)) {
+        rfu.set_flag(StatusRecalculatingFlag::MONSTER_LITE);
     }
 
     return true;
@@ -173,7 +159,7 @@ bool set_monster_fast(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     }
 
     if ((player_ptr->riding == m_idx) && !player_ptr->leaving) {
-        player_ptr->update |= PU_BONUS;
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     }
 
     return true;
@@ -207,7 +193,7 @@ bool set_monster_slow(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     }
 
     if ((player_ptr->riding == m_idx) && !player_ptr->leaving) {
-        player_ptr->update |= PU_BONUS;
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     }
 
     return true;
@@ -309,12 +295,13 @@ bool set_monster_monfear(PlayerType *player_ptr, MONSTER_IDX m_idx, int v)
     }
 
     if (m_ptr->ml) {
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
         if (player_ptr->health_who == m_idx) {
-            player_ptr->redraw |= PR_HEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
         }
 
         if (player_ptr->riding == m_idx) {
-            player_ptr->redraw |= PR_UHEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
         }
     }
 
@@ -358,12 +345,13 @@ bool set_monster_invulner(PlayerType *player_ptr, MONSTER_IDX m_idx, int v, bool
     }
 
     if (m_ptr->ml) {
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
         if (player_ptr->health_who == m_idx) {
-            player_ptr->redraw |= PR_HEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
         }
 
         if (player_ptr->riding == m_idx) {
-            player_ptr->redraw |= PR_UHEALTH;
+            rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
         }
     }
 
@@ -377,34 +365,35 @@ bool set_monster_invulner(PlayerType *player_ptr, MONSTER_IDX m_idx, int v, bool
  * @param who 時間停止を行う敵の種族番号
  * @param vs_player TRUEならば時間停止開始処理を行う
  * @return 時間停止が行われている状態ならばTRUEを返す
+ * @details monster_desc() は視認外のモンスターについて「何か」と返してくるので、この関数ではLOSや透明視等を判定する必要はない
  */
 bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bool vs_player)
 {
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[hack_m_idx];
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto *m_ptr = &floor.m_list[hack_m_idx];
     if (w_ptr->timewalk_m_idx) {
         return false;
     }
 
     if (vs_player) {
         const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-
-        concptr mes;
+        std::string mes;
         switch (who) {
         case MonsterRaceId::DIO:
-            mes = _("「『ザ・ワールド』！　時は止まった！」", "%s yells 'The World! Time has stopped!'");
+            mes = _("「『ザ・ワールド』！　時は止まった！」", format("%s yells 'The World! Time has stopped!'", m_name.data()));
             break;
         case MonsterRaceId::WONG:
-            mes = _("「時よ！」", "%s yells 'Time!'");
+            mes = _("「時よ！」", format("%s yells 'Time!'", m_name.data()));
             break;
         case MonsterRaceId::DIAVOLO:
-            mes = _("『キング・クリムゾン』！", "%s yells 'King Crison!'");
+            mes = _("『キング・クリムゾン』！", format("%s yells 'King Crison!'", m_name.data()));
             break;
         default:
-            mes = "hek!";
+            mes = format(_("%sは時を止めた！", "%s stops the time!"), m_name.data());
             break;
         }
 
-        msg_format(mes, m_name.data());
+        msg_print(mes);
         msg_print(nullptr);
     }
 
@@ -426,12 +415,19 @@ bool set_monster_timewalk(PlayerType *player_ptr, int num, MonsterRaceId who, bo
         }
     }
 
-    player_ptr->redraw |= PR_MAP;
-    player_ptr->update |= PU_MONSTER_STATUSES;
-    player_ptr->window_flags |= PW_OVERHEAD | PW_DUNGEON;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::MAP);
+    rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::OVERHEAD,
+        SubWindowRedrawingFlag::DUNGEON,
+    };
+    rfu.set_flags(flags);
     w_ptr->timewalk_m_idx = 0;
-    if (vs_player || (player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx) && projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx))) {
-        concptr mes;
+    auto should_output_message = floor.has_los({ m_ptr->fy, m_ptr->fx });
+    should_output_message &= projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx);
+    if (vs_player || should_output_message) {
+        std::string mes;
         switch (who) {
         case MonsterRaceId::DIAVOLO:
             mes = _("これが我が『キング・クリムゾン』の能力！　『時間を消し去って』飛び越えさせた…！！",

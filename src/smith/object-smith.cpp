@@ -1,9 +1,8 @@
-﻿#include "smith/object-smith.h"
+#include "smith/object-smith.h"
 #include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object/item-tester-hooker.h"
-#include "object/object-flags.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-info/smith-data-type.h"
@@ -98,11 +97,7 @@ concptr Smith::get_essence_name(SmithEssenceType essence)
 concptr Smith::get_effect_name(SmithEffectType effect)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
-        return _("不明", "Unknown");
-    }
-
-    return info.value()->name;
+    return info ? (*info)->name : _("不明", "Unknown");
 }
 
 /*!
@@ -114,11 +109,11 @@ concptr Smith::get_effect_name(SmithEffectType effect)
 std::string Smith::get_need_essences_desc(SmithEffectType effect)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value() || info.value()->need_essences.empty()) {
+    if (!info || (*info)->need_essences.empty()) {
         return _("不明", "Unknown");
     }
 
-    const auto &need_essences = info.value()->need_essences;
+    const auto &need_essences = (*info)->need_essences;
     std::stringstream ss;
     for (auto i = 0U; i < need_essences.size(); i++) {
         ss << Smith::get_essence_name(need_essences[i]);
@@ -139,11 +134,11 @@ std::string Smith::get_need_essences_desc(SmithEffectType effect)
 std::vector<SmithEssenceType> Smith::get_need_essences(SmithEffectType effect)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return {};
     }
 
-    return info.value()->need_essences;
+    return (*info)->need_essences;
 }
 
 /*!
@@ -158,11 +153,11 @@ std::vector<SmithEssenceType> Smith::get_need_essences(SmithEffectType effect)
 int Smith::get_essence_consumption(SmithEffectType effect, const ItemEntity *o_ptr)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return 0;
     }
 
-    auto consumption = info.value()->consumption;
+    auto consumption = (*info)->consumption;
     if (o_ptr == nullptr) {
         return consumption;
     }
@@ -185,11 +180,11 @@ int Smith::get_essence_consumption(SmithEffectType effect, const ItemEntity *o_p
 std::unique_ptr<ItemTester> Smith::get_item_tester(SmithEffectType effect)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return std::make_unique<TvalItemTester>(ItemKindType::NONE);
     }
 
-    auto tester_func = [i = info.value()](const ItemEntity *o_ptr) {
+    auto tester_func = [i = *info](const ItemEntity *o_ptr) {
         return i->can_give_smith_effect(o_ptr);
     };
     return std::make_unique<FuncItemTester>(tester_func);
@@ -204,11 +199,11 @@ std::unique_ptr<ItemTester> Smith::get_item_tester(SmithEffectType effect)
 TrFlags Smith::get_effect_tr_flags(SmithEffectType effect)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return {};
     }
 
-    return info.value()->tr_flags();
+    return (*info)->tr_flags();
 }
 
 /*!
@@ -264,13 +259,13 @@ std::vector<SmithEffectType> Smith::get_effect_list(SmithCategoryType category)
 int Smith::get_addable_count(SmithEffectType effect, const ItemEntity *o_ptr) const
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return 0;
     }
 
     auto consumption = Smith::get_essence_consumption(effect, o_ptr);
 
-    return addable_count(this->smith_data.get(), info.value()->need_essences, consumption);
+    return addable_count(this->smith_data.get(), (*info)->need_essences, consumption);
 }
 
 /*!
@@ -303,7 +298,7 @@ int Smith::get_essence_num_of_posessions(SmithEssenceType essence) const
 Smith::DrainEssenceResult Smith::drain_essence(ItemEntity *o_ptr)
 {
     // 抽出量を揃えるためKILLフラグのみ付いている場合はSLAYフラグも付ける
-    auto old_flags = object_flags(o_ptr);
+    auto old_flags = o_ptr->get_flags();
     if (old_flags.has(TR_KILL_DRAGON)) {
         old_flags.set(TR_SLAY_DRAGON);
     }
@@ -363,9 +358,9 @@ Smith::DrainEssenceResult Smith::drain_essence(ItemEntity *o_ptr)
 
     o_ptr->ident |= (IDENT_FULL_KNOWN);
     object_aware(player_ptr, o_ptr);
-    object_known(o_ptr);
+    o_ptr->mark_as_known();
 
-    auto new_flags = object_flags(o_ptr);
+    const auto new_flags = o_ptr->get_flags();
 
     std::unordered_map<SmithEssenceType, int> drain_values;
 
@@ -438,16 +433,16 @@ Smith::DrainEssenceResult Smith::drain_essence(ItemEntity *o_ptr)
 bool Smith::add_essence(SmithEffectType effect, ItemEntity *o_ptr, int number)
 {
     auto info = find_smith_info(effect);
-    if (!info.has_value()) {
+    if (!info) {
         return false;
     }
 
     const auto total_consumption = this->get_essence_consumption(effect, o_ptr) * number;
-    for (auto &&essence : info.value()->need_essences) {
+    for (auto &&essence : (*info)->need_essences) {
         this->smith_data->essences[essence] -= static_cast<int16_t>(total_consumption);
     }
 
-    return info.value()->add_essence(this->player_ptr, o_ptr, number);
+    return (*info)->add_essence(this->player_ptr, o_ptr, number);
 }
 
 /*!
@@ -460,13 +455,13 @@ void Smith::erase_essence(ItemEntity *o_ptr) const
     o_ptr->smith_act_idx = std::nullopt;
 
     auto effect = Smith::object_effect(o_ptr);
-    if (!effect.has_value()) {
+    if (!effect) {
         return;
     }
-    auto info = find_smith_info(effect.value());
-    if (!info.has_value()) {
+    auto info = find_smith_info(*effect);
+    if (!info) {
         return;
     }
 
-    info.value()->erase_essence(o_ptr);
+    (*info)->erase_essence(o_ptr);
 }

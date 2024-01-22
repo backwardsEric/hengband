@@ -1,4 +1,4 @@
-﻿#include "load/floor-loader.h"
+#include "load/floor-loader.h"
 #include "floor/floor-generator.h"
 #include "floor/floor-object.h"
 #include "floor/floor-save-util.h"
@@ -39,7 +39,7 @@
  * この関数は、セーブデータの互換性を保つために多くのデータ改変処理を備えている。
  * 現在確認している処理は以下の通り、
  * <ul>
- * <li>1.7.0.2で8bitだったgrid_typeのfeat,mimicのID値を16bitに拡張する処理。</li>
+ * <li>1.7.0.2で8bitだったGridのfeat,mimicのID値を16bitに拡張する処理。</li>
  * <li>1.7.0.8までに廃止、IDなどを差し替えたクエスト番号を置換する処理。</li>
  * </ul>
  * The monsters/objects must be loaded in the same order
@@ -196,7 +196,7 @@ errr rd_saved_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
         monster_loader->rd_monster(m_ptr);
         auto *g_ptr = &floor_ptr->grid_array[m_ptr->fy][m_ptr->fx];
         g_ptr->m_idx = m_idx;
-        m_ptr->get_real_r_ref().cur_num++;
+        m_ptr->get_real_monrace().cur_num++;
     }
 
     return 0;
@@ -236,10 +236,7 @@ static bool load_floor_aux(PlayerType *player_ptr, saved_floor_type *sf_ptr)
     }
 
     auto n_x_check = x_check;
-    if (rd_u32b() != n_x_check) {
-        return false;
-    }
-    return true;
+    return rd_u32b() == n_x_check;
 }
 
 /*!
@@ -287,13 +284,13 @@ bool load_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, BIT_FLAGS mode
         old_loading_savefile_version = loading_savefile_version;
     }
 
-    std::string floor_savefile = savefile;
+    auto floor_savefile = savefile.string();
     char ext[32];
     strnfmt(ext, sizeof(ext), ".F%02d", (int)sf_ptr->savefile_id);
     floor_savefile.append(ext);
 
-    safe_setuid_grab(player_ptr);
-    loading_savefile = angband_fopen(floor_savefile.data(), FileOpenMode::READ, true);
+    safe_setuid_grab();
+    loading_savefile = angband_fopen(floor_savefile, FileOpenMode::READ, true);
     safe_setuid_drop();
 
     bool is_save_successful = true;
@@ -308,9 +305,9 @@ bool load_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, BIT_FLAGS mode
         }
 
         angband_fclose(loading_savefile);
-        safe_setuid_grab(player_ptr);
+        safe_setuid_grab();
         if (!(mode & SLF_NO_KILL)) {
-            (void)fd_kill(floor_savefile.data());
+            (void)fd_kill(floor_savefile);
         }
 
         safe_setuid_drop();

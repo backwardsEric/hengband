@@ -1,4 +1,4 @@
-﻿#include "mspell/mspell-damage-calculator.h"
+#include "mspell/mspell-damage-calculator.h"
 #include "game-option/birth-options.h"
 #include "inventory/inventory-slot-types.h"
 #include "monster-race/monster-race.h"
@@ -243,6 +243,11 @@ static int monspell_damage_base(
         dice_num = 10;
         dice_side = 10;
         break;
+    case MonsterAbilityType::BA_METEOR:
+        dam = 50 + rlev * 5 / 2;
+        dice_num = 3;
+        dice_side = rlev;
+        break;
     case MonsterAbilityType::DRAIN_MANA:
         dam = rlev;
         div = 1;
@@ -337,6 +342,16 @@ static int monspell_damage_base(
         dice_num = 13;
         dice_side = 14;
         break;
+    case MonsterAbilityType::BO_METEOR:
+        dam = 30 + rlev * 2;
+        dice_num = 1;
+        dice_side = rlev;
+        break;
+    case MonsterAbilityType::BO_LITE:
+        dam = powerful ? 60 : 40;
+        dice_num = 1;
+        dice_side = powerful ? rlev * 4 : rlev * 2;
+        break;
     case MonsterAbilityType::MISSILE:
         dam = (rlev / 3);
         dice_num = 2;
@@ -428,6 +443,8 @@ static int monspell_damage_base(
         return -1;
     case MonsterAbilityType::S_UNIQUE:
         return -1;
+    case MonsterAbilityType::S_DEAD_UNIQUE:
+        return -1;
     case MonsterAbilityType::MAX:
         return -1;
     }
@@ -447,11 +464,11 @@ void monspell_shoot_dice(MonsterRaceInfo *r_ptr, int *dd, int *ds)
     int n = 0; /* Number of blows */
     const int max_blows = 4;
     for (int m = 0; m < max_blows; m++) {
-        if (r_ptr->blow[m].method != RaceBlowMethodType::NONE) {
+        if (r_ptr->blows[m].method != RaceBlowMethodType::NONE) {
             n++;
         } /* Count blows */
 
-        if (r_ptr->blow[m].method == RaceBlowMethodType::SHOOT) {
+        if (r_ptr->blows[m].method == RaceBlowMethodType::SHOOT) {
             p = m; /* Remember position */
             break;
         }
@@ -466,8 +483,8 @@ void monspell_shoot_dice(MonsterRaceInfo *r_ptr, int *dd, int *ds)
         (*dd) = 0;
         (*ds) = 0;
     } else {
-        (*dd) = r_ptr->blow[p].d_dice;
-        (*ds) = r_ptr->blow[p].d_side;
+        (*dd) = r_ptr->blows[p].d_dice;
+        (*ds) = r_ptr->blows[p].d_side;
     }
 }
 
@@ -483,7 +500,7 @@ int monspell_damage(PlayerType *player_ptr, MonsterAbilityType ms_type, MONSTER_
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
     DEPTH rlev = monster_level_idx(floor_ptr, m_idx);
     int hp = (TYPE == DAM_ROLL) ? m_ptr->hp : m_ptr->max_maxhp;
     int shoot_dd, shoot_ds;

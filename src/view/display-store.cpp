@@ -1,4 +1,4 @@
-﻿#include "view/display-store.h"
+#include "view/display-store.h"
 #include "flavor/flavor-describer.h"
 #include "game-option/birth-options.h"
 #include "game-option/special-options.h"
@@ -68,9 +68,8 @@ void display_entry(PlayerType *player_ptr, int pos, StoreSaleType store_num)
             maxwid -= 10;
         }
 
-        // 元々マルチバイト文字のことが考慮されていない.
-        const auto item_name = describe_flavor(player_ptr, o_ptr, 0).substr(0, maxwid);
-        c_put_str(tval_to_attr[enum2i(o_ptr->bi_key.tval())], item_name.data(), i + 6, cur_col);
+        const auto item_name = describe_flavor(player_ptr, o_ptr, 0, maxwid);
+        c_put_str(tval_to_attr[enum2i(o_ptr->bi_key.tval())], item_name, i + 6, cur_col);
 
         if (show_weights) {
             WEIGHT wgt = o_ptr->weight;
@@ -85,9 +84,8 @@ void display_entry(PlayerType *player_ptr, int pos, StoreSaleType store_num)
         maxwid -= 7;
     }
 
-    // 元々マルチバイト文字のことが考慮されていない.
-    const auto item_name = describe_flavor(player_ptr, o_ptr, 0).substr(0, maxwid);
-    c_put_str(tval_to_attr[enum2i(o_ptr->bi_key.tval())], item_name.data(), i + 6, cur_col);
+    const auto item_name = describe_flavor(player_ptr, o_ptr, 0, maxwid);
+    c_put_str(tval_to_attr[enum2i(o_ptr->bi_key.tval())], item_name, i + 6, cur_col);
 
     if (show_weights) {
         int wgt = o_ptr->weight;
@@ -169,12 +167,12 @@ void display_store(PlayerType *player_ptr, StoreSaleType store_num)
         return;
     }
 
-    concptr store_name = terrains_info[cur_store_feat].name.data();
-    concptr owner_name = (ot_ptr->owner_name);
-    concptr race_name = race_info[enum2i(ot_ptr->owner_race)].title;
+    const auto &store_name = TerrainList::get_instance()[cur_store_feat].name;
+    const auto owner_name = ot_ptr->owner_name;
+    const auto race_name = race_info[enum2i(ot_ptr->owner_race)].title;
     put_str(format("%s (%s)", owner_name, race_name), 3, 10);
 
-    prt(format("%s (%ld)", store_name, (long)(ot_ptr->max_cost)), 3, 50);
+    prt(format("%s (%d)", store_name.data(), ot_ptr->max_cost), 3, 50);
 
     put_str(_("商品の一覧", "Item Description"), 5, 5);
     if (show_weights) {

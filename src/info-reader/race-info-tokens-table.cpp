@@ -1,4 +1,4 @@
-﻿#include "info-reader/race-info-tokens-table.h"
+#include "info-reader/race-info-tokens-table.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
 #include "monster-race/race-ability-flags.h"
@@ -7,6 +7,7 @@
 #include "monster-race/race-feature-flags.h"
 #include "monster-race/race-kind-flags.h"
 #include "monster-race/race-population-flags.h"
+#include "monster-race/race-sex-const.h"
 #include "monster-race/race-speak-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "monster-race/race-wilderness-flags.h"
@@ -84,6 +85,7 @@ const std::unordered_map<std::string_view, RaceBlowEffectType> r_info_blow_effec
     { "INERTIA", RaceBlowEffectType::INERTIA },
     { "STUN", RaceBlowEffectType::STUN },
     { "HUNGRY", RaceBlowEffectType::HUNGRY },
+    { "CHAOS", RaceBlowEffectType::CHAOS },
     { "FLAVOR", RaceBlowEffectType::FLAVOR },
 };
 
@@ -93,8 +95,6 @@ const std::unordered_map<std::string_view, RaceBlowEffectType> r_info_blow_effec
  */
 const std::unordered_map<std::string_view, race_flags1> r_info_flags1 = {
     { "QUESTOR", RF1_QUESTOR },
-    { "MALE", RF1_MALE },
-    { "FEMALE", RF1_FEMALE },
     { "FORCE_DEPTH", RF1_FORCE_DEPTH },
     { "FORCE_MAXHP", RF1_FORCE_MAXHP },
     { "FORCE_EXTRA", RF1_FORCE_EXTRA },
@@ -120,18 +120,6 @@ const std::unordered_map<std::string_view, race_flags2> r_info_flags2 = {
     { "ELDRITCH_HORROR", RF2_ELDRITCH_HORROR },
     { "FLAGS2_XX14", RF2_XX14 },
     { "FLAGS2_XX15", RF2_XX15 },
-};
-
-/*!
- * モンスター特性トークンの定義3 /
- * Monster race flags
- */
-const std::unordered_map<std::string_view, race_flags3> r_info_flags3 = {
-    { "FLAGS3_XX10", RF3_XX10 },
-    { "NO_FEAR", RF3_NO_FEAR },
-    { "NO_STUN", RF3_NO_STUN },
-    { "NO_CONF", RF3_NO_CONF },
-    { "NO_SLEEP", RF3_NO_SLEEP }
 };
 
 /*!
@@ -186,6 +174,7 @@ const std::unordered_map<std::string_view, MonsterAbilityType> r_info_ability_fl
 	{"BA_DARK", MonsterAbilityType::BA_DARK },
 	{"BA_VOID", MonsterAbilityType::BA_VOID },
 	{"BA_ABYSS", MonsterAbilityType::BA_ABYSS },
+	{"BA_METEOR", MonsterAbilityType::BA_METEOR },
 	{"DRAIN_MANA", MonsterAbilityType::DRAIN_MANA },
 	{"MIND_BLAST", MonsterAbilityType::MIND_BLAST },
 	{"BRAIN_SMASH", MonsterAbilityType::BRAIN_SMASH },
@@ -205,6 +194,8 @@ const std::unordered_map<std::string_view, MonsterAbilityType> r_info_ability_fl
 	{"BO_ICEE", MonsterAbilityType::BO_ICEE },
 	{"BO_VOID", MonsterAbilityType::BO_VOID },
 	{"BO_ABYSS", MonsterAbilityType::BO_ABYSS },
+	{"BO_METEOR", MonsterAbilityType::BO_METEOR },
+	{"BO_LITE", MonsterAbilityType::BO_LITE },
 	{"MISSILE", MonsterAbilityType::MISSILE },
 	{"SCARE", MonsterAbilityType::SCARE },
 	{"BLIND", MonsterAbilityType::BLIND },
@@ -244,6 +235,7 @@ const std::unordered_map<std::string_view, MonsterAbilityType> r_info_ability_fl
 	{"S_HI_DRAGON", MonsterAbilityType::S_HI_DRAGON },
 	{"S_AMBERITES", MonsterAbilityType::S_AMBERITES },
 	{"S_UNIQUE", MonsterAbilityType::S_UNIQUE },
+	{"S_DEAD_UNIQUE", MonsterAbilityType::S_DEAD_UNIQUE },
 };
 /* clang-format on */
 
@@ -253,7 +245,6 @@ const std::unordered_map<std::string_view, MonsterAbilityType> r_info_ability_fl
  * HOGE は、MonsterRaceDefinitions で定義したモンスター種族ID
  */
 const std::unordered_map<std::string_view, race_flags7> r_info_flags7 = {
-    { "UNIQUE2", RF7_UNIQUE2 },
     { "RIDING", RF7_RIDING },
     { "KAGE", RF7_KAGE },
     { "CHAMELEON", RF7_CHAMELEON },
@@ -324,6 +315,13 @@ const std::unordered_map<std::string_view, MonsterResistanceType> r_info_flagsr 
     { "RES_ABYSS", MonsterResistanceType::RESIST_ABYSS },
     { "HURT_VOID", MonsterResistanceType::HURT_VOID_MAGIC },
     { "RES_VOID", MonsterResistanceType::RESIST_VOID_MAGIC },
+    { "HURT_METEOR", MonsterResistanceType::HURT_METEOR },
+    { "RES_METEOR", MonsterResistanceType::RESIST_METEOR },
+    { "NO_FEAR", MonsterResistanceType::NO_FEAR },
+    { "NO_STUN", MonsterResistanceType::NO_STUN },
+    { "NO_CONF", MonsterResistanceType::NO_CONF },
+    { "NO_SLEEP", MonsterResistanceType::NO_SLEEP },
+    { "NO_INSTANTLY_DEATH", MonsterResistanceType::NO_INSTANTLY_DEATH }
 };
 
 const std::unordered_map<std::string_view, MonsterAuraType> r_info_aura_flags = {
@@ -436,6 +434,7 @@ const std::unordered_map<std::string_view, MonsterFeatureType> r_info_feature_fl
 
 const std::unordered_map<std::string_view, MonsterPopulationType> r_info_population_flags = {
     { "NAZGUL", MonsterPopulationType::NAZGUL },
+    { "ONLY_ONE", MonsterPopulationType::ONLY_ONE },
 };
 
 const std::unordered_map<std::string_view, MonsterSpeakType> r_info_speak_flags = {
@@ -456,4 +455,10 @@ const std::unordered_map<std::string_view, MonsterBrightnessType> r_info_brightn
     { "SELF_DARK_1", MonsterBrightnessType::SELF_DARK_1 },
     { "HAS_DARK_2", MonsterBrightnessType::HAS_DARK_2 },
     { "SELF_DARK_2", MonsterBrightnessType::SELF_DARK_2 },
+};
+
+const std::unordered_map<std::string_view, MonsterSex> r_info_sex = {
+    { "NONE", MonsterSex::NONE },
+    { "MALE", MonsterSex::MALE },
+    { "FEMALE", MonsterSex::FEMALE },
 };

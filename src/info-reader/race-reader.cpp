@@ -1,4 +1,4 @@
-﻿#include "info-reader/race-reader.h"
+#include "info-reader/race-reader.h"
 #include "info-reader/info-reader-util.h"
 #include "info-reader/parse-error-types.h"
 #include "info-reader/race-info-tokens-table.h"
@@ -25,10 +25,6 @@ static bool grab_one_basic_flag(MonsterRaceInfo *r_ptr, std::string_view what)
     }
 
     if (info_grab_one_flag(r_ptr->flags2, r_info_flags2, what)) {
-        return true;
-    }
-
-    if (info_grab_one_flag(r_ptr->flags3, r_info_flags3, what)) {
         return true;
     }
 
@@ -148,17 +144,20 @@ errr parse_monraces_info(std::string_view buf, angband_header *)
     } else if (tokens[0] == "D") {
         // D:text_ja
         // D:$text_en
-        if (tokens.size() < 2 || tokens[1].size() == 0) {
+        if (tokens.size() < 2 || buf.length() < 3) {
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 #ifdef JP
-        if (tokens[1][0] == '$') {
+        if (buf[2] == '$') {
             return PARSE_ERROR_NONE;
         }
         r_ptr->text.append(buf.substr(2));
 #else
-        if (tokens[1][0] != '$') {
+        if (buf[2] != '$') {
             return PARSE_ERROR_NONE;
+        }
+        if (buf.length() == 3) {
+            return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
         append_english_text(r_ptr->text, buf.substr(3));
 #endif
@@ -229,7 +228,7 @@ errr parse_monraces_info(std::string_view buf, angband_header *)
         // B:blow_type:blow_effect:dice
         size_t i = 0;
         for (; i < 4; i++) {
-            if (r_ptr->blow[i].method == RaceBlowMethodType::NONE) {
+            if (r_ptr->blows[i].method == RaceBlowMethodType::NONE) {
                 break;
             }
         }
@@ -255,16 +254,16 @@ errr parse_monraces_info(std::string_view buf, angband_header *)
             return PARSE_ERROR_INVALID_FLAG;
         }
 
-        r_ptr->blow[i].method = rbm->second;
-        r_ptr->blow[i].effect = rbe->second;
+        r_ptr->blows[i].method = rbm->second;
+        r_ptr->blows[i].effect = rbe->second;
 
         if (tokens.size() < 4) {
             return PARSE_ERROR_NONE;
         }
 
         const auto &dice = str_split(tokens[3], 'd', false, 2);
-        info_set_value(r_ptr->blow[i].d_dice, dice[0]);
-        info_set_value(r_ptr->blow[i].d_side, dice[1]);
+        info_set_value(r_ptr->blows[i].d_dice, dice[0]);
+        info_set_value(r_ptr->blows[i].d_side, dice[1]);
     } else if (tokens[0] == "F") {
         // F:flags
         if (tokens.size() < 2 || tokens[1].size() == 0) {
@@ -327,6 +326,16 @@ errr parse_monraces_info(std::string_view buf, angband_header *)
         info_set_value(a_idx, tokens[1]);
         info_set_value(chance, tokens[2]);
         r_ptr->drop_artifacts.emplace_back(a_idx, chance);
+    } else if (tokens[0] == "X") {
+        if (tokens.size() < 2) {
+            return PARSE_ERROR_TOO_FEW_ARGUMENTS;
+        }
+        uint32_t sex;
+        if (!info_grab_one_const(sex, r_info_sex, tokens[1])) {
+            return PARSE_ERROR_INVALID_FLAG;
+        }
+        r_ptr->sex = static_cast<MonsterSex>(sex);
+
     } else if (tokens[0] == "V") {
         // V:arena_odds
         if (tokens.size() < 2) {

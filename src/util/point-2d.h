@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "system/h-type.h"
 
@@ -13,6 +13,16 @@ struct Point2D {
         : y(y)
         , x(x)
     {
+    }
+
+    constexpr bool operator==(const Point2D &other) const
+    {
+        return (this->y == other.y) && (this->x == other.x);
+    }
+
+    constexpr bool operator!=(const Point2D &other) const
+    {
+        return !(*this == other);
     }
 };
 

@@ -1,4 +1,4 @@
-﻿#include "room/rooms-trap.h"
+#include "room/rooms-trap.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "floor/floor-generator.h"
 #include "game-option/cheat-types.h"
@@ -26,7 +26,7 @@ bool build_type14(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
     bool light;
 
-    grid_type *g_ptr;
+    Grid *g_ptr;
     int16_t trap;
 
     /* Pick a room size */
@@ -45,7 +45,7 @@ bool build_type14(PlayerType *player_ptr, dun_data_type *dd_ptr)
 
     /* Choose lite or dark */
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    light = ((floor_ptr->dun_level <= randint1(25)) && dungeons_info[floor_ptr->dungeon_idx].flags.has_not(DungeonFeatureType::DARKNESS));
+    light = ((floor_ptr->dun_level <= randint1(25)) && floor_ptr->get_dungeon_definition().flags.has_not(DungeonFeatureType::DARKNESS));
 
     /* Get corner values */
     y1 = yval - ysize / 2;
@@ -89,7 +89,7 @@ bool build_type14(PlayerType *player_ptr, dun_data_type *dd_ptr)
     g_ptr = &floor_ptr->grid_array[rand_spread(yval, ysize / 4)][rand_spread(xval, xsize / 4)];
     g_ptr->mimic = g_ptr->feat;
     g_ptr->feat = trap;
-
-    msg_format_wizard(player_ptr, CHEAT_DUNGEON, _("%sの部屋が生成されました。", "Room of %s was generated."), terrains_info[trap].name.data());
+    constexpr auto fmt = _("%sの部屋が生成されました。", "Room of %s was generated.");
+    msg_format_wizard(player_ptr, CHEAT_DUNGEON, fmt, TerrainList::get_instance()[trap].name.data());
     return true;
 }

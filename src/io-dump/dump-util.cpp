@@ -1,4 +1,4 @@
-﻿#include "io-dump/dump-util.h"
+#include "io-dump/dump-util.h"
 #include "floor/geometry.h"
 #include "game-option/keymap-directory-getter.h"
 #include "game-option/special-options.h"
@@ -64,8 +64,8 @@ bool visual_mode_command(char ch, bool *visual_list_ptr,
         }
 
         *visual_list_ptr = true;
-        *attr_top_ptr = std::max<byte>(0, (*cur_attr_ptr & 0x7f) - 5);
-        *char_left_ptr = std::max<byte>(0, *cur_char_ptr - 10);
+        *attr_top_ptr = std::max<int8_t>(0, (*cur_attr_ptr & 0x7f) - 5);
+        *char_left_ptr = std::max<int8_t>(0, *cur_char_ptr - 10);
         attr_old = *cur_attr_ptr;
         char_old = *cur_char_ptr;
         return true;
@@ -85,7 +85,7 @@ bool visual_mode_command(char ch, bool *visual_list_ptr,
     case 'p': {
         if (attr_idx || (!(char_idx & 0x80) && char_idx)) {
             *cur_attr_ptr = attr_idx;
-            *attr_top_ptr = std::max<byte>(0, (*cur_attr_ptr & 0x7f) - 5);
+            *attr_top_ptr = std::max<int8_t>(0, (*cur_attr_ptr & 0x7f) - 5);
             if (!*visual_list_ptr) {
                 *need_redraw = true;
             }
@@ -94,7 +94,7 @@ bool visual_mode_command(char ch, bool *visual_list_ptr,
         if (char_idx) {
             /* Set the char */
             *cur_char_ptr = char_idx;
-            *char_left_ptr = std::max<byte>(0, *cur_char_ptr - 10);
+            *char_left_ptr = std::max<int8_t>(0, *cur_char_ptr - 10);
             if (!*visual_list_ptr) {
                 *need_redraw = true;
             }
@@ -277,8 +277,7 @@ void browser_cursor(char ch, int *column, IDX *grp_cur, int grp_cnt, IDX *list_c
 
     if ((ddx[d] > 0) && ddy[d]) {
         int browser_rows;
-        int wid, hgt;
-        term_get_size(&wid, &hgt);
+        const auto &[wid, hgt] = term_get_size();
         browser_rows = hgt - 8;
         if (!col) {
             int old_grp = grp;

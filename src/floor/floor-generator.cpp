@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ダンジョンの生成 / Dungeon generation
  * @date 2014/01/04
  * @author
@@ -38,6 +38,7 @@
 #include "monster/monster-update.h"
 #include "monster/monster-util.h"
 #include "player/player-status.h"
+#include "system/angband-system.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
@@ -139,11 +140,11 @@ static void generate_challenge_arena(PlayerType *player_ptr)
 
     build_arena(player_ptr, &y, &x);
     player_place(player_ptr, y, x);
-    if (place_monster_aux(player_ptr, 0, player_ptr->y + 5, player_ptr->x, arena_info[player_ptr->arena_number].r_idx, PM_NO_KAGE | PM_NO_PET)) {
+    if (place_specific_monster(player_ptr, 0, player_ptr->y + 5, player_ptr->x, arena_info[player_ptr->arena_number].r_idx, PM_NO_KAGE | PM_NO_PET)) {
         return;
     }
 
-    player_ptr->exit_bldg = true;
+    w_ptr->set_arena(true);
     player_ptr->arena_number++;
     msg_print(_("相手は欠場した。あなたの不戦勝だ。", "The enemy is unable to appear. You won by default."));
 }
@@ -238,7 +239,7 @@ static void generate_gambling_arena(PlayerType *player_ptr)
     build_battle(player_ptr, &y, &x);
     player_place(player_ptr, y, x);
     for (MONSTER_IDX i = 0; i < 4; i++) {
-        place_monster_aux(player_ptr, 0, player_ptr->y + 8 + (i / 2) * 4, player_ptr->x - 2 + (i % 2) * 4, battle_mon_list[i], (PM_NO_KAGE | PM_NO_PET));
+        place_specific_monster(player_ptr, 0, player_ptr->y + 8 + (i / 2) * 4, player_ptr->x - 2 + (i % 2) * 4, battle_mon_list[i], (PM_NO_KAGE | PM_NO_PET));
         set_friendly(&floor_ptr->m_list[floor_ptr->grid_array[player_ptr->y + 8 + (i / 2) * 4][player_ptr->x - 2 + (i % 2) * 4].m_idx]);
     }
 
@@ -272,7 +273,7 @@ static void generate_fixed_floor(PlayerType *player_ptr)
     floor_ptr->object_level = floor_ptr->base_level;
     floor_ptr->monster_level = floor_ptr->base_level;
     if (record_stair) {
-        exe_write_diary_quest(player_ptr, DIARY_TO_QUEST, floor_ptr->quest_number);
+        exe_write_diary_quest(player_ptr, DiaryKind::TO_QUEST, floor_ptr->quest_number);
     }
     get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), nullptr);
     init_flags = INIT_CREATE_DUNGEON;
@@ -386,8 +387,8 @@ void clear_cave(PlayerType *player_ptr)
             g_ptr->m_idx = 0;
             g_ptr->special = 0;
             g_ptr->mimic = 0;
-            memset(g_ptr->costs, 0, sizeof(g_ptr->costs));
-            memset(g_ptr->costs, 0, sizeof(g_ptr->dists));
+            g_ptr->reset_costs();
+            g_ptr->reset_dists();
             g_ptr->when = 0;
         }
     }
@@ -402,8 +403,7 @@ typedef bool (*IsWallFunc)(const FloorType *, int, int);
 // (y,x) がプレイヤーが通れない永久地形かどうかを返す。
 static bool is_permanent_blocker(const FloorType *const floor_ptr, const int y, const int x)
 {
-    const FEAT_IDX feat = floor_ptr->grid_array[y][x].feat;
-    const auto &flags = terrains_info[feat].flags;
+    const auto &flags = floor_ptr->get_grid({ y, x }).get_terrain().flags;
     return flags.has(TerrainCharacteristics::PERMANENT) && flags.has_not(TerrainCharacteristics::MOVE);
 }
 
@@ -494,7 +494,6 @@ static bool floor_is_connected(const FloorType *const floor_ptr, const IsWallFun
 void generate_floor(PlayerType *player_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->dungeon_idx = player_ptr->dungeon_idx;
     set_floor_and_wall(floor_ptr->dungeon_idx);
     for (int num = 0; true; num++) {
         bool okay = true;
@@ -503,9 +502,9 @@ void generate_floor(PlayerType *player_ptr)
         player_ptr->x = player_ptr->y = 0;
         if (floor_ptr->inside_arena) {
             generate_challenge_arena(player_ptr);
-        } else if (player_ptr->phase_out) {
+        } else if (AngbandSystem::get_instance().is_phase_out()) {
             generate_gambling_arena(player_ptr);
-        } else if (inside_quest(floor_ptr->quest_number)) {
+        } else if (floor_ptr->is_in_quest()) {
             generate_fixed_floor(player_ptr);
         } else if (!floor_ptr->dun_level) {
             if (player_ptr->wild_mode) {
@@ -529,7 +528,7 @@ void generate_floor(PlayerType *player_ptr)
         // 狂戦士でのプレイに支障をきたしうるので再生成する。
         // 地上、荒野マップ、クエストでは連結性判定は行わない。
         // TODO: 本来はダンジョン生成アルゴリズム自身で連結性を保証するのが理想ではある。
-        const bool check_conn = okay && floor_ptr->dun_level > 0 && !inside_quest(floor_ptr->quest_number);
+        const bool check_conn = okay && floor_ptr->dun_level > 0 && !floor_ptr->is_in_quest();
         if (check_conn && !floor_is_connected(floor_ptr, is_permanent_blocker)) {
             // 一定回数試しても連結にならないなら諦める。
             if (num >= 1000) {

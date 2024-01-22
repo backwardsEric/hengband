@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 元素使いの魔法系統
  */
 
@@ -9,7 +9,6 @@
 #include "cmd-action/cmd-spell.h"
 #include "cmd-io/cmd-gameoption.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "effect/effect-characteristics.h"
@@ -63,6 +62,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -200,7 +200,7 @@ static element_type_list element_types = {
 /*!
  * @brief 元素魔法呪文定義
  */
-static element_power_list element_powers = {
+static const element_power_list element_powers = {
     { ElementSpells::BOLT_1ST,   { 0, {  1,  1,  15, _("%sの矢", "%s Bolt") }}},
     { ElementSpells::MON_DETECT, { 0, {  2,  2,  20, _("モンスター感知", "Detect Monsters") }}},
     { ElementSpells::PERCEPT,    { 0, {  5,  5,  50, _("擬似鑑定", "Psychometry") }}},
@@ -461,7 +461,7 @@ static std::string get_element_effect_info(PlayerType *player_ptr, int spell_idx
 static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
 {
     auto spell = i2enum<ElementSpells>(spell_idx);
-    auto power = element_powers.at(spell);
+    auto &power = element_powers.at(spell);
     AttributeType typ;
     DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
@@ -576,7 +576,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
                 if (!cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT)) {
                     continue;
                 }
-                if (!player_bold(player_ptr, y, x)) {
+                if (!player_ptr->is_located_at({ y, x })) {
                     break;
                 }
             }
@@ -684,8 +684,6 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
     TERM_LEN y = 1;
     TERM_LEN x = 10;
     PLAYER_LEVEL plev = player_ptr->lev;
-    char choice;
-    char out_val[160];
     COMMAND_CODE code;
     bool flag, redraw;
     int menu_line = (use_menu ? 1 : 0);
@@ -708,26 +706,31 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         }
     }
 
+    std::string fmt;
     if (only_browse) {
-        (void)strnfmt(out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0),
-            I2A(num - 1), p);
+        fmt = _("(%s^ %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? ");
     } else {
-        (void)strnfmt(
-            out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0), I2A(num - 1), p);
+        fmt = _("(%s^ %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? ");
     }
 
+    const auto prompt = format(fmt.data(), p, I2A(0), I2A(num - 1), p);
     if (use_menu && !only_browse) {
         screen_save();
     }
 
     int elem;
     mind_type spell;
-    choice = (always_show_list || use_menu) ? ESCAPE : 1;
+    auto choice = (always_show_list || use_menu) ? ESCAPE : 1;
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
-        } else if (!get_com(out_val, &choice, true)) {
-            break;
+        } else {
+            const auto new_choice = input_command(prompt, true);
+            if (!new_choice) {
+                break;
+            }
+
+            choice = *new_choice;
         }
 
         auto should_redraw_cursor = true;
@@ -762,7 +765,7 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
             }
         }
 
-        int spell_max = enum2i(ElementSpells::MAX);
+        constexpr auto spell_max = enum2i(ElementSpells::MAX);
         if ((choice == ' ') || (choice == '*') || (choice == '?') || (use_menu && should_redraw_cursor)) {
             if (!redraw || use_menu) {
                 redraw = true;
@@ -796,8 +799,8 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
                         desc = format("  %c) ", I2A(i));
                     }
 
-                    concptr s = get_element_name(player_ptr->element, elem);
-                    std::string name = format(spell.name, s);
+                    const auto s = get_element_name(player_ptr->element, elem);
+                    const auto name = format(spell.name, s);
                     desc.append(format("%-30s%2d %4d %3d%%%s", name.data(), spell.min_lev, mana_cost, chance, comment.data()));
                     prt(desc, y + i + 1, x);
                 }
@@ -827,7 +830,7 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         screen_load();
     }
 
-    set_bits(player_ptr->window_flags, PW_SPELL);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
     if (!flag) {
         return false;
@@ -855,7 +858,7 @@ static bool check_element_mp_sufficiency(PlayerType *player_ptr, int mana_cost)
         return false;
     }
 
-    return get_check(_("それでも挑戦しますか? ", "Attempt it anyway? "));
+    return input_check(_("それでも挑戦しますか? ", "Attempt it anyway? "));
 }
 
 /*!
@@ -882,14 +885,19 @@ static bool try_cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx, 
     if (randint1(100) < chance / 2) {
         int plev = player_ptr->lev;
         msg_print(_("元素の力が制御できない氾流となって解放された！", "The elemental power surges from you in an uncontrollable torrent!"));
-        project(player_ptr, PROJECT_WHO_UNCTRL_POWER, 2 + plev / 10, player_ptr->y, player_ptr->x, plev * 2, get_element_types(player_ptr->element)[0],
-            PROJECT_JUMP | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM);
+        const auto element = get_element_types(player_ptr->element)[0];
+        constexpr auto flags = PROJECT_JUMP | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM;
+        project(player_ptr, PROJECT_WHO_UNCTRL_POWER, 2 + plev / 10, player_ptr->y, player_ptr->x, plev * 2, element, flags);
         player_ptr->csp = std::max(0, player_ptr->csp - player_ptr->msp * 10 / (20 + randint1(10)));
 
         PlayerEnergy(player_ptr).set_player_turn_energy(100);
-        set_bits(player_ptr->redraw, PR_MP);
-        set_bits(player_ptr->window_flags, PW_PLAYER | PW_SPELL);
-
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
+        rfu.set_flag(MainWindowRedrawingFlag::MP);
+        static constexpr auto flags_swrf = {
+            SubWindowRedrawingFlag::PLAYER,
+            SubWindowRedrawingFlag::SPELL,
+        };
+        rfu.set_flags(flags_swrf);
         return false;
     }
 
@@ -936,8 +944,13 @@ void do_cmd_element(PlayerType *player_ptr)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    set_bits(player_ptr->redraw, PR_MP);
-    set_bits(player_ptr->window_flags, PW_PLAYER | PW_SPELL);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::MP);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    rfu.set_flags(flags_swrf);
 }
 
 /*!
@@ -955,12 +968,12 @@ void do_cmd_element_browse(PlayerType *player_ptr)
             return;
         }
 
-        term_erase(12, 21, 255);
-        term_erase(12, 20, 255);
-        term_erase(12, 19, 255);
-        term_erase(12, 18, 255);
-        term_erase(12, 17, 255);
-        term_erase(12, 16, 255);
+        term_erase(12, 21);
+        term_erase(12, 20);
+        term_erase(12, 19);
+        term_erase(12, 18);
+        term_erase(12, 17);
+        term_erase(12, 16);
         display_wrap_around(get_element_tip(player_ptr, n), 62, 17, 15);
 
         prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
@@ -1003,7 +1016,7 @@ bool is_elemental_genocide_effective(MonsterRaceInfo *r_ptr, AttributeType type)
         }
         break;
     case AttributeType::CONFUSION:
-        if (any_bits(r_ptr->flags3, RF3_NO_CONF)) {
+        if (r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
             return false;
         }
         break;
@@ -1030,7 +1043,7 @@ bool is_elemental_genocide_effective(MonsterRaceInfo *r_ptr, AttributeType type)
  * @param em_ptr 魔法効果情報への参照ポインタ
  * @return 効果処理を続けるかどうか
  */
-ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     auto type = get_element_type(player_ptr->element, 0);
     auto name = get_element_name(player_ptr->element, 0);
@@ -1157,7 +1170,7 @@ static int get_element_realm(PlayerType *player_ptr, int is, int n)
     int os = cs;
     int k;
 
-    std::string buf = format(_("領域を選んで下さい(%c-%c) ('='初期オプション設定): ", "Choose a realm (%c-%c) ('=' for options): "), I2A(0), I2A(n - 1));
+    const auto buf = format(_("領域を選んで下さい(%c-%c) ('='初期オプション設定): ", "Choose a realm (%c-%c) ('=' for options): "), I2A(0), I2A(n - 1));
 
     while (true) {
         display_realm_cursor(os, n, TERM_WHITE);
@@ -1222,7 +1235,7 @@ byte select_element_realm(PlayerType *player_ptr)
 {
     clear_from(10);
 
-    int realm_max = enum2i(ElementRealmType::MAX);
+    constexpr auto realm_max = enum2i(ElementRealmType::MAX);
     int realm_idx = 1;
     int row = 16;
     while (1) {
@@ -1242,7 +1255,7 @@ byte select_element_realm(PlayerType *player_ptr)
         auto realm = i2enum<ElementRealmType>(realm_idx);
         display_wrap_around(element_texts.at(realm), 74, row, 3);
 
-        if (get_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), CHECK_DEFAULT_Y)) {
+        if (input_check_strict(player_ptr, _("よろしいですか？", "Are you sure? "), UserCheck::DEFAULT_Y)) {
             break;
         }
 

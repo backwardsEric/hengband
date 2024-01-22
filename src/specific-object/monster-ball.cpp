@@ -1,4 +1,4 @@
-﻿#include "specific-object/monster-ball.h"
+#include "specific-object/monster-ball.h"
 #include "effect/spells-effect-util.h"
 #include "floor/geometry.h"
 #include "game-option/input-options.h"
@@ -29,7 +29,7 @@ static void inscribe_nickname(ItemEntity &item, const CapturedMonsterType &cap_m
     }
 
     auto &insc = item.inscription;
-    if (!insc.has_value()) {
+    if (!insc) {
         insc = "";
     }
 
@@ -100,7 +100,7 @@ static bool release_monster(PlayerType *player_ptr, ItemEntity &item, DIRECTION 
         return false;
     }
 
-    if (!place_monster_aux(player_ptr, 0, player_ptr->y + ddy[dir], player_ptr->x + ddx[dir], r_idx, PM_FORCE_PET | PM_NO_KAGE)) {
+    if (!place_specific_monster(player_ptr, 0, player_ptr->y + ddy[dir], player_ptr->x + ddx[dir], r_idx, PM_FORCE_PET | PM_NO_KAGE)) {
         return false;
     }
 
@@ -142,7 +142,7 @@ bool exe_monster_capture(PlayerType *player_ptr, ItemEntity &item)
     }
 
     DIRECTION dir;
-    if (!get_direction(player_ptr, &dir, false, false)) {
+    if (!get_direction(player_ptr, &dir)) {
         return true;
     }
 

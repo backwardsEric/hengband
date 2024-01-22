@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 /*!
  * @file h-type.h
@@ -53,12 +53,12 @@ typedef const char *concptr;
  */
 typedef int errr;
 
-#define MAX_UCHAR 255 /*!< Maximum value storable in a "byte" (hard-coded) */
-#define MAX_SHORT 32767 /*!< Maximum value storable in a "int16_t" (hard-coded) */
-
-#define MAX_NLEN 160 /*!< Maximum length of object's name */
+constexpr auto MAX_UCHAR = 255; /*!< Maximum value storable in a "byte" (hard-coded) */
+constexpr auto MAX_SHORT = 32767; /*!< Maximum value storable in a "int16_t" (hard-coded) */
+constexpr auto MAX_INT = 2147483647;
+constexpr auto MAX_NLEN = 160; /*!< Maximum length of object's name */
+constexpr auto MAX_MONSTER_NAME = 160; /*!< モンスター名称の最大バイト数 / Max characters of monster's name */
 #define MAX_INSCRIPTION _(76, 69) /*!< Maximum length of object's inscription */
-#define MAX_MONSTER_NAME 160 /*!< モンスター名称の最大バイト数 / Max characters of monster's name */
 
 /*!
  * @brief 符号なし整数の簡潔な定義
@@ -104,7 +104,6 @@ typedef char GAME_TEXT; /*!< ゲーム中のテキスト型定義 */
 typedef int32_t MANA_POINT; /*!< ゲーム中のMP型を定義 */
 
 typedef int16_t HIT_PROB; /*!< ゲーム中の装備命中修正値を定義 */
-typedef int16_t BASE_STATUS; /*!< ゲーム中の基礎能力値型を定義 */
 
 typedef int32_t MONSTER_NUMBER; /*!< ゲーム中のモンスター数型を定義 */
 typedef int32_t ITEM_NUMBER; /*!< ゲーム中のアイテム数型を定義 */
@@ -128,7 +127,6 @@ typedef int DIRECTION; /*!< ゲーム中の方角の型定義 */
 typedef int32_t EXP; /*!< ゲーム中の主経験値の型定義 */
 typedef int16_t SUB_EXP; /*!< ゲーム中の副経験値の型定義 */
 
-typedef int32_t OBJECT_SUBTYPE_VALUE; /*!< ゲーム中のアイテム副分類の型定義 */
 typedef int16_t PARAMETER_VALUE; /*!< ゲーム中のアイテム能力値の型定義 */
 typedef int32_t WEIGHT; /*!< ゲーム中の重量の型定義(ポンド) */
 

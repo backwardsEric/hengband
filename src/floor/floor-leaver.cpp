@@ -1,5 +1,6 @@
-﻿#include "floor/floor-leaver.h"
+#include "floor/floor-leaver.h"
 #include "cmd-building/cmd-building.h"
+#include "dungeon/quest.h"
 #include "floor/cave.h"
 #include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
@@ -21,6 +22,7 @@
 #include "pet/pet-util.h"
 #include "save/floor-writer.h"
 #include "spell-class/spells-mirror-master.h"
+#include "system/angband-system.h"
 #include "system/artifact-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
@@ -57,25 +59,26 @@ static bool check_pet_preservation_conditions(PlayerType *player_ptr, MonsterEnt
         return false;
     }
 
-    POSITION dis = distance(player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx);
+    auto dis = distance(player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx);
     if (m_ptr->is_confused() || m_ptr->is_stunned() || m_ptr->is_asleep() || (m_ptr->parent_m_idx != 0)) {
         return true;
     }
 
-    if (m_ptr->is_named() && ((player_has_los_bold(player_ptr, m_ptr->fy, m_ptr->fx) && projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx)) || (los(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x) && projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x)))) {
-        if (dis > 3) {
-            return true;
-        }
-    } else if (dis > 1) {
-        return true;
+    const auto should_preserve = m_ptr->is_named();
+    auto sight_from_player = player_ptr->current_floor_ptr->has_los({ m_ptr->fy, m_ptr->fx });
+    sight_from_player &= projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx);
+    auto sight_from_monster = los(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
+    sight_from_monster &= projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
+    if (should_preserve && (sight_from_player || sight_from_monster)) {
+        return dis > 3;
     }
 
-    return false;
+    return dis > 1;
 }
 
 static void sweep_preserving_pet(PlayerType *player_ptr)
 {
-    if (player_ptr->wild_mode || player_ptr->current_floor_ptr->inside_arena || player_ptr->phase_out) {
+    if (player_ptr->wild_mode || player_ptr->current_floor_ptr->inside_arena || AngbandSystem::get_instance().is_phase_out()) {
         return;
     }
 
@@ -103,7 +106,7 @@ static void record_pet_diary(PlayerType *player_ptr)
             continue;
         }
 
-        exe_write_diary(player_ptr, DIARY_NAMED_PET, RECORD_NAMED_PET_MOVED, monster_desc(player_ptr, m_ptr, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE).data());
+        exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_MOVED, monster_desc(player_ptr, m_ptr, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE));
     }
 }
 
@@ -142,34 +145,34 @@ static void preserve_pet(PlayerType *player_ptr)
  */
 static void locate_connected_stairs(PlayerType *player_ptr, FloorType *floor_ptr, saved_floor_type *sf_ptr, BIT_FLAGS floor_mode)
 {
-    POSITION sx = 0;
-    POSITION sy = 0;
-    POSITION x_table[20];
-    POSITION y_table[20];
-    int num = 0;
+    auto sx = 0;
+    auto sy = 0;
+    int x_table[20]{};
+    int y_table[20]{};
+    auto num = 0;
     for (POSITION y = 0; y < floor_ptr->height; y++) {
         for (POSITION x = 0; x < floor_ptr->width; x++) {
-            auto *g_ptr = &floor_ptr->grid_array[y][x];
-            auto *f_ptr = &terrains_info[g_ptr->feat];
-            bool ok = false;
+            const auto &grid = floor_ptr->get_grid({ y, x });
+            const auto &terrain = grid.get_terrain();
+            auto ok = false;
             if (floor_mode & CFM_UP) {
-                if (f_ptr->flags.has_all_of({ TerrainCharacteristics::LESS, TerrainCharacteristics::STAIRS }) && f_ptr->flags.has_not(TerrainCharacteristics::SPECIAL)) {
+                if (terrain.flags.has_all_of({ TerrainCharacteristics::LESS, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
                     ok = true;
-                    if (g_ptr->special && g_ptr->special == sf_ptr->upper_floor_id) {
+                    if (grid.special && grid.special == sf_ptr->upper_floor_id) {
                         sx = x;
                         sy = y;
                     }
                 }
             } else if (floor_mode & CFM_DOWN) {
-                if (f_ptr->flags.has_all_of({ TerrainCharacteristics::MORE, TerrainCharacteristics::STAIRS }) && f_ptr->flags.has_not(TerrainCharacteristics::SPECIAL)) {
+                if (terrain.flags.has_all_of({ TerrainCharacteristics::MORE, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
                     ok = true;
-                    if (g_ptr->special && g_ptr->special == sf_ptr->lower_floor_id) {
+                    if (grid.special && grid.special == sf_ptr->lower_floor_id) {
                         sx = x;
                         sy = y;
                     }
                 }
             } else {
-                if (f_ptr->flags.has(TerrainCharacteristics::BLDG)) {
+                if (terrain.flags.has(TerrainCharacteristics::BLDG)) {
                     ok = true;
                 }
             }
@@ -251,24 +254,25 @@ static void preserve_info(PlayerType *player_ptr)
 {
     auto quest_r_idx = MonsterRace::empty_id();
     const auto &quest_list = QuestList::get_instance();
+    const auto &floor = *player_ptr->current_floor_ptr;
     for (const auto &[q_idx, quest] : quest_list) {
         auto quest_relating_monster = (quest.status == QuestStatusType::TAKEN);
         quest_relating_monster &= ((quest.type == QuestKindType::KILL_LEVEL) || (quest.type == QuestKindType::RANDOM));
-        quest_relating_monster &= (quest.level == player_ptr->current_floor_ptr->dun_level);
-        quest_relating_monster &= (player_ptr->dungeon_idx == quest.dungeon);
+        quest_relating_monster &= (quest.level == floor.dun_level);
+        quest_relating_monster &= (floor.dungeon_idx == quest.dungeon);
         quest_relating_monster &= !(quest.flags & QUEST_FLAG_PRESET);
         if (quest_relating_monster) {
             quest_r_idx = quest.r_idx;
         }
     }
 
-    for (DUNGEON_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
+    for (DUNGEON_IDX i = 1; i < floor.m_max; i++) {
+        auto *m_ptr = &floor.m_list[i];
         if (!m_ptr->is_valid() || (quest_r_idx != m_ptr->r_idx)) {
             continue;
         }
 
-        const auto &r_ref = m_ptr->get_real_r_ref();
+        const auto &r_ref = m_ptr->get_real_monrace();
         if (r_ref.kind_flags.has(MonsterKindType::UNIQUE) || (r_ref.population_flags.has(MonsterPopulationType::NAZGUL))) {
             continue;
         }
@@ -288,21 +292,23 @@ static void preserve_info(PlayerType *player_ptr)
     }
 }
 
-static void set_grid_by_leaving_floor(PlayerType *player_ptr, grid_type **g_ptr)
+static Grid *set_grid_by_leaving_floor(PlayerType *player_ptr)
 {
     if ((player_ptr->change_floor_mode & CFM_SAVE_FLOORS) == 0) {
-        return;
+        return nullptr;
     }
 
-    *g_ptr = &player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x];
-    auto *f_ptr = &terrains_info[(*g_ptr)->feat];
-    if ((*g_ptr)->special && f_ptr->flags.has_not(TerrainCharacteristics::SPECIAL) && get_sf_ptr((*g_ptr)->special)) {
-        new_floor_id = (*g_ptr)->special;
+    auto *g_ptr = &player_ptr->current_floor_ptr->get_grid(player_ptr->get_position());
+    const auto &terrain = g_ptr->get_terrain();
+    if (g_ptr->special && terrain.flags.has_not(TerrainCharacteristics::SPECIAL) && get_sf_ptr(g_ptr->special)) {
+        new_floor_id = g_ptr->special;
     }
 
-    if (f_ptr->flags.has_all_of({ TerrainCharacteristics::STAIRS, TerrainCharacteristics::SHAFT })) {
+    if (terrain.flags.has_all_of({ TerrainCharacteristics::STAIRS, TerrainCharacteristics::SHAFT })) {
         prepare_change_floor_mode(player_ptr, CFM_SHAFT);
     }
+
+    return g_ptr;
 }
 
 static void jump_floors(PlayerType *player_ptr)
@@ -323,35 +329,38 @@ static void jump_floors(PlayerType *player_ptr)
         move_num *= 2;
     }
 
-    auto &floor_ref = *player_ptr->current_floor_ptr;
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto &dungeon = floor.get_dungeon_definition();
     if (any_bits(mode, CFM_DOWN)) {
-        if (!floor_ref.is_in_dungeon()) {
-            move_num = dungeons_info[player_ptr->dungeon_idx].mindepth;
+        if (!floor.is_in_dungeon()) {
+            move_num = dungeon.mindepth;
         }
     } else if (any_bits(mode, CFM_UP)) {
-        if (floor_ref.dun_level + move_num < dungeons_info[player_ptr->dungeon_idx].mindepth) {
-            move_num = -floor_ref.dun_level;
+        if (floor.dun_level + move_num < dungeon.mindepth) {
+            move_num = -floor.dun_level;
         }
     }
 
-    floor_ref.dun_level += move_num;
+    floor.dun_level += move_num;
 }
 
 static void exit_to_wilderness(PlayerType *player_ptr)
 {
-    if (player_ptr->current_floor_ptr->is_in_dungeon() || (player_ptr->dungeon_idx == 0)) {
+    auto &floor = *player_ptr->current_floor_ptr;
+    if (floor.is_in_dungeon() || (floor.dungeon_idx == 0)) {
         return;
     }
 
     player_ptr->leaving_dungeon = true;
     if (!vanilla_town && !lite_town) {
-        player_ptr->wilderness_y = dungeons_info[player_ptr->dungeon_idx].dy;
-        player_ptr->wilderness_x = dungeons_info[player_ptr->dungeon_idx].dx;
+        const auto &dungeon = floor.get_dungeon_definition();
+        player_ptr->wilderness_y = dungeon.dy;
+        player_ptr->wilderness_x = dungeon.dx;
     }
 
-    player_ptr->recall_dungeon = player_ptr->dungeon_idx;
+    player_ptr->recall_dungeon = floor.dungeon_idx;
     player_ptr->word_recall = 0;
-    player_ptr->dungeon_idx = 0;
+    floor.reset_dungeon_index();
     player_ptr->change_floor_mode &= ~CFM_SAVE_FLOORS; // TODO
 }
 
@@ -370,7 +379,7 @@ static void kill_saved_floors(PlayerType *player_ptr, saved_floor_type *sf_ptr)
     }
 }
 
-static void refresh_new_floor_id(PlayerType *player_ptr, grid_type *g_ptr)
+static void refresh_new_floor_id(PlayerType *player_ptr, Grid *g_ptr)
 {
     if (new_floor_id != 0) {
         return;
@@ -397,8 +406,7 @@ static void update_upper_lower_or_floor_id(PlayerType *player_ptr, saved_floor_t
 
 static void exe_leave_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
-    grid_type *g_ptr = nullptr;
-    set_grid_by_leaving_floor(player_ptr, &g_ptr);
+    auto g_ptr = set_grid_by_leaving_floor(player_ptr);
     jump_floors(player_ptr);
     exit_to_wilderness(player_ptr);
     kill_saved_floors(player_ptr, sf_ptr);

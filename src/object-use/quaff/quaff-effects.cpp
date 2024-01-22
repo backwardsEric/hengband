@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @brief 薬を飲んだ時の効果処理
  * @date 2022/03/10
  * @author Hourier
@@ -7,7 +7,6 @@
 #include "object-use/quaff/quaff-effects.h"
 #include "avatar/avatar.h"
 #include "birth/birth-stat.h"
-#include "core/player-update-types.h"
 #include "game-option/birth-options.h"
 #include "mutation/mutation-investor-remover.h"
 #include "object/object-info.h"
@@ -37,6 +36,7 @@
 #include "system/angband.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "timed-effect/player-acceleration.h"
 #include "timed-effect/player-poison.h"
 #include "timed-effect/timed-effects.h"
@@ -48,13 +48,13 @@ QuaffEffects::QuaffEffects(PlayerType *player_ptr)
 {
 }
 
-bool QuaffEffects::influence(const ItemEntity &o_ref)
+bool QuaffEffects::influence(const ItemEntity &item)
 {
-    if (o_ref.bi_key.tval() != ItemKindType::POTION) {
+    if (item.bi_key.tval() != ItemKindType::POTION) {
         return false;
     }
 
-    switch (o_ref.bi_key.sval().value()) {
+    switch (*item.bi_key.sval()) {
     case SV_POTION_WATER:
         msg_print(_("口の中がさっぱりした。", "That was refreshing."));
         msg_print(_("のどの渇きが少しおさまった。", "You feel less thirsty."));
@@ -274,7 +274,7 @@ bool QuaffEffects::booze()
         ident = true;
     }
 
-    if (!is_monk || !one_in_(13)) {
+    if (is_monk || !one_in_(13)) {
         return ident;
     }
 
@@ -504,7 +504,7 @@ bool QuaffEffects::new_life()
 {
     roll_hitdice(this->player_ptr, SPOP_NONE);
     get_max_stats(this->player_ptr);
-    this->player_ptr->update |= PU_BONUS;
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     lose_all_mutations(this->player_ptr);
     return true;
 }

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief モンスター同士の打撃後処理 / Melee post-process.
  * @date 2014/01/17
  * @author
@@ -12,7 +12,6 @@
 
 #include "melee/melee-postprocess.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
 #include "effect/attribute-types.h"
 #include "floor/cave.h"
 #include "floor/geometry.h"
@@ -38,41 +37,44 @@
 #include "player-info/class-info.h"
 #include "player-info/race-types.h"
 #include "player/player-personality-types.h"
+#include "system/angband-system.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
+#include <string>
 
 // Melee-post-process-type
 struct mam_pp_type {
+    mam_pp_type(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *dead, bool *fear, std::string_view note, MONSTER_IDX who);
     MONSTER_IDX m_idx;
     MonsterEntity *m_ptr;
-    bool seen;
-    GAME_TEXT m_name[160];
     int dam;
-    bool known; /* Can the player be aware of this attack? */
-    concptr note;
     bool *dead;
     bool *fear;
+    std::string note;
     MONSTER_IDX who;
+    bool seen;
+    bool known; /* Can the player be aware of this attack? */
+    std::string m_name;
 };
 
-mam_pp_type *initialize_mam_pp_type(
-    PlayerType *player_ptr, mam_pp_type *mam_pp_ptr, MONSTER_IDX m_idx, int dam, bool *dead, bool *fear, concptr note, MONSTER_IDX who)
+mam_pp_type::mam_pp_type(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *dead, bool *fear, std::string_view note, MONSTER_IDX who)
+    : m_idx(m_idx)
+    , m_ptr(&player_ptr->current_floor_ptr->m_list[m_idx])
+    , dam(dam)
+    , dead(dead)
+    , fear(fear)
+    , note(note)
+    , who(who)
 {
-    mam_pp_ptr->m_idx = m_idx;
-    mam_pp_ptr->m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    mam_pp_ptr->seen = is_seen(player_ptr, mam_pp_ptr->m_ptr);
-    mam_pp_ptr->dam = dam;
-    mam_pp_ptr->known = mam_pp_ptr->m_ptr->cdis <= MAX_PLAYER_SIGHT;
-    mam_pp_ptr->dead = dead;
-    mam_pp_ptr->fear = fear;
-    mam_pp_ptr->note = note;
-    mam_pp_ptr->who = who;
-    return mam_pp_ptr;
+    this->seen = is_seen(player_ptr, this->m_ptr);
+    this->known = this->m_ptr->cdis <= MAX_PLAYER_SIGHT;
+    this->m_name = monster_desc(player_ptr, m_ptr, 0);
 }
 
 static void prepare_redraw(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
@@ -81,12 +83,13 @@ static void prepare_redraw(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
         return;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (player_ptr->health_who == mam_pp_ptr->m_idx) {
-        player_ptr->redraw |= (PR_HEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
     }
 
     if (player_ptr->riding == mam_pp_ptr->m_idx) {
-        player_ptr->redraw |= (PR_UHEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 }
 
@@ -102,7 +105,7 @@ static bool process_invulnerability(mam_pp_type *mam_pp_ptr)
     }
 
     if (mam_pp_ptr->seen) {
-        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name.data());
     }
 
     return true;
@@ -115,7 +118,7 @@ static bool process_invulnerability(mam_pp_type *mam_pp_ptr)
  */
 static bool process_all_resistances(mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
+    auto *r_ptr = &mam_pp_ptr->m_ptr->get_monrace();
     if (r_ptr->resistance_flags.has_not(MonsterResistanceType::RESIST_ALL)) {
         return false;
     }
@@ -132,7 +135,7 @@ static bool process_all_resistances(mam_pp_type *mam_pp_ptr)
     }
 
     if (mam_pp_ptr->seen) {
-        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^はダメージを受けない。", "%s^ is unharmed."), mam_pp_ptr->m_name.data());
     }
 
     return true;
@@ -152,27 +155,27 @@ static void print_monster_dead_by_monster(PlayerType *player_ptr, mam_pp_type *m
         return;
     }
 
-    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, mam_pp_ptr->m_ptr, MD_TRUE_NAME).data(), sizeof(mam_pp_ptr->m_name));
+    mam_pp_ptr->m_name = monster_desc(player_ptr, mam_pp_ptr->m_ptr, MD_TRUE_NAME);
     if (!mam_pp_ptr->seen) {
         player_ptr->current_floor_ptr->monster_noise = true;
         return;
     }
 
-    if (mam_pp_ptr->note) {
-        sound_type kill_sound = monster_living(mam_pp_ptr->m_ptr->r_idx) ? SOUND_KILL : SOUND_N_KILL;
+    if (!mam_pp_ptr->note.empty()) {
+        sound_type kill_sound = mam_pp_ptr->m_ptr->has_living_flag() ? SOUND_KILL : SOUND_N_KILL;
         sound(kill_sound);
-        msg_format(_("%s^%s", "%s^%s"), mam_pp_ptr->m_name, mam_pp_ptr->note);
+        msg_format(_("%s^%s", "%s^%s"), mam_pp_ptr->m_name.data(), mam_pp_ptr->note.data());
         return;
     }
 
-    if (!monster_living(mam_pp_ptr->m_ptr->r_idx)) {
+    if (!mam_pp_ptr->m_ptr->has_living_flag()) {
         sound(SOUND_N_KILL);
-        msg_format(_("%s^は破壊された。", "%s^ is destroyed."), mam_pp_ptr->m_name);
+        msg_format(_("%s^は破壊された。", "%s^ is destroyed."), mam_pp_ptr->m_name.data());
         return;
     }
 
     sound(SOUND_KILL);
-    msg_format(_("%s^は殺された。", "%s^ is killed."), mam_pp_ptr->m_name);
+    msg_format(_("%s^は殺された。", "%s^ is killed."), mam_pp_ptr->m_name.data());
 }
 
 /*!
@@ -183,12 +186,15 @@ static void print_monster_dead_by_monster(PlayerType *player_ptr, mam_pp_type *m
  */
 static bool check_monster_hp(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
+    const auto &monrace = mam_pp_ptr->m_ptr->get_monrace();
     if (mam_pp_ptr->m_ptr->hp < 0) {
         return false;
     }
 
-    if ((r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || any_bits(r_ptr->flags1, RF1_QUESTOR) || (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL))) && !player_ptr->phase_out) {
+    auto is_like_unique = monrace.kind_flags.has(MonsterKindType::UNIQUE);
+    is_like_unique |= any_bits(monrace.flags1, RF1_QUESTOR);
+    is_like_unique |= monrace.population_flags.has(MonsterPopulationType::NAZGUL);
+    if (is_like_unique && !AngbandSystem::get_instance().is_phase_out()) {
         mam_pp_ptr->m_ptr->hp = 1;
         return false;
     }
@@ -225,8 +231,8 @@ static void cancel_fear_by_pain(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
  */
 static void make_monster_fear(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    auto *r_ptr = &monraces_info[mam_pp_ptr->m_ptr->r_idx];
-    if (mam_pp_ptr->m_ptr->is_fearful() || ((r_ptr->flags3 & RF3_NO_FEAR) == 0)) {
+    auto *r_ptr = &mam_pp_ptr->m_ptr->get_monrace();
+    if (mam_pp_ptr->m_ptr->is_fearful() || (r_ptr->resistance_flags.has_not(MonsterResistanceType::NO_FEAR))) {
         return;
     }
 
@@ -252,13 +258,13 @@ static void fall_off_horse_by_melee(PlayerType *player_ptr, mam_pp_type *mam_pp_
         return;
     }
 
-    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, mam_pp_ptr->m_ptr, 0).data(), sizeof(mam_pp_ptr->m_name));
+    mam_pp_ptr->m_name = monster_desc(player_ptr, mam_pp_ptr->m_ptr, 0);
     if (mam_pp_ptr->m_ptr->hp > mam_pp_ptr->m_ptr->maxhp / 3) {
         mam_pp_ptr->dam = (mam_pp_ptr->dam + 1) / 2;
     }
 
     if (process_fall_off_horse(player_ptr, (mam_pp_ptr->dam > 200) ? 200 : mam_pp_ptr->dam, false)) {
-        msg_format(_("%s^に振り落とされた！", "You have been thrown off from %s!"), mam_pp_ptr->m_name);
+        msg_format(_("%s^に振り落とされた！", "You have been thrown off from %s!"), mam_pp_ptr->m_name.data());
     }
 }
 
@@ -273,13 +279,12 @@ static void fall_off_horse_by_melee(PlayerType *player_ptr, mam_pp_type *mam_pp_
  * @param who 打撃を行ったモンスターの参照ID
  * @todo 打撃が当たった時の後処理 (爆発持ちのモンスターを爆発させる等)なので、関数名を変更する必要あり
  */
-void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *dead, bool *fear, concptr note, MONSTER_IDX who)
+void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *dead, bool *fear, std::string_view note, MONSTER_IDX who)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
-    mam_pp_type tmp_mam_pp;
-    mam_pp_type *mam_pp_ptr = initialize_mam_pp_type(player_ptr, &tmp_mam_pp, m_idx, dam, dead, fear, note, who);
-    angband_strcpy(mam_pp_ptr->m_name, monster_desc(player_ptr, m_ptr, 0).data(), sizeof(mam_pp_ptr->m_name));
+    mam_pp_type tmp_mam_pp(player_ptr, m_idx, dam, dead, fear, note, who);
+    mam_pp_type *mam_pp_ptr = &tmp_mam_pp;
     prepare_redraw(player_ptr, mam_pp_ptr);
     (void)set_monster_csleep(player_ptr, m_idx, 0);
 
@@ -301,7 +306,7 @@ void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *
     make_monster_fear(player_ptr, mam_pp_ptr);
     if ((dam > 0) && !m_ptr->is_pet() && !m_ptr->is_friendly() && (mam_pp_ptr->who != m_idx)) {
         const auto &m_ref = floor_ptr->m_list[who];
-        if (m_ref.is_pet() && !player_bold(player_ptr, m_ptr->target_y, m_ptr->target_x)) {
+        if (m_ref.is_pet() && !player_ptr->is_located_at({ m_ptr->target_y, m_ptr->target_x })) {
             set_target(m_ptr, m_ref.fy, m_ref.fx);
         }
     }

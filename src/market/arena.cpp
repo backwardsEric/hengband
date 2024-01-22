@@ -1,4 +1,4 @@
-﻿#include "market/arena.h"
+#include "market/arena.h"
 #include "cmd-building/cmd-building.h"
 #include "core/asking-player.h"
 #include "core/show-file.h"
@@ -10,6 +10,7 @@
 #include "market/arena-info-table.h"
 #include "market/building-actions-table.h"
 #include "market/building-util.h"
+#include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
@@ -19,11 +20,14 @@
 #include "monster/monster-util.h"
 #include "player-base/player-class.h"
 #include "status/buff-setter.h"
+#include "system/angband-exceptions.h"
+#include "system/angband-system.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
 #include "util/int-char-converter.h"
@@ -31,6 +35,14 @@
 #include "world/world.h"
 #include <algorithm>
 #include <numeric>
+
+namespace {
+enum class ArenaRecord {
+    FENGFUANG,
+    POWER_WYRM,
+    METAL_BABBLE,
+};
+}
 
 /*!
  * @brief 優勝時のメッセージを表示し、賞金を与える
@@ -58,33 +70,36 @@ static bool process_ostensible_arena_victory(PlayerType *player_ptr)
 }
 
 /*!
- * @brief はぐれメタルとの対戦
+ * @brief 対戦相手の確認
  * @param player_ptr プレイヤーへの参照ポインタ
- * @return まだパワー・ワイアーム以下を倒していないならFALSE、倒していたらTRUE
+ * @return 最後に倒した対戦相手 (鳳凰以下は一律で鳳凰)
  */
-static bool battle_metal_babble(PlayerType *player_ptr)
+static ArenaRecord check_arena_record(PlayerType *player_ptr)
 {
     if (player_ptr->arena_number <= MAX_ARENA_MONS) {
-        return false;
+        return ArenaRecord::FENGFUANG;
     }
 
-    if (player_ptr->arena_number >= MAX_ARENA_MONS + 2) {
-        msg_print(_("あなたはアリーナに入り、しばらくの間栄光にひたった。", "You enter the arena briefly and bask in your glory."));
-        msg_print(nullptr);
-        return true;
+    if (player_ptr->arena_number < MAX_ARENA_MONS + 2) {
+        return ArenaRecord::POWER_WYRM;
     }
 
+    return ArenaRecord::METAL_BABBLE;
+}
+
+static bool check_battle_metal_babble(PlayerType *player_ptr)
+{
     msg_print(_("君のために最強の挑戦者を用意しておいた。", "The strongest challenger is waiting for you."));
     msg_print(nullptr);
-    if (!get_check(_("挑戦するかね？", "Do you fight? "))) {
+    if (!input_check(_("挑戦するかね？", "Do you fight? "))) {
         msg_print(_("残念だ。", "We are disappointed."));
-        return true;
+        return false;
     }
 
     msg_print(_("死ぬがよい。", "Die, maggots."));
     msg_print(nullptr);
 
-    player_ptr->exit_bldg = false;
+    w_ptr->set_arena(false);
     reset_tim_flags(player_ptr);
 
     /* Save the surface floor as saved floor */
@@ -92,33 +107,44 @@ static bool battle_metal_babble(PlayerType *player_ptr)
 
     player_ptr->current_floor_ptr->inside_arena = true;
     player_ptr->leaving = true;
-    player_ptr->leave_bldg = true;
     return true;
 }
 
-static void go_to_arena(PlayerType *player_ptr)
+/*!
+ * @brief アリーナへの入場処理
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @return アリーナへ入場するか否か
+ */
+static bool go_to_arena(PlayerType *player_ptr)
 {
     if (process_ostensible_arena_victory(player_ptr)) {
-        return;
+        return false;
     }
 
-    if (battle_metal_babble(player_ptr)) {
-        return;
+    const auto arena_record = check_arena_record(player_ptr);
+    if (arena_record == ArenaRecord::METAL_BABBLE) {
+        msg_print(_("あなたはアリーナに入り、しばらくの間栄光にひたった。", "You enter the arena briefly and bask in your glory."));
+        msg_print(nullptr);
+        return false;
+    }
+
+    if ((arena_record == ArenaRecord::POWER_WYRM) && !check_battle_metal_babble(player_ptr)) {
+        return false;
     }
 
     if (player_ptr->riding && !PlayerClass(player_ptr).is_tamer()) {
         msg_print(_("ペットに乗ったままではアリーナへ入れさせてもらえなかった。", "You don't have permission to enter with pet."));
         msg_print(nullptr);
-        return;
+        return false;
     }
 
-    player_ptr->exit_bldg = false;
+    w_ptr->set_arena(false);
     reset_tim_flags(player_ptr);
     prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS);
 
     player_ptr->current_floor_ptr->inside_arena = true;
     player_ptr->leaving = true;
-    player_ptr->leave_bldg = true;
+    return true;
 }
 
 static void see_arena_poster(PlayerType *player_ptr)
@@ -133,13 +159,10 @@ static void see_arena_poster(PlayerType *player_ptr)
         return;
     }
 
-    MonsterRaceInfo *r_ptr;
-    r_ptr = &monraces_info[arena_info[player_ptr->arena_number].r_idx];
-    concptr name = r_ptr->name.data();
-    msg_format(_("%s に挑戦するものはいないか？", "Do I hear any challenges against: %s"), name);
-
+    auto *r_ptr = &monraces_info[arena_info[player_ptr->arena_number].r_idx];
+    msg_format(_("%s に挑戦するものはいないか？", "Do I hear any challenges against: %s"), r_ptr->name.data());
     player_ptr->monster_race_idx = arena_info[player_ptr->arena_number].r_idx;
-    player_ptr->window_flags |= (PW_MONSTER_LORE);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
     handle_stuff(player_ptr);
 }
 
@@ -148,22 +171,21 @@ static void see_arena_poster(PlayerType *player_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param cmd 闘技場処理のID
  */
-void arena_comm(PlayerType *player_ptr, int cmd)
+bool arena_comm(PlayerType *player_ptr, int cmd)
 {
     switch (cmd) {
     case BACT_ARENA:
-        go_to_arena(player_ptr);
-        return;
+        return go_to_arena(player_ptr);
     case BACT_POSTER:
         see_arena_poster(player_ptr);
-        return;
+        return false;
     case BACT_ARENA_RULES:
         screen_save();
-
-        /* Peruse the on_defeat_arena_monster help file */
-        (void)show_file(player_ptr, true, _("arena_j.txt", "arena.txt"), nullptr, 0, 0);
+        (void)show_file(player_ptr, true, _("arena_j.txt", "arena.txt"), 0, 0);
         screen_load();
-        break;
+        return false;
+    default:
+        THROW_EXCEPTION(std::logic_error, "Invalid building action is specified!");
     }
 }
 
@@ -204,12 +226,12 @@ void update_gambling_monsters(PlayerType *player_ptr)
             int j;
             while (true) {
                 get_mon_num_prep(player_ptr, monster_can_entry_arena, nullptr);
-                r_idx = get_mon_num(player_ptr, 0, mon_level, GMN_ARENA);
+                r_idx = get_mon_num(player_ptr, 0, mon_level, PM_ARENA);
                 if (!MonsterRace(r_idx).is_valid()) {
                     continue;
                 }
 
-                if (monraces_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE) || (monraces_info[r_idx].flags7 & RF7_UNIQUE2)) {
+                if (monraces_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE) || monraces_info[r_idx].population_flags.has(MonsterPopulationType::ONLY_ONE)) {
                     if ((monraces_info[r_idx].level + 10) > mon_level) {
                         continue;
                     }
@@ -266,11 +288,6 @@ void update_gambling_monsters(PlayerType *player_ptr)
  */
 bool monster_arena_comm(PlayerType *player_ptr)
 {
-    PRICE maxbet;
-    PRICE wager;
-    char out_val[MAX_MONSTER_NAME];
-    concptr p;
-
     if ((w_ptr->game_turn - w_ptr->arena_start_turn) > TURNS_PER_TICK * 250) {
         update_gambling_monsters(player_ptr);
         w_ptr->arena_start_turn = w_ptr->game_turn;
@@ -289,17 +306,19 @@ bool monster_arena_comm(PlayerType *player_ptr)
     clear_bldg(4, 10);
 
     prt(_("モンスター                                                     倍率", "Monsters                                                       Odds"), 4, 4);
-    for (int i = 0; i < 4; i++) {
-        auto *r_ptr = &monraces_info[battle_mon_list[i]];
+    for (auto i = 0; i < 4; i++) {
+        const auto &monrace = monraces_info[battle_mon_list[i]];
         std::string name;
-        if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-            name = _(r_ptr->name, "Fake ");
-            name.append(_("もどき", r_ptr->name));
+        if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
+            name = _(monrace.name, "Fake ");
+            name.append(_("もどき", monrace.name));
         } else {
-            name = r_ptr->name;
+            name = monrace.name;
             name.append(_("      ", ""));
         }
-        prt(format(_("%d) %-58s  %4ld.%02ld倍", "%d) %-58s  %4ld.%02ld"), i + 1, name.data(), (long int)mon_odds[i] / 100, (long int)mon_odds[i] % 100), 5 + i, 1);
+
+        constexpr auto fmt = _("%d) %-58s  %4ld.%02ld倍", "%d) %-58s  %4ld.%02ld");
+        prt(format(fmt, i + 1, name.data(), (long int)mon_odds[i] / 100, (long int)mon_odds[i] % 100), 5 + i, 1);
     }
 
     prt(_("どれに賭けますか:", "Which monster: "), 0, 0);
@@ -329,54 +348,31 @@ bool monster_arena_comm(PlayerType *player_ptr)
         }
     }
 
-    maxbet = player_ptr->lev * 200;
-
-    /* We can't bet more than we have */
+    auto maxbet = player_ptr->lev * 200;
     maxbet = std::min(maxbet, player_ptr->au);
-
-    /*
-     * Get the wager
-     * Use get_string() because we may need more than
-     * the int16_t value returned by get_quantity().
-     */
-    out_val[0] = '\0';
-    if (!get_string(format(_("賭け金 (1-%ld)？", "Your wager (1-%ld) ? "), (long int)maxbet), out_val, 32)) {
+    constexpr auto prompt = _("賭け金？", "Your wager? ");
+    const auto wager = input_integer(prompt, 1, maxbet, 1);
+    if (!wager) {
         screen_load();
         return false;
     }
 
-    for (p = out_val; *p == ' '; p++) {
-        ;
-    }
-
-    wager = atol(p);
     if (wager > player_ptr->au) {
         msg_print(_("おい！金が足りないじゃないか！出ていけ！", "Hey! You don't have the gold - get out of here!"));
-
         msg_print(nullptr);
         screen_load();
         return false;
-    } else if (wager > maxbet) {
-        msg_format(_("%ldゴールドだけ受けよう。残りは取っときな。", "I'll take %ld gold of that. Keep the rest."), (long int)maxbet);
-
-        wager = maxbet;
-    } else if (wager < 1) {
-        msg_print(_("ＯＫ、１ゴールドでいこう。", "Ok, we'll start with 1 gold."));
-        wager = 1;
     }
 
     msg_print(nullptr);
-    battle_odds = std::max(wager + 1, wager * battle_odds / 100);
-    kakekin = wager;
-    player_ptr->au -= wager;
+    battle_odds = std::max(*wager + 1, *wager * battle_odds / 100);
+    kakekin = *wager;
+    player_ptr->au -= *wager;
     reset_tim_flags(player_ptr);
 
     prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS);
-
-    player_ptr->phase_out = true;
+    AngbandSystem::get_instance().set_phase_out(true);
     player_ptr->leaving = true;
-    player_ptr->leave_bldg = true;
-
     screen_load();
     return true;
 }

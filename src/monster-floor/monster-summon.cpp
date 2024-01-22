@@ -1,4 +1,4 @@
-﻿#include "monster-floor/monster-summon.h"
+#include "monster-floor/monster-summon.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "floor/geometry.h"
 #include "floor/wild.h"
@@ -48,8 +48,9 @@ static bool summon_specific_okay(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
+    auto &floor = *player_ptr->current_floor_ptr;
     if (summon_specific_who > 0) {
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[summon_specific_who];
+        auto *m_ptr = &floor.m_list[summon_specific_who];
         if (monster_has_hostile_align(player_ptr, m_ptr, 0, 0, r_ptr)) {
             return false;
         }
@@ -67,16 +68,17 @@ static bool summon_specific_okay(PlayerType *player_ptr, MonsterRaceId r_idx)
         return true;
     }
 
-    if ((summon_specific_who < 0) && (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL))) && monster_has_hostile_align(player_ptr, nullptr, 10, -10, r_ptr)) {
+    const auto is_like_unique = r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL));
+    if ((summon_specific_who < 0) && is_like_unique && monster_has_hostile_align(player_ptr, nullptr, 10, -10, r_ptr)) {
         return false;
     }
 
-    if ((r_ptr->flags7 & RF7_CHAMELEON) && dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::CHAMELEON)) {
+    if ((r_ptr->flags7 & RF7_CHAMELEON) && floor.get_dungeon_definition().flags.has(DungeonFeatureType::CHAMELEON)) {
         return true;
     }
 
     if (summon_specific_who > 0) {
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[summon_specific_who];
+        auto *m_ptr = &floor.m_list[summon_specific_who];
         return check_summon_specific(player_ptr, m_ptr->r_idx, r_idx);
     } else {
         return check_summon_specific(player_ptr, MonsterRaceId::PLAYER, r_idx);
@@ -143,7 +145,7 @@ bool summon_specific(PlayerType *player_ptr, MONSTER_IDX who, POSITION y1, POSIT
     get_mon_num_prep(player_ptr, summon_specific_okay, get_monster_hook2(player_ptr, y, x));
 
     DEPTH dlev = get_dungeon_or_wilderness_level(player_ptr);
-    MonsterRaceId r_idx = get_mon_num(player_ptr, 0, (dlev + lev) / 2 + 5, 0);
+    MonsterRaceId r_idx = get_mon_num(player_ptr, 0, (dlev + lev) / 2 + 5, mode);
     if (!MonsterRace(r_idx).is_valid()) {
         summon_specific_type = SUMMON_NONE;
         return false;
@@ -153,7 +155,7 @@ bool summon_specific(PlayerType *player_ptr, MONSTER_IDX who, POSITION y1, POSIT
         mode |= PM_NO_KAGE;
     }
 
-    if (!place_monster_aux(player_ptr, who, y, x, r_idx, mode)) {
+    if (!place_specific_monster(player_ptr, who, y, x, r_idx, mode)) {
         summon_specific_type = SUMMON_NONE;
         return false;
     }
@@ -202,5 +204,5 @@ bool summon_named_creature(PlayerType *player_ptr, MONSTER_IDX who, POSITION oy,
         return false;
     }
 
-    return place_monster_aux(player_ptr, who, y, x, r_idx, (mode | PM_NO_KAGE));
+    return place_specific_monster(player_ptr, who, y, x, r_idx, (mode | PM_NO_KAGE));
 }

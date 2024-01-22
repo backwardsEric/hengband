@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ものまねの処理実装 / Imitation code
  * @date 2014/01/14
  * @author
@@ -14,10 +14,8 @@
 #include "artifact/fixed-art-types.h"
 #include "cmd-action/cmd-spell.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/text-display-options.h"
@@ -30,6 +28,7 @@
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-ability-flags.h"
+#include "monster-race/race-ability-mask.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-flags1.h"
 #include "monster/monster-describer.h"
@@ -59,6 +58,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -86,9 +86,14 @@ static std::string mane_info(PlayerType *player_ptr, MonsterAbilityType power, i
 {
     PLAYER_LEVEL plev = player_ptr->lev;
 
-    const auto power_int = enum2i(power);
-
-    if ((power_int > 2 && power_int < 41) || (power_int > 41 && power_int < 59) || (power == MonsterAbilityType::PSY_SPEAR) || (power == MonsterAbilityType::BO_VOID) || (power == MonsterAbilityType::BO_ABYSS) || (power == MonsterAbilityType::BA_VOID) || (power == MonsterAbilityType::BA_ABYSS) || (power == MonsterAbilityType::BR_VOID) || (power == MonsterAbilityType::BR_ABYSS)) {
+    using Mat = MonsterAbilityType;
+    const auto flags =
+        (RF_ABILITY_BALL_MASK |
+            RF_ABILITY_BOLT_MASK |
+            RF_ABILITY_BEAM_MASK)
+            .set(
+                { Mat::MIND_BLAST, Mat::BRAIN_SMASH, Mat::CAUSE_1, Mat::CAUSE_2, Mat::CAUSE_3, Mat::CAUSE_4 });
+    if (flags.has(power)) {
         return format(" %s%d", KWD_DAM, (int)dam);
     }
     switch (power) {
@@ -138,8 +143,6 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
     PERCENTAGE minfail = 0;
     PLAYER_LEVEL plev = player_ptr->lev;
     PERCENTAGE chance = 0;
-    char choice;
-    char out_val[MAX_MONSTER_NAME];
     concptr p = _("能力", "power");
 
     monster_power spell;
@@ -156,14 +159,20 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
     num = mane_data->mane_list.size();
 
     /* Build a prompt (accept all spells) */
-    (void)strnfmt(out_val, 78, _("(%c-%c, '*'で一覧, ESC) どの%sをまねますか？", "(%c-%c, *=List, ESC=exit) Use which %s? "), I2A(0), I2A(num - 1), p);
+    constexpr auto fmt = _("(%c-%c, '*'で一覧, ESC) どの%sをまねますか？", "(%c-%c, *=List, ESC=exit) Use which %s? ");
+    const auto prompt = format(fmt, I2A(0), I2A(num - 1), p);
 
-    choice = always_show_list ? ESCAPE : 1;
+    char choice = always_show_list ? ESCAPE : '\1';
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
-        } else if (!get_com(out_val, &choice, true)) {
-            break;
+        } else {
+            const auto new_choice = input_command(prompt, true);
+            if (!new_choice) {
+                break;
+            }
+
+            choice = *new_choice;
         }
 
         /* Request redraw */
@@ -259,7 +268,7 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
         screen_load();
     }
 
-    player_ptr->window_flags |= (PW_SPELL);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
 
     /* Abort if needed */
@@ -305,21 +314,20 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
         break;
 
     case MonsterAbilityType::DISPEL: {
-        MONSTER_IDX m_idx;
-
         if (!target_set(player_ptr, TARGET_KILL)) {
             return false;
         }
-        m_idx = player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx;
-        if (!m_idx) {
+
+        const Pos2D pos(target_row, target_col);
+        const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+        const auto m_idx = grid.m_idx;
+        auto should_dispel = m_idx == 0;
+        should_dispel &= grid.has_los();
+        should_dispel &= projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col);
+        if (!should_dispel) {
             break;
         }
-        if (!player_has_los_bold(player_ptr, target_row, target_col)) {
-            break;
-        }
-        if (!projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col)) {
-            break;
-        }
+
         dispel_monster_status(player_ptr, m_idx);
         break;
     }
@@ -687,6 +695,15 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
 
         fire_ball(player_ptr, AttributeType::ABYSS, dir, damage, 4);
         break;
+    case MonsterAbilityType::BA_METEOR:
+        if (!get_aim_dir(player_ptr, &dir)) {
+            return false;
+        } else {
+            msg_print(_("メテオスウォームの呪文を念じた。", "You cast a meteor swarm."));
+        }
+
+        fire_ball(player_ptr, AttributeType::METEOR, dir, damage, 4);
+        break;
     case MonsterAbilityType::DRAIN_MANA:
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
@@ -837,6 +854,24 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
 
         fire_bolt(player_ptr, AttributeType::ABYSS, dir, damage);
         break;
+    case MonsterAbilityType::BO_METEOR:
+        if (!get_aim_dir(player_ptr, &dir)) {
+            return false;
+        } else {
+            msg_print(_("メテオストライクの呪文を唱えた。", "You cast a meteor strike."));
+        }
+
+        fire_bolt(player_ptr, AttributeType::METEOR, dir, damage);
+        break;
+    case MonsterAbilityType::BO_LITE:
+        if (!get_aim_dir(player_ptr, &dir)) {
+            return false;
+        } else {
+            msg_print(_("スターライトアローの呪文を唱えた。", "You cast a starlight arrow."));
+        }
+
+        fire_bolt(player_ptr, AttributeType::LITE, dir, damage);
+        break;
     case MonsterAbilityType::MISSILE:
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
@@ -922,29 +957,31 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
         if (!target_set(player_ptr, TARGET_KILL)) {
             return false;
         }
-        if (!player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx) {
+
+        const auto &floor = *player_ptr->current_floor_ptr;
+        const Pos2D pos(target_row, target_col);
+        const auto &grid_target = floor.get_grid(pos);
+        auto should_teleport = grid_target.m_idx == 0;
+        should_teleport &= grid_target.has_los();
+        should_teleport &= projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col);
+        if (!should_teleport) {
             break;
         }
-        if (!player_has_los_bold(player_ptr, target_row, target_col)) {
-            break;
-        }
-        if (!projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col)) {
-            break;
-        }
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx];
-        auto *r_ptr = &monraces_info[m_ptr->r_idx];
-        const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-        if (r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_TELEPORT)) {
-            if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
-                if (is_original_ap_and_seen(player_ptr, m_ptr)) {
-                    r_ptr->r_resistance_flags.set(MonsterResistanceType::RESIST_TELEPORT);
+
+        const auto &monster = floor.m_list[grid_target.m_idx];
+        auto &monrace = monster.get_monrace();
+        const auto m_name = monster_desc(player_ptr, &monster, 0);
+        if (monrace.resistance_flags.has(MonsterResistanceType::RESIST_TELEPORT)) {
+            if (monrace.kind_flags.has(MonsterKindType::UNIQUE) || monrace.resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
+                if (is_original_ap_and_seen(player_ptr, &monster)) {
+                    monrace.r_resistance_flags.set(MonsterResistanceType::RESIST_TELEPORT);
                 }
                 msg_format(_("%sには効果がなかった！", "%s is unaffected!"), m_name.data());
 
                 break;
-            } else if (r_ptr->level > randint1(100)) {
-                if (is_original_ap_and_seen(player_ptr, m_ptr)) {
-                    r_ptr->r_resistance_flags.set(MonsterResistanceType::RESIST_TELEPORT);
+            } else if (monrace.level > randint1(100)) {
+                if (is_original_ap_and_seen(player_ptr, &monster)) {
+                    monrace.r_resistance_flags.set(MonsterResistanceType::RESIST_TELEPORT);
                 }
                 msg_format(_("%sには耐性がある！", "%s resists!"), m_name.data());
 
@@ -953,8 +990,7 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
         }
         msg_format(_("%sを引き戻した。", "You command %s to return."), m_name.data());
 
-        teleport_monster_to(
-            player_ptr, player_ptr->current_floor_ptr->grid_array[target_row][target_col].m_idx, player_ptr->y, player_ptr->x, 100, TELEPORT_PASSIVE);
+        teleport_monster_to(player_ptr, grid_target.m_idx, player_ptr->y, player_ptr->x, 100, TELEPORT_PASSIVE);
         break;
     }
     case MonsterAbilityType::TELE_AWAY:
@@ -1183,6 +1219,19 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
         }
         break;
     }
+    case MonsterAbilityType::S_DEAD_UNIQUE: {
+        auto count = 0;
+        if (!target_set(player_ptr, TARGET_KILL)) {
+            return false;
+        }
+        msg_print(_("特別な強敵を蘇生した！", "You summon special dead opponents!"));
+        for (auto k = 0; k < 4; k++) {
+            if (summon_specific(player_ptr, -1, target_row, target_col, plev, SUMMON_DEAD_UNIQUE, (mode | PM_ALLOW_UNIQUE | PM_CLONE))) {
+                count++;
+            }
+        }
+        break;
+    }
     default:
         msg_print("hoge?");
     }
@@ -1280,12 +1329,13 @@ bool do_cmd_mane(PlayerType *player_ptr, bool baigaesi)
     }
 
     mane_data->mane_list.erase(std::next(mane_data->mane_list.begin(), n));
-
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-
-    player_ptr->redraw |= (PR_IMITATION);
-    player_ptr->window_flags |= (PW_PLAYER);
-    player_ptr->window_flags |= (PW_SPELL);
-
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::IMITATION);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    rfu.set_flags(flags);
     return true;
 }

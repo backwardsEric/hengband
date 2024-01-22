@@ -1,5 +1,4 @@
-﻿#include "pet/pet-util.h"
-#include "core/player-update-types.h"
+#include "pet/pet-util.h"
 #include "core/stuff-handler.h"
 #include "grid/grid.h"
 #include "monster-race/monster-race.h"
@@ -13,6 +12,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "world/world.h"
 
@@ -24,7 +24,7 @@ int total_friends = 0;
  * @param now_riding trueなら下馬処理、falseならば騎乗処理
  * @return 可能ならばtrueを返す
  */
-bool can_player_ride_pet(PlayerType *player_ptr, grid_type *g_ptr, bool now_riding)
+bool can_player_ride_pet(PlayerType *player_ptr, const Grid *g_ptr, bool now_riding)
 {
     bool old_character_xtra = w_ptr->character_xtra;
     MONSTER_IDX old_riding = player_ptr->riding;
@@ -41,7 +41,8 @@ bool can_player_ride_pet(PlayerType *player_ptr, grid_type *g_ptr, bool now_ridi
         player_ptr->riding_ryoute = player_ptr->old_riding_ryoute = false;
     }
 
-    player_ptr->update |= PU_BONUS;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 
     bool p_can_enter = player_can_enter(player_ptr, g_ptr->feat, CEM_P_CAN_ENTER_PATTERN);
@@ -54,7 +55,7 @@ bool can_player_ride_pet(PlayerType *player_ptr, grid_type *g_ptr, bool now_ridi
 
     player_ptr->riding_ryoute = old_riding_two_hands;
     player_ptr->old_riding_ryoute = old_old_riding_two_hands;
-    player_ptr->update |= PU_BONUS;
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 
     w_ptr->character_xtra = old_character_xtra;
@@ -75,7 +76,7 @@ PERCENTAGE calculate_upkeep(PlayerType *player_ptr)
         if (!m_ptr->is_valid()) {
             continue;
         }
-        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        auto *r_ptr = &m_ptr->get_monrace();
 
         if (!m_ptr->is_pet()) {
             continue;
@@ -94,7 +95,7 @@ PERCENTAGE calculate_upkeep(PlayerType *player_ptr)
 
         if (player_ptr->riding == m_idx) {
             total_friend_levels += (r_ptr->level + 5) * 2;
-        } else if (!has_a_unique && any_bits(monraces_info[m_ptr->r_idx].flags7, RF7_RIDING)) {
+        } else if (!has_a_unique && any_bits(m_ptr->get_monrace().flags7, RF7_RIDING)) {
             total_friend_levels += (r_ptr->level + 5) * 7 / 2;
         } else {
             total_friend_levels += (r_ptr->level + 5) * 10;

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @brief Purpose: a generic, efficient, terminal window package -BEN-
  * Copyright (c) 1997 Ben Harrison
  *
@@ -54,11 +54,11 @@ TermOffsetSetter::TermOffsetSetter(std::optional<TERM_LEN> x, std::optional<TERM
         return;
     }
 
-    if (x.has_value()) {
-        this->term->offset_x = (x.value() > 0) ? x.value() : 0;
+    if (x) {
+        this->term->offset_x = (*x > 0) ? *x : 0;
     }
-    if (y.has_value()) {
-        this->term->offset_y = (y.value() > 0) ? y.value() : 0;
+    if (y) {
+        this->term->offset_y = (*y > 0) ? *y : 0;
     }
 }
 
@@ -88,8 +88,12 @@ TermCenteredOffsetSetter::TermCenteredOffsetSetter(std::optional<TERM_LEN> width
     , orig_centered_wid(game_term != nullptr ? game_term->centered_wid : std::nullopt)
     , orig_centered_hgt(game_term != nullptr ? game_term->centered_hgt : std::nullopt)
 {
-    const auto offset_x = width.has_value() ? (game_term->wid - width.value()) / 2 : 0;
-    const auto offset_y = height.has_value() ? (game_term->hgt - height.value()) / 2 : 0;
+    if (game_term == nullptr) {
+        return;
+    }
+
+    const auto offset_x = width ? (game_term->wid - *width) / 2 : 0;
+    const auto offset_y = height ? (game_term->hgt - *height) / 2 : 0;
     this->tos.emplace(offset_x, offset_y);
 
     game_term->centered_wid = (width < game_term->wid) ? width : std::nullopt;
@@ -582,9 +586,7 @@ static void term_queue_chars(TERM_LEN x, TERM_LEN y, int n, TERM_COLOR a, std::s
      * (条件追加：タイルの1文字目でない事を確かめるように。)
      */
     {
-        int w, h;
-        term_get_size(&w, &h);
-        if (x != w && !(scr_aa[x] & AF_TILE1) && (scr_aa[x] & AF_KANJI2)) {
+        if ((x < game_term->wid) && !(scr_aa[x] & AF_TILE1) && (scr_aa[x] & AF_KANJI2)) {
             scr_cc[x] = ' ';
             scr_aa[x] &= AF_KANJIC;
             if (x1 < 0) {
@@ -1602,7 +1604,7 @@ errr term_putstr(TERM_LEN x, TERM_LEN y, int n, TERM_COLOR a, std::string_view s
 /*
  * Place cursor at (x,y), and clear the next "n" chars
  */
-errr term_erase(TERM_LEN x, TERM_LEN y, int n)
+errr term_erase(TERM_LEN x, TERM_LEN y, std::optional<int> n_opt)
 {
     TERM_LEN w = game_term->wid;
     /* int h = Term->hgt; */
@@ -1620,6 +1622,8 @@ errr term_erase(TERM_LEN x, TERM_LEN y, int n)
 
     x = game_term->scr->cx;
     y = game_term->scr->cy;
+
+    auto n = n_opt.value_or(w);
 
     /* Force legal size */
     if (x + n > w) {
@@ -1852,11 +1856,9 @@ errr term_get_cursor(int *v)
 /*
  * Extract the current window size
  */
-errr term_get_size(TERM_LEN *w, TERM_LEN *h)
+std::pair<int, int> term_get_size()
 {
-    (*w) = game_term->centered_wid.value_or(game_term->wid);
-    (*h) = game_term->centered_hgt.value_or(game_term->hgt);
-    return 0;
+    return { game_term->centered_wid.value_or(game_term->wid), game_term->centered_hgt.value_or(game_term->hgt) };
 }
 
 /*

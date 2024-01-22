@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief プレイヤー属性を変更するデバッグコマンド
  * @date 2021/03/07
  */
@@ -48,7 +48,7 @@ void display_wizard_player_modifier_menu()
     for (const auto &[symbol, desc] : wizard_player_modifier_menu_table) {
         std::stringstream ss;
         ss << symbol << ") " << desc;
-        put_str(ss.str().data(), r++, c);
+        put_str(ss.str(), r++, c);
     }
 }
 
@@ -61,8 +61,8 @@ void wizard_player_modifier(PlayerType *player_ptr)
     screen_save();
     display_wizard_player_modifier_menu();
 
-    char cmd;
-    get_com("Player Command: ", &cmd, false);
+    const auto command = input_command("Player Command: ");
+    const auto cmd = command.value_or(ESCAPE);
     screen_load();
 
     switch (cmd) {

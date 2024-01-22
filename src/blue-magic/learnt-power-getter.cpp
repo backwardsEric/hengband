@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file learnt-power-getter.cpp
  * @brief 青魔法の処理実行定義
  */
@@ -23,6 +23,7 @@
 #include "realm/realm-types.h"
 #include "spell/spell-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
@@ -31,7 +32,6 @@
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
-
 #include <algorithm>
 #include <iterator>
 #include <optional>
@@ -69,7 +69,7 @@ static std::optional<BlueMagicType> select_blue_magic_type_by_menu()
 
     screen_save();
 
-    while (!type.has_value()) {
+    while (!type) {
         prt(format(_(" %s ボルト", " %s bolt"), (menu_line == 1) ? _("》", "> ") : "  "), 2, 14);
         prt(format(_(" %s ボール", " %s ball"), (menu_line == 2) ? _("》", "> ") : "  "), 3, 14);
         prt(format(_(" %s ブレス", " %s breath"), (menu_line == 3) ? _("》", "> ") : "  "), 4, 14);
@@ -120,15 +120,15 @@ static std::optional<BlueMagicType> select_blue_magic_type_by_menu()
  */
 static std::optional<BlueMagicType> select_blue_magic_kind_by_symbol()
 {
-    auto candidate_desc = _("[A]ボルト, [B]ボール, [C]ブレス, [D]召喚, [E]その他:", "[A] bolt, [B] ball, [C] breath, [D] summoning, [E] others:");
-
+    constexpr auto candidate_desc = _("[A]ボルト, [B]ボール, [C]ブレス, [D]召喚, [E]その他:",
+        "[A] bolt, [B] ball, [C] breath, [D] summoning, [E] others:");
     while (true) {
-        char ch;
-        if (!get_com(candidate_desc, &ch, true)) {
+        const auto command = input_command(candidate_desc, true);
+        if (!command) {
             return std::nullopt;
         }
 
-        switch (ch) {
+        switch (*command) {
         case 'A':
         case 'a':
             return BlueMagicType::BOLT;
@@ -185,7 +185,7 @@ static std::optional<std::vector<MonsterAbilityType>> sweep_learnt_spells(const 
  * @param blue_magics 青魔法のリスト(覚えていないものも含まれているが、カーソル移動時に選択をスキップする)
  * @return 選択確定キーが入力された場合は true、そうでなければ false
  */
-static bool switch_blue_magic_choice(char key, int &menu_line, const bluemage_data_type &bluemage_data, const std::vector<MonsterAbilityType> blue_magics)
+static bool switch_blue_magic_choice(const char key, int &menu_line, const bluemage_data_type &bluemage_data, const std::vector<MonsterAbilityType> blue_magics)
 {
     const auto &learnt_blue_magics = bluemage_data.learnt_blue_magics;
     const int blue_magics_count = blue_magics.size();
@@ -349,7 +349,7 @@ static bool confirm_cast_blue_magic(MonsterAbilityType spell)
 {
     char tmp_val[160];
     (void)strnfmt(tmp_val, 78, _("%sの魔法を唱えますか？", "Use %s? "), monster_powers.at(spell).name);
-    return get_check(tmp_val);
+    return input_check(tmp_val);
 }
 
 /*!
@@ -361,18 +361,22 @@ static bool confirm_cast_blue_magic(MonsterAbilityType spell)
  */
 static std::optional<MonsterAbilityType> select_learnt_spells_by_symbol(PlayerType *player_ptr, const bluemage_data_type &bluemage_data, std::vector<MonsterAbilityType> spells)
 {
-    char out_val[80];
-    (void)strnfmt(out_val, sizeof(out_val), _("(%c-%c, '*'で一覧, ESC) どの%sを唱えますか？", "(%c-%c, *=List, ESC=exit) Use which %s? "),
-        I2A(0), I2A(spells.size() - 1), _("魔法", "magic"));
+    constexpr auto fmt = _("(%c-%c, '*'で一覧, ESC) どの%sを唱えますか？", "(%c-%c, *=List, ESC=exit) Use which %s? ");
+    const auto prompt = format(fmt, I2A(0), I2A(spells.size() - 1), _("魔法", "magic"));
 
     bool first_show_list = always_show_list;
     auto show_list = false;
     std::optional<MonsterAbilityType> selected_spell;
 
-    while (!selected_spell.has_value()) {
-        char choice = 0;
-        if (!first_show_list && !get_com(out_val, &choice, true)) {
-            break;
+    while (!selected_spell) {
+        auto choice = '\0';
+        if (!first_show_list) {
+            const auto choice_opt = input_command(prompt, true);
+            if (!choice_opt) {
+                break;
+            }
+
+            choice = *choice_opt;
         }
 
         if (first_show_list || (choice == ' ') || (choice == '*') || (choice == '?')) {
@@ -385,6 +389,7 @@ static std::optional<MonsterAbilityType> select_learnt_spells_by_symbol(PlayerTy
             } else {
                 screen_load();
             }
+
             continue;
         }
 
@@ -418,24 +423,28 @@ static std::optional<MonsterAbilityType> select_learnt_spells_by_symbol(PlayerTy
  */
 static std::optional<MonsterAbilityType> select_learnt_spells_by_menu(PlayerType *player_ptr, const bluemage_data_type &bluemage_data, std::vector<MonsterAbilityType> spells)
 {
-    char out_val[80];
-    angband_strcpy(out_val, _("(ESC=中断) どの魔法を唱えますか？", "(ESC=exit) Use which magic? "), sizeof(out_val));
+    constexpr auto prompt = _("(ESC=中断) どの魔法を唱えますか？", "(ESC=exit) Use which magic? ");
 
-    auto it = std::find_if(spells.begin(), spells.end(), [&bluemage_data](const auto &spell) { return bluemage_data.learnt_blue_magics.has(spell); });
+    auto it = std::find_if(
+        spells.begin(), spells.end(), [&bluemage_data](const auto &spell) { return bluemage_data.learnt_blue_magics.has(spell); });
     int menu_line = std::distance(spells.begin(), it) + 1;
     std::optional<MonsterAbilityType> selected_spell;
 
     screen_save();
 
-    while (!selected_spell.has_value()) {
+    while (!selected_spell) {
         describe_blue_magic_name(player_ptr, menu_line, bluemage_data, spells);
 
-        char choice;
-        if (!get_com(out_val, &choice, true) || choice == '0') {
+        const auto choice = input_command(prompt, true);
+        if (!choice) {
             break;
         }
 
-        if (!switch_blue_magic_choice(choice, menu_line, bluemage_data, spells)) {
+        if (choice == '0') {
+            break;
+        }
+
+        if (!switch_blue_magic_choice(*choice, menu_line, bluemage_data, spells)) {
             continue;
         }
 
@@ -479,33 +488,33 @@ std::optional<MonsterAbilityType> get_learned_power(PlayerType *player_ptr)
     }
 
     if (auto repeat_spell = check_blue_magic_repeat();
-        repeat_spell.has_value()) {
+        repeat_spell) {
         return repeat_spell;
     }
 
     auto type = (use_menu)
                     ? select_blue_magic_type_by_menu()
                     : select_blue_magic_kind_by_symbol();
-    if (!type.has_value()) {
+    if (!type) {
         return std::nullopt;
     }
 
-    auto spells = sweep_learnt_spells(*bluemage_data, type.value());
-    if (!spells.has_value() || spells->empty()) {
+    auto spells = sweep_learnt_spells(*bluemage_data, *type);
+    if (!spells || spells->empty()) {
         return std::nullopt;
     }
 
     auto selected_spell = (use_menu)
-                              ? select_learnt_spells_by_menu(player_ptr, *bluemage_data, spells.value())
-                              : select_learnt_spells_by_symbol(player_ptr, *bluemage_data, spells.value());
+                              ? select_learnt_spells_by_menu(player_ptr, *bluemage_data, *spells)
+                              : select_learnt_spells_by_symbol(player_ptr, *bluemage_data, *spells);
 
-    player_ptr->window_flags |= PW_SPELL;
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
 
-    if (!selected_spell.has_value()) {
+    if (!selected_spell) {
         return std::nullopt;
     }
 
-    repeat_push(static_cast<COMMAND_CODE>(selected_spell.value()));
+    repeat_push(static_cast<COMMAND_CODE>(*selected_spell));
     return selected_spell;
 }

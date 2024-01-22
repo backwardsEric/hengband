@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief プレイヤーのステータス表示メインルーチン群
  * @date 2020/02/25
  * @author Hourier
@@ -13,6 +13,7 @@
 #include "info-reader/fixed-map-parser.h"
 #include "inventory/inventory-slot-types.h"
 #include "knowledge/knowledge-mutations.h"
+#include "locale/japanese.h"
 #include "mind/mind-elementalist.h"
 #include "mutation/mutation-flag-types.h"
 #include "object/object-info.h"
@@ -83,10 +84,7 @@ static bool display_player_info(PlayerType *player_ptr, int mode)
  */
 static void display_player_basic_info(PlayerType *player_ptr)
 {
-    std::string tmp = ap_ptr->title;
-    tmp.append(_(ap_ptr->no == 1 ? "の" : "", " ")).append(player_ptr->name);
-
-    display_player_one_line(ENTRY_NAME, tmp, TERM_L_BLUE);
+    display_player_name(player_ptr);
     display_player_one_line(ENTRY_SEX, sp_ptr->title, TERM_L_BLUE);
     display_player_one_line(ENTRY_RACE, (player_ptr->mimic_form != MimicKindType::NONE ? mimic_info.at(player_ptr->mimic_form).title : rp_ptr->title), TERM_L_BLUE);
     display_player_one_line(ENTRY_CLASS, cp_ptr->title, TERM_L_BLUE);
@@ -125,8 +123,8 @@ static void display_phisique(PlayerType *player_ptr)
 {
 #ifdef JP
     display_player_one_line(ENTRY_AGE, format("%d才", (int)player_ptr->age), TERM_L_BLUE);
-    display_player_one_line(ENTRY_HEIGHT, format("%dcm", (int)((player_ptr->ht * 254) / 100)), TERM_L_BLUE);
-    display_player_one_line(ENTRY_WEIGHT, format("%dkg", (int)((player_ptr->wt * 4536) / 10000)), TERM_L_BLUE);
+    display_player_one_line(ENTRY_HEIGHT, format("%dcm", inch_to_cm(player_ptr->ht)), TERM_L_BLUE);
+    display_player_one_line(ENTRY_WEIGHT, format("%dkg", lb_to_kg(player_ptr->wt)), TERM_L_BLUE);
     display_player_one_line(ENTRY_SOCIAL, format("%d  ", (int)player_ptr->sc), TERM_L_BLUE);
 #else
     display_player_one_line(ENTRY_AGE, format("%d", (int)player_ptr->age), TERM_L_BLUE);
@@ -176,19 +174,20 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
     }
 
     if (w_ptr->total_winner) {
-        return std::string(format(_("…あなたは勝利の後%sした。", "...You %s after winning."),
-            streq(player_ptr->died_from, "Seppuku") ? _("切腹", "committed seppuku") : _("引退", "retired from the adventure")));
+        return format(_("…あなたは勝利の後%sした。", "...You %s after winning."),
+            streq(player_ptr->died_from, "Seppuku") ? _("切腹", "committed seppuku") : _("引退", "retired from the adventure"));
     }
 
     if (!floor_ptr->dun_level) {
+        constexpr auto killed_monster = _("…あなたは%sで%sに殺された。", "...You were killed by %s in %s.");
 #ifdef JP
-        return std::string(format("…あなたは%sで%sに殺された。", map_name(player_ptr), player_ptr->died_from.data()));
+        return format(killed_monster, map_name(player_ptr).data(), player_ptr->died_from.data());
 #else
-        return std::string(format("...You were killed by %s in %s.", player_ptr->died_from.data(), map_name(player_ptr)));
+        return format(killed_monster, player_ptr->died_from.data(), map_name(player_ptr).data());
 #endif
     }
 
-    if (inside_quest(floor_ptr->quest_number) && QuestType::is_fixed(floor_ptr->quest_number)) {
+    if (floor_ptr->is_in_quest() && QuestType::is_fixed(floor_ptr->quest_number)) {
         const auto &quest_list = QuestList::get_instance();
 
         /* Get the quest text */
@@ -197,17 +196,19 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
         parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
 
         const auto *q_ptr = &quest_list[floor_ptr->quest_number];
+        constexpr auto killed_quest = _("…あなたは、クエスト「%s」で%sに殺された。", "...You were killed by %s in the quest '%s'.");
 #ifdef JP
-        return std::string(format("…あなたは、クエスト「%s」で%sに殺された。", q_ptr->name.data(), player_ptr->died_from.data()));
+        return format(killed_quest, q_ptr->name.data(), player_ptr->died_from.data());
 #else
-        return std::string(format("...You were killed by %s in the quest '%s'.", player_ptr->died_from.data(), q_ptr->name.data()));
+        return format(killed_quest, player_ptr->died_from.data(), q_ptr->name.data());
 #endif
     }
 
+    constexpr auto killed_floor = _("…あなたは、%sの%d階で%sに殺された。", "...You were killed by %s on level %d of %s.");
 #ifdef JP
-    return std::string(format("…あなたは、%sの%d階で%sに殺された。", map_name(player_ptr), (int)floor_ptr->dun_level, player_ptr->died_from.data()));
+    return format(killed_floor, map_name(player_ptr).data(), (int)floor_ptr->dun_level, player_ptr->died_from.data());
 #else
-    return std::string(format("...You were killed by %s on level %d of %s.", player_ptr->died_from.data(), floor_ptr->dun_level, map_name(player_ptr)));
+    return format(killed_floor, player_ptr->died_from.data(), floor_ptr->dun_level, map_name(player_ptr).data());
 #endif
 }
 
@@ -220,7 +221,7 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
 static std::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (!inside_quest(floor_ptr->quest_number) || !QuestType::is_fixed(floor_ptr->quest_number)) {
+    if (!floor_ptr->is_in_quest() || !QuestType::is_fixed(floor_ptr->quest_number)) {
         return std::nullopt;
     }
 
@@ -243,23 +244,24 @@ static std::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
 static std::string decide_current_floor(PlayerType *player_ptr)
 {
     if (auto death_cause = search_death_cause(player_ptr);
-        death_cause.has_value() || !w_ptr->character_dungeon) {
+        death_cause || !w_ptr->character_dungeon) {
         return death_cause.value_or("");
     }
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
     if (floor_ptr->dun_level == 0) {
-        return std::string(format(_("…あなたは現在、 %s にいる。", "...Now, you are in %s."), map_name(player_ptr)));
+        return format(_("…あなたは現在、 %s にいる。", "...Now, you are in %s."), map_name(player_ptr).data());
     }
 
-    if (auto decision = decide_death_in_quest(player_ptr); decision.has_value()) {
-        return decision.value();
+    if (auto decision = decide_death_in_quest(player_ptr); decision) {
+        return *decision;
     }
 
+    constexpr auto mes = _("…あなたは現在、 %s の %d 階で探索している。", "...Now, you are exploring level %d of %s.");
 #ifdef JP
-    return std::string(format("…あなたは現在、 %s の %d 階で探索している。", map_name(player_ptr), (int)floor_ptr->dun_level));
+    return format(mes, map_name(player_ptr).data(), (int)floor_ptr->dun_level);
 #else
-    return std::string(format("...Now, you are exploring level %d of %s.", (int)floor_ptr->dun_level, map_name(player_ptr)));
+    return format(mes, (int)floor_ptr->dun_level, map_name(player_ptr).data());
 #endif
 }
 

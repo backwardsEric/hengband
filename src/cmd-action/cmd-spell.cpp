@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 魔法のインターフェイスと発動 / Purpose: Do everything for each spell
  * @date 2013/12/31
  * @author
@@ -12,8 +12,6 @@
 #include "cmd-action/cmd-mind.h"
 #include "cmd-io/cmd-dump.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "floor/floor-object.h"
@@ -62,6 +60,7 @@
 #include "system/floor-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
 #include "timed-effect/player-blindness.h"
@@ -70,6 +69,7 @@
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
 #include "view/display-util.h"
+#include <string_view>
 
 static const int extra_magic_gain_exp = 4;
 
@@ -305,20 +305,13 @@ static bool spell_okay(PlayerType *player_ptr, int spell, bool learned, bool stu
  * The "known" should be TRUE for cast/pray, FALSE for study
  * </pre>
  */
-static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJECT_SUBTYPE_VALUE sval, bool learned, int16_t use_realm)
+static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view prompt_verb, int sval, bool learned, int16_t use_realm)
 {
     int i;
     SPELL_IDX spell = -1;
     int num = 0;
-    SPELL_IDX spells[64];
-    bool flag, redraw, okay;
-    char choice;
-    char out_val[160];
-    concptr p;
+    SPELL_IDX spells[64]{};
     COMMAND_CODE code;
-#ifdef JP
-    char jverb_buf[128];
-#endif
     int menu_line = (use_menu ? 1 : 0);
 
     /* Get the spell, if available */
@@ -331,8 +324,6 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJE
         }
     }
 
-    p = spell_category_name(mp_ptr->spell_book);
-
     /* Extract spells */
     for (spell = 0; spell < 32; spell++) {
         /* Check for this spell */
@@ -343,7 +334,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJE
     }
 
     /* Assume no usable spells */
-    okay = false;
+    auto okay = false;
 
     /* Assume no spells available */
     (*sn) = -2;
@@ -376,26 +367,32 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJE
     /* Assume cancelled */
     *sn = (-1);
 
-    flag = false;
-    redraw = false;
+    auto flag = false;
+    auto redraw = false;
 
-    player_ptr->window_flags |= (PW_SPELL);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
 
-    /* Build a prompt (accept all spells) */
+    const auto spell_category = spell_category_name(mp_ptr->spell_book);
+    constexpr auto fmt = _("(%s^:%c-%c, '*'で一覧, ESCで中断) どの%sを%s^ますか? ", "(%s^s %c-%c, *=List, ESC=exit) %s^ which %s? ");
 #ifdef JP
-    jverb(prompt, jverb_buf, JVERB_AND);
-    (void)strnfmt(out_val, 78, "(%s^:%c-%c, '*'で一覧, ESCで中断) どの%sを%s^ますか? ", p, I2A(0), I2A(num - 1), p, jverb_buf);
+    const auto verb = conjugate_jverb(prompt_verb, JVerbConjugationType::AND);
+    const auto prompt = format(fmt, spell_category.data(), I2A(0), I2A(num - 1), spell_category.data(), verb.data());
 #else
-    (void)strnfmt(out_val, 78, "(%s^s %c-%c, *=List, ESC=exit) %s^ which %s? ", p, I2A(0), I2A(num - 1), prompt, p);
+    const auto prompt = format(fmt, spell_category.data(), I2A(0), I2A(num - 1), prompt_verb.data(), spell_category.data());
 #endif
 
-    choice = (always_show_list || use_menu) ? ESCAPE : 1;
+    auto choice = (always_show_list || use_menu) ? ESCAPE : '\1';
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
-        } else if (!get_com(out_val, &choice, true)) {
-            break;
+        } else {
+            const auto new_choice = input_command(prompt, true);
+            if (!new_choice) {
+                break;
+            }
+
+            choice = *new_choice;
         }
 
         auto should_redraw_cursor = true;
@@ -480,9 +477,9 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJE
         if (!spell_okay(player_ptr, spell, learned, false, use_realm)) {
             bell();
 #ifdef JP
-            msg_format("その%sを%sことはできません。", p, prompt);
+            msg_format("その%sを%sことはできません。", spell_category.data(), prompt_verb.data());
 #else
-            msg_format("You may not %s that %s.", prompt, p);
+            msg_format("You may not %s that %s.", prompt.data(), spell_category.data());
 #endif
 
             continue;
@@ -496,7 +493,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, concptr prompt, OBJE
         screen_load();
     }
 
-    player_ptr->window_flags |= (PW_SPELL);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
 
     /* Abort if needed */
@@ -579,7 +576,6 @@ static FuncItemTester get_learnable_spellbook_tester(PlayerType *player_ptr)
  */
 void do_cmd_browse(PlayerType *player_ptr)
 {
-    OBJECT_IDX item;
     SPELL_IDX spell = -1;
     int num = 0;
 
@@ -604,11 +600,13 @@ void do_cmd_browse(PlayerType *player_ptr)
     /* Restrict choices to "useful" books */
     auto item_tester = get_learnable_spellbook_tester(player_ptr);
 
-    const auto q = _("どの本を読みますか? ", "Browse which book? ");
-    const auto s = _("読める本がない。", "You have no books that you can read.");
-    const auto *o_ptr = choose_object(player_ptr, &item, q, s, USE_INVEN | USE_FLOOR | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0), item_tester);
+    constexpr auto q = _("どの本を読みますか? ", "Browse which book? ");
+    constexpr auto s = _("読める本がない。", "You have no books that you can read.");
+    constexpr auto options = USE_INVEN | USE_FLOOR;
+    short i_idx;
+    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0), item_tester);
     if (o_ptr == nullptr) {
-        if (item == INVEN_FORCE) /* the_force */
+        if (i_idx == INVEN_FORCE) /* the_force */
         {
             do_cmd_mind_browse(player_ptr);
             return;
@@ -618,7 +616,7 @@ void do_cmd_browse(PlayerType *player_ptr)
 
     /* Access the item's sval */
     const auto tval = o_ptr->bi_key.tval();
-    const auto sval = o_ptr->bi_key.sval().value();
+    const auto sval = *o_ptr->bi_key.sval();
     short use_realm = tval2realm(tval);
 
     /* Track the object kind */
@@ -663,13 +661,13 @@ void do_cmd_browse(PlayerType *player_ptr)
         }
 
         /* Clear lines, position cursor  (really should use strlen here) */
-        term_erase(14, 14, 255);
-        term_erase(14, 13, 255);
-        term_erase(14, 12, 255);
-        term_erase(14, 11, 255);
+        term_erase(14, 14);
+        term_erase(14, 13);
+        term_erase(14, 12);
+        term_erase(14, 11);
 
         const auto spell_desc = exe_spell(player_ptr, use_realm, spell, SpellProcessType::DESCRIPTION);
-        display_wrap_around(spell_desc.value(), 62, 11, 15);
+        display_wrap_around(*spell_desc, 62, 11, 15);
     }
     screen_load();
 }
@@ -682,8 +680,6 @@ void do_cmd_browse(PlayerType *player_ptr)
 static void change_realm2(PlayerType *player_ptr, int16_t next_realm)
 {
     int i, j = 0;
-    char tmp[80];
-
     for (i = 0; i < 64; i++) {
         player_ptr->spell_order[j] = player_ptr->spell_order[i];
         if (player_ptr->spell_order[i] < 32) {
@@ -701,13 +697,17 @@ static void change_realm2(PlayerType *player_ptr, int16_t next_realm)
     player_ptr->spell_worked2 = 0L;
     player_ptr->spell_forgotten2 = 0L;
 
-    strnfmt(tmp, sizeof(tmp), _("魔法の領域を%sから%sに変更した。", "changed magic realm from %s to %s."), realm_names[player_ptr->realm2], realm_names[next_realm]);
-    exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, tmp);
+    constexpr auto fmt_realm = _("魔法の領域を%sから%sに変更した。", "changed magic realm from %s to %s.");
+    const auto mes = format(fmt_realm, realm_names[player_ptr->realm2], realm_names[next_realm]);
+    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, mes);
     player_ptr->old_realm |= 1U << (player_ptr->realm2 - 1);
     player_ptr->realm2 = next_realm;
 
-    player_ptr->update |= (PU_REORDER);
-    player_ptr->update |= (PU_SPELLS);
+    static constexpr auto flags = {
+        StatusRecalculatingFlag::REORDER,
+        StatusRecalculatingFlag::SPELLS,
+    };
+    RedrawingFlagsUpdater::get_instance().set_flags(flags);
     handle_stuff(player_ptr);
 
     /* Load an autopick preference file */
@@ -725,7 +725,7 @@ void do_cmd_study(PlayerType *player_ptr)
 
     /* Spells of realm2 will have an increment of +32 */
     SPELL_IDX spell = -1;
-    const auto p = spell_category_name(mp_ptr->spell_book);
+    const auto spell_category = spell_category_name(mp_ptr->spell_book);
     if (!player_ptr->realm1) {
         msg_print(_("本を読むことができない！", "You cannot read books!"));
         return;
@@ -736,7 +736,7 @@ void do_cmd_study(PlayerType *player_ptr)
     }
 
     if (player_ptr->new_spells == 0) {
-        msg_format(_("新しい%sを覚えることはできない！", "You cannot learn any new %ss!"), p);
+        msg_format(_("新しい%sを覚えることはできない！", "You cannot learn any new %ss!"), spell_category.data());
         return;
     }
 
@@ -744,12 +744,12 @@ void do_cmd_study(PlayerType *player_ptr)
 
 #ifdef JP
     if (player_ptr->new_spells < 10) {
-        msg_format("あと %d つの%sを学べる。", player_ptr->new_spells, p);
+        msg_format("あと %d つの%sを学べる。", player_ptr->new_spells, spell_category.data());
     } else {
-        msg_format("あと %d 個の%sを学べる。", player_ptr->new_spells, p);
+        msg_format("あと %d 個の%sを学べる。", player_ptr->new_spells, spell_category.data());
     }
 #else
-    msg_format("You can learn %d new %s%s.", player_ptr->new_spells, p, (player_ptr->new_spells == 1 ? "" : "s"));
+    msg_format("You can learn %d new %s%s.", player_ptr->new_spells, spell_category.data(), (player_ptr->new_spells == 1 ? "" : "s"));
 #endif
 
     msg_print(nullptr);
@@ -757,21 +757,21 @@ void do_cmd_study(PlayerType *player_ptr)
     /* Restrict choices to "useful" books */
     auto item_tester = get_learnable_spellbook_tester(player_ptr);
 
-    const auto q = _("どの本から学びますか? ", "Study which book? ");
-    const auto s = _("読める本がない。", "You have no books that you can read.");
+    constexpr auto q = _("どの本から学びますか? ", "Study which book? ");
+    constexpr auto s = _("読める本がない。", "You have no books that you can read.");
 
-    short item;
-    const auto *o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), item_tester);
+    short i_idx;
+    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), item_tester);
     if (o_ptr == nullptr) {
         return;
     }
 
     const auto tval = o_ptr->bi_key.tval();
-    const auto sval = o_ptr->bi_key.sval().value();
+    const auto sval = *o_ptr->bi_key.sval();
     if (tval == get_realm2_book(player_ptr)) {
         increment = 32;
     } else if (tval != get_realm1_book(player_ptr)) {
-        if (!get_check(_("本当に魔法の領域を変更しますか？", "Really, change magic realm? "))) {
+        if (!input_check(_("本当に魔法の領域を変更しますか？", "Really, change magic realm? "))) {
             return;
         }
 
@@ -821,7 +821,7 @@ void do_cmd_study(PlayerType *player_ptr)
 
     /* Nothing to study */
     if (spell < 0) {
-        msg_format(_("その本には学ぶべき%sがない。", "You cannot learn any %ss in that book."), p);
+        msg_format(_("その本には学ぶべき%sがない。", "You cannot learn any %ss in that book."), spell_category.data());
 
         /* Abort */
         return;
@@ -848,17 +848,18 @@ void do_cmd_study(PlayerType *player_ptr)
 
     if (learned) {
         auto max_exp = PlayerSkill::spell_exp_at((spell < 32) ? PlayerSkillRank::MASTER : PlayerSkillRank::EXPERT);
-        int old_exp = player_ptr->spell_exp[spell];
-        const auto spell_name = exe_spell(player_ptr, increment ? player_ptr->realm2 : player_ptr->realm1, spell % 32, SpellProcessType::NAME);
+        const auto old_exp = player_ptr->spell_exp[spell];
+        const auto realm = increment ? player_ptr->realm2 : player_ptr->realm1;
+        const auto spell_name = exe_spell(player_ptr, realm, spell % 32, SpellProcessType::NAME);
 
         if (old_exp >= max_exp) {
-            msg_format(_("その%sは完全に使いこなせるので学ぶ必要はない。", "You don't need to study this %s anymore."), p);
+            msg_format(_("その%sは完全に使いこなせるので学ぶ必要はない。", "You don't need to study this %s anymore."), spell_category.data());
             return;
         }
 #ifdef JP
-        if (!get_check(format("%sの%sをさらに学びます。よろしいですか？", spell_name->data(), p)))
+        if (!input_check(format("%sの%sをさらに学びます。よろしいですか？", spell_name->data(), spell_category.data())))
 #else
-        if (!get_check(format("You will study a %s of %s again. Are you sure? ", p, spell_name->data())))
+        if (!input_check(format("You will study a %s of %s again. Are you sure? ", spell_category.data(), spell_name->data())))
 #endif
         {
             return;
@@ -881,16 +882,16 @@ void do_cmd_study(PlayerType *player_ptr)
         player_ptr->spell_order[i++] = spell;
 
         /* Mention the result */
-        const auto spell_name = exe_spell(player_ptr, increment ? player_ptr->realm2 : player_ptr->realm1, spell % 32, SpellProcessType::NAME);
+        const auto realm = increment ? player_ptr->realm2 : player_ptr->realm1;
+        const auto spell_name = exe_spell(player_ptr, realm, spell % 32, SpellProcessType::NAME);
 #ifdef JP
-        /* 英日切り替え機能に対応 */
         if (mp_ptr->spell_book == ItemKindType::MUSIC_BOOK) {
             msg_format("%sを学んだ。", spell_name->data());
         } else {
-            msg_format("%sの%sを学んだ。", spell_name->data(), p);
+            msg_format("%sの%sを学んだ。", spell_name->data(), spell_category.data());
         }
 #else
-        msg_format("You have learned the %s of %s.", p, spell_name->data());
+        msg_format("You have learned the %s of %s.", spell_category.data(), spell_name->data());
 #endif
     }
 
@@ -916,12 +917,10 @@ void do_cmd_study(PlayerType *player_ptr)
     /* One less spell available */
     player_ptr->learned_spells++;
 
-    /* Update Study */
-    player_ptr->update |= (PU_SPELLS);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::SPELLS);
     update_creature(player_ptr);
-
-    /* Redraw object recall */
-    player_ptr->window_flags |= (PW_ITEM_KNOWLEDGTE);
+    rfu.set_flag(SubWindowRedrawingFlag::ITEM_KNOWLEDGE);
 }
 
 /*!
@@ -988,14 +987,14 @@ bool do_cmd_cast(PlayerType *player_ptr)
     }
 
     const auto prayer = spell_category_name(mp_ptr->spell_book);
-    const auto q = _("どの呪文書を使いますか? ", "Use which book? ");
-    const auto s = _("呪文書がない！", "You have no spell books!");
+    constexpr auto q = _("どの呪文書を使いますか? ", "Use which book? ");
+    constexpr auto s = _("呪文書がない！", "You have no spell books!");
     auto item_tester = get_castable_spellbook_tester(player_ptr);
     const auto options = USE_INVEN | USE_FLOOR | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0);
-    short item;
-    const auto *o_ptr = choose_object(player_ptr, &item, q, s, options, item_tester);
+    short i_idx;
+    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options, item_tester);
     if (o_ptr == nullptr) {
-        if (item == INVEN_FORCE) {
+        if (i_idx == INVEN_FORCE) {
             do_cmd_mind(player_ptr);
             return true; //!< 錬気キャンセル時の処理がない
         }
@@ -1004,7 +1003,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
     }
 
     const auto tval = o_ptr->bi_key.tval();
-    const auto sval = o_ptr->bi_key.sval().value();
+    const auto sval = *o_ptr->bi_key.sval();
     if (!is_every_magic && (tval == get_realm2_book(player_ptr))) {
         increment = 32;
     }
@@ -1029,14 +1028,14 @@ bool do_cmd_cast(PlayerType *player_ptr)
                                                                    : "唱える"),
             sval, true, realm)) {
         if (spell == -2) {
-            msg_format("その本には知っている%sがない。", prayer);
+            msg_format("その本には知っている%sがない。", prayer.data());
         }
         return false;
     }
 #else
     if (!get_spell(player_ptr, &spell, ((mp_ptr->spell_book == ItemKindType::LIFE_BOOK) ? "recite" : "cast"), sval, true, realm)) {
         if (spell == -2) {
-            msg_format("You don't know any %ss in that book.", prayer);
+            msg_format("You don't know any %ss in that book.", prayer.data());
         }
         return false;
     }
@@ -1067,12 +1066,12 @@ bool do_cmd_cast(PlayerType *player_ptr)
 
         /* Warning */
 #ifdef JP
-        msg_format("その%sを%sのに十分なマジックポイントがない。", prayer,
+        msg_format("その%sを%sのに十分なマジックポイントがない。", prayer.data(),
             ((mp_ptr->spell_book == ItemKindType::LIFE_BOOK)      ? "詠唱する"
                 : (mp_ptr->spell_book == ItemKindType::LIFE_BOOK) ? "歌う"
                                                                   : "唱える"));
 #else
-        msg_format("You do not have enough mana to %s this %s.", ((mp_ptr->spell_book == ItemKindType::LIFE_BOOK) ? "recite" : "cast"), prayer);
+        msg_format("You do not have enough mana to %s this %s.", ((mp_ptr->spell_book == ItemKindType::LIFE_BOOK) ? "recite" : "cast"), prayer.data());
 #endif
 
         if (!over_exert) {
@@ -1080,7 +1079,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
         }
 
         /* Verify */
-        if (!get_check_strict(player_ptr, _("それでも挑戦しますか? ", "Attempt it anyway? "), CHECK_OKAY_CANCEL)) {
+        if (!input_check_strict(player_ptr, _("それでも挑戦しますか? ", "Attempt it anyway? "), UserCheck::OKAY_CANCEL)) {
             return false;
         }
     }
@@ -1094,7 +1093,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
             flush();
         }
 
-        msg_format(_("%sをうまく唱えられなかった！", "You failed to get the %s off!"), prayer);
+        msg_format(_("%sをうまく唱えられなかった！", "You failed to get the %s off!"), prayer.data());
         sound(SOUND_FAIL);
 
         switch (realm) {
@@ -1184,7 +1183,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
             }
 
             gain_exp(player_ptr, e * s_ptr->slevel);
-            player_ptr->window_flags |= (PW_ITEM_KNOWLEDGTE);
+            RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::ITEM_KNOWLEDGE);
 
             switch (realm) {
             case REALM_LIFE:
@@ -1320,7 +1319,8 @@ bool do_cmd_cast(PlayerType *player_ptr)
     } else {
         over_exerted = true;
     }
-    player_ptr->redraw |= (PR_MP);
+
+    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
 
     /* Over-exert the player */
     if (over_exerted) {
@@ -1364,8 +1364,10 @@ bool do_cmd_cast(PlayerType *player_ptr)
         }
     }
 
-    player_ptr->window_flags |= (PW_PLAYER);
-    player_ptr->window_flags |= (PW_SPELL);
-
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    RedrawingFlagsUpdater::get_instance().set_flags(flags);
     return true; //!< @note 詠唱した
 }

@@ -1,4 +1,4 @@
-﻿#include "floor/cave-generator.h"
+#include "floor/cave-generator.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "dungeon/quest-monster-placer.h"
 #include "floor/dungeon-tunnel-util.h"
@@ -129,16 +129,14 @@ static bool decide_tunnel_planned_site(PlayerType *player_ptr, dun_data_type *dd
 
 static void make_tunnels(PlayerType *player_ptr, dun_data_type *dd_ptr)
 {
-    for (int j = 0; j < dd_ptr->tunn_n; j++) {
-        grid_type *g_ptr;
-        TerrainType *f_ptr;
-        dd_ptr->tunnel_y = dd_ptr->tunn[j].y;
-        dd_ptr->tunnel_x = dd_ptr->tunn[j].x;
-        g_ptr = &player_ptr->current_floor_ptr->grid_array[dd_ptr->tunnel_y][dd_ptr->tunnel_x];
-        f_ptr = &terrains_info[g_ptr->feat];
-        if (f_ptr->flags.has_not(TerrainCharacteristics::MOVE) || f_ptr->flags.has_none_of({ TerrainCharacteristics::WATER, TerrainCharacteristics::LAVA })) {
-            g_ptr->mimic = 0;
-            place_grid(player_ptr, g_ptr, GB_FLOOR);
+    for (auto i = 0; i < dd_ptr->tunn_n; i++) {
+        dd_ptr->tunnel_y = dd_ptr->tunn[i].y;
+        dd_ptr->tunnel_x = dd_ptr->tunn[i].x;
+        auto &grid = player_ptr->current_floor_ptr->grid_array[dd_ptr->tunnel_y][dd_ptr->tunnel_x];
+        const auto &terrain = grid.get_terrain();
+        if (terrain.flags.has_not(TerrainCharacteristics::MOVE) || terrain.flags.has_none_of({ TerrainCharacteristics::WATER, TerrainCharacteristics::LAVA })) {
+            grid.mimic = 0;
+            place_grid(player_ptr, &grid, GB_FLOOR);
         }
     }
 }
@@ -146,7 +144,7 @@ static void make_tunnels(PlayerType *player_ptr, dun_data_type *dd_ptr)
 static void make_walls(PlayerType *player_ptr, dun_data_type *dd_ptr, dungeon_type *d_ptr, dt_type *dt_ptr)
 {
     for (int j = 0; j < dd_ptr->wall_n; j++) {
-        grid_type *g_ptr;
+        Grid *g_ptr;
         dd_ptr->tunnel_y = dd_ptr->wall[j].y;
         dd_ptr->tunnel_x = dd_ptr->wall[j].x;
         g_ptr = &player_ptr->current_floor_ptr->grid_array[dd_ptr->tunnel_y][dd_ptr->tunnel_x];
@@ -204,7 +202,7 @@ static bool make_one_floor(PlayerType *player_ptr, dun_data_type *dd_ptr, dungeo
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
 
-    if (dungeons_info[floor_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_ROOM)) {
+    if (floor_ptr->get_dungeon_definition().flags.has(DungeonFeatureType::NO_ROOM)) {
         make_only_tunnel_points(floor_ptr, dd_ptr);
     } else {
         if (!generate_rooms(player_ptr, dd_ptr)) {
@@ -286,34 +284,34 @@ static void make_aqua_streams(PlayerType *player_ptr, dun_data_type *dd_ptr, dun
  * @brief マスにフロア端用の永久壁を配置する / Set boundary mimic and add "solid" perma-wall
  * @param g_ptr 永久壁を配置したいマス構造体の参照ポインタ
  */
-static void place_bound_perm_wall(PlayerType *player_ptr, grid_type *g_ptr)
+static void place_bound_perm_wall(PlayerType *player_ptr, Grid &grid)
 {
     if (bound_walls_perm) {
-        g_ptr->mimic = 0;
-        place_grid(player_ptr, g_ptr, GB_SOLID_PERM);
+        grid.mimic = 0;
+        place_grid(player_ptr, &grid, GB_SOLID_PERM);
         return;
     }
 
-    auto *f_ptr = &terrains_info[g_ptr->feat];
-    if (f_ptr->flags.has_any_of({ TerrainCharacteristics::HAS_GOLD, TerrainCharacteristics::HAS_ITEM }) && f_ptr->flags.has_not(TerrainCharacteristics::SECRET)) {
-        g_ptr->feat = feat_state(player_ptr->current_floor_ptr, g_ptr->feat, TerrainCharacteristics::ENSECRET);
+    const auto &terrain = grid.get_terrain();
+    if (terrain.flags.has_any_of({ TerrainCharacteristics::HAS_GOLD, TerrainCharacteristics::HAS_ITEM }) && terrain.flags.has_not(TerrainCharacteristics::SECRET)) {
+        grid.feat = feat_state(player_ptr->current_floor_ptr, grid.feat, TerrainCharacteristics::ENSECRET);
     }
 
-    g_ptr->mimic = g_ptr->feat;
-    place_grid(player_ptr, g_ptr, GB_SOLID_PERM);
+    grid.mimic = grid.feat;
+    place_grid(player_ptr, &grid, GB_SOLID_PERM);
 }
 
 static void make_perm_walls(PlayerType *player_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    for (POSITION x = 0; x < floor_ptr->width; x++) {
-        place_bound_perm_wall(player_ptr, &floor_ptr->grid_array[0][x]);
-        place_bound_perm_wall(player_ptr, &floor_ptr->grid_array[floor_ptr->height - 1][x]);
+    auto &floor = *player_ptr->current_floor_ptr;
+    for (POSITION x = 0; x < floor.width; x++) {
+        place_bound_perm_wall(player_ptr, floor.get_grid({ 0, x }));
+        place_bound_perm_wall(player_ptr, floor.get_grid({ floor.height - 1, x }));
     }
 
-    for (POSITION y = 1; y < (floor_ptr->height - 1); y++) {
-        place_bound_perm_wall(player_ptr, &floor_ptr->grid_array[y][0]);
-        place_bound_perm_wall(player_ptr, &floor_ptr->grid_array[y][floor_ptr->width - 1]);
+    for (POSITION y = 1; y < (floor.height - 1); y++) {
+        place_bound_perm_wall(player_ptr, floor.get_grid({ y, 0 }));
+        place_bound_perm_wall(player_ptr, floor.get_grid({ y, floor.width - 1 }));
     }
 }
 
@@ -435,7 +433,7 @@ bool cave_gen(PlayerType *player_ptr, concptr *why)
     }
 
     dd_ptr->cent_n = 0;
-    auto *d_ptr = &dungeons_info[floor_ptr->dungeon_idx];
+    auto *d_ptr = &floor_ptr->get_dungeon_definition();
     constexpr auto chance_empty_floor = 24;
     if (ironman_empty_levels || (d_ptr->flags.has(DungeonFeatureType::ARENA) && (empty_levels && one_in_(chance_empty_floor)))) {
         dd_ptr->empty_level = true;

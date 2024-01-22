@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 既知のアイテムとアーティファクトを表示する
  * @date 2020/04/23
  * @author Hourier
@@ -26,6 +26,7 @@
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "util/angband-files.h"
@@ -111,7 +112,7 @@ void do_cmd_knowledge_artifacts(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, _("既知の伝説のアイテム", "Artifacts Seen"), 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, _("既知の伝説のアイテム", "Artifacts Seen"));
     fd_kill(file_name);
 }
 
@@ -210,7 +211,7 @@ static void display_object_list(int col, int row, int per_page, const std::vecto
     }
 
     for (; i < per_page; i++) {
-        term_erase(col, row + i, 255);
+        term_erase(col, row + i);
     }
 }
 
@@ -241,8 +242,10 @@ static void desc_obj_fake(PlayerType *player_ptr, short bi_id)
  */
 void do_cmd_knowledge_objects(PlayerType *player_ptr, bool *need_redraw, bool visual_only, short direct_k_idx)
 {
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
+
     short object_old, object_top;
-    short grp_idx[100];
+    short grp_idx[100]{};
     int object_cnt;
 
     bool visual_list = false;
@@ -250,10 +253,8 @@ void do_cmd_knowledge_objects(PlayerType *player_ptr, bool *need_redraw, bool vi
     byte char_left = 0;
     byte mode;
 
-    TERM_LEN wid, hgt;
-    term_get_size(&wid, &hgt);
-
-    int browser_rows = hgt - 8;
+    const auto &[wid, hgt] = term_get_size();
+    auto browser_rows = hgt - 8;
     std::vector<short> object_idx(baseitems_info.size());
 
     int len;

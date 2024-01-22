@@ -1,4 +1,4 @@
-﻿#include "load/player-info-loader.h"
+#include "load/player-info-loader.h"
 #include "cmd-building/cmd-building.h"
 #include "load/angband-version-comparer.h"
 #include "load/birth-loader.h"
@@ -20,6 +20,7 @@
 #include "player/player-skill.h"
 #include "spell-realm/spells-song.h"
 #include "system/angband-exceptions.h"
+#include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
@@ -65,9 +66,7 @@ void rd_base_info(PlayerType *player_ptr)
     if (!h_older_than(1, 7, 0, 1)) {
         char buf[1024];
         rd_string(buf, sizeof buf);
-        if (buf[0]) {
-            player_ptr->last_message = string_make(buf);
-        }
+        player_ptr->last_message = buf;
     }
 
     load_quick_start();
@@ -260,10 +259,11 @@ static void rd_phase_out(PlayerType *player_ptr)
         }
     }
     player_ptr->current_floor_ptr->quest_number = i2enum<QuestId>(quest_number);
+    auto &system = AngbandSystem::get_instance();
     if (h_older_than(0, 3, 5)) {
-        player_ptr->phase_out = false;
+        system.set_phase_out(false);
     } else {
-        player_ptr->phase_out = rd_s16b() != 0;
+        system.set_phase_out(rd_s16b() != 0);
     }
 }
 
@@ -284,7 +284,7 @@ static void rd_arena(PlayerType *player_ptr)
     }
 
     rd_phase_out(player_ptr);
-    player_ptr->exit_bldg = rd_byte();
+    w_ptr->set_arena(rd_bool());
     strip_bytes(1);
 
     player_ptr->oldpx = rd_s16b();
@@ -489,7 +489,7 @@ static void rd_player_status(PlayerType *player_ptr)
     strip_bytes(8);
     player_ptr->sc = rd_s16b();
     if (loading_savefile_version_is_older_than(9)) {
-        auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+        auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
         if (sniper_data) {
             sniper_data->concent = rd_s16b();
         } else {

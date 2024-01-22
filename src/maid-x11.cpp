@@ -1,4 +1,4 @@
-﻿/* File: maid-x11.c */
+/* File: maid-x11.c */
 
 /*
  * Copyright (c) 1997 Ben Harrison, and others
@@ -10,7 +10,7 @@
 
 #ifdef USE_X11
 
-#include "main/x11-gamma-builder.h"
+#include "main-unix/x11-gamma-builder.h"
 #include <math.h>
 
 /*

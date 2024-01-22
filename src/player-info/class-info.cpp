@@ -1,11 +1,10 @@
-﻿/*!
+/*!
  * @brief プレイヤーの職業に関する諸テーブル定義
  * @date 2019/04/30
  * @author deskull
  */
 
 #include "player-info/class-info.h"
-#include "core/player-redraw-types.h"
 #include "inventory/inventory-slot-types.h"
 #include "player-info/race-info.h"
 #include "system/item-entity.h"

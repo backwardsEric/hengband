@@ -1,4 +1,4 @@
-﻿#include "store/rumor.h"
+#include "store/rumor.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-town.h"
@@ -7,6 +7,7 @@
 #include "monster-race/monster-race.h"
 #include "object-enchant/special-object-flags.h"
 #include "object/object-kind-hook.h"
+#include "system/angband-exceptions.h"
 #include "system/artifact-type-definition.h"
 #include "system/baseitem-info.h"
 #include "system/dungeon-info.h"
@@ -97,8 +98,8 @@ void display_rumor(PlayerType *player_ptr, bool ex)
     auto opt_rumor = get_random_line("rumors.txt", section);
 #endif
     std::string rumor;
-    if (opt_rumor.has_value()) {
-        rumor = std::move(opt_rumor.value());
+    if (opt_rumor) {
+        rumor = std::move(*opt_rumor);
     } else {
         rumor = _("嘘の噂もある。", "Some rumors are wrong.");
     }
@@ -126,21 +127,13 @@ void display_rumor(PlayerType *player_ptr, bool ex)
         item.ident = IDENT_STORE;
         fullname = describe_flavor(player_ptr, &item, OD_NAME_ONLY);
     } else if (category == "MONSTER") {
-        MonsterRaceInfo *r_ptr;
         const auto &monster_name = tokens[1];
 
         // @details プレイヤーもダミーで入っているので、1つ引いておかないと数が合わなくなる.
         const auto monraces_size = static_cast<short>(monraces_info.size() - 1);
-        while (true) {
-            auto r_idx = i2enum<MonsterRaceId>(get_rumor_num(monster_name, monraces_size));
-            r_ptr = &monraces_info[r_idx];
-            if (!r_ptr->name.empty()) {
-                break;
-            }
-        }
-
+        auto monrace_id = i2enum<MonsterRaceId>(get_rumor_num(monster_name, monraces_size));
+        auto *r_ptr = &monraces_info[monrace_id];
         fullname = r_ptr->name;
-
         if (!r_ptr->r_sights) {
             r_ptr->r_sights++;
         }
@@ -167,7 +160,7 @@ void display_rumor(PlayerType *player_ptr, bool ex)
         const auto &town_name = tokens[1];
         while (true) {
             t_idx = get_rumor_num(town_name, VALID_TOWNS);
-            if (towns_info[t_idx].name[0] != '\0') {
+            if (!towns_info[t_idx].name.empty()) {
                 break;
             }
         }
@@ -179,7 +172,7 @@ void display_rumor(PlayerType *player_ptr, bool ex)
             rumor_eff_format = _("%sに行ったことがある気がする。", "You feel you have been to %s.");
         }
     } else {
-        throw std::runtime_error("Unknown token exists in rumor.txt");
+        THROW_EXCEPTION(std::runtime_error, "Unknown token exists in rumor.txt");
     }
 
     const auto rumor_msg = bind_rumor_name(tokens[2], fullname);

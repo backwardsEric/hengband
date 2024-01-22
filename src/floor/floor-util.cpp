@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief フロア全体の処理に関するユーティリティ
  * @date 2019/04/24
  * @author deskull
@@ -14,6 +14,7 @@
 #include "game-option/birth-options.h"
 #include "grid/feature.h"
 #include "perception/object-perception.h"
+#include "system/angband-system.h"
 #include "system/artifact-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
@@ -63,8 +64,8 @@ void update_smell(FloorType *floor_ptr, PlayerType *player_ptr)
     };
 
     if (++scent_when == 254) {
-        for (POSITION y = 0; y < floor_ptr->height; y++) {
-            for (POSITION x = 0; x < floor_ptr->width; x++) {
+        for (auto y = 0; y < floor_ptr->height; y++) {
+            for (auto x = 0; x < floor_ptr->width; x++) {
                 int w = floor_ptr->grid_array[y][x].when;
                 floor_ptr->grid_array[y][x].when = (w > 128) ? (w - 128) : 0;
             }
@@ -73,27 +74,22 @@ void update_smell(FloorType *floor_ptr, PlayerType *player_ptr)
         scent_when = 126;
     }
 
-    for (POSITION i = 0; i < 5; i++) {
-        for (POSITION j = 0; j < 5; j++) {
-            grid_type *g_ptr;
-            POSITION y = i + player_ptr->y - 2;
-            POSITION x = j + player_ptr->x - 2;
-            if (!in_bounds(floor_ptr, y, x)) {
+    for (auto i = 0; i < 5; i++) {
+        for (auto j = 0; j < 5; j++) {
+            const Pos2D pos(i + player_ptr->y - 2, j + player_ptr->x - 2);
+            if (!in_bounds(floor_ptr, pos.y, pos.x)) {
                 continue;
             }
 
-            g_ptr = &floor_ptr->grid_array[y][x];
-            if (!g_ptr->cave_has_flag(TerrainCharacteristics::MOVE) && !is_closed_door(player_ptr, g_ptr->feat)) {
-                continue;
-            }
-            if (!player_has_los_bold(player_ptr, y, x)) {
-                continue;
-            }
-            if (scent_adjust[i][j] == -1) {
+            auto &grid = floor_ptr->get_grid(pos);
+            auto update_when = !grid.cave_has_flag(TerrainCharacteristics::MOVE) && !is_closed_door(player_ptr, grid.feat);
+            update_when |= !grid.has_los();
+            update_when |= scent_adjust[i][j] == -1;
+            if (update_when) {
                 continue;
             }
 
-            g_ptr->when = scent_when + scent_adjust[i][j];
+            grid.when = scent_when + scent_adjust[i][j];
         }
     }
 }
@@ -105,8 +101,9 @@ void forget_flow(FloorType *floor_ptr)
 {
     for (POSITION y = 0; y < floor_ptr->height; y++) {
         for (POSITION x = 0; x < floor_ptr->width; x++) {
-            memset(&floor_ptr->grid_array[y][x].costs, 0, sizeof(floor_ptr->grid_array[y][x].costs));
-            memset(&floor_ptr->grid_array[y][x].dists, 0, sizeof(floor_ptr->grid_array[y][x].dists));
+            auto &grid = floor_ptr->grid_array[y][x];
+            grid.reset_costs();
+            grid.reset_dists();
             floor_ptr->grid_array[y][x].when = 0;
         }
     }
@@ -192,11 +189,11 @@ void scatter(PlayerType *player_ptr, POSITION *yp, POSITION *xp, POSITION y, POS
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return マップ名の文字列参照ポインタ
  */
-concptr map_name(PlayerType *player_ptr)
+std::string map_name(PlayerType *player_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     const auto &quest_list = QuestList::get_instance();
-    auto is_fixed_quest = inside_quest(floor_ptr->quest_number);
+    auto is_fixed_quest = floor_ptr->is_in_quest();
     is_fixed_quest &= QuestType::is_fixed(floor_ptr->quest_number);
     is_fixed_quest &= any_bits(quest_list[floor_ptr->quest_number].flags, QUEST_FLAG_PRESET);
     if (is_fixed_quest) {
@@ -205,11 +202,11 @@ concptr map_name(PlayerType *player_ptr)
         return _("地上", "Surface");
     } else if (floor_ptr->inside_arena) {
         return _("アリーナ", "Arena");
-    } else if (player_ptr->phase_out) {
+    } else if (AngbandSystem::get_instance().is_phase_out()) {
         return _("闘技場", "Monster Arena");
     } else if (!floor_ptr->dun_level && player_ptr->town_num) {
         return towns_info[player_ptr->town_num].name;
     } else {
-        return dungeons_info[player_ptr->dungeon_idx].name.data();
+        return floor_ptr->get_dungeon_definition().name;
     }
 }

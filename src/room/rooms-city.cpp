@@ -1,4 +1,4 @@
-﻿#include "room/rooms-city.h"
+#include "room/rooms-city.h"
 #include "floor/floor-generator.h"
 #include "floor/floor-town.h"
 #include "game-option/cheat-types.h"
@@ -22,8 +22,8 @@ static bool precalc_ugarcade(int town_hgt, int town_wid, int n, std::vector<ugbl
 {
     POSITION i, y, x, center_y, center_x;
     int tmp, attempt = 10000;
-    POSITION max_bldg_hgt = 3 * town_hgt / MAX_TOWN_HGT;
-    POSITION max_bldg_wid = 5 * town_wid / MAX_TOWN_WID;
+    auto max_buildings_height = 3 * town_hgt / MAX_TOWN_HGT;
+    auto max_buildings_width = 5 * town_wid / MAX_TOWN_WID;
     ugbldg_type *cur_ugbldg;
     std::vector<std::vector<bool>> ugarcade_used(town_hgt, std::vector<bool>(town_wid));
     bool abort;
@@ -34,13 +34,13 @@ static bool precalc_ugarcade(int town_hgt, int town_wid, int n, std::vector<ugbl
         do {
             center_y = rand_range(2, town_hgt - 3);
             center_x = rand_range(2, town_wid - 3);
-            tmp = center_y - randint1(max_bldg_hgt);
+            tmp = center_y - randint1(max_buildings_height);
             cur_ugbldg->y0 = std::max(tmp, 1);
-            tmp = center_x - randint1(max_bldg_wid);
+            tmp = center_x - randint1(max_buildings_width);
             cur_ugbldg->x0 = std::max(tmp, 1);
-            tmp = center_y + randint1(max_bldg_hgt);
+            tmp = center_y + randint1(max_buildings_height);
             cur_ugbldg->y1 = std::min(tmp, town_hgt - 2);
-            tmp = center_x + randint1(max_bldg_wid);
+            tmp = center_x + randint1(max_buildings_width);
             cur_ugbldg->x1 = std::min(tmp, town_wid - 2);
             for (abort = false, y = cur_ugbldg->y0; (y <= cur_ugbldg->y1) && !abort; y++) {
                 for (x = cur_ugbldg->x0; x <= cur_ugbldg->x1; x++) {
@@ -71,7 +71,7 @@ static bool precalc_ugarcade(int town_hgt, int town_wid, int n, std::vector<ugbl
 /* Create a new floor room with optional light */
 static void generate_room_floor(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, POSITION x2, int light)
 {
-    grid_type *g_ptr;
+    Grid *g_ptr;
     for (POSITION y = y1; y <= y2; y++) {
         for (POSITION x = x1; x <= x2; x++) {
             g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
@@ -145,11 +145,13 @@ static void build_stores(PlayerType *player_ptr, POSITION ltcy, POSITION ltcx, S
             break;
         }
 
-        if (auto it = std::find_if(terrains_info.begin(), terrains_info.end(),
-                [subtype = stores[i]](const TerrainType &f_ref) {
-                    return f_ref.flags.has(TerrainCharacteristics::STORE) && (i2enum<StoreSaleType>(static_cast<int>(f_ref.subtype)) == subtype);
+        const auto &terrains = TerrainList::get_instance();
+        const auto end = terrains.end();
+        if (auto it = std::find_if(terrains.begin(), end,
+                [subtype = stores[i]](const TerrainType &terrain) {
+                    return terrain.flags.has(TerrainCharacteristics::STORE) && (i2enum<StoreSaleType>(static_cast<int>(terrain.subtype)) == subtype);
                 });
-            it != terrains_info.end()) {
+            it != end) {
             cave_set_feat(player_ptr, ltcy + y, ltcx + x, (*it).idx);
             store_init(VALID_TOWNS, stores[i]);
         }

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "system/angband.h"
 #include "util/enum-converter.h"
@@ -11,7 +11,7 @@
 /*
  * Quest constants
  */
-enum class QuestId : int16_t{
+enum class QuestId : short{
 	NONE = 0, /* クエストなし */
 	THIEF = 1, /*<! 盗賊の隠れ家 */
 	SEWER = 2, /*<! 下水道 */
@@ -25,6 +25,7 @@ enum class QuestId : int16_t{
 	SORCERER = 10, /*<! 仙術エネルギー特異点 */
 	CHAOS = 11, /*<! カオスの特異点 */
 	NATURE = 12, /*<! 自然魔術の特異点 */
+	ARCANE = 13, /*<! 秘術の特異点 */
 	WARG = 14, /*<! ワーグを殲滅せよ */
 	ERIC = 15, /*<! エリックの要塞 */
 	MONSALVAT = 16, /*<! モンサルヴァト城への侵攻 */
@@ -100,7 +101,7 @@ class ArtifactType;
 class QuestType {
 public:
     QuestType() = default;
-    virtual ~QuestType() = default;
+
     QuestStatusType status{}; /*!< クエストの進行ステータス / Is the quest taken, completed, finished? */
     QuestKindType type{}; /*!< クエストの種別 / The quest type */
 
@@ -162,6 +163,7 @@ extern char quest_text[10][80];
 extern int quest_text_line;
 extern QuestId leaving_quest;
 
+class FloorType;
 class ItemEntity;
 class PlayerType;
 void determine_random_questor(PlayerType *player_ptr, QuestType *q_ptr);
@@ -169,8 +171,6 @@ void record_quest_final_status(QuestType *q_ptr, PLAYER_LEVEL lev, QuestStatusTy
 void complete_quest(PlayerType *player_ptr, QuestId quest_num);
 void check_find_art_quest_completion(PlayerType *player_ptr, ItemEntity *o_ptr);
 void quest_discovery(QuestId q_idx);
-QuestId quest_number(PlayerType *player_ptr, DEPTH level);
-QuestId random_quest_number(PlayerType *player_ptr, DEPTH level);
 void leave_quest_check(PlayerType *player_ptr);
 void leave_tower_check(PlayerType *player_ptr);
 void exe_enter_quest(PlayerType *player_ptr, QuestId quest_idx);

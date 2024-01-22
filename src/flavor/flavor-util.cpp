@@ -1,13 +1,11 @@
-﻿#include "flavor/flavor-util.h"
+#include "flavor/flavor-util.h"
 #include "flavor/flag-inscriptions-table.h"
 #include "object-enchant/tr-flags.h"
 #include "object-enchant/tr-types.h"
-#include "object/object-flags.h"
 #include "object/tval-types.h"
 #include "sv-definition/sv-food-types.h"
 #include "system/artifact-type-definition.h"
 #include "system/item-entity.h"
-#include "util/quarks.h"
 #include "util/string-processor.h"
 #include <sstream>
 
@@ -33,7 +31,7 @@ static std::string inscribe_flags_aux(const std::vector<flag_insc_table> &fi_vec
     std::stringstream ss;
 
     for (const auto &fi : fi_vec) {
-        if (flags.has(fi.flag) && (!fi.except_flag.has_value() || flags.has_not(fi.except_flag.value()))) {
+        if (flags.has(fi.flag) && (!fi.except_flag || flags.has_not(*fi.except_flag))) {
             const auto flag_str = _(is_kanji ? fi.japanese : fi.english, fi.english);
             ss << flag_str;
         }
@@ -52,7 +50,7 @@ static std::string inscribe_flags_aux(const std::vector<flag_insc_table> &fi_vec
 static bool has_flag_of(const std::vector<flag_insc_table> &fi_vec, const TrFlags &flags)
 {
     for (const auto &fi : fi_vec) {
-        if (flags.has(fi.flag) && (!fi.except_flag.has_value() || flags.has_not(fi.except_flag.value()))) {
+        if (flags.has(fi.flag) && (!fi.except_flag || flags.has_not(*fi.except_flag))) {
             return true;
         }
     }
@@ -69,7 +67,7 @@ static bool has_flag_of(const std::vector<flag_insc_table> &fi_vec, const TrFlag
  */
 std::string get_ability_abbreviation(const ItemEntity &item, bool is_kanji, bool all)
 {
-    auto flags = object_flags(&item);
+    auto flags = item.get_flags();
     if (!all) {
         const auto &baseitem = item.get_baseitem();
         flags.reset(baseitem.flags);
@@ -225,7 +223,7 @@ std::string get_inscription(const ItemEntity &item)
     std::stringstream ss;
 
     if (!item.is_fully_known()) {
-        for (std::string_view sv = item.inscription.value(); !sv.empty(); sv.remove_prefix(1)) {
+        for (std::string_view sv = *item.inscription; !sv.empty(); sv.remove_prefix(1)) {
             if (sv.front() == '#') {
                 break;
             }
@@ -244,7 +242,7 @@ std::string get_inscription(const ItemEntity &item)
         return ss.str();
     }
 
-    for (std::string_view sv = item.inscription.value(); !sv.empty(); sv.remove_prefix(1)) {
+    for (std::string_view sv = *item.inscription; !sv.empty(); sv.remove_prefix(1)) {
         switch (sv.front()) {
         case '#':
             return ss.str();
@@ -346,7 +344,7 @@ std::string describe_count_with_counter_suffix(const ItemEntity &item)
         break;
 
     case ItemKindType::FOOD:
-        if (item.bi_key.sval().value() == SV_FOOD_JERKY) {
+        if (item.bi_key.sval() == SV_FOOD_JERKY) {
             ss << "切れ";
             break;
         }

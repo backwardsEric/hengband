@@ -1,4 +1,4 @@
-﻿#include "locale/english.h"
+#include "locale/english.h"
 #include "system/angband.h"
 #include "util/string-processor.h"
 
@@ -52,6 +52,8 @@ void plural_aux(char *Name)
         strcpy(&(Name[NameLen - 1]), "ies");
     } else if (suffix(Name, "ouse")) {
         strcpy(&(Name[NameLen - 4]), "ice");
+    } else if (suffix(Name, "ous")) {
+        strcpy(&(Name[NameLen - 3]), "i");
     } else if (suffix(Name, "us")) {
         strcpy(&(Name[NameLen - 2]), "i");
     } else if (suffix(Name, "kelman")) {

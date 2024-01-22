@@ -1,9 +1,7 @@
-﻿#include "market/building-craft-fix.h"
-#include "artifact/artifact-info.h"
+#include "market/building-craft-fix.h"
 #include "artifact/fixed-art-types.h"
 #include "artifact/random-art-effects.h"
 #include "core/asking-player.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
@@ -16,7 +14,6 @@
 #include "object-hook/hook-weapon.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
-#include "object/object-flags.h"
 #include "object/object-kind-hook.h"
 #include "object/object-value.h"
 #include "racial/racial-android.h"
@@ -26,10 +23,12 @@
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include <utility>
+#include <vector>
 
 /*!
  * @brief 修復材料のオブジェクトから修復対象に特性を移植する。
@@ -39,11 +38,10 @@
  */
 static void give_one_ability_of_object(ItemEntity *to_ptr, ItemEntity *from_ptr)
 {
-    auto to_flags = object_flags(to_ptr);
-    auto from_flags = object_flags(from_ptr);
+    const auto to_flags = to_ptr->get_flags();
+    const auto from_flags = from_ptr->get_flags();
 
-    int n = 0;
-    tr_type cand[TR_FLAG_MAX];
+    std::vector<tr_type> candidates;
     for (int i = 0; i < TR_FLAG_MAX; i++) {
         switch (i) {
         case TR_IGNORE_ACID:
@@ -64,17 +62,17 @@ static void give_one_ability_of_object(ItemEntity *to_ptr, ItemEntity *from_ptr)
             auto tr_flag = i2enum<tr_type>(i);
             if (from_flags.has(tr_flag) && to_flags.has_not(tr_flag)) {
                 if (!(TR_PVAL_FLAG_MASK.has(tr_flag) && (from_ptr->pval < 1))) {
-                    cand[n++] = tr_flag;
+                    candidates.push_back(tr_flag);
                 }
             }
         }
     }
 
-    if (n <= 0) {
+    if (candidates.empty()) {
         return;
     }
 
-    auto tr_idx = cand[randint0(n)];
+    const auto tr_idx = rand_choice(candidates);
     to_ptr->art_flags.set(tr_idx);
     if (TR_PVAL_FLAG_MASK.has(tr_idx)) {
         to_ptr->pval = std::max<short>(to_ptr->pval, 1);
@@ -88,28 +86,29 @@ static void give_one_ability_of_object(ItemEntity *to_ptr, ItemEntity *from_ptr)
     }
 }
 
-static std::pair<bool, ItemEntity *> select_repairing_broken_weapon(PlayerType *player_ptr, const int row, short *item)
+static std::pair<short, ItemEntity *> select_repairing_broken_weapon(PlayerType *player_ptr, const int row)
 {
     prt(_("修復には材料となるもう1つの武器が必要です。", "Hand one material weapon to repair a broken weapon."), row, 2);
     prt(_("材料に使用した武器はなくなります！", "The material weapon will disappear after repairing!!"), row + 1, 2);
     constexpr auto q = _("どの折れた武器を修復しますか？", "Repair which broken weapon? ");
     constexpr auto s = _("修復できる折れた武器がありません。", "You have no broken weapon to repair.");
-    auto *o_ptr = choose_object(player_ptr, item, q, s, (USE_INVEN | USE_EQUIP), FuncItemTester(&ItemEntity::is_broken_weapon));
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_EQUIP), FuncItemTester(&ItemEntity::is_broken_weapon));
     if (o_ptr == nullptr) {
-        return { false, nullptr };
+        return { i_idx, nullptr };
     }
 
     if (!o_ptr->is_ego() && !o_ptr->is_fixed_or_random_artifact()) {
         msg_format(_("それは直してもしょうがないぜ。", "It is worthless to repair."));
-        return { false, o_ptr };
+        return { i_idx, o_ptr };
     }
 
     if (o_ptr->number > 1) {
         msg_format(_("一度に複数を修復することはできません！", "They are too many to repair at once!"));
-        return { false, o_ptr };
+        return { i_idx, o_ptr };
     }
 
-    return { true, o_ptr };
+    return { i_idx, o_ptr };
 }
 
 static void display_reparing_weapon(PlayerType *player_ptr, ItemEntity *o_ptr, const int row)
@@ -139,22 +138,21 @@ static PRICE repair_broken_weapon_aux(PlayerType *player_ptr, PRICE bcost)
 {
     clear_bldg(0, 22);
     auto row = 7;
-    short item;
-    const auto &[selection, o_ptr] = select_repairing_broken_weapon(player_ptr, row, &item);
-    if (!selection) {
+    const auto &[i_idx, o_ptr] = select_repairing_broken_weapon(player_ptr, row);
+    if (o_ptr == nullptr) {
         return 0;
     }
 
     display_reparing_weapon(player_ptr, o_ptr, row);
-    const auto q = _("材料となる武器は？", "Which weapon for material? ");
-    const auto s = _("材料となる武器がありません。", "You have no material for the repair.");
+    constexpr auto q = _("材料となる武器は？", "Which weapon for material? ");
+    constexpr auto s = _("材料となる武器がありません。", "You have no material for the repair.");
     short mater;
     auto *mo_ptr = choose_object(player_ptr, &mater, q, s, (USE_INVEN | USE_EQUIP), FuncItemTester(&ItemEntity::is_orthodox_melee_weapons));
     if (!mo_ptr) {
         return 0;
     }
 
-    if (mater == item) {
+    if (mater == i_idx) {
         msg_print(_("クラインの壷じゃない！", "This is not a Klein bottle!"));
         return 0;
     }
@@ -162,7 +160,7 @@ static PRICE repair_broken_weapon_aux(PlayerType *player_ptr, PRICE bcost)
     const auto item_name = describe_flavor(player_ptr, mo_ptr, OD_NAME_ONLY);
     prt(format(_("材料とする武器： %s", "Material : %s"), item_name.data()), row + 4, 2);
     const auto cost = bcost + object_value_real(o_ptr) * 2;
-    if (!get_check(format(_("＄%dかかりますがよろしいですか？ ", "Costs %d gold, okay? "), cost))) {
+    if (!input_check(format(_("＄%dかかりますがよろしいですか？ ", "Costs %d gold, okay? "), cost))) {
         return 0;
     }
 
@@ -281,7 +279,7 @@ static PRICE repair_broken_weapon_aux(PlayerType *player_ptr, PRICE bcost)
         }
 
         give_one_ability_of_object(o_ptr, mo_ptr);
-        if (activation_index(o_ptr) == RandomArtActType::NONE) {
+        if (!o_ptr->has_activation()) {
             one_activation(o_ptr);
         }
 
@@ -301,7 +299,7 @@ static PRICE repair_broken_weapon_aux(PlayerType *player_ptr, PRICE bcost)
     inven_item_increase(player_ptr, mater, -1);
     inven_item_optimize(player_ptr, mater);
 
-    player_ptr->update |= PU_BONUS;
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
     return cost;
 }

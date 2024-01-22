@@ -1,4 +1,4 @@
-﻿#include "save/item-writer.h"
+#include "save/item-writer.h"
 #include "artifact/random-art-effects.h"
 #include "load/old/item-flag-types-savefile50.h"
 #include "save/save-util.h"
@@ -6,7 +6,6 @@
 #include "system/item-entity.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
-#include "util/quarks.h"
 
 static void write_item_flags(ItemEntity *o_ptr, BIT_FLAGS *flags)
 {
@@ -217,14 +216,14 @@ static void write_item_info(ItemEntity *o_ptr, const BIT_FLAGS flags)
     }
 
     if (any_bits(flags, SaveDataItemFlagType::SMITH)) {
-        if (o_ptr->smith_effect.has_value()) {
-            wr_s16b(enum2i(o_ptr->smith_effect.value()));
+        if (o_ptr->smith_effect) {
+            wr_s16b(enum2i(*o_ptr->smith_effect));
         } else {
             wr_s16b(0);
         }
 
-        if (o_ptr->smith_act_idx.has_value()) {
-            wr_s16b(enum2i(o_ptr->smith_act_idx.value()));
+        if (o_ptr->smith_act_idx) {
+            wr_s16b(enum2i(*o_ptr->smith_act_idx));
         } else {
             wr_s16b(0);
         }
@@ -260,11 +259,11 @@ void wr_item(ItemEntity *o_ptr)
 
     write_item_info(o_ptr, flags);
     if (any_bits(flags, SaveDataItemFlagType::INSCRIPTION)) {
-        wr_string(o_ptr->inscription.value());
+        wr_string(*o_ptr->inscription);
     }
 
     if (any_bits(flags, SaveDataItemFlagType::ART_NAME)) {
-        wr_string(o_ptr->randart_name.value());
+        wr_string(*o_ptr->randart_name);
     }
 }
 

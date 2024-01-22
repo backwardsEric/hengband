@@ -1,8 +1,9 @@
-﻿#include "world/world-turn-processor.h"
+#include "world/world-turn-processor.h"
 #include "cmd-building/cmd-building.h"
 #include "cmd-io/cmd-save.h"
 #include "core/disturbance.h"
 #include "core/magic-effects-timeout-reducer.h"
+#include "dungeon/quest.h"
 #include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
 #include "floor/wild.h"
@@ -29,6 +30,7 @@
 #include "store/store-owners.h"
 #include "store/store-util.h"
 #include "store/store.h"
+#include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -55,12 +57,10 @@ WorldTurnProcessor::WorldTurnProcessor(PlayerType *player_ptr)
  */
 void WorldTurnProcessor::process_world()
 {
-    const int32_t a_day = TURNS_PER_TICK * TOWN_DAWN;
-    int32_t prev_turn_in_today = ((w_ptr->game_turn - TURNS_PER_TICK) % a_day + a_day / 4) % a_day;
-    int prev_min = (1440 * prev_turn_in_today / a_day) % 60;
-
-    int dummy_day;
-    extract_day_hour_min(this->player_ptr, &dummy_day, &this->hour, &this->min);
+    const int a_day = TURNS_PER_TICK * TOWN_DAWN;
+    const int prev_turn_in_today = ((w_ptr->game_turn - TURNS_PER_TICK) % a_day + a_day / 4) % a_day;
+    const int prev_min = (1440 * prev_turn_in_today / a_day) % 60;
+    std::tie(std::ignore, this->hour, this->min) = w_ptr->extract_date_time(this->player_ptr->start_race);
     update_dungeon_feeling(this->player_ptr);
     process_downward();
     process_monster_arena();
@@ -76,9 +76,9 @@ void WorldTurnProcessor::process_world()
 
     process_change_daytime_night();
     process_world_monsters();
-    if (!this->hour && !this->min) {
+    if ((this->hour == 0) && (this->min == 0)) {
         if (this->min != prev_min) {
-            exe_write_diary(this->player_ptr, DIARY_DIALY, 0, nullptr);
+            exe_write_diary(this->player_ptr, DiaryKind::DIALY, 0);
             determine_daily_bounty(this->player_ptr, false);
         }
     }
@@ -103,13 +103,12 @@ void WorldTurnProcessor::process_world()
  */
 void WorldTurnProcessor::print_time()
 {
-    TERM_LEN width, height;
-    term_get_size(&width, &height);
-    const auto row = height + ROW_DAY;
+    const auto &[wid, hgt] = term_get_size();
+    const auto row = hgt + ROW_DAY;
 
-    int day;
     c_put_str(TERM_WHITE, "             ", row, COL_DAY);
-    extract_day_hour_min(this->player_ptr, &day, &this->hour, &this->min);
+    auto day = 0;
+    std::tie(day, this->hour, this->min) = w_ptr->extract_date_time(this->player_ptr->start_race);
     if (day < 1000) {
         c_put_str(TERM_WHITE, format(_("%2d日目", "Day%3d"), day), row, COL_DAY);
     } else {
@@ -122,13 +121,13 @@ void WorldTurnProcessor::print_time()
 void WorldTurnProcessor::process_downward()
 {
     /* 帰還無しモード時のレベルテレポバグ対策 / Fix for level teleport bugs on ironman_downward.*/
-    if (!ironman_downward || (this->player_ptr->dungeon_idx == DUNGEON_ANGBAND) || (this->player_ptr->dungeon_idx == 0)) {
+    auto *floor_ptr = this->player_ptr->current_floor_ptr;
+    if (!ironman_downward || (floor_ptr->dungeon_idx == DUNGEON_ANGBAND) || (floor_ptr->dungeon_idx == 0)) {
         return;
     }
 
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
     floor_ptr->dun_level = 0;
-    this->player_ptr->dungeon_idx = 0;
+    floor_ptr->reset_dungeon_index();
     prepare_change_floor_mode(this->player_ptr, CFM_FIRST_FLOOR | CFM_RAND_PLACE);
     floor_ptr->inside_arena = false;
     this->player_ptr->wild_mode = false;
@@ -137,7 +136,7 @@ void WorldTurnProcessor::process_downward()
 
 void WorldTurnProcessor::process_monster_arena()
 {
-    if (!this->player_ptr->phase_out || this->player_ptr->leaving) {
+    if (!AngbandSystem::get_instance().is_phase_out() || this->player_ptr->leaving) {
         return;
     }
 
@@ -211,7 +210,7 @@ void WorldTurnProcessor::decide_auto_save()
     }
 
     auto should_save = autosave_t;
-    should_save &= !this->player_ptr->phase_out;
+    should_save &= !AngbandSystem::get_instance().is_phase_out();
     should_save &= w_ptr->game_turn % ((int32_t)autosave_freq * TURNS_PER_TICK) == 0;
     if (should_save) {
         do_cmd_save_game(this->player_ptr, true);
@@ -221,7 +220,7 @@ void WorldTurnProcessor::decide_auto_save()
 void WorldTurnProcessor::process_change_daytime_night()
 {
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    if (!floor_ptr->dun_level && !inside_quest(floor_ptr->quest_number) && !this->player_ptr->phase_out && !floor_ptr->inside_arena) {
+    if (!floor_ptr->dun_level && !floor_ptr->is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor_ptr->inside_arena) {
         if (!(w_ptr->game_turn % ((TURNS_PER_TICK * TOWN_DAWN) / 2))) {
             auto dawn = w_ptr->game_turn % (TURNS_PER_TICK * TOWN_DAWN) == 0;
             if (dawn) {
@@ -235,7 +234,7 @@ void WorldTurnProcessor::process_change_daytime_night()
     }
 
     auto is_in_dungeon = vanilla_town;
-    is_in_dungeon |= lite_town && (!inside_quest(floor_ptr->quest_number)) && !this->player_ptr->phase_out && !floor_ptr->inside_arena;
+    is_in_dungeon |= lite_town && !floor_ptr->is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor_ptr->inside_arena;
     is_in_dungeon &= floor_ptr->dun_level != 0;
     if (!is_in_dungeon) {
         return;
@@ -251,7 +250,7 @@ void WorldTurnProcessor::process_change_daytime_night()
 void WorldTurnProcessor::process_world_monsters()
 {
     decide_alloc_monster();
-    if (!(w_ptr->game_turn % (TURNS_PER_TICK * 10)) && !this->player_ptr->phase_out) {
+    if (!(w_ptr->game_turn % (TURNS_PER_TICK * 10)) && !AngbandSystem::get_instance().is_phase_out()) {
         regenerate_monsters(this->player_ptr);
     }
 
@@ -277,24 +276,24 @@ void WorldTurnProcessor::shuffle_shopkeeper()
     }
 
     int n;
-    do {
+    while (true) {
         n = randint0(MAX_STORES);
         if ((n == enum2i(StoreSaleType::HOME)) || (n == enum2i(StoreSaleType::MUSEUM))) {
             break;
         }
-    } while (true);
+    }
 
-    for (const auto &f_ref : terrains_info) {
-        if (f_ref.name.empty() || f_ref.flags.has_not(TerrainCharacteristics::STORE)) {
+    for (const auto &terrain : TerrainList::get_instance()) {
+        if (terrain.name.empty() || terrain.flags.has_not(TerrainCharacteristics::STORE)) {
             continue;
         }
 
-        if (f_ref.subtype != n) {
+        if (terrain.subtype != n) {
             continue;
         }
 
         if (cheat_xtra) {
-            msg_format(_("%sの店主をシャッフルします。", "Shuffle a Shopkeeper of %s."), f_ref.name.data());
+            msg_format(_("%sの店主をシャッフルします。", "Shuffle a Shopkeeper of %s."), terrain.name.data());
         }
 
         store_shuffle(this->player_ptr, i2enum<StoreSaleType>(n));
@@ -305,10 +304,10 @@ void WorldTurnProcessor::shuffle_shopkeeper()
 void WorldTurnProcessor::decide_alloc_monster()
 {
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    auto should_alloc = one_in_(dungeons_info[this->player_ptr->dungeon_idx].max_m_alloc_chance);
+    auto should_alloc = one_in_(floor_ptr->get_dungeon_definition().max_m_alloc_chance);
     should_alloc &= !floor_ptr->inside_arena;
-    should_alloc &= !inside_quest(floor_ptr->quest_number);
-    should_alloc &= !this->player_ptr->phase_out;
+    should_alloc &= !floor_ptr->is_in_quest();
+    should_alloc &= !AngbandSystem::get_instance().is_phase_out();
     if (should_alloc) {
         (void)alloc_monster(this->player_ptr, MAX_PLAYER_SIGHT + 5, 0, summon_specific);
     }

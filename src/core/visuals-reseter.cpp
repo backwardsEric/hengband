@@ -1,4 +1,4 @@
-﻿#include "core/visuals-reseter.h"
+#include "core/visuals-reseter.h"
 #include "game-option/special-options.h"
 #include "io/read-pref-file.h"
 #include "monster-race/monster-race.h"
@@ -13,10 +13,10 @@
  */
 void reset_visuals(PlayerType *player_ptr)
 {
-    for (auto &f_ref : terrains_info) {
+    for (auto &terrain : TerrainList::get_instance()) {
         for (int j = 0; j < F_LIT_MAX; j++) {
-            f_ref.x_attr[j] = f_ref.d_attr[j];
-            f_ref.x_char[j] = f_ref.d_char[j];
+            terrain.x_attr[j] = terrain.d_attr[j];
+            terrain.x_char[j] = terrain.d_char[j];
         }
     }
 
@@ -32,5 +32,5 @@ void reset_visuals(PlayerType *player_ptr)
 
     concptr pref_file = use_graphics ? "graf.prf" : "font.prf";
     process_pref_file(player_ptr, pref_file);
-    process_pref_file(player_ptr, std::string(use_graphics ? "graf-" : "font-").append(player_ptr->base_name).append(".prf").data());
+    process_pref_file(player_ptr, std::string(use_graphics ? "graf-" : "font-").append(player_ptr->base_name).append(".prf"));
 }

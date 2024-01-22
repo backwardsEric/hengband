@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 魔法効果の実装/ Spell code (part 3)
  * @date 2014/07/26
  * @author
@@ -21,6 +21,7 @@
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "player-base/player-class.h"
+#include "system/angband-exceptions.h"
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -49,11 +50,11 @@
  */
 bool recharge(PlayerType *player_ptr, int power)
 {
-    concptr q = _("どのアイテムに魔力を充填しますか? ", "Recharge which item? ");
-    concptr s = _("魔力を充填すべきアイテムがない。", "You have nothing to recharge.");
+    constexpr auto q = _("どのアイテムに魔力を充填しますか? ", "Recharge which item? ");
+    constexpr auto s = _("魔力を充填すべきアイテムがない。", "You have nothing to recharge.");
 
-    OBJECT_IDX item;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::can_recharge));
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::can_recharge));
     if (o_ptr == nullptr) {
         return false;
     }
@@ -116,7 +117,7 @@ bool recharge(PlayerType *player_ptr, int power)
     }
 
     if (is_recharge_successful) {
-        return update_player(player_ptr);
+        return update_player();
     }
 
     if (o_ptr->is_fixed_artifact()) {
@@ -127,7 +128,7 @@ bool recharge(PlayerType *player_ptr, int power)
         } else if (o_ptr->is_wand_staff()) {
             o_ptr->pval = 0;
         }
-        return update_player(player_ptr);
+        return update_player();
     }
 
     const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
@@ -211,7 +212,7 @@ bool recharge(PlayerType *player_ptr, int power)
             o_ptr->pval = 0;
         }
 
-        vary_item(player_ptr, item, -1);
+        vary_item(player_ptr, i_idx, -1);
         break;
     case 3:
         if (o_ptr->number > 1) {
@@ -220,11 +221,11 @@ bool recharge(PlayerType *player_ptr, int power)
             msg_format(_("乱暴な魔法のために%sが壊れた！", "Wild magic consumes your %s!"), item_name.data());
         }
 
-        vary_item(player_ptr, item, -999);
+        vary_item(player_ptr, i_idx, -999);
         break;
     default:
-        throw std::logic_error("Invalid fail type!");
+        THROW_EXCEPTION(std::logic_error, "Invalid fail type!");
     }
 
-    return update_player(player_ptr);
+    return update_player();
 }

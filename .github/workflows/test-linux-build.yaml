@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # This will be passed to all invocations of configure for this test.
-      # Could drop --disable-worldscore if libcurl is installed.
-      DEFAULT_CONFIGURE_OPTIONS: --disable-japanese --disable-worldscore
+      # Could drop --disable-net if libcurl is installed.
+      DEFAULT_CONFIGURE_OPTIONS: --disable-japanese --disable-net
 
     steps:
       - name: Clone Project
@@ -25,7 +25,9 @@ jobs:
 
       # Requires automake and autoconf; install those via apt-get.
       - name: Install Build Dependencies
-        run: sudo apt-get install autoconf automake
+        run: |
+          sudo apt-get update
+          sudo apt-get install autoconf automake
 
       - name: Build
         run: |
@@ -51,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # This will be passed to all invocations of configure for this test.
-      DEFAULT_CONFIGURE_OPTIONS: --disable-worldscore --disable-pch
+      DEFAULT_CONFIGURE_OPTIONS: --disable-pch
 
     steps:
       - name: Clone Project
@@ -59,11 +61,13 @@ jobs:
         with:
           submodules: true
 
-      # Requires automake, autoconf, and, unless building the
-      # 1.6.2 version, nkf; install those via apt-get.
-      # macos-latest).
+      # Requires automake, autoconf, and, unless building the 1.6.2 version,
+      # nkf.  Hengband 3.0.0 now requires libcurl if not configured with
+      # --disable-net.  Install those via apt-get.
       - name: Install Build Dependencies
-        run: sudo apt-get install automake autoconf nkf
+        run: |
+          sudo apt-get update
+          sudo apt-get install automake autoconf nkf libcurl4-openssl-dev
 
       - name: Build
         run: |

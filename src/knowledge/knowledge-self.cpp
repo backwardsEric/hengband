@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 自己に関する情報を表示する
  * @date 2020/04/24
  * @author Hourier
@@ -44,7 +44,7 @@ void do_cmd_knowledge_virtues(PlayerType *player_ptr)
     fprintf(fff, _("現在の属性 : %s\n\n", "Your alignment : %s\n\n"), alg.data());
     dump_virtues(player_ptr, fff);
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, _("八つの徳", "Virtues"), 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, _("八つの徳", "Virtues"));
     fd_kill(file_name);
 }
 
@@ -148,7 +148,7 @@ void do_cmd_knowledge_stat(PlayerType *player_ptr)
         return;
     }
 
-    update_playtime();
+    w_ptr->update_playtime();
     uint32_t play_time = w_ptr->play_time;
     uint32_t all_time = w_ptr->sf_play_time + play_time;
     fprintf(fff, _("現在のプレイ時間 : %d:%02d:%02d\n", "Current Play Time is %d:%02d:%02d\n"), play_time / (60 * 60), (play_time / 60) % 60, play_time % 60);
@@ -176,7 +176,7 @@ void do_cmd_knowledge_stat(PlayerType *player_ptr)
     dump_winner_classes(fff);
     angband_fclose(fff);
 
-    (void)show_file(player_ptr, true, file_name, _("自分に関する情報", "HP-rate & Max stat"), 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, _("自分に関する情報", "HP-rate & Max stat"));
     fd_kill(file_name);
 }
 
@@ -195,10 +195,10 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
     }
 
     constexpr auto home_inventory = _("我が家のアイテム", "Home Inventory");
-    const auto &store = towns_info[1].store[enum2i(StoreSaleType::HOME)];
+    const auto &store = towns_info[1].stores[StoreSaleType::HOME];
     if (store.stock_num == 0) {
         angband_fclose(fff);
-        (void)show_file(player_ptr, true, file_name, home_inventory, 0, 0);
+        (void)show_file(player_ptr, true, file_name, 0, 0, home_inventory);
         fd_kill(file_name);
         return;
     }
@@ -234,6 +234,6 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
 
     fprintf(fff, "\n\n");
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, home_inventory, 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, home_inventory);
     fd_kill(file_name);
 }

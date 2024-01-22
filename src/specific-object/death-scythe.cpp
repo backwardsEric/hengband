@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 死の大鎌に特有の処理
  * @date 2020/05/23
  * @author Hourier
@@ -7,14 +7,12 @@
 
 #include "specific-object/death-scythe.h"
 #include "combat/attack-criticality.h"
-#include "core/player-redraw-types.h"
 #include "core/stuff-handler.h"
 #include "inventory/inventory-slot-types.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "object-enchant/tr-types.h"
-#include "object/object-flags.h"
-#include "player-attack/player-attack-util.h"
+#include "player-attack/player-attack.h"
 #include "player-base/player-class.h"
 #include "player-info/race-info.h"
 #include "player/player-damage.h"
@@ -22,6 +20,7 @@
 #include "status/element-resistance.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -113,7 +112,7 @@ static void compensate_death_scythe_reflection_magnification(PlayerType *player_
 
     if (!PlayerClass(player_ptr).equals(PlayerClassType::SAMURAI) && (death_scythe_flags.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (player_ptr->msp / 30))) {
         player_ptr->csp -= (1 + (player_ptr->msp / 30));
-        player_ptr->redraw |= (PR_MP);
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
         *magnification = *magnification * 3 / 2 + 20;
     }
 }
@@ -149,7 +148,7 @@ void process_death_scythe_reflection(PlayerType *player_ptr, player_attack_type 
     msg_print(_("振り回した大鎌が自分自身に返ってきた！", "Your scythe returns to you!"));
 
     auto *o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND + pa_ptr->hand];
-    auto death_scythe_flags = object_flags(o_ptr);
+    const auto death_scythe_flags = o_ptr->get_flags();
     pa_ptr->attack_damage = damroll(o_ptr->dd + player_ptr->to_dd[pa_ptr->hand], o_ptr->ds + player_ptr->to_ds[pa_ptr->hand]);
     int magnification = calc_death_scythe_reflection_magnification(player_ptr);
     compensate_death_scythe_reflection_magnification(player_ptr, &magnification, death_scythe_flags);

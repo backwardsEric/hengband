@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "object-enchant/tr-flags.h"
 #include "object-enchant/trg-types.h"
@@ -12,7 +12,12 @@
 enum class ItemKindType : short;
 class BaseitemKey {
 public:
-    BaseitemKey(const ItemKindType type_value, const std::optional<int> &subtype_value = std::nullopt);
+    constexpr BaseitemKey(const ItemKindType type_value, const std::optional<int> &subtype_value = std::nullopt)
+        : type_value(type_value)
+        , subtype_value(subtype_value)
+    {
+    }
+
     bool operator==(const BaseitemKey &other) const;
     bool operator!=(const BaseitemKey &other) const
     {
@@ -37,6 +42,7 @@ public:
 
     ItemKindType tval() const;
     std::optional<int> sval() const;
+    bool is(ItemKindType tval) const;
 
     ItemKindType get_arrow_kind() const;
     bool is_spell_book() const;
@@ -65,6 +71,13 @@ public:
     bool is_junk() const;
     bool is_armour() const;
     bool is_cross_bow() const;
+    bool should_refuse_enchant() const;
+    std::string explain_activation() const;
+    bool is_convertible() const;
+    bool is_fuel() const;
+    bool is_lance() const;
+    bool is_readable() const;
+    bool is_corpse() const;
 
 private:
     ItemKindType type_value;
@@ -125,6 +138,8 @@ public:
     IDX flavor{}; /*!< 未鑑定名の何番目を当てるか(0は未鑑定名なし) / Special object flavor (or zero) */
     bool aware{}; /*!< ベースアイテムが鑑定済かどうか /  The player is "aware" of the item's effects */
     bool tried{}; /*!< ベースアイテムを未鑑定のまま試したことがあるか /  The player has "tried" one of the items */
+
+    void mark_as_tried();
 };
 
 extern std::vector<BaseitemInfo> baseitems_info;

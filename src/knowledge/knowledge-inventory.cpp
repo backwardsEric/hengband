@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @brief 装備の耐性を表示する
  * @date 2020/04/20
  * @author Hourier
@@ -14,7 +14,6 @@
 #include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-hook/hook-weapon.h"
-#include "object/object-flags.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "store/store-util.h"
@@ -110,7 +109,7 @@ static bool check_item_knowledge(ItemEntity *o_ptr, ItemKindType tval)
  */
 static void display_identified_resistances_flag(ItemEntity *o_ptr, FILE *fff)
 {
-    auto flags = object_flags_known(o_ptr);
+    auto flags = o_ptr->get_flags_known();
 
     print_im_or_res_flag(TR_IM_ACID, TR_RES_ACID, flags, fff);
     print_im_or_res_flag(TR_IM_ELEC, TR_RES_ELEC, flags, fff);
@@ -152,11 +151,9 @@ static void display_identified_resistances_flag(ItemEntity *o_ptr, FILE *fff)
  */
 static void do_cmd_knowledge_inventory_aux(PlayerType *player_ptr, FILE *fff, ItemEntity *o_ptr, char *where)
 {
-    auto tmp_item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
     constexpr auto max_item_length = 26;
-    auto item_name = str_substr(tmp_item_name, 0, max_item_length);
     std::stringstream ss;
-    ss << item_name;
+    ss << describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY, max_item_length);
     const int item_length = ss.tellp();
     constexpr auto max_display_length = 28;
     for (auto i = item_length; i < max_display_length; i++) {
@@ -259,7 +256,7 @@ static void show_holding_equipment_resistances(PlayerType *player_ptr, ItemKindT
 static void show_home_equipment_resistances(PlayerType *player_ptr, ItemKindType tval, int *label_number, FILE *fff)
 {
     store_type *store_ptr;
-    store_ptr = &towns_info[1].store[enum2i(StoreSaleType::HOME)];
+    store_ptr = &towns_info[1].stores[StoreSaleType::HOME];
     char where[32];
     strcpy(where, _("家", "H "));
     for (int i = 0; i < store_ptr->stock_num; i++) {
@@ -295,6 +292,6 @@ void do_cmd_knowledge_inventory(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, _("*鑑定*済み武器/防具の耐性リスト", "Resistances of *identified* equipment"), 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, _("*鑑定*済み武器/防具の耐性リスト", "Resistances of *identified* equipment"));
     fd_kill(file_name);
 }

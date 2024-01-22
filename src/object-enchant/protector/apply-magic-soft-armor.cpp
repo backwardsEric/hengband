@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @brief 軽鎧に耐性等の追加効果を付与する処理
  * @date 2022/03/12
  * @author Hourier
@@ -48,11 +48,11 @@ void SoftArmorEnchanter::apply_magic()
 void SoftArmorEnchanter::sval_enchant()
 {
     const auto sval = this->o_ptr->bi_key.sval();
-    if (!sval.has_value()) {
+    if (!sval) {
         return;
     }
 
-    switch (sval.value()) {
+    switch (*sval) {
     case SV_KUROSHOUZOKU:
         this->o_ptr->pval = randint1(4);
         return;

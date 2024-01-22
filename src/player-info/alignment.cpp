@@ -1,4 +1,4 @@
-﻿#include "player-info/alignment.h"
+#include "player-info/alignment.h"
 #include "artifact/fixed-art-types.h"
 #include "avatar/avatar.h"
 #include "game-option/text-display-options.h"
@@ -9,6 +9,7 @@
 #include "monster/monster-status.h"
 #include "player-info/equipment-info.h"
 #include "player-info/race-info.h"
+#include "system/angband-exceptions.h"
 #include "system/floor-type-definition.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
@@ -49,7 +50,7 @@ void PlayerAlignment::update_alignment()
         if (!m_ptr->is_valid()) {
             continue;
         }
-        auto *r_ptr = &monraces_info[m_ptr->r_idx];
+        auto *r_ptr = &m_ptr->get_monrace();
 
         if (!m_ptr->is_pet()) {
             continue;
@@ -87,7 +88,7 @@ void PlayerAlignment::update_alignment()
     case MimicKindType::VAMPIRE:
         break;
     default:
-        throw("Invalid MimicKindType was specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid MimicKindType was specified!");
     }
 
     for (int i = 0; i < 2; i++) {

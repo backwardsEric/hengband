@@ -1,4 +1,4 @@
-﻿#include "view/display-lore-status.h"
+#include "view/display-lore-status.h"
 #include "locale/japanese.h"
 #include "lore/lore-calculator.h"
 #include "lore/lore-util.h"
@@ -102,8 +102,8 @@ void display_monster_abilities(lore_type *lore_ptr)
     for (int n = 0; n < lore_ptr->vn; n++) {
 #ifdef JP
         if (n != lore_ptr->vn - 1) {
-            jverb(lore_ptr->vp[n], lore_ptr->jverb_buf, JVERB_AND);
-            hook_c_roff(lore_ptr->color[n], lore_ptr->jverb_buf);
+            const auto verb = conjugate_jverb(lore_ptr->vp[n], JVerbConjugationType::AND);
+            hook_c_roff(lore_ptr->color[n], verb);
             hooked_roff("、");
         } else {
             hook_c_roff(lore_ptr->color[n], lore_ptr->vp[n]);
@@ -312,6 +312,11 @@ void display_monster_concrete_resistances(lore_type *lore_ptr)
         lore_ptr->color[lore_ptr->vn++] = TERM_SLATE;
     }
 
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::RESIST_METEOR)) {
+        lore_ptr->vp[lore_ptr->vn] = _("隕石", "meteor");
+        lore_ptr->color[lore_ptr->vn++] = TERM_UMBER;
+    }
+
     if (lore_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
         lore_ptr->vp[lore_ptr->vn] = _("あらゆる攻撃", "all");
         lore_ptr->color[lore_ptr->vn++] = TERM_YELLOW;
@@ -368,22 +373,22 @@ void display_monster_evolution(lore_type *lore_ptr)
 
 void display_monster_concrete_immunities(lore_type *lore_ptr)
 {
-    if (lore_ptr->flags3 & RF3_NO_STUN) {
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::NO_STUN)) {
         lore_ptr->vp[lore_ptr->vn] = _("朦朧としない", "stunned");
         lore_ptr->color[lore_ptr->vn++] = TERM_ORANGE;
     }
 
-    if (lore_ptr->flags3 & RF3_NO_FEAR) {
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::NO_FEAR)) {
         lore_ptr->vp[lore_ptr->vn] = _("恐怖を感じない", "frightened");
         lore_ptr->color[lore_ptr->vn++] = TERM_SLATE;
     }
 
-    if (lore_ptr->flags3 & RF3_NO_CONF) {
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
         lore_ptr->vp[lore_ptr->vn] = _("混乱しない", "confused");
         lore_ptr->color[lore_ptr->vn++] = TERM_L_UMBER;
     }
 
-    if (lore_ptr->flags3 & RF3_NO_SLEEP) {
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::NO_SLEEP)) {
         lore_ptr->vp[lore_ptr->vn] = _("眠らされない", "slept");
         lore_ptr->color[lore_ptr->vn++] = TERM_BLUE;
     }
@@ -391,6 +396,11 @@ void display_monster_concrete_immunities(lore_type *lore_ptr)
     if (lore_ptr->resistance_flags.has(MonsterResistanceType::RESIST_TELEPORT) && lore_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
         lore_ptr->vp[lore_ptr->vn] = _("テレポートされない", "teleported");
         lore_ptr->color[lore_ptr->vn++] = TERM_ORANGE;
+    }
+
+    if (lore_ptr->resistance_flags.has(MonsterResistanceType::NO_INSTANTLY_DEATH) || lore_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+        lore_ptr->vp[lore_ptr->vn] = _("即死しない", "instantly killed");
+        lore_ptr->color[lore_ptr->vn++] = TERM_L_DARK;
     }
 }
 

@@ -35,12 +35,11 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).  Use autoconf 2.69 since autoconf 2.71 does not work well
-      # with the version of m4 (GNU M4 1.4.6) include with macOS 11 and 12.
+      # by default).
       - name: Install Build Dependencies
         run: |
           brew install m4
-          brew install autoconf@2.69
+          brew install autoconf
           brew install automake
 
       - name: Build
@@ -49,7 +48,6 @@ jobs:
             SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
             export SDKROOT
           fi
-          PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           CFLAGS=""
           CXXFLAGS=""
@@ -92,7 +90,6 @@ jobs:
       # of the source tree works.
       - name: Distcheck
         run: |
-          PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
           make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
@@ -115,12 +112,11 @@ jobs:
           submodules: true
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
-      # nkf; install those via homebrew (available by default).  For the same
-      # reason as above, use autoconf 2.69.
+      # nkf; install those via homebrew (available by default).
       - name: Install Build Dependencies
         run: |
           brew install m4
-          brew install autoconf@2.69
+          brew install autoconf
           brew install automake
           brew install nkf
 
@@ -130,7 +126,6 @@ jobs:
             SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
             export SDKROOT
           fi
-          PATH=/usr/local/opt/autoconf@2.69/bin:"$PATH"
           ./bootstrap
           CFLAGS=""
           CXXFLAGS=""

@@ -1,4 +1,4 @@
-﻿#include "cmd-item/cmd-zaprod.h"
+#include "cmd-item/cmd-zaprod.h"
 #include "action/action-limited.h"
 #include "effect/attribute-types.h"
 #include "floor/floor-object.h"
@@ -42,7 +42,7 @@
  * @param powerful 強力発動上の処理ならばTRUE
  * @return 発動により効果内容が確定したならばTRUEを返す
  */
-int rod_effect(PlayerType *player_ptr, OBJECT_SUBTYPE_VALUE sval, DIRECTION dir, bool *use_charge, bool powerful)
+int rod_effect(PlayerType *player_ptr, int sval, int dir, bool *use_charge, bool powerful)
 {
     int ident = false;
     PLAYER_LEVEL lev = powerful ? player_ptr->lev * 2 : player_ptr->lev;
@@ -297,12 +297,12 @@ void do_cmd_zap_rod(PlayerType *player_ptr)
 
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU, SamuraiStanceType::KOUKIJIN });
 
-    auto q = _("どのロッドを振りますか? ", "Zap which rod? ");
-    auto s = _("使えるロッドがない。", "You have no rod to zap.");
-    OBJECT_IDX item;
-    if (!choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), TvalItemTester(ItemKindType::ROD))) {
+    constexpr auto q = _("どのロッドを振りますか? ", "Zap which rod? ");
+    constexpr auto s = _("使えるロッドがない。", "You have no rod to zap.");
+    short i_idx;
+    if (!choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), TvalItemTester(ItemKindType::ROD))) {
         return;
     }
 
-    ObjectZapRodEntity(player_ptr).execute(item);
+    ObjectZapRodEntity(player_ptr).execute(i_idx);
 }

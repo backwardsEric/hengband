@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief モンスター魔法の実装 / Monster spells (attack player)
  * @date 2014/01/17
  * @author
@@ -12,7 +12,6 @@
 #include "mspell/mspell-checker.h"
 #include "blue-magic/blue-magic-checker.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "dungeon/quest.h"
 #include "effect/attribute-types.h"
@@ -46,6 +45,7 @@
 #include "spell-kind/spells-world.h"
 #include "spell-realm/spells-hex.h"
 #include "spell/range-calc.h"
+#include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -105,7 +105,7 @@ bool raise_possible(PlayerType *player_ptr, MonsterEntity *m_ptr)
     POSITION x = m_ptr->fx;
     auto *floor_ptr = player_ptr->current_floor_ptr;
     for (POSITION xx = x - 5; xx <= x + 5; xx++) {
-        grid_type *g_ptr;
+        Grid *g_ptr;
         for (POSITION yy = y - 5; yy <= y + 5; yy++) {
             if (distance(y, x, yy, xx) > 5) {
                 continue;
@@ -156,25 +156,27 @@ bool raise_possible(PlayerType *player_ptr, MonsterEntity *m_ptr)
 bool clean_shot(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, POSITION x2, bool is_friend)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    projection_path grid_g(player_ptr, get_max_range(player_ptr), y1, x1, y2, x2, 0);
+    projection_path grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), y1, x1, y2, x2, 0);
     if (grid_g.path_num() == 0) {
         return false;
     }
 
-    const auto [last_y, last_x] = grid_g.back();
+    const auto &[last_y, last_x] = grid_g.back();
     if ((last_y != y2) || (last_x != x2)) {
         return false;
     }
 
     for (const auto &[y, x] : grid_g) {
-        if ((floor_ptr->grid_array[y][x].m_idx > 0) && (y != y2 || x != x2)) {
-            auto *m_ptr = &floor_ptr->m_list[floor_ptr->grid_array[y][x].m_idx];
+        const Pos2D pos(y, x);
+        const auto &grid = floor_ptr->get_grid(pos);
+        if ((grid.m_idx > 0) && (y != y2 || x != x2)) {
+            auto *m_ptr = &floor_ptr->m_list[grid.m_idx];
             if (is_friend == m_ptr->is_pet()) {
                 return false;
             }
         }
 
-        if (player_bold(player_ptr, y, x) && is_friend) {
+        if (player_ptr->is_located_at(pos) && is_friend) {
             return false;
         }
     }
@@ -265,7 +267,7 @@ ProjectResult ball(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m
 ProjectResult breath(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, AttributeType typ, int dam_hp, POSITION rad, int target_type)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
     BIT_FLAGS flg = PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_BREATH;
     if (target_type == MONSTER_TO_PLAYER) {
         flg |= PROJECT_PLAYER;

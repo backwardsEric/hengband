@@ -1,4 +1,4 @@
-﻿#include "racial/racial-vampire.h"
+#include "racial/racial-vampire.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "floor/geometry.h"
 #include "hpmp/hp-mp-processor.h"
@@ -14,20 +14,20 @@
 
 bool vampirism(PlayerType *player_ptr)
 {
-    if (dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MELEE)) {
+    const auto &floor = *player_ptr->current_floor_ptr;
+    if (floor.get_dungeon_definition().flags.has(DungeonFeatureType::NO_MELEE)) {
         msg_print(_("なぜか攻撃することができない。", "Something prevents you from attacking."));
         return false;
     }
 
     DIRECTION dir;
-    if (!get_direction(player_ptr, &dir, false, false)) {
+    if (!get_direction(player_ptr, &dir)) {
         return false;
     }
 
     POSITION y = player_ptr->y + ddy[dir];
     POSITION x = player_ptr->x + ddx[dir];
-    grid_type *g_ptr;
-    g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
+    const auto *g_ptr = &floor.grid_array[y][x];
     stop_mouth(player_ptr);
     if (!(g_ptr->m_idx)) {
         msg_print(_("何もない場所に噛みついた！", "You bite into thin air!"));

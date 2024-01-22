@@ -1,4 +1,4 @@
-﻿#include "view/display-player-middle.h"
+#include "view/display-player-middle.h"
 #include "combat/shoot.h"
 #include "game-option/birth-options.h"
 #include "game-option/special-options.h"
@@ -53,7 +53,7 @@ static void display_player_melee_bonus(PlayerType *player_ptr, int hand, int han
 
     show_tohit += player_ptr->skill_thn / BTH_PLUS_ADJ;
 
-    std::string buf = format("(%+d,%+d)", (int)show_tohit, (int)show_todam);
+    const auto buf = format("(%+d,%+d)", (int)show_tohit, (int)show_todam);
     if (!has_melee_weapon(player_ptr, INVEN_MAIN_HAND) && !has_melee_weapon(player_ptr, INVEN_SUB_HAND)) {
         display_player_one_line(ENTRY_BARE_HAND, buf, TERM_L_BLUE);
     } else if (has_two_handed_weapons(player_ptr)) {
@@ -113,7 +113,7 @@ static void display_bow_hit_damage(PlayerType *player_ptr)
     if (tval == ItemKindType::NONE) {
         show_tohit += (weapon_exps[0] - median_skill_exp) / bow_magnification;
     } else {
-        const auto sval = item.bi_key.sval().value();
+        const auto sval = *item.bi_key.sval();
         const auto weapon_exp = weapon_exps[sval];
         if (item.is_cross_bow()) {
             show_tohit += weapon_exp / xbow_magnification;
@@ -280,20 +280,15 @@ static void display_player_exp(PlayerType *player_ptr)
 /*!
  * @brief ゲーム内の経過時間を表示する
  * @param player_ptr プレイヤーへの参照ポインタ
+ * @details fmt をstring で受けているのはClang対策
  */
 static void display_playtime_in_game(PlayerType *player_ptr)
 {
-    int day, hour, min;
-    extract_day_hour_min(player_ptr, &day, &hour, &min);
-
-    std::string buf;
-    if (day < MAX_DAYS) {
-        buf = format(_("%d日目 %2d:%02d", "Day %d %2d:%02d"), day, hour, min);
-    } else {
-        buf = format(_("*****日目 %2d:%02d", "Day ***** %2d:%02d"), hour, min);
-    }
-
-    display_player_one_line(ENTRY_DAY, buf, TERM_L_GREEN);
+    const auto &[day, hour, min] = w_ptr->extract_date_time(player_ptr->start_race);
+    const auto is_days_countable = day < MAX_DAYS;
+    const std::string fmt = is_days_countable ? _("%d日目 %2d:%02d", "Day %d %2d:%02d") : _("*****日目 %2d:%02d", "Day ***** %2d:%02d");
+    const auto mes = is_days_countable ? format(fmt.data(), day, hour, min) : format(fmt.data(), hour, min);
+    display_player_one_line(ENTRY_DAY, mes, TERM_L_GREEN);
 
     if (player_ptr->chp >= player_ptr->mhp) {
         display_player_one_line(ENTRY_HP, format("%4d/%4d", player_ptr->chp, player_ptr->mhp), TERM_L_GREEN);

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file info-initializer.cpp
  * @brief 変愚蛮怒のゲームデータ解析処理定義
  */
@@ -78,7 +78,7 @@ constexpr bool is_vector_v = is_vector<T>::value;
  */
 static void init_header(angband_header *head, IDX num = 0)
 {
-    head->checksum = 0;
+    head->digest = {};
     head->info_num = (IDX)num;
 }
 
@@ -96,10 +96,8 @@ static void init_header(angband_header *head, IDX num = 0)
 template <typename InfoType>
 static errr init_info(std::string_view filename, angband_header &head, InfoType &info, Parser parser, Retoucher retouch = nullptr)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_EDIT, filename);
-
-    auto *fp = angband_fopen(buf, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_EDIT, filename);
+    auto *fp = angband_fopen(path, FileOpenMode::READ);
     if (!fp) {
         quit_fmt(_("'%s'ファイルをオープンできません。", "Cannot open '%s' file."), filename.data());
     }
@@ -110,14 +108,15 @@ static errr init_info(std::string_view filename, angband_header &head, InfoType 
         info.assign(head.info_num, value_type{});
     }
 
-    const auto err = init_info_txt(fp, buf, &head, parser);
+    char buf[1024]{};
+    const auto &[error_code, error_line] = init_info_txt(fp, buf, &head, parser);
     angband_fclose(fp);
-    if (err) {
-        const auto oops = (((err > 0) && (err < PARSE_ERROR_MAX)) ? err_str[err] : _("未知の", "unknown"));
+    if (error_code != PARSE_ERROR_NONE) {
+        const auto oops = (((error_code > 0) && (error_code < PARSE_ERROR_MAX)) ? err_str[error_code] : _("未知の", "unknown"));
 #ifdef JP
         msg_format("'%s'ファイルの %d 行目にエラー。", filename.data(), error_line);
 #else
-        msg_format("Error %d at line %d of '%s'.", err, error_line, filename.data());
+        msg_format("Error %d at line %d of '%s'.", error_code, error_line, filename.data());
 #endif
         msg_format(_("レコード %d は '%s' エラーがあります。", "Record %d contains a '%s' error."), error_idx, oops);
         msg_format(_("構文 '%s'。", "Parsing '%s'."), buf);
@@ -206,7 +205,8 @@ errr init_terrains_info()
     init_header(&terrains_header);
     auto *parser = parse_terrains_info;
     auto *retoucher = retouch_terrains_info;
-    return init_info("TerrainDefinitions.txt", terrains_header, terrains_info, parser, retoucher);
+    auto &terrains = TerrainList::get_instance();
+    return init_info("TerrainDefinitions.txt", terrains_header, terrains.get_raw_vector(), parser, retoucher);
 }
 
 /*!
@@ -273,8 +273,7 @@ static bool read_wilderness_definition(std::ifstream &ifs)
  */
 bool init_wilderness()
 {
-    char path[1024]{};
-    path_build(path, sizeof(path), ANGBAND_DIR_EDIT, WILDERNESS_DEFINITION);
+    const auto &path = path_build(ANGBAND_DIR_EDIT, WILDERNESS_DEFINITION);
     std::ifstream ifs(path);
     if (!ifs) {
         return false;

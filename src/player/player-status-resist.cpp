@@ -1,4 +1,4 @@
-﻿#include "player/player-status-resist.h"
+#include "player/player-status-resist.h"
 #include "artifact/fixed-art-types.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
@@ -10,7 +10,6 @@
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-weapon.h"
-#include "object/object-flags.h"
 #include "player-base/player-race.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
@@ -29,7 +28,6 @@
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
-#include "util/quarks.h"
 #include "util/string-processor.h"
 
 /*!

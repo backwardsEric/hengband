@@ -1,4 +1,4 @@
-﻿#include "object-enchant/others/apply-magic-lite.h"
+#include "object-enchant/others/apply-magic-lite.h"
 #include "artifact/random-art-generator.h"
 #include "inventory/inventory-slot-types.h"
 #include "object-enchant/object-ego.h"
@@ -12,11 +12,11 @@ LiteEnchanter::LiteEnchanter(PlayerType *player_ptr, ItemEntity *o_ptr, int powe
     , power(power)
 {
     const auto sval = this->o_ptr->bi_key.sval();
-    if (!sval.has_value()) {
+    if (!sval) {
         return;
     }
 
-    switch (sval.value()) {
+    switch (*sval) {
     case SV_LITE_TORCH:
         o_ptr->fuel = randint1(FUEL_TORCH / 2);
         return;
@@ -86,11 +86,11 @@ void LiteEnchanter::give_cursed()
 void LiteEnchanter::add_dark_flag()
 {
     const auto sval = this->o_ptr->bi_key.sval();
-    if (!sval.has_value()) {
+    if (!sval) {
         return;
     }
 
-    switch (sval.value()) {
+    switch (*sval) {
     case SV_LITE_TORCH:
         this->o_ptr->art_flags.set(TR_LITE_M1);
         return;

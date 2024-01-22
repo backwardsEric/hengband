@@ -1,4 +1,4 @@
-﻿#include "inventory/recharge-processor.h"
+#include "inventory/recharge-processor.h"
 #include "core/disturbance.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
@@ -10,7 +10,7 @@
 #include "system/floor-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
-#include "util/quarks.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 
@@ -71,8 +71,9 @@ void recharge_magic_items(PlayerType *player_ptr)
         }
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (changed) {
-        player_ptr->window_flags |= (PW_EQUIPMENT);
+        rfu.set_flag(SubWindowRedrawingFlag::EQUIPMENT);
         wild_regen = 20;
     }
 
@@ -109,7 +110,7 @@ void recharge_magic_items(PlayerType *player_ptr)
     }
 
     if (changed) {
-        player_ptr->window_flags |= (PW_INVENTORY);
+        rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
         wild_regen = 20;
     }
 

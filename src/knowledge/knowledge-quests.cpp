@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 既知のクエストを表示する
  * @date 2020/04/23
  * @author Hourier
@@ -207,8 +207,7 @@ static bool do_cmd_knowledge_quests_aux(PlayerType *player_ptr, FILE *fff, Quest
         }
     }
 
-    std::string playtime_str = format("%02d:%02d:%02d", quest.comptime / (60 * 60), (quest.comptime / 60) % 60, quest.comptime % 60);
-
+    const auto playtime_str = format("%02d:%02d:%02d", quest.comptime / (60 * 60), (quest.comptime / 60) % 60, quest.comptime % 60);
     auto fputs_name_remain = [fff](const auto &name) {
         for (auto i = 1U; i < name.size(); ++i) {
             fprintf(fff, "  %s\n", name[i].data());
@@ -339,6 +338,6 @@ void do_cmd_knowledge_quests(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, _("クエスト達成状況", "Quest status"), 0, 0);
+    (void)show_file(player_ptr, true, file_name, 0, 0, _("クエスト達成状況", "Quest status"));
     fd_kill(file_name);
 }

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief グローバル変数の残骸
  * @date 2013/12/31
  * @todo 呼び出し関係を良く読んで消す方針で進めたい.
@@ -31,4 +31,4 @@ init_flags_type init_flags; //!< @todo このグローバル変数何とかし�
  */
 bool (*get_obj_index_hook)(short bi_id);
 
-OBJECT_SUBTYPE_VALUE coin_type;
+int coin_type;

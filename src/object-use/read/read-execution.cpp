@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 巻物を読んだ際の効果処理
  * @date 2022/02/26
  * @author Hourier
@@ -7,7 +7,6 @@
 #include "object-use/read/read-execution.h"
 #include "action/action-limited.h"
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "inventory/inventory-object.h"
 #include "main/sound-definitions-table.h"
@@ -24,17 +23,18 @@
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
 /*!
  * @brief コンストラクタ
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param item 読むオブジェクトの所持品ID
+ * @param i_idx 読むアイテムのインベントリID
  */
-ObjectReadEntity::ObjectReadEntity(PlayerType *player_ptr, INVENTORY_IDX item)
+ObjectReadEntity::ObjectReadEntity(PlayerType *player_ptr, INVENTORY_IDX i_idx)
     : player_ptr(player_ptr)
-    , item(item)
+    , i_idx(i_idx)
 {
 }
 
@@ -44,7 +44,7 @@ ObjectReadEntity::ObjectReadEntity(PlayerType *player_ptr, INVENTORY_IDX item)
  */
 void ObjectReadEntity::execute(bool known)
 {
-    auto *o_ptr = ref_item(this->player_ptr, this->item);
+    auto *o_ptr = ref_item(this->player_ptr, this->i_idx);
     PlayerEnergy(this->player_ptr).set_player_turn_energy(100);
     if (!this->can_read()) {
         return;
@@ -61,19 +61,30 @@ void ObjectReadEntity::execute(bool known)
 
     auto executor = ReadExecutorFactory::create(player_ptr, o_ptr, known);
     auto used_up = executor->read();
-    BIT_FLAGS inventory_flags = PU_COMBINATION | PU_REORDER | (this->player_ptr->update & PU_AUTO_DESTRUCTION);
-    reset_bits(this->player_ptr->update, PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    using Srf = StatusRecalculatingFlag;
+    EnumClassFlagGroup<Srf> flags_srf = { Srf::COMBINATION, Srf::REORDER };
+    if (rfu.has(Srf::AUTO_DESTRUCTION)) {
+        flags_srf.set(Srf::AUTO_DESTRUCTION);
+    }
+
+    rfu.reset_flags(flags_srf);
     this->change_virtue_as_read(*o_ptr);
-    object_tried(o_ptr);
+    o_ptr->mark_as_tried();
     this->gain_exp_from_item_use(o_ptr, executor->is_identified());
-    this->player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER;
-    this->player_ptr->update |= inventory_flags;
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+    };
+    rfu.set_flags(flags_swrf);
+    rfu.set_flags(flags_srf);
     if (!used_up) {
         return;
     }
 
     sound(SOUND_SCROLL);
-    vary_item(this->player_ptr, this->item, -1);
+    vary_item(this->player_ptr, this->i_idx, -1);
 }
 
 bool ObjectReadEntity::can_read() const

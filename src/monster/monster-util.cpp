@@ -1,4 +1,4 @@
-﻿#include "monster/monster-util.h"
+#include "monster/monster-util.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "dungeon/quest.h"
 #include "floor/wild.h"
@@ -12,6 +12,7 @@
 #include "monster-race/race-indice-types.h"
 #include "spell/summon-types.h"
 #include "system/alloc-entries.h"
+#include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -75,13 +76,13 @@ static bool is_possible_monster_or(const EnumClassFlagGroup<T> &r_flags, const E
 
 /*!
  * @brief 指定されたモンスター種族がダンジョンの制限にかかるかどうかをチェックする / Some dungeon types restrict the possible monsters.
- * @param player_ptr プレイヤーへの参照ポインタ
+ * @param floor_ptr フロアへの参照ポインタ
  * @param r_idx チェックするモンスター種族ID
  * @return 召喚条件が一致するならtrue / Return TRUE is the monster is OK and FALSE otherwise
  */
-static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_idx)
+static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceId r_idx)
 {
-    const auto *d_ptr = &dungeons_info[player_ptr->dungeon_idx];
+    const auto *d_ptr = &floor_ptr->get_dungeon_definition();
     const auto *r_ptr = &monraces_info[r_idx];
     if (d_ptr->flags.has(DungeonFeatureType::CHAMELEON)) {
         if (chameleon_change_m_idx) {
@@ -105,7 +106,6 @@ static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_
         }
     }
 
-    auto *floor_ptr = player_ptr->current_floor_ptr;
     if (d_ptr->flags.has(DungeonFeatureType::BEGINNER)) {
         if (r_ptr->level > floor_ptr->dun_level) {
             return false;
@@ -138,6 +138,8 @@ static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_
             is_possible_monster_and(r_ptr->population_flags, d_ptr->mon_population_flags),
             is_possible_monster_and(r_ptr->speak_flags, d_ptr->mon_speak_flags),
             is_possible_monster_and(r_ptr->brightness_flags, d_ptr->mon_brightness_flags),
+            is_male(d_ptr->mon_sex) ? is_male(r_ptr->sex) : true,
+            is_female(d_ptr->mon_sex) ? is_female(r_ptr->sex) : true,
         };
 
         auto result = std::all_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
@@ -163,6 +165,8 @@ static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_
             is_possible_monster_or(r_ptr->population_flags, d_ptr->mon_population_flags),
             is_possible_monster_or(r_ptr->speak_flags, d_ptr->mon_speak_flags),
             is_possible_monster_or(r_ptr->brightness_flags, d_ptr->mon_brightness_flags),
+            is_male(d_ptr->mon_sex) ? is_male(r_ptr->sex) : true,
+            is_female(d_ptr->mon_sex) ? is_female(r_ptr->sex) : true,
         };
 
         auto result = std::any_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
@@ -182,7 +186,8 @@ static bool restrict_monster_to_dungeon(PlayerType *player_ptr, MonsterRaceId r_
  */
 monsterrace_hook_type get_monster_hook(PlayerType *player_ptr)
 {
-    if ((player_ptr->current_floor_ptr->dun_level > 0) || (inside_quest(player_ptr->current_floor_ptr->quest_number))) {
+    const auto &floor = *player_ptr->current_floor_ptr;
+    if ((floor.dun_level > 0) || (floor.is_in_quest())) {
         return (monsterrace_hook_type)mon_hook_dungeon;
     }
 
@@ -217,12 +222,13 @@ monsterrace_hook_type get_monster_hook(PlayerType *player_ptr)
  */
 monsterrace_hook_type get_monster_hook2(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    auto *f_ptr = &terrains_info[player_ptr->current_floor_ptr->grid_array[y][x].feat];
-    if (f_ptr->flags.has(TerrainCharacteristics::WATER)) {
-        return f_ptr->flags.has(TerrainCharacteristics::DEEP) ? (monsterrace_hook_type)mon_hook_deep_water : (monsterrace_hook_type)mon_hook_shallow_water;
+    const Pos2D pos(y, x);
+    const auto &terrain = player_ptr->current_floor_ptr->get_grid(pos).get_terrain();
+    if (terrain.flags.has(TerrainCharacteristics::WATER)) {
+        return terrain.flags.has(TerrainCharacteristics::DEEP) ? (monsterrace_hook_type)mon_hook_deep_water : (monsterrace_hook_type)mon_hook_shallow_water;
     }
 
-    if (f_ptr->flags.has(TerrainCharacteristics::LAVA)) {
+    if (terrain.flags.has(TerrainCharacteristics::LAVA)) {
         return (monsterrace_hook_type)mon_hook_lava;
     }
 
@@ -251,6 +257,7 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
     int prob2_total = 0; // 重みの総和
 
     // モンスター生成テーブルの各要素について重みを修正する。
+    const auto &system = AngbandSystem::get_instance();
     for (auto i = 0U; i < alloc_race_table.size(); i++) {
         alloc_entry *const entry = &alloc_race_table[i];
         const auto entry_r_idx = i2enum<MonsterRaceId>(entry->index);
@@ -271,7 +278,7 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
         }
 
         // 原則生成禁止するものたち(フェイズアウト状態 / カメレオンの変身先 / ダンジョンの主召喚 は例外)。
-        if (!player_ptr->phase_out && !chameleon_change_m_idx && summon_specific_type != SUMMON_GUARDIANS) {
+        if (!system.is_phase_out() && !chameleon_change_m_idx && summon_specific_type != SUMMON_GUARDIANS) {
             // クエストモンスターは生成禁止。
             if (r_ptr->flags1 & RF1_QUESTOR) {
                 continue;
@@ -288,7 +295,7 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
             }
 
             // クエスト内でRES_ALLの生成を禁止する (殲滅系クエストの詰み防止)
-            if (inside_quest(player_ptr->current_floor_ptr->quest_number) && r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
+            if (player_ptr->current_floor_ptr->is_in_quest() && r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
                 continue;
             }
         }
@@ -303,13 +310,13 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
             //   * フェイズアウト状態でない
             //   * 1階かそれより深いところにいる
             //   * ランダムクエスト中でない
-            const bool in_random_quest = inside_quest(floor_ptr->quest_number) && !QuestType::is_fixed(floor_ptr->quest_number);
-            const bool cond = !player_ptr->phase_out && floor_ptr->dun_level > 0 && !in_random_quest;
+            const bool in_random_quest = floor_ptr->is_in_quest() && !QuestType::is_fixed(floor_ptr->quest_number);
+            const bool cond = !system.is_phase_out() && floor_ptr->dun_level > 0 && !in_random_quest;
 
-            if (cond && !restrict_monster_to_dungeon(player_ptr, entry_r_idx)) {
+            if (cond && !restrict_monster_to_dungeon(floor_ptr, entry_r_idx)) {
                 // ダンジョンによる制約に掛かった場合、重みを special_div/64 倍する。
                 // 丸めは確率的に行う。
-                const int numer = entry->prob2 * dungeons_info[player_ptr->dungeon_idx].special_div;
+                const int numer = entry->prob2 * floor_ptr->get_dungeon_definition().special_div;
                 const int q = numer / 64;
                 const int r = numer % 64;
                 entry->prob2 = (PROB)(randint0(64) < r ? q + 1 : q);

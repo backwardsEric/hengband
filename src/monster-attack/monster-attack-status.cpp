@@ -1,11 +1,10 @@
-﻿/*!
+/*!
  * @brief プレイヤーのステータス (麻痺等)に影響を与えるモンスターの打撃処理
  * @date 2020/05/31
  * @author Hourier
  */
 
 #include "monster-attack/monster-attack-status.h"
-#include "core/player-update-types.h"
 #include "mind/mind-mirror-master.h"
 #include "monster-attack/monster-attack-player.h"
 #include "monster-race/monster-race.h"
@@ -53,7 +52,7 @@ void process_terrify_attack(PlayerType *player_ptr, MonsterAttackPlayer *monap_p
         return;
     }
 
-    auto *r_ptr = &monraces_info[monap_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monap_ptr->m_ptr->get_monrace();
     if (has_resist_fear(player_ptr)) {
         msg_print(_("しかし恐怖に侵されなかった！", "You stand your ground!"));
         monap_ptr->obvious = true;
@@ -77,7 +76,7 @@ void process_paralyze_attack(PlayerType *player_ptr, MonsterAttackPlayer *monap_
         return;
     }
 
-    auto *r_ptr = &monraces_info[monap_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monap_ptr->m_ptr->get_monrace();
     if (player_ptr->free_act) {
         msg_print(_("しかし効果がなかった！", "You are unaffected!"));
         monap_ptr->obvious = true;
@@ -129,49 +128,13 @@ void process_stun_attack(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         return;
     }
 
-    auto *r_ptr = &monraces_info[monap_ptr->m_ptr->r_idx];
+    auto *r_ptr = &monap_ptr->m_ptr->get_monrace();
     if (BadStatusSetter(player_ptr).mod_stun(10 + randint1(r_ptr->level / 4))) {
         monap_ptr->obvious = true;
     }
 }
 
-/*!
- * @brief 時間逆転攻撃による能力低下
- * @param player_ptr プレイヤーへの参照ポインタ
- * @monap_ptr モンスターからモンスターへの直接攻撃構造体への参照ポインタ
- */
-static void describe_disability(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
-{
-    int stat = randint0(6);
-    switch (stat) {
-    case A_STR:
-        monap_ptr->act = _("強く", "strong");
-        break;
-    case A_INT:
-        monap_ptr->act = _("聡明で", "bright");
-        break;
-    case A_WIS:
-        monap_ptr->act = _("賢明で", "wise");
-        break;
-    case A_DEX:
-        monap_ptr->act = _("器用で", "agile");
-        break;
-    case A_CON:
-        monap_ptr->act = _("健康で", "hale");
-        break;
-    case A_CHR:
-        monap_ptr->act = _("美しく", "beautiful");
-        break;
-    }
-
-    msg_format(_("あなたは以前ほど%sなくなってしまった...。", "You're not as %s as you used to be..."), monap_ptr->act);
-    player_ptr->stat_cur[stat] = (player_ptr->stat_cur[stat] * 3) / 4;
-    if (player_ptr->stat_cur[stat] < 3) {
-        player_ptr->stat_cur[stat] = 3;
-    }
-}
-
-void process_monster_attack_time(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
+void process_monster_attack_time(PlayerType *player_ptr)
 {
     if (has_resist_time(player_ptr) || check_multishadow(player_ptr)) {
         return;
@@ -194,19 +157,10 @@ void process_monster_attack_time(PlayerType *player_ptr, MonsterAttackPlayer *mo
     case 7:
     case 8:
     case 9:
-        describe_disability(player_ptr, monap_ptr);
-        player_ptr->update |= (PU_BONUS);
+        msg_print(player_ptr->decrease_ability_random());
         break;
     case 10:
-        msg_print(_("あなたは以前ほど力強くなくなってしまった...。", "You're not as powerful as you used to be..."));
-        for (auto i = 0; i < A_MAX; i++) {
-            player_ptr->stat_cur[i] = (player_ptr->stat_cur[i] * 7) / 8;
-            if (player_ptr->stat_cur[i] < 3) {
-                player_ptr->stat_cur[i] = 3;
-            }
-        }
-
-        player_ptr->update |= PU_BONUS;
+        msg_print(player_ptr->decrease_ability_all());
         break;
     }
 }

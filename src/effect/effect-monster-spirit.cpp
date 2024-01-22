@@ -1,5 +1,4 @@
-﻿#include "effect/effect-monster-spirit.h"
-#include "core/player-redraw-types.h"
+#include "effect/effect-monster-spirit.h"
 #include "effect/effect-monster-util.h"
 #include "hpmp/hp-mp-processor.h"
 #include "monster-race/monster-race.h"
@@ -15,11 +14,12 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 
-ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -52,16 +52,17 @@ ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, effect_monster_t
         em_ptr->m_caster_ptr->hp = em_ptr->m_caster_ptr->maxhp;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (player_ptr->health_who == em_ptr->who) {
-        player_ptr->redraw |= (PR_HEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
     }
 
     if (player_ptr->riding == em_ptr->who) {
-        player_ptr->redraw |= (PR_UHEALTH);
+        rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
     if (em_ptr->see_s_msg) {
-        angband_strcpy(em_ptr->killer, monster_desc(player_ptr, em_ptr->m_caster_ptr, 0).data(), sizeof(em_ptr->killer));
+        angband_strcpy(em_ptr->killer, monster_desc(player_ptr, em_ptr->m_caster_ptr, 0), sizeof(em_ptr->killer));
         msg_format(_("%s^は気分が良さそうだ。", "%s^ appears healthier."), em_ptr->killer);
     }
 
@@ -69,7 +70,7 @@ ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, effect_monster_t
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -79,13 +80,13 @@ ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, effect_monster_t
     }
 
     bool has_immute = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    has_immute |= any_bits(em_ptr->r_ptr->flags3, RF3_NO_CONF);
+    has_immute |= em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF);
     has_immute |= (em_ptr->r_ptr->level > randint1(std::max(1, em_ptr->caster_lev - 10)) + 10);
 
     if (has_immute) {
-        if (em_ptr->r_ptr->flags3 & (RF3_NO_CONF)) {
+        if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
             if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
-                em_ptr->r_ptr->r_flags3 |= (RF3_NO_CONF);
+                em_ptr->r_ptr->resistance_flags.set(MonsterResistanceType::NO_CONF);
             }
         }
 
@@ -117,7 +118,7 @@ ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, effect_monster_t
     return ProcessResult::PROCESS_CONTINUE;
 }
 
-ProcessResult effect_monster_brain_smash(PlayerType *player_ptr, effect_monster_type *em_ptr)
+ProcessResult effect_monster_brain_smash(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     if (em_ptr->seen) {
         em_ptr->obvious = true;
@@ -127,13 +128,13 @@ ProcessResult effect_monster_brain_smash(PlayerType *player_ptr, effect_monster_
     }
 
     bool has_immute = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    has_immute |= any_bits(em_ptr->r_ptr->flags3, RF3_NO_CONF);
+    has_immute |= em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF);
     has_immute |= (em_ptr->r_ptr->level > randint1(std::max(1, em_ptr->caster_lev - 10)) + 10);
 
     if (has_immute) {
-        if (em_ptr->r_ptr->flags3 & (RF3_NO_CONF)) {
+        if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
             if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
-                em_ptr->r_ptr->r_flags3 |= (RF3_NO_CONF);
+                em_ptr->r_ptr->resistance_flags.set(MonsterResistanceType::NO_CONF);
             }
         }
 

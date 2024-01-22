@@ -1,10 +1,11 @@
-﻿#pragma once
+#pragma once
 
-#include "dungeon/quest.h"
 #include "floor/floor-base-definitions.h"
 #include "monster/monster-timed-effect-types.h"
 #include "system/angband.h"
+#include "util/point-2d.h"
 #include <array>
+#include <optional>
 #include <vector>
 
 /*!
@@ -33,14 +34,16 @@ constexpr auto VIEW_MAX = 1536;
  */
 constexpr auto REDRAW_MAX = 2298;
 
-struct grid_type;
+enum class QuestId : short;
+struct dungeon_type;
+class Grid;
 class MonsterEntity;
 class ItemEntity;
 class FloorType {
 public:
-    FloorType() = default;
-    DUNGEON_IDX dungeon_idx = 0;
-    std::vector<std::vector<grid_type>> grid_array;
+    FloorType();
+    short dungeon_idx = 0;
+    std::vector<std::vector<Grid>> grid_array;
     DEPTH dun_level = 0; /*!< 現在の実ダンジョン階層 base_level の参照元となる / Current dungeon level */
     DEPTH base_level = 0; /*!< 基本生成レベル、後述のobject_level, monster_levelの参照元となる / Base dungeon level */
     DEPTH object_level = 0; /*!< アイテムの生成レベル、 base_level を起点に一時変更する時に参照 / Current object creation level */
@@ -79,8 +82,19 @@ public:
     std::array<POSITION, REDRAW_MAX> redraw_x{};
 
     bool monster_noise = false;
-    QuestId quest_number = QuestId::NONE; /* Inside quest level */
+    QuestId quest_number;
     bool inside_arena = false; /* Is character inside on_defeat_arena_monster? */
 
+    Grid &get_grid(const Pos2D pos);
+    const Grid &get_grid(const Pos2D pos) const;
     bool is_in_dungeon() const;
+    bool is_in_quest() const;
+    void set_dungeon_index(short dungeon_idx_); /*!< @todo 後でenum class にする */
+    void reset_dungeon_index();
+    dungeon_type &get_dungeon_definition() const;
+    QuestId get_random_quest_id(std::optional<int> level_opt = std::nullopt) const;
+    QuestId get_quest_id(const int bonus = 0) const;
+    bool has_los(const Pos2D pos) const;
+    bool is_special() const;
+    bool can_teleport_level(bool to_player = false) const;
 };

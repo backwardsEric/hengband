@@ -1,13 +1,13 @@
-﻿/*!
+/*!
  * @brief エルドリッチホラー処理
  * @date 2020/06/07
  * @author Hourier
  */
 
 #include "player/eldritch-horror.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "locale/english.h"
+#include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
@@ -26,10 +26,12 @@
 #include "player/player-status.h"
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
+#include "system/angband-system.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
@@ -68,9 +70,9 @@ static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m
         return false;
     }
 
-    msg_format(_("%s%sの顔を見てしまった！", "You behold the %s visage of %s!"), funny_desc[randint0(funny_desc.size())].data(), m_name.data());
+    msg_format(_("%s%sの顔を見てしまった！", "You behold the %s visage of %s!"), rand_choice(funny_desc).data(), m_name.data());
     if (one_in_(3)) {
-        msg_print(funny_comments[randint0(funny_comments.size())]);
+        msg_print(rand_choice(funny_comments));
         BadStatusSetter(player_ptr).mod_hallucination(randint1(monrace.level));
     }
 
@@ -84,13 +86,13 @@ static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m
  */
 void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
 {
-    if (player_ptr->phase_out || !w_ptr->character_dungeon) {
+    if (AngbandSystem::get_instance().is_phase_out() || !w_ptr->character_dungeon) {
         return;
     }
 
     int power = 100;
     if (!necro && m_ptr) {
-        auto *r_ptr = &monraces_info[m_ptr->ap_r_idx];
+        auto *r_ptr = &m_ptr->get_appearance_monrace();
         const auto m_name = monster_desc(player_ptr, m_ptr, 0);
         power = r_ptr->level / 2;
         if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
@@ -143,7 +145,7 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
         }
     } else if (!necro) {
         get_mon_num_prep(player_ptr, get_nightmare, nullptr);
-        auto *r_ptr = &monraces_info[get_mon_num(player_ptr, 0, MAX_DEPTH, 0)];
+        auto *r_ptr = &monraces_info[get_mon_num(player_ptr, 0, MAX_DEPTH, PM_NONE)];
         power = r_ptr->level + 10;
         const auto &desc = r_ptr->name;
         get_mon_num_prep(player_ptr, nullptr, nullptr);
@@ -316,6 +318,6 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
         break;
     }
 
-    player_ptr->update |= PU_BONUS;
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 }

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file mutation-execution.cpp
  * @brief プレイヤーの変異能力実行定義
  */
@@ -6,6 +6,7 @@
 #include "action/mutation-execution.h"
 #include "cmd-item/cmd-throw.h"
 #include "core/asking-player.h"
+#include "dungeon/quest.h"
 #include "effect/attribute-types.h"
 #include "effect/spells-effect-util.h"
 #include "floor/geometry.h"
@@ -66,6 +67,7 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
 {
     DIRECTION dir = 0;
     PLAYER_LEVEL lvl = player_ptr->lev;
+    auto &floor = *player_ptr->current_floor_ptr;
     switch (power) {
     case PlayerMutationType::SPIT_ACID:
         if (!get_aim_dir(player_ptr, &dir)) {
@@ -166,7 +168,7 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         (void)berserk(player_ptr, randint1(25) + 25);
         return true;
     case PlayerMutationType::POLYMORPH:
-        if (!get_check(_("変身します。よろしいですか？", "You will polymorph your self. Are you sure? "))) {
+        if (!input_check(_("変身します。よろしいですか？", "You will polymorph your self. Are you sure? "))) {
             return false;
         }
 
@@ -221,7 +223,7 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
     case PlayerMutationType::STERILITY:
         msg_print(_("突然頭が痛くなった！", "You suddenly have a headache!"));
         take_hit(player_ptr, DAMAGE_LOSELIFE, randint1(17) + 17, _("禁欲を強いた疲労", "the strain of forcing abstinence"));
-        player_ptr->current_floor_ptr->num_repro += MAX_REPRODUCTION;
+        floor.num_repro += MAX_REPRODUCTION;
         return true;
     case PlayerMutationType::HIT_AND_AWAY:
         return hit_and_away(player_ptr);
@@ -240,52 +242,54 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
     case PlayerMutationType::RECALL:
         return recall_player(player_ptr, randint0(21) + 15);
     case PlayerMutationType::BANISH: {
-        if (!get_direction(player_ptr, &dir, false, false)) {
+        if (!get_direction(player_ptr, &dir)) {
             return false;
         }
 
-        POSITION y = player_ptr->y + ddy[dir];
-        POSITION x = player_ptr->x + ddx[dir];
-        grid_type *g_ptr;
-        g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-
-        if (!g_ptr->m_idx) {
+        const auto y = player_ptr->y + ddy[dir];
+        const auto x = player_ptr->x + ddx[dir];
+        const auto &grid = floor.grid_array[y][x];
+        if (!grid.m_idx) {
             msg_print(_("邪悪な存在を感じとれません！", "You sense no evil there!"));
             return true;
         }
 
-        MonsterEntity *m_ptr;
-        m_ptr = &player_ptr->current_floor_ptr->m_list[g_ptr->m_idx];
-        MonsterRaceInfo *r_ptr;
-        r_ptr = &monraces_info[m_ptr->r_idx];
-        if (r_ptr->kind_flags.has(MonsterKindType::EVIL) && none_bits(r_ptr->flags1, RF1_QUESTOR) && r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && !player_ptr->current_floor_ptr->inside_arena && !inside_quest(player_ptr->current_floor_ptr->quest_number) && (r_ptr->level < randint1(player_ptr->lev + 50)) && m_ptr->mflag2.has_not(MonsterConstantFlagType::NOGENO)) {
-            if (record_named_pet && m_ptr->is_named_pet()) {
-                const auto m_name = monster_desc(player_ptr, m_ptr, MD_INDEF_VISIBLE);
-                exe_write_diary(player_ptr, DIARY_NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name.data());
+        auto &monster = floor.m_list[grid.m_idx];
+        const auto &monrace = monster.get_monrace();
+        auto can_banish = monrace.kind_flags.has(MonsterKindType::EVIL);
+        can_banish &= none_bits(monrace.flags1, RF1_QUESTOR);
+        can_banish &= monrace.kind_flags.has_not(MonsterKindType::UNIQUE);
+        can_banish &= !floor.inside_arena;
+        can_banish &= !floor.is_in_quest();
+        can_banish &= (monrace.level < randint1(player_ptr->lev + 50));
+        can_banish &= monster.mflag2.has_not(MonsterConstantFlagType::NOGENO);
+        if (can_banish) {
+            if (record_named_pet && monster.is_named_pet()) {
+                const auto m_name = monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE);
+                exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name);
             }
 
-            delete_monster_idx(player_ptr, g_ptr->m_idx);
+            delete_monster_idx(player_ptr, grid.m_idx);
             msg_print(_("その邪悪なモンスターは硫黄臭い煙とともに消え去った！", "The evil creature vanishes in a puff of sulfurous smoke!"));
             return true;
         }
 
         msg_print(_("祈りは効果がなかった！", "Your invocation is ineffectual!"));
         if (one_in_(13)) {
-            m_ptr->mflag2.set(MonsterConstantFlagType::NOGENO);
+            monster.mflag2.set(MonsterConstantFlagType::NOGENO);
         }
 
         return true;
     }
     case PlayerMutationType::COLD_TOUCH: {
-        if (!get_direction(player_ptr, &dir, false, false)) {
+        if (!get_direction(player_ptr, &dir)) {
             return false;
         }
 
-        POSITION y = player_ptr->y + ddy[dir];
-        POSITION x = player_ptr->x + ddx[dir];
-        grid_type *g_ptr;
-        g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-        if (!g_ptr->m_idx) {
+        const auto y = player_ptr->y + ddy[dir];
+        const auto x = player_ptr->x + ddx[dir];
+        auto &grid = floor.grid_array[y][x];
+        if (!grid.m_idx) {
             msg_print(_("あなたは何もない場所で手を振った。", "You wave your hands in the air."));
             return true;
         }
@@ -293,9 +297,8 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         fire_bolt(player_ptr, AttributeType::COLD, dir, 2 * lvl);
         return true;
     }
-    case PlayerMutationType::LAUNCHER: {
+    case PlayerMutationType::LAUNCHER:
         return ThrowCommand(player_ptr).do_cmd_throw(2 + lvl / 40, false, -1);
-    }
     default:
         PlayerEnergy(player_ptr).reset_player_turn();
         msg_format(_("能力 PlayerMutationType::%d は実装されていません。", "Power PlayerMutationType::%d not implemented. Oops."), enum2i(power));

@@ -21,6 +21,12 @@
 #include "system/grafmode.h"
 
 #ifdef MACH_O_COCOA
+
+/* Default creator signature */
+#ifndef ANGBAND_CREATOR
+# define ANGBAND_CREATOR 'H300'
+#endif
+
 /* Mac headers */
 #import "cocoa/AppDelegate.h"
 #import "cocoa/SoundAndMusic.h"
@@ -47,6 +53,7 @@
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
 #include "main/angband-initializer.h"
+#include "main-unix/unix-user-ids.h"
 #include "io/files-util.h"
 #include "io/input-key-acceptor.h"
 #include "world/world.h"
@@ -1750,21 +1757,19 @@ static void draw_image_tile(
 
 /**
  * Generate a mask for the subwindow flags. The mask is just a safety check to
- * make sure that our windows show and hide as expected.  This function allows
- * for future changes to the set of flags without needed to update it here
- * (unless the underlying types change).
+ * make sure that our windows show and hide as expected.
  */
-static uint32_t AngbandMaskForValidSubwindowFlags(void)
+static EnumClassFlagGroup<SubWindowRedrawingFlag> AngbandMaskForValidSubwindowFlags(void)
 {
-    int windowFlagBits = sizeof(*(window_flag)) * CHAR_BIT;
-    int maxBits = MIN( 32, windowFlagBits );
-    uint32_t mask = 0;
+    EnumClassFlagGroup<SubWindowRedrawingFlag> mask;
+    int maxBits = (int)(sizeof(window_flag_desc)
+        / sizeof(window_flag_desc[0]));
 
     for( int i = 0; i < maxBits; i++ )
     {
         if( window_flag_desc[i] != NULL )
         {
-            mask |= (1U << i);
+            mask.set(i2enum<SubWindowRedrawingFlag>(i));
         }
     }
 
@@ -1782,10 +1787,10 @@ static void AngbandUpdateWindowVisibility(void)
      * Because this function is called frequently, we'll make the mask static.
      * It doesn't change between calls, as the flags themselves are hardcoded
      */
-    static uint32_t validWindowFlagsMask = 0;
+    static EnumClassFlagGroup<SubWindowRedrawingFlag> validWindowFlagsMask;
     BOOL anyChanged = NO;
 
-    if( validWindowFlagsMask == 0 )
+    if( validWindowFlagsMask.none() )
     {
         validWindowFlagsMask = AngbandMaskForValidSubwindowFlags();
     }
@@ -1830,7 +1835,8 @@ static void AngbandUpdateWindowVisibility(void)
         }
         else
         {
-            BOOL termHasSubwindowFlags = ((window_flag[i] & validWindowFlagsMask) > 0);
+            BOOL termHasSubwindowFlags =
+                g_window_flags[i].has_any_of(validWindowFlagsMask);
 
             if( angbandContext.hasSubwindowFlags && !termHasSubwindowFlags )
             {
@@ -3937,7 +3943,7 @@ static void set_color_for_index(int idx)
  */
 static void record_current_savefile(void)
 {
-    NSString *savefileString = [[NSString stringWithCString:savefile encoding:NSMacOSRomanStringEncoding] lastPathComponent];
+    NSString *savefileString = [[NSString stringWithCString:savefile.native().data() encoding:NSMacOSRomanStringEncoding] lastPathComponent];
     if (savefileString)
     {
         NSUserDefaults *angbandDefs = [NSUserDefaults angbandDefaults];
@@ -5531,6 +5537,34 @@ static void init_windows(void)
 }
 
 /**
+ * Set HFS file type and creator codes on a path
+ */
+static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOpenType ftype)
+{
+    @autoreleasepool {
+	NSString *pathString = [NSString stringWithUTF8String:path.native().data()];
+	if (pathString)
+        {
+	    uint32_t mac_type = 'TEXT';
+            if (ftype == FileOpenType::RAW)
+                mac_type = 'DATA';
+            else if (ftype == FileOpenType::SAVE)
+                mac_type = 'HENG';
+
+	    NSDictionary *attrs =
+		[NSDictionary dictionaryWithObjectsAndKeys:
+			      [NSNumber numberWithUnsignedLong:mac_type],
+			      NSFileHFSTypeCode,
+			      [NSNumber numberWithUnsignedLong:ANGBAND_CREATOR],
+			      NSFileHFSCreatorCode,
+			      nil];
+	    [[NSFileManager defaultManager]
+		setAttributes:attrs ofItemAtPath:pathString error:NULL];
+	}
+    }
+}
+
+/**
  * ------------------------------------------------------------------------
  * Main program
  * ------------------------------------------------------------------------ */
@@ -5641,6 +5675,8 @@ static void init_windows(void)
 	    if ([fileURLs count] > 0 && [[fileURLs objectAtIndex:0] isFileURL])
 	    {
 		NSURL* savefileURL = (NSURL *)[fileURLs objectAtIndex:0];
+		char t[1024];
+
 		/*
 		 * The path property doesn't do the right thing except for
 		 * URLs with the file scheme. We had
@@ -5648,9 +5684,11 @@ static void init_windows(void)
 		 * introduced until OS X 10.9.
 		 */
 		selectedSomething = [[savefileURL path]
-					getCString:savefile
-					maxLength:sizeof savefile
+					getCString:t
+					maxLength:sizeof(t)
 					encoding:NSMacOSRomanStringEncoding];
+		savefile = std::filesystem::path(t,
+			std::filesystem::path::native_format);
 	    }
 	}
 
@@ -5691,6 +5729,9 @@ static void init_windows(void)
 	plog_aux = hook_plog;
 	quit_aux = hook_quit;
 
+	/* Hook in to the file open routine */
+	file_open_hook = cocoa_file_open_hook;
+
 	/* Initialize file paths */
 	prepare_paths_and_directories();
 
@@ -5707,8 +5748,10 @@ static void init_windows(void)
 	/* init_display(); */
 
 	/* Initialize some save file stuff */
-	p_ptr->player_euid = geteuid();
-	p_ptr->player_egid = getegid();
+	auto &ids = UnixUserIds::get_instance();
+	ids.set_user_id(getuid());
+	ids.set_effective_user_id(geteuid());
+	ids.set_effective_group_id(getegid());
 
 	/*
 	 * Cause splash screen to be centered if the main window is bigger
@@ -5795,13 +5838,14 @@ static void init_windows(void)
         {
 	    /*
 	     * Another window is only usable after Term_init_cocoa() has
-	     * been called for it.  For Angband, if window_flag[i] is nonzero
-	     * then that has happened for window i.  For Hengband, that is
-	     * not the case so also test angband_terms[i]->data.
+	     * been called for it.  For Angband, if g_window_flags[i] has
+	     * any bits set then that has happened for window i.  For
+	     * Hengband, that is not the case so also test
+	     * angband_terms[i]->data.
 	     */
             NSInteger subwindowNumber = tag - AngbandWindowMenuItemTagBase;
             return (angband_terms[subwindowNumber]->data != 0
-		    && window_flag[subwindowNumber] > 0);
+		    && !g_window_flags[subwindowNumber].none());
         }
 
         return NO;
@@ -6279,11 +6323,13 @@ static void init_windows(void)
     }
 
     /* Put it in savefile */
-    if (! [file getFileSystemRepresentation:savefile maxLength:sizeof savefile]) {
+    char t[1024];
+    if (! [file getFileSystemRepresentation:t maxLength:sizeof(t)]) {
 	[[NSApplication sharedApplication]
 	    replyToOpenOrPrint:NSApplicationDelegateReplyFailure];
 	return;
     }
+    savefile = std::filesystem::path(t, std::filesystem::path::native_format);
 
     game_in_progress = YES;
 

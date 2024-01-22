@@ -1,4 +1,4 @@
-﻿#include "room/rooms-maze-vault.h"
+#include "room/rooms-maze-vault.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "game-option/cheat-types.h"
 #include "grid/grid.h"
@@ -101,7 +101,7 @@ void build_maze_vault(PlayerType *player_ptr, POSITION x0, POSITION y0, POSITION
 {
     msg_print_wizard(player_ptr, CHEAT_DUNGEON, _("迷路ランダムVaultを生成しました。", "Maze Vault."));
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    bool light = ((floor_ptr->dun_level <= randint1(25)) && is_vault && dungeons_info[floor_ptr->dungeon_idx].flags.has_not(DungeonFeatureType::DARKNESS));
+    bool light = ((floor_ptr->dun_level <= randint1(25)) && is_vault && floor_ptr->get_dungeon_definition().flags.has_not(DungeonFeatureType::DARKNESS));
     POSITION dy = ysize / 2 - 1;
     POSITION dx = xsize / 2 - 1;
     POSITION y1 = y0 - dy;
@@ -110,7 +110,7 @@ void build_maze_vault(PlayerType *player_ptr, POSITION x0, POSITION y0, POSITION
     POSITION x2 = x0 + dx;
     for (POSITION y = y1 - 1; y <= y2 + 1; y++) {
         for (POSITION x = x1 - 1; x <= x2 + 1; x++) {
-            grid_type *g_ptr;
+            Grid *g_ptr;
             g_ptr = &floor_ptr->grid_array[y][x];
             g_ptr->info |= CAVE_ROOM;
             if (is_vault) {

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 鏡使いの鏡魔法コマンド処理
  * @date 2022/03/07
  * @author Hourier
@@ -7,8 +7,6 @@
 
 #include "mind/mind-mirror-master.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -17,7 +15,6 @@
 #include "effect/effect-monster.h"
 #include "effect/effect-processor.h"
 #include "effect/spells-effect-util.h"
-#include "floor/cave.h"
 #include "floor/geometry.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/map-screen-options.h"
@@ -40,9 +37,11 @@
 #include "status/body-improvement.h"
 #include "status/buff-setter.h"
 #include "status/sight-setter.h"
+#include "system/angband-system.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-getter.h"
@@ -67,24 +66,38 @@ bool check_multishadow(PlayerType *player_ptr)
  */
 bool binding_field(PlayerType *player_ptr, int dam)
 {
-    POSITION mirror_x[10], mirror_y[10]; /* 鏡はもっと少ない */
+    /* 鏡はもっと少ない */
+    int mirror_x[10]{};
+    int mirror_y[10]{};
     int mirror_num = 0; /* 鏡の数 */
 
     /* 三角形の頂点 */
-    POSITION point_x[3];
-    POSITION point_y[3];
+    int point_x[3]{};
+    int point_y[3]{};
 
     /* Default target of monsterspell is player */
     monster_target_y = player_ptr->y;
     monster_target_x = player_ptr->x;
 
-    for (POSITION x = 0; x < player_ptr->current_floor_ptr->width; x++) {
-        for (POSITION y = 0; y < player_ptr->current_floor_ptr->height; y++) {
-            if (player_ptr->current_floor_ptr->grid_array[y][x].is_mirror() && distance(player_ptr->y, player_ptr->x, y, x) <= get_max_range(player_ptr) && distance(player_ptr->y, player_ptr->x, y, x) != 0 && player_has_los_bold(player_ptr, y, x) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                mirror_y[mirror_num] = y;
-                mirror_x[mirror_num] = x;
-                mirror_num++;
+    const auto max_range = AngbandSystem::get_instance().get_max_range();
+    const auto &floor = *player_ptr->current_floor_ptr;
+    for (auto x = 0; x < floor.width; x++) {
+        for (auto y = 0; y < floor.height; y++) {
+            const Pos2D pos(y, x);
+            const auto &grid = floor.get_grid(pos);
+            if (!grid.is_mirror()) {
+                continue;
             }
+
+            const auto dist = distance(player_ptr->y, player_ptr->x, pos.y, pos.x);
+            const auto is_projectable = projectable(player_ptr, player_ptr->y, player_ptr->x, pos.y, pos.x);
+            if ((dist == 0) || (dist > max_range) || !grid.has_los() || !is_projectable) {
+                continue;
+            }
+
+            mirror_y[mirror_num] = y;
+            mirror_x[mirror_num] = x;
+            mirror_num++;
         }
     }
 
@@ -124,14 +137,25 @@ bool binding_field(PlayerType *player_ptr, int dam)
 
     for (y = y1; y <= y2; y++) {
         for (x = x1; x <= x2; x++) {
-            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) >= 0 && centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) >= 0 && centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) >= 0) {
-                if (player_has_los_bold(player_ptr, y, x) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                    if (!(player_ptr->effects()->blindness()->is_blind()) && panel_contains(y, x)) {
-                        print_bolt_pict(player_ptr, y, x, y, x, AttributeType::MANA);
-                        move_cursor_relative(y, x);
-                        term_fresh();
-                        term_xtra(TERM_XTRA_DELAY, delay_factor);
-                    }
+            const Pos2D pos(y, x);
+            if ((centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) < 0)) {
+                continue;
+            }
+
+            if ((centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) < 0)) {
+                continue;
+            }
+
+            if ((centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) < 0)) {
+                continue;
+            }
+
+            if (floor.has_los(pos) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
+                if (!(player_ptr->effects()->blindness()->is_blind()) && panel_contains(y, x)) {
+                    print_bolt_pict(player_ptr, y, x, y, x, AttributeType::MANA);
+                    move_cursor_relative(y, x);
+                    term_fresh();
+                    term_xtra(TERM_XTRA_DELAY, delay_factor);
                 }
             }
         }
@@ -139,30 +163,64 @@ bool binding_field(PlayerType *player_ptr, int dam)
 
     for (y = y1; y <= y2; y++) {
         for (x = x1; x <= x2; x++) {
-            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) >= 0 && centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) >= 0 && centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) >= 0) {
-                if (player_has_los_bold(player_ptr, y, x) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                    (void)affect_feature(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
-                }
+            const Pos2D pos(y, x);
+            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) < 0) {
+                continue;
+            }
+
+            if (floor.has_los(pos) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
+                (void)affect_feature(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
             }
         }
     }
 
     for (y = y1; y <= y2; y++) {
         for (x = x1; x <= x2; x++) {
-            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) >= 0 && centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) >= 0 && centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) >= 0) {
-                if (player_has_los_bold(player_ptr, y, x) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                    (void)affect_item(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
-                }
+            const Pos2D pos(y, x);
+            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) < 0) {
+                continue;
+            }
+
+            if (floor.has_los(pos) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
+                (void)affect_item(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
             }
         }
     }
 
     for (y = y1; y <= y2; y++) {
         for (x = x1; x <= x2; x++) {
-            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) >= 0 && centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) >= 0 && centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) >= 0) {
-                if (player_has_los_bold(player_ptr, y, x) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                    (void)affect_monster(player_ptr, 0, 0, y, x, dam, AttributeType::MANA, (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP), true);
-                }
+            const Pos2D pos(y, x);
+            if (centersign * ((point_x[0] - x) * (point_y[1] - y) - (point_y[0] - y) * (point_x[1] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[1] - x) * (point_y[2] - y) - (point_y[1] - y) * (point_x[2] - x)) < 0) {
+                continue;
+            }
+
+            if (centersign * ((point_x[2] - x) * (point_y[0] - y) - (point_y[2] - y) * (point_x[0] - x)) < 0) {
+                continue;
+            }
+
+            if (floor.has_los(pos) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
+                constexpr auto flags = PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP;
+                (void)affect_monster(player_ptr, 0, 0, y, x, dam, AttributeType::MANA, flags, true);
             }
         }
     }
@@ -221,8 +279,8 @@ bool set_multishadow(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->multishadow = v;
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
-
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     if (!notice) {
         return false;
     }
@@ -230,7 +288,8 @@ bool set_multishadow(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
-    player_ptr->update |= (PU_BONUS);
+
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
     return true;
 }
@@ -268,8 +327,8 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     }
 
     player_ptr->dustrobe = v;
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
-
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     if (!notice) {
         return false;
     }
@@ -277,7 +336,8 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
-    player_ptr->update |= (PU_BONUS);
+
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
     return true;
 }
@@ -417,7 +477,7 @@ bool cast_mirror_spell(PlayerType *player_ptr, MindMirrorMasterType spell)
             return false;
         }
 
-        SpellsMirrorMaster(player_ptr).super_ray(dir, damroll(11 + (plev - 5) / 4, 8));
+        SpellsMirrorMaster(player_ptr).super_ray(dir, 150 + randint1(2 * plev));
         break;
     case MindMirrorMasterType::ILLUSION_LIGHT:
         tmp = g_ptr->is_mirror() ? 4 : 3;

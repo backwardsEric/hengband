@@ -1,9 +1,7 @@
-﻿#include "inventory/player-inventory.h"
+#include "inventory/player-inventory.h"
 #include "autopick/autopick.h"
 #include "core/asking-player.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "dungeon/quest.h"
@@ -30,6 +28,7 @@
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
 #include "term/z-form.h"
 #include "util/string-processor.h"
@@ -54,8 +53,9 @@ bool can_get_item(PlayerType *player_ptr, const ItemTester &item_tester)
         }
     }
 
+    constexpr auto mode = SCAN_FLOOR_ITEM_TESTER | SCAN_FLOOR_ONLY_MARKED;
     OBJECT_IDX floor_list[23];
-    ITEM_NUMBER floor_num = scan_floor_items(player_ptr, floor_list, player_ptr->y, player_ptr->x, SCAN_FLOOR_ITEM_TESTER | SCAN_FLOOR_ONLY_MARKED, item_tester);
+    ITEM_NUMBER floor_num = scan_floor_items(player_ptr, floor_list, player_ptr->y, player_ptr->x, mode, item_tester);
     return floor_num != 0;
 }
 
@@ -65,12 +65,12 @@ bool can_get_item(PlayerType *player_ptr, const ItemTester &item_tester)
  */
 static bool py_pickup_floor_aux(PlayerType *player_ptr)
 {
-    OBJECT_IDX this_o_idx;
-    OBJECT_IDX item;
-    concptr q = _("どれを拾いますか？", "Get which item? ");
-    concptr s = _("もうザックには床にあるどのアイテムも入らない。", "You no longer have any room for the objects on the floor.");
-    if (choose_object(player_ptr, &item, q, s, (USE_FLOOR), FuncItemTester(check_store_item_to_inventory, player_ptr))) {
-        this_o_idx = 0 - item;
+    short this_o_idx;
+    short i_idx;
+    constexpr auto q = _("どれを拾いますか？", "Get which item? ");
+    constexpr auto s = _("もうザックには床にあるどのアイテムも入らない。", "You no longer have any room for the objects on the floor.");
+    if (choose_object(player_ptr, &i_idx, q, s, (USE_FLOOR), FuncItemTester(check_store_item_to_inventory, player_ptr))) {
+        this_o_idx = 0 - i_idx;
     } else {
         return false;
     }
@@ -91,6 +91,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
     OBJECT_IDX floor_o_idx = 0;
     int can_pickup = 0;
     auto &o_idx_list = player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     for (auto it = o_idx_list.begin(); it != o_idx_list.end();) {
         const OBJECT_IDX this_o_idx = *it++;
         auto *o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
@@ -101,8 +102,8 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
             msg_format(mes, (long)o_ptr->pval, item_name.data());
             sound(SOUND_SELL);
             player_ptr->au += o_ptr->pval;
-            player_ptr->redraw |= (PR_GOLD);
-            player_ptr->window_flags |= (PW_PLAYER);
+            rfu.set_flag(MainWindowRedrawingFlag::GOLD);
+            rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
             delete_object_idx(player_ptr, this_o_idx);
             continue;
         } else if (o_ptr->marked.has(OmType::SUPRESS_MESSAGE)) {
@@ -165,7 +166,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
     auto *o_ptr = &player_ptr->current_floor_ptr->o_list[floor_o_idx];
     const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
     strnfmt(out_val, sizeof(out_val), _("%sを拾いますか? ", "Pick up %s? "), item_name.data());
-    if (!get_check(out_val)) {
+    if (!input_check(out_val)) {
         return;
     }
 
@@ -225,10 +226,10 @@ void describe_pickup_item(PlayerType *player_ptr, OBJECT_IDX o_idx)
         }
     }
 
-    angband_strcpy(record_o_name, old_item_name.data(), old_item_name.length());
+    angband_strcpy(record_o_name, old_item_name, old_item_name.length());
 #else
     msg_format("You have %s (%c).", item_name.data(), index_to_label(slot));
-    angband_strcpy(record_o_name, item_name.data(), item_name.length());
+    angband_strcpy(record_o_name, item_name, item_name.length());
 #endif
     record_turn = w_ptr->game_turn;
     check_find_art_quest_completion(player_ptr, o_ptr);
@@ -242,9 +243,10 @@ void describe_pickup_item(PlayerType *player_ptr, OBJECT_IDX o_idx)
 void carry(PlayerType *player_ptr, bool pickup)
 {
     verify_panel(player_ptr);
-    player_ptr->update |= PU_MONSTER_STATUSES;
-    player_ptr->redraw |= PR_MAP;
-    player_ptr->window_flags |= PW_OVERHEAD;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+    rfu.set_flag(MainWindowRedrawingFlag::MAP);
+    rfu.set_flag(SubWindowRedrawingFlag::OVERHEAD);
     handle_stuff(player_ptr);
     auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x];
     autopick_pickup_items(player_ptr, g_ptr);
@@ -264,8 +266,8 @@ void carry(PlayerType *player_ptr, bool pickup)
             msg_format(_(" $%ld の価値がある%sを見つけた。", "You collect %ld gold pieces worth of %s."), (long)value, item_name.data());
             sound(SOUND_SELL);
             player_ptr->au += value;
-            player_ptr->redraw |= (PR_GOLD);
-            player_ptr->window_flags |= (PW_PLAYER);
+            rfu.set_flag(MainWindowRedrawingFlag::GOLD);
+            rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
             continue;
         }
 
@@ -288,7 +290,7 @@ void carry(PlayerType *player_ptr, bool pickup)
         if (carry_query_flag) {
             char out_val[MAX_NLEN + 20];
             strnfmt(out_val, sizeof(out_val), _("%sを拾いますか? ", "Pick up %s? "), item_name.data());
-            is_pickup_successful = get_check(out_val);
+            is_pickup_successful = input_check(out_val);
         }
 
         if (is_pickup_successful) {

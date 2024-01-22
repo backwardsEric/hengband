@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 各職業の特殊技能実装 / Special magics
  * @date 2014/01/15
  * @author
@@ -13,7 +13,6 @@
 #include "cmd-action/cmd-mind.h"
 #include "action/action-limited.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
 #include "core/window-redrawer.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -47,6 +46,7 @@
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
@@ -168,7 +168,7 @@ static bool check_mind_hp_mp_sufficiency(PlayerType *player_ptr, cm_type *cm_ptr
         return false;
     }
 
-    return get_check(_("それでも挑戦しますか? ", "Attempt it anyway? "));
+    return input_check(_("それでも挑戦しますか? ", "Attempt it anyway? "));
 }
 
 static void decide_mind_chance(PlayerType *player_ptr, cm_type *cm_ptr)
@@ -374,7 +374,7 @@ static void process_hard_concentration(PlayerType *player_ptr, cm_type *cm_ptr)
 {
     if ((cm_ptr->use_mind == MindKindType::BERSERKER) || (cm_ptr->use_mind == MindKindType::NINJUTSU)) {
         take_hit(player_ptr, DAMAGE_USELIFE, cm_ptr->mana_cost, _("過度の集中", "concentrating too hard"));
-        player_ptr->redraw |= PR_HP;
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::HP);
         return;
     }
 
@@ -425,9 +425,13 @@ void do_cmd_mind(PlayerType *player_ptr)
 
     mind_turn_passing(player_ptr, cm_ptr);
     process_hard_concentration(player_ptr, cm_ptr);
-    player_ptr->redraw |= PR_MP;
-    player_ptr->window_flags |= PW_PLAYER;
-    player_ptr->window_flags |= PW_SPELL;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::MP);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    rfu.set_flags(flags);
 }
 
 static MindKindType decide_use_mind_browse(PlayerType *player_ptr)
@@ -462,12 +466,12 @@ void do_cmd_mind_browse(PlayerType *player_ptr)
             return;
         }
 
-        term_erase(12, 21, 255);
-        term_erase(12, 20, 255);
-        term_erase(12, 19, 255);
-        term_erase(12, 18, 255);
-        term_erase(12, 17, 255);
-        term_erase(12, 16, 255);
+        term_erase(12, 21);
+        term_erase(12, 20);
+        term_erase(12, 19);
+        term_erase(12, 18);
+        term_erase(12, 17);
+        term_erase(12, 16);
         display_wrap_around(mind_tips[enum2i(use_mind)][n], 62, 17, 15);
 
         switch (use_mind) {

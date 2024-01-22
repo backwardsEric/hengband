@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ファイル入出力管理 / Purpose: code dealing with files (and death)
  * @date 2014/01/28
  * @author
@@ -18,6 +18,7 @@
 #include "io/uid-checker.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
+#include "system/angband-exceptions.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
@@ -25,6 +26,9 @@
 #include "util/angband-files.h"
 #include "view/display-messages.h"
 #include <algorithm>
+#ifdef SAVEFILE_USE_UID
+#include "main-unix/unix-user-ids.h"
+#endif
 
 std::filesystem::path ANGBAND_DIR; //!< Path name: The main "lib" directory This variable is not actually used anywhere in the code
 std::filesystem::path ANGBAND_DIR_APEX; //!< High score files (binary) These files may be portable between platforms
@@ -41,13 +45,9 @@ std::filesystem::path ANGBAND_DIR_DEBUG_SAVE; //*< Savefiles for debug data
 std::filesystem::path ANGBAND_DIR_USER; //!< User "preference" files (ascii) These files are rarely portable between platforms
 std::filesystem::path ANGBAND_DIR_XTRA; //!< Various extra files (binary) These files are rarely portable between platforms
 
-/*
- * Buffer to hold the current savefile name
- * 'savefile' holds full path name. 'savefile_base' holds only base name.
- */
-char savefile[1024];
-char savefile_base[40];
-char debug_savefile[1024];
+std::filesystem::path savefile;
+std::string savefile_base;
+std::filesystem::path debug_savefile;
 
 /*!
  * @brief プレイヤーステータスをファイルダンプ出力する
@@ -59,39 +59,48 @@ char debug_savefile[1024];
  * Allow the "full" flag to dump additional info,
  * and trigger its usage from various places in the code.
  */
-errr file_character(PlayerType *player_ptr, concptr name)
+void file_character(PlayerType *player_ptr, std::string_view filename)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, name);
-    auto fd = fd_open(buf, O_RDONLY);
+    const auto &path = path_build(ANGBAND_DIR_USER, filename);
+    auto fd = fd_open(path, O_RDONLY);
     if (fd >= 0) {
-        std::string query = _("現存するファイル ", "Replace existing file ");
-        query.append(buf).append(_(" に上書きしますか? ", "? "));
+        const auto &path_str = path.string();
+        std::stringstream ss;
+        ss << _("現存するファイル ", "Replace existing file ") << path_str << _(" に上書きしますか? ", "? ");
         (void)fd_close(fd);
-        if (get_check_strict(player_ptr, query, CHECK_NO_HISTORY)) {
+        if (input_check_strict(player_ptr, ss.str(), UserCheck::NO_HISTORY)) {
             fd = -1;
+        } else {
+            return;
         }
     }
 
     FILE *fff = nullptr;
     if (fd < 0) {
-        fff = angband_fopen(buf, FileOpenMode::WRITE);
+        fff = angband_fopen(path, FileOpenMode::WRITE);
     }
 
+    constexpr auto error_msg = _("キャラクタ情報のファイルへの書き出しに失敗しました！", "Character dump failed!");
     if (!fff) {
-        prt(_("キャラクタ情報のファイルへの書き出しに失敗しました！", "Character dump failed!"), 0, 0);
-        (void)inkey();
-        return -1;
+        msg_print(error_msg);
+        msg_print(nullptr);
+        return;
     }
 
     screen_save();
     make_character_dump(player_ptr, fff);
     screen_load();
 
+    if (ferror(fff)) {
+        angband_fclose(fff);
+        msg_print(error_msg);
+        msg_print(nullptr);
+        return;
+    }
+
     angband_fclose(fff);
     msg_print(_("キャラクタ情報のファイルへの書き出しに成功しました。", "Character dump successful."));
     msg_print(nullptr);
-    return 0;
 }
 
 /*!
@@ -102,9 +111,8 @@ errr file_character(PlayerType *player_ptr, concptr name)
  */
 std::optional<std::string> get_random_line(concptr file_name, int entry)
 {
-    char filename[1024];
-    path_build(filename, sizeof(filename), ANGBAND_DIR_FILE, file_name);
-    auto *fp = angband_fopen(filename, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_FILE, file_name);
+    auto *fp = angband_fopen(path, FileOpenMode::READ);
     if (!fp) {
         return std::nullopt;
     }
@@ -128,11 +136,11 @@ std::optional<std::string> get_random_line(concptr file_name, int entry)
         }
 
         if (buf[2] == 'M') {
-            if (monraces_info[i2enum<MonsterRaceId>(entry)].flags1 & RF1_MALE) {
+            if (is_male(monraces_info[i2enum<MonsterRaceId>(entry)])) {
                 break;
             }
         } else if (buf[2] == 'F') {
-            if (monraces_info[i2enum<MonsterRaceId>(entry)].flags1 & RF1_FEMALE) {
+            if (is_female(monraces_info[i2enum<MonsterRaceId>(entry)])) {
                 break;
             }
         } else if (sscanf(&(buf[2]), "%d", &test) != EOF) {
@@ -193,12 +201,12 @@ std::optional<std::string> get_random_line_ja_only(concptr file_name, int entry,
     std::optional<std::string> line;
     for (auto i = 0; i < count; i++) {
         line = get_random_line(file_name, entry);
-        if (!line.has_value()) {
+        if (!line) {
             return std::nullopt;
         }
 
         auto is_kanji = false;
-        for (const auto c : line.value()) {
+        for (const auto c : *line) {
             is_kanji |= iskanji(c);
         }
 
@@ -225,9 +233,10 @@ static errr counts_seek(PlayerType *player_ptr, int fd, uint32_t where, bool fla
     char temp1[128]{}, temp2[128]{};
     auto short_pclass = enum2i(player_ptr->pclass);
 #ifdef SAVEFILE_USE_UID
-    strnfmt(temp1, sizeof(temp1), "%d.%s.%d%d%d", player_ptr->player_uid, savefile_base, short_pclass, player_ptr->ppersonality, player_ptr->age);
+    const auto user_id = UnixUserIds::get_instance().get_user_id();
+    strnfmt(temp1, sizeof(temp1), "%d.%s.%d%d%d", user_id, savefile_base.data(), short_pclass, player_ptr->ppersonality, player_ptr->age);
 #else
-    strnfmt(temp1, sizeof(temp1), "%s.%d%d%d", savefile_base, short_pclass, player_ptr->ppersonality, player_ptr->age);
+    strnfmt(temp1, sizeof(temp1), "%s.%d%d%d", savefile_base.data(), short_pclass, player_ptr->ppersonality, player_ptr->age);
 #endif
     for (int i = 0; temp1[i]; i++) {
         temp1[i] ^= (i + 1) * 63;
@@ -269,9 +278,8 @@ static errr counts_seek(PlayerType *player_ptr, int fd, uint32_t where, bool fla
  */
 uint32_t counts_read(PlayerType *player_ptr, int where)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_DATA, _("z_info_j.raw", "z_info.raw"));
-    auto fd = fd_open(buf, O_RDONLY);
+    const auto &path = path_build(ANGBAND_DIR_DATA, _("z_info_j.raw", "z_info.raw"));
+    auto fd = fd_open(path, O_RDONLY);
     uint32_t count = 0;
     if (counts_seek(player_ptr, fd, where, false) || fd_read(fd, (char *)(&count), sizeof(uint32_t))) {
         count = 0;
@@ -291,19 +299,17 @@ uint32_t counts_read(PlayerType *player_ptr, int where)
  */
 errr counts_write(PlayerType *player_ptr, int where, uint32_t count)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_DATA, _("z_info_j.raw", "z_info.raw"));
-
-    safe_setuid_grab(player_ptr);
-    auto fd = fd_open(buf, O_RDWR);
+    const auto &path = path_build(ANGBAND_DIR_DATA, _("z_info_j.raw", "z_info.raw"));
+    safe_setuid_grab();
+    auto fd = fd_open(path, O_RDWR);
     safe_setuid_drop();
     if (fd < 0) {
-        safe_setuid_grab(player_ptr);
-        fd = fd_make(buf);
+        safe_setuid_grab();
+        fd = fd_make(path);
         safe_setuid_drop();
     }
 
-    safe_setuid_grab(player_ptr);
+    safe_setuid_grab();
     auto err = fd_lock(fd, F_WRLCK);
     safe_setuid_drop();
     if (err) {
@@ -312,7 +318,7 @@ errr counts_write(PlayerType *player_ptr, int where, uint32_t count)
 
     counts_seek(player_ptr, fd, where, true);
     fd_write(fd, (char *)(&count), sizeof(uint32_t));
-    safe_setuid_grab(player_ptr);
+    safe_setuid_grab();
     err = fd_lock(fd, F_UNLCK);
     safe_setuid_drop();
 
@@ -329,14 +335,14 @@ errr counts_write(PlayerType *player_ptr, int where, uint32_t count)
  */
 void read_dead_file()
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, _("dead_j.txt", "dead.txt"));
-    auto *fp = angband_fopen(buf, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_FILE, _("dead_j.txt", "dead.txt"));
+    auto *fp = angband_fopen(path, FileOpenMode::READ);
     if (!fp) {
         return;
     }
 
     int i = 0;
+    char buf[1024]{};
     while (angband_fgets(fp, buf, sizeof(buf)) == 0) {
         put_str(buf, i++, 0);
     }

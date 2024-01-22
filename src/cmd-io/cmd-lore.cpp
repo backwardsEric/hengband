@@ -1,4 +1,4 @@
-﻿#include "cmd-io/cmd-lore.h"
+#include "cmd-io/cmd-lore.h"
 #include "core/asking-player.h"
 #include "core/stuff-handler.h"
 #include "game-option/cheat-options.h"
@@ -37,125 +37,122 @@
  */
 void do_cmd_query_symbol(PlayerType *player_ptr)
 {
-    char sym, query;
-
     bool all = false;
     bool uniq = false;
     bool norm = false;
     bool ride = false;
-    char temp[MAX_MONSTER_NAME] = "";
-
     bool recall = false;
 
     uint16_t why = 0;
 
-    if (!get_com(_("知りたい文字を入力して下さい(記号 or ^A全,^Uユ,^N非ユ,^R乗馬,^M名前): ",
-                     "Enter character to be identified(^A:All,^U:Uniqs,^N:Non uniqs,^M:Name): "),
-            &sym, false)) {
+    constexpr auto prompt = _("知りたい文字を入力して下さい(記号 or ^A全,^Uユ,^N非ユ,^R乗馬,^M名前): ",
+        "Enter character to be identified(^A:All,^U:Uniqs,^N:Non uniqs,^M:Name): ");
+    const auto symbol = input_command(prompt);
+    if (!symbol) {
         return;
     }
 
     int ident_i;
     for (ident_i = 0; ident_info[ident_i]; ++ident_i) {
-        if (sym == ident_info[ident_i][0]) {
+        if (symbol == ident_info[ident_i][0]) {
             break;
         }
     }
 
     std::string buf;
-    if (sym == KTRL('A')) {
+    std::string monster_name("");
+    if (symbol == KTRL('A')) {
         all = true;
         buf = _("全モンスターのリスト", "Full monster list.");
-    } else if (sym == KTRL('U')) {
+    } else if (symbol == KTRL('U')) {
         all = uniq = true;
         buf = _("ユニーク・モンスターのリスト", "Unique monster list.");
-    } else if (sym == KTRL('N')) {
+    } else if (symbol == KTRL('N')) {
         all = norm = true;
         buf = _("ユニーク外モンスターのリスト", "Non-unique monster list.");
-    } else if (sym == KTRL('R')) {
+    } else if (symbol == KTRL('R')) {
         all = ride = true;
         buf = _("乗馬可能モンスターのリスト", "Ridable monster list.");
-    } else if (sym == KTRL('M')) {
+    } else if (symbol == KTRL('M')) {
         all = true;
-        if (!get_string(_("名前(英語の場合小文字で可)", "Enter name:"), temp, 70)) {
-            temp[0] = 0;
+        const auto monster_name_opt = input_string(_("名前(英語の場合小文字で可)", "Enter name:"), MAX_MONSTER_NAME);
+        if (!monster_name_opt) {
             return;
         }
-        buf = format(_("名前:%sにマッチ", "Monsters' names with \"%s\""), temp);
+
+        monster_name = *monster_name_opt;
+        buf = format(_("名前:%sにマッチ", "Monsters' names with \"%s\""), monster_name.data());
     } else if (ident_info[ident_i]) {
-        buf = format("%c - %s.", sym, ident_info[ident_i] + 2);
+        buf = format("%c - %s.", *symbol, ident_info[ident_i] + 2);
     } else {
-        buf = format("%c - %s", sym, _("無効な文字", "Unknown Symbol"));
+        buf = format("%c - %s", *symbol, _("無効な文字", "Unknown Symbol"));
     }
 
     prt(buf, 0, 0);
-    std::vector<MonsterRaceId> who;
-    for (const auto &[r_idx, r_ref] : monraces_info) {
-        if (!cheat_know && !r_ref.r_sights) {
+    std::vector<MonsterRaceId> monraces;
+    for (const auto &[monrace_id, monrace] : monraces_info) {
+        if (!cheat_know && !monrace.r_sights) {
             continue;
         }
 
-        if (norm && r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
+        if (norm && monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
             continue;
         }
 
-        if (uniq && r_ref.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+        if (uniq && monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
             continue;
         }
 
-        if (ride && !(r_ref.flags7 & (RF7_RIDING))) {
+        if (ride && !(monrace.flags7 & (RF7_RIDING))) {
             continue;
         }
 
-        if (temp[0]) {
-            TERM_LEN xx;
-            char temp2[MAX_MONSTER_NAME];
-
-            for (xx = 0; temp[xx] && xx < MAX_MONSTER_NAME; xx++) {
+        if (!monster_name.empty()) {
+            for (size_t xx = 0; xx < monster_name.length(); xx++) {
 #ifdef JP
-                if (iskanji(temp[xx])) {
+                if (iskanji(monster_name[xx])) {
                     xx++;
                     continue;
                 }
 #endif
-                if (isupper(temp[xx])) {
-                    temp[xx] = (char)tolower(temp[xx]);
+                if (isupper(monster_name[xx])) {
+                    monster_name[xx] = (char)tolower(monster_name[xx]);
                 }
             }
 
 #ifdef JP
-            strcpy(temp2, r_ref.E_name.data());
+            auto temp2(monrace.E_name);
 #else
-            strcpy(temp2, r_ref.name.data());
+            auto temp2(monrace.name);
 #endif
-            for (xx = 0; temp2[xx] && xx < MAX_MONSTER_NAME; xx++) {
+            for (size_t xx = 0; xx < temp2.length(); xx++) {
                 if (isupper(temp2[xx])) {
                     temp2[xx] = (char)tolower(temp2[xx]);
                 }
             }
 
 #ifdef JP
-            if (angband_strstr(temp2, temp) || angband_strstr(r_ref.name.data(), temp))
+            if (str_find(temp2, monster_name) || str_find(monrace.name, monster_name))
 #else
-            if (angband_strstr(temp2, temp))
+            if (str_find(temp2, monster_name))
 #endif
-                who.push_back(r_ref.idx);
+                monraces.push_back(monrace_id);
         }
 
-        else if (all || (r_ref.d_char == sym)) {
-            who.push_back(r_ref.idx);
+        else if (all || (monrace.d_char == symbol)) {
+            monraces.push_back(monrace_id);
         }
     }
 
-    if (who.empty()) {
+    if (monraces.empty()) {
         return;
     }
 
     put_str(_("思い出を見ますか? (k:殺害順/y/n): ", "Recall details? (k/y/n): "), 0, _(36, 40));
-    query = inkey();
+    auto query = inkey();
     prt(buf, 0, 0);
     why = 2;
-    ang_sort(player_ptr, who.data(), &why, who.size(), ang_sort_comp_hook, ang_sort_swap_hook);
+    ang_sort(player_ptr, monraces.data(), &why, monraces.size(), ang_sort_comp_hook, ang_sort_swap_hook);
     if (query == 'k') {
         why = 4;
         query = 'y';
@@ -166,18 +163,18 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
     }
 
     if (why == 4) {
-        ang_sort(player_ptr, who.data(), &why, who.size(), ang_sort_comp_hook, ang_sort_swap_hook);
+        ang_sort(player_ptr, monraces.data(), &why, monraces.size(), ang_sort_comp_hook, ang_sort_swap_hook);
     }
 
-    auto i = who.size() - 1;
+    auto i = monraces.size() - 1;
     while (true) {
-        auto r_idx = who[i];
+        auto r_idx = monraces[i];
         monster_race_track(player_ptr, r_idx);
         handle_stuff(player_ptr);
         while (true) {
             if (recall) {
                 screen_save();
-                screen_roff(player_ptr, who[i], MONSTER_LORE_NORMAL);
+                screen_roff(player_ptr, monraces[i], MONSTER_LORE_NORMAL);
             }
 
             roff_top(r_idx);
@@ -198,7 +195,7 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
         }
 
         if (query == '-') {
-            if (++i == who.size()) {
+            if (++i == monraces.size()) {
                 i = 0;
                 if (!expand_list) {
                     break;
@@ -206,7 +203,7 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
             }
         } else {
             if (i-- == 0) {
-                i = who.size() - 1;
+                i = monraces.size() - 1;
                 if (!expand_list) {
                     break;
                 }

@@ -1,9 +1,6 @@
-﻿#include "player-status/player-basic-statistics.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
+#include "player-status/player-basic-statistics.h"
 #include "core/window-redrawer.h"
 #include "mutation/mutation-flag-types.h"
-#include "object/object-flags.h"
 #include "player-base/player-race.h"
 #include "player-info/class-info.h"
 #include "player-info/mimic-info-table.h"
@@ -14,6 +11,7 @@
 #include "realm/realm-hex-numbers.h"
 #include "spell-realm/spells-hex.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 
@@ -107,8 +105,9 @@ void PlayerBasicStatistics::update_top_status()
 
     if (this->player_ptr->stat_top[status] != top) {
         this->player_ptr->stat_top[status] = (int16_t)top;
-        set_bits(this->player_ptr->redraw, PR_ABILITY_SCORE);
-        set_bits(this->player_ptr->window_flags, PW_PLAYER);
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
+        rfu.set_flag(MainWindowRedrawingFlag::ABILITY_SCORE);
+        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     }
 }
 
@@ -140,8 +139,9 @@ void PlayerBasicStatistics::update_use_status()
 
     if (this->player_ptr->stat_use[status] != use) {
         this->player_ptr->stat_use[status] = (int16_t)use;
-        set_bits(this->player_ptr->redraw, PR_ABILITY_SCORE);
-        set_bits(this->player_ptr->window_flags, PW_PLAYER);
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
+        rfu.set_flag(MainWindowRedrawingFlag::ABILITY_SCORE);
+        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     }
 }
 
@@ -169,21 +169,26 @@ void PlayerBasicStatistics::update_index_status()
     }
 
     this->player_ptr->stat_index[status] = (int16_t)index;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags = {
+        StatusRecalculatingFlag::MP,
+        StatusRecalculatingFlag::SPELLS,
+    };
     if (status == A_CON) {
-        set_bits(this->player_ptr->update, PU_HP);
+        rfu.set_flag(StatusRecalculatingFlag::HP);
     } else if (status == A_INT) {
         if (mp_ptr->spell_stat == A_INT) {
-            set_bits(this->player_ptr->update, (PU_MP | PU_SPELLS));
+            rfu.set_flags(flags);
         }
     } else if (status == A_WIS) {
         if (mp_ptr->spell_stat == A_WIS) {
-            set_bits(this->player_ptr->update, (PU_MP | PU_SPELLS));
+            rfu.set_flags(flags);
         }
     } else if (status == A_CHR) {
         if (mp_ptr->spell_stat == A_CHR) {
-            set_bits(this->player_ptr->update, (PU_MP | PU_SPELLS));
+            rfu.set_flags(flags);
         }
     }
 
-    set_bits(this->player_ptr->window_flags, PW_PLAYER);
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
 }

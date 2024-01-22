@@ -1,4 +1,4 @@
-﻿#include "cmd-io/cmd-knowledge.h"
+#include "cmd-io/cmd-knowledge.h"
 #include "cmd-visual/cmd-draw.h"
 #include "game-option/birth-options.h"
 #include "grid/feature.h"
@@ -15,6 +15,7 @@
 #include "knowledge/knowledge-uniques.h"
 #include "main/sound-of-music.h"
 #include "system/player-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
@@ -27,6 +28,7 @@ void do_cmd_knowledge(PlayerType *player_ptr)
     int i, p = 0;
     bool need_redraw = false;
     screen_save();
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
     while (true) {
         term_clear();
         prt(format(_("%d/2 ページ", "page %d/2"), (p + 1)), 2, 65);

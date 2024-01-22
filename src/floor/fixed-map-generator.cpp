@@ -1,4 +1,4 @@
-﻿#include "floor/fixed-map-generator.h"
+#include "floor/fixed-map-generator.h"
 #include "artifact/fixed-art-generator.h"
 #include "artifact/fixed-art-types.h"
 #include "dungeon/quest.h"
@@ -115,7 +115,7 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
         if (random & RANDOM_MONSTER) {
             floor_ptr->monster_level = floor_ptr->base_level + monster_index;
 
-            place_monster(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, (PM_ALLOW_SLEEP | PM_ALLOW_GROUP | PM_NO_QUEST));
+            place_random_monster(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, (PM_ALLOW_SLEEP | PM_ALLOW_GROUP | PM_NO_QUEST));
 
             floor_ptr->monster_level = floor_ptr->base_level;
         } else if (monster_index) {
@@ -135,14 +135,14 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
 
             if (r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
                 r_ref.cur_num = 0;
-                r_ref.max_num = 1;
+                r_ref.max_num = MAX_UNIQUE_NUM;
             } else if (r_ref.population_flags.has(MonsterPopulationType::NAZGUL)) {
                 if (r_ref.cur_num == r_ref.max_num) {
                     r_ref.max_num++;
                 }
             }
 
-            place_monster_aux(player_ptr, 0, *qtwg_ptr->y, *qtwg_ptr->x, r_idx, (PM_ALLOW_SLEEP | PM_NO_KAGE));
+            place_specific_monster(player_ptr, 0, *qtwg_ptr->y, *qtwg_ptr->x, r_idx, (PM_ALLOW_SLEEP | PM_NO_KAGE));
             if (clone) {
                 floor_ptr->m_list[hack_m_idx_ii].mflag2.set(MonsterConstantFlagType::CLONED);
                 r_ref.cur_num = old_cur_num;
@@ -160,7 +160,7 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
             if (randint0(100) < 75) {
                 place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, 0L);
             } else {
-                place_trap(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
+                place_trap(floor_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
             }
 
             floor_ptr->object_level = floor_ptr->base_level;
@@ -176,7 +176,7 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
 
             floor_ptr->object_level = floor_ptr->base_level;
         } else if (random & RANDOM_TRAP) {
-            place_trap(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
+            place_trap(floor_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
         } else if (letter[idx].trap) {
             g_ptr->mimic = g_ptr->feat;
             g_ptr->feat = conv_dungeon_feat(floor_ptr, letter[idx].trap);
@@ -369,7 +369,7 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
     floor_ptr->width = panels_x * SCREEN_WID;
     panel_row_min = floor_ptr->height;
     panel_col_min = floor_ptr->width;
-    if (inside_quest(floor_ptr->quest_number)) {
+    if (floor_ptr->is_in_quest()) {
         POSITION py = atoi(zz[0]);
         POSITION px = atoi(zz[1]);
         player_ptr->y = py;

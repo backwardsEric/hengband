@@ -1,14 +1,14 @@
-﻿#include "autopick/autopick-reader-writer.h"
+#include "autopick/autopick-reader-writer.h"
 #include "autopick/autopick-initializer.h"
 #include "autopick/autopick-pref-processor.h"
 #include "autopick/autopick-util.h"
 #include "io/files-util.h"
 #include "io/read-pref-file.h"
+#include "system/angband-exceptions.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -18,25 +18,43 @@
  */
 void autopick_load_pref(PlayerType *player_ptr, bool disp_mes)
 {
-    GAME_TEXT buf[80];
     init_autopick();
-    angband_strcpy(buf, pickpref_filename(player_ptr, PT_WITH_PNAME).data(), sizeof(buf));
-    errr err = process_autopick_file(player_ptr, buf);
-    if (err == 0 && disp_mes) {
-        msg_format(_("%sを読み込みました。", "Loaded '%s'."), buf);
-    }
 
-    if (err < 0) {
-        angband_strcpy(buf, pickpref_filename(player_ptr, PT_DEFAULT).data(), sizeof(buf));
-        err = process_autopick_file(player_ptr, buf);
-        if (err == 0 && disp_mes) {
-            msg_format(_("%sを読み込みました。", "Loaded '%s'."), buf);
+    const auto path = search_pickpref_path(player_ptr);
+    if (!path.empty()) {
+        const auto pickpref_filename = path.filename().string();
+        if (process_autopick_file(player_ptr, pickpref_filename) == 0) {
+            if (disp_mes) {
+                msg_format(_("%sを読み込みました。", "Loaded '%s'."), pickpref_filename.data());
+            }
+            return;
         }
     }
 
-    if (err && disp_mes) {
+    if (disp_mes) {
         msg_print(_("自動拾い設定ファイルの読み込みに失敗しました。", "Failed to reload autopick preference."));
     }
+}
+
+/*!
+ * @brief 自動拾い設定ファイルのパスを返す
+ *
+ * ユーザディレクトリを "picktype-プレイヤー名.prf"、"picktype.prf" の順にファイルが存在するかどうかを確認し、
+ * 存在した場合はそのパスを返す。どちらも存在しない場合は空のパスを返す。
+ *
+ * @return 見つかった自動拾い設定ファイルのパス。見つからなかった場合は空のパス。
+ */
+std::filesystem::path search_pickpref_path(PlayerType *player_ptr)
+{
+    for (const auto filename_mode : { PT_WITH_PNAME, PT_DEFAULT }) {
+        const auto filename = pickpref_filename(player_ptr, filename_mode);
+        const auto path = path_build(ANGBAND_DIR_USER, filename);
+        if (std::filesystem::exists(path)) {
+            return path;
+        }
+    }
+
+    return {};
 }
 
 /*!
@@ -53,8 +71,10 @@ std::string pickpref_filename(PlayerType *player_ptr, int filename_mode)
     case PT_WITH_PNAME:
         return format("%s-%s.prf", namebase, player_ptr->base_name);
 
-    default:
-        throw std::invalid_argument(format("The value of argument 'filename_mode' is invalid: %d", filename_mode));
+    default: {
+        const auto msg = format("The value of argument 'filename_mode' is invalid: %d", filename_mode);
+        THROW_EXCEPTION(std::invalid_argument, msg);
+    }
     }
 }
 
@@ -63,15 +83,15 @@ std::string pickpref_filename(PlayerType *player_ptr, int filename_mode)
  */
 static std::vector<concptr> read_text_lines(std::string_view filename)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, filename);
-    auto *fff = angband_fopen(buf, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_USER, filename);
+    auto *fff = angband_fopen(path, FileOpenMode::READ);
     if (!fff) {
         return {};
     }
 
     auto lines = 0;
     std::vector<concptr> lines_list(MAX_LINES);
+    char buf[1024]{};
     while (angband_fgets(fff, buf, sizeof(buf)) == 0) {
         lines_list[lines++] = string_make(buf);
         if (is_greater_autopick_max_line(lines)) {
@@ -102,9 +122,8 @@ static void prepare_default_pickpref(PlayerType *player_ptr)
     }
 
     msg_print(nullptr);
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, filename);
-    auto *user_fp = angband_fopen(buf, FileOpenMode::WRITE);
+    const auto &path_user = path_build(ANGBAND_DIR_USER, filename);
+    auto *user_fp = angband_fopen(path_user, FileOpenMode::WRITE);
     if (!user_fp) {
         return;
     }
@@ -115,13 +134,14 @@ static void prepare_default_pickpref(PlayerType *player_ptr)
     }
 
     fprintf(user_fp, "#***\n\n\n");
-    path_build(buf, sizeof(buf), ANGBAND_DIR_PREF, filename);
-    auto *pref_fp = angband_fopen(buf, FileOpenMode::READ);
+    const auto &path_pref = path_build(ANGBAND_DIR_PREF, filename);
+    auto *pref_fp = angband_fopen(path_pref, FileOpenMode::READ);
     if (!pref_fp) {
         angband_fclose(user_fp);
         return;
     }
 
+    char buf[1024]{};
     while (!angband_fgets(pref_fp, buf, sizeof(buf))) {
         fprintf(user_fp, "%s\n", buf);
     }
@@ -165,9 +185,8 @@ std::vector<concptr> read_pickpref_text_lines(PlayerType *player_ptr, int *filen
  */
 bool write_text_lines(std::string_view filename, const std::vector<concptr> &lines)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, filename);
-    auto *fff = angband_fopen(buf, FileOpenMode::WRITE);
+    const auto &path = path_build(ANGBAND_DIR_USER, filename);
+    auto *fff = angband_fopen(path, FileOpenMode::WRITE);
     if (!fff) {
         return false;
     }

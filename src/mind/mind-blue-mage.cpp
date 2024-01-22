@@ -1,10 +1,9 @@
-﻿#include "mind/mind-blue-mage.h"
+#include "mind/mind-blue-mage.h"
 #include "action/action-limited.h"
 #include "avatar/avatar.h"
 #include "blue-magic/blue-magic-caster.h"
 #include "blue-magic/learnt-power-getter.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
 #include "core/window-redrawer.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/input-options.h"
@@ -19,6 +18,7 @@
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
@@ -36,11 +36,11 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
     }
 
     auto selected_spell = get_learned_power(player_ptr);
-    if (!selected_spell.has_value()) {
+    if (!selected_spell) {
         return false;
     }
 
-    const auto &spell = monster_powers.at(selected_spell.value());
+    const auto &spell = monster_powers.at(*selected_spell);
     const auto need_mana = mod_need_mana(player_ptr, spell.smana, 0, REALM_NONE);
     if (need_mana > player_ptr->csp) {
         msg_print(_("ＭＰが足りません。", "You do not have enough mana to use this power."));
@@ -48,7 +48,7 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
             return false;
         }
 
-        if (!get_check(_("それでも挑戦しますか? ", "Attempt it anyway? "))) {
+        if (!input_check(_("それでも挑戦しますか? ", "Attempt it anyway? "))) {
             return false;
         }
     }
@@ -62,12 +62,12 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
 
         msg_print(_("魔法をうまく唱えられなかった。", "You failed to concentrate hard enough!"));
         sound(SOUND_FAIL);
-        if (RF_ABILITY_SUMMON_MASK.has(selected_spell.value())) {
-            cast_learned_spell(player_ptr, selected_spell.value(), false);
+        if (RF_ABILITY_SUMMON_MASK.has(*selected_spell)) {
+            cast_learned_spell(player_ptr, *selected_spell, false);
         }
     } else {
         sound(SOUND_ZAP);
-        if (!cast_learned_spell(player_ptr, selected_spell.value(), true)) {
+        if (!cast_learned_spell(player_ptr, *selected_spell, true)) {
             return false;
         }
     }
@@ -89,7 +89,12 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    player_ptr->redraw |= PR_MP;
-    player_ptr->window_flags |= PW_PLAYER | PW_SPELL;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::MP);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    rfu.set_flags(flags);
     return true;
 }

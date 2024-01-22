@@ -1,5 +1,5 @@
 /**
- * \file grafmode.c
+ * \file grafmode.cpp
  * \brief Load a list of possible graphics modes.
  *
  * Copyright (c) 2011 Brett Reid
@@ -16,7 +16,7 @@
  *    are included in all such copies.  Other copyrights may also apply.
  */
 /*
- * Imported from Angband 4.2.0 to support main-cocoa.m for Hengband.  Did not
+ * Imported from Angband 4.2.0 to support main-cocoa.mm for Hengband.  Did not
  * bring over the datafile parsing (datafile.h and datafile.c) so the
  * implementation here is different from that in Angband.
  */
@@ -24,6 +24,7 @@
 #include "system/grafmode.h"
 #include "io/files-util.h"
 #include "util/angband-files.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 
 #define GFPARSE_HAVE_NOTHING (0)
@@ -236,15 +237,14 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		 * to separately store the base directory for the tile files.
 		 */
 		char chold = pgps->file_name[pgps->dir_len];
+		std::filesystem::path p;
 
 		pgps->file_name[pgps->dir_len] = '\0';
-		path_build(
-		    pgps->list->path,
-		    sizeof(pgps->list->path),
-		    pgps->file_name,
-		    line + offset
-		);
+		p = path_build(std::filesystem::path(pgps->file_name,
+			std::filesystem::path::native_format), line + offset);
 		pgps->file_name[pgps->dir_len] = chold;
+		angband_strcpy(pgps->list->path, p.native().data(),
+			sizeof(pgps->list->path));
 	    }
 	}
 	break;
@@ -458,12 +458,15 @@ bool init_graphics_modes(void) {
     char buf[1024];
     char line[1024];
     GrafModeParserState gps = { 0, buf, 0, 0, GFPARSE_HAVE_NOTHING, 0 };
+    std::filesystem::path p;
     FILE *f;
 
     /* Build the filename */
-    path_build(line, sizeof(line), ANGBAND_DIR_XTRA, "graf");
+    p = path_build(ANGBAND_DIR_XTRA, "graf");
+    angband_strcpy(line, p.native().data(), sizeof(line));
     gps.dir_len = strlen(line);
-    path_build(buf, sizeof(buf), line, "list.txt");
+    p = path_build(p, "list.txt");
+    angband_strcpy(buf, p.native().data(), sizeof(buf));
 
     f = angband_fopen(buf, FileOpenMode::READ);
     if (!f) {

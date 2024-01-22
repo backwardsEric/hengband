@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file scene-table-floor.cpp
  * @brief フロアの状況に応じたBGM設定処理実装
  */
@@ -6,6 +6,7 @@
 #include "main/scene-table-floor.h"
 #include "dungeon/quest.h"
 #include "main/music-definitions-table.h"
+#include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
@@ -32,7 +33,7 @@ static bool scene_basic(PlayerType *player_ptr, scene_type *value)
         return true;
     }
 
-    if (player_ptr->phase_out) {
+    if (AngbandSystem::get_instance().is_phase_out()) {
         value->type = TERM_XTRA_MUSIC_BASIC;
         value->val = MUSIC_BASIC_BATTLE;
         return true;
@@ -43,7 +44,8 @@ static bool scene_basic(PlayerType *player_ptr, scene_type *value)
 
 static bool scene_quest(PlayerType *player_ptr, scene_type *value)
 {
-    const QuestId quest_id = quest_number(player_ptr, player_ptr->current_floor_ptr->dun_level);
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto quest_id = floor.get_quest_id();
     const bool enable = (inside_quest(quest_id));
     if (enable) {
         value->type = TERM_XTRA_MUSIC_QUEST;
@@ -55,7 +57,8 @@ static bool scene_quest(PlayerType *player_ptr, scene_type *value)
 
 static bool scene_quest_basic(PlayerType *player_ptr, scene_type *value)
 {
-    const QuestId quest_id = quest_number(player_ptr, player_ptr->current_floor_ptr->dun_level);
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto quest_id = floor.get_quest_id();
     const bool enable = (inside_quest(quest_id));
     if (enable) {
         value->type = TERM_XTRA_MUSIC_BASIC;
@@ -119,10 +122,11 @@ static bool scene_dungeon_feeling(PlayerType *player_ptr, scene_type *value)
 
 static bool scene_dungeon(PlayerType *player_ptr, scene_type *value)
 {
-    const bool enable = (player_ptr->dungeon_idx > 0);
+    const auto *floor_ptr = player_ptr->current_floor_ptr;
+    const bool enable = (floor_ptr->dungeon_idx > 0);
     if (enable) {
         value->type = TERM_XTRA_MUSIC_DUNGEON;
-        value->val = player_ptr->dungeon_idx;
+        value->val = floor_ptr->dungeon_idx;
     }
     return enable;
 }

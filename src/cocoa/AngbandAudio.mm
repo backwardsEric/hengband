@@ -551,16 +551,16 @@ static AngbandAudioManager *_sharedManager = nil;
 
 + (NSMutableDictionary *)setupSoundArraysByEvent
 {
-	char sound_dir[1024], path[1024];
+	std::filesystem::path psound, p;
 	FILE *fff;
 	NSMutableDictionary *arraysByEvent;
 
 	/* Build the "sound" path. */
-	path_build(sound_dir, sizeof(sound_dir), ANGBAND_DIR_XTRA, "sound");
+	psound = path_build(ANGBAND_DIR_XTRA, "sound");
 
 	/* Find and open the config file. */
-	path_build(path, sizeof(path), sound_dir, "sound.cfg");
-	fff = angband_fopen(path, FileOpenMode::READ);
+	p = path_build(psound, "sound.cfg");
+	fff = angband_fopen(p, FileOpenMode::READ);
 
 	if (!fff) {
 		NSLog(@"The sound configuration file could not be opened");
@@ -674,12 +674,11 @@ static AngbandAudioManager *_sharedManager = nil;
 					 */
 					struct stat stb;
 
-					path_build(path, sizeof(path),
-						sound_dir, sample_name);
-					if (stat(path, &stb) == 0
+					p = path_build(psound, sample_name);
+					if (stat(p.native().data(), &stb) == 0
 							&& (stb.st_mode & S_IFREG)) {
 						NSData *audioData = [NSData
-							dataWithContentsOfFile:[NSString stringWithUTF8String:path]];
+							dataWithContentsOfFile:[NSString stringWithUTF8String:p.native().data()]];
 
 						player = [[AVAudioPlayer alloc]
 							initWithData:audioData
@@ -729,16 +728,16 @@ static AngbandAudioManager *_sharedManager = nil;
 			get_monster_id },
 		{ NULL, 0, NULL, NULL } /* terminating sentinel */
 	};
-	char music_dir[1024], path[1024];
+	std::filesystem::path pmusic, p;
 	FILE *fff;
 	NSMutableDictionary *catalog;
 
-	/* Build the "sound" path. */
-	path_build(music_dir, sizeof(music_dir), ANGBAND_DIR_XTRA, "music");
+	/* Build the "music" path. */
+	pmusic = path_build(ANGBAND_DIR_XTRA, "music");
 
 	/* Find and open the config file. */
-	path_build(path, sizeof(path), music_dir, "music.cfg");
-	fff = angband_fopen(path, FileOpenMode::READ);
+	p = path_build(pmusic, "music.cfg");
+	fff = angband_fopen(p, FileOpenMode::READ);
 
 	if (!fff) {
 		NSLog(@"The music configuration file could not be opened");
@@ -878,14 +877,13 @@ static AngbandAudioManager *_sharedManager = nil;
 				 * file.  Also restrict the number of samples
 				 * stored for any type/ID combination.
 				 */
-				path_build(path, sizeof(path), music_dir,
-					sample_name);
-				if (stat(path, &stb) == 0
+				p = path_build(pmusic, sample_name);
+				if (stat(p.native().data(), &stb) == 0
 						&& (stb.st_mode & S_IFREG)
 						&& (int)samples.count
 						< [AngbandAudioManager maxSamples]) {
 					[samples addObject:[NSString
-						stringWithUTF8String:path]];
+						stringWithUTF8String:p.native().data()]];
 				}
 
 				if (done) {

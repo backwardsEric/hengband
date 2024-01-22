@@ -1,8 +1,7 @@
-﻿#include "object-use/zapwand-execution.h"
+#include "object-use/zapwand-execution.h"
 #include "action/action-limited.h"
 #include "avatar/avatar.h"
 #include "cmd-item/cmd-zapwand.h" // 相互依存。暫定的措置、後で何とかする.
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "floor/floor-object.h"
 #include "game-option/disturbance-options.h"
@@ -20,6 +19,7 @@
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
 #include "timed-effect/player-confusion.h"
@@ -35,13 +35,13 @@ ObjectZapWandEntity::ObjectZapWandEntity(PlayerType *player_ptr)
 
 /*!
  * @brief 魔法棒を使うコマンドのサブルーチン /
- * @param item 使うオブジェクトの所持品ID
+ * @param i_idx 使うオブジェクトの所持品ID
  */
-void ObjectZapWandEntity::execute(INVENTORY_IDX item)
+void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
 {
     auto old_target_pet = target_pet;
-    auto *o_ptr = ref_item(this->player_ptr, item);
-    if ((item < 0) && (o_ptr->number > 1)) {
+    auto *o_ptr = ref_item(this->player_ptr, i_idx);
+    if ((i_idx < 0) && (o_ptr->number > 1)) {
         msg_print(_("まずは魔法棒を拾わなければ。", "You must first pick up the wands."));
         return;
     }
@@ -88,6 +88,7 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
         return;
     }
 
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (o_ptr->pval <= 0) {
         if (flush_failure) {
             flush();
@@ -95,42 +96,52 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX item)
 
         msg_print(_("この魔法棒にはもう魔力が残っていない。", "The wand has no charges left."));
         o_ptr->ident |= IDENT_EMPTY;
-        this->player_ptr->update |= PU_COMBINATION | PU_REORDER;
-        this->player_ptr->window_flags |= PW_INVENTORY;
+        static constexpr auto flags = {
+            StatusRecalculatingFlag::COMBINATION,
+            StatusRecalculatingFlag::REORDER,
+        };
+        rfu.set_flags(flags);
+        rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
         return;
     }
 
     sound(SOUND_ZAP);
-    auto ident = wand_effect(this->player_ptr, sval.value(), dir, false, false);
+    auto ident = wand_effect(this->player_ptr, *sval, dir, false, false);
+    using Srf = StatusRecalculatingFlag;
+    EnumClassFlagGroup<Srf> flags_srf = { Srf::COMBINATION, Srf::REORDER };
+    if (rfu.has(Srf::AUTO_DESTRUCTION)) {
+        flags_srf.set(Srf::AUTO_DESTRUCTION);
+    }
 
-    /*
-     * Temporarily remove the flags for updating the inventory so
-     * gain_exp() does not reorder the inventory before the charge
-     * is deducted from the wand.
-     */
-    BIT_FLAGS inventory_flags = (PU_COMBINATION | PU_REORDER | (this->player_ptr->update & PU_AUTO_DESTRUCTION));
-    reset_bits(this->player_ptr->update, PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
-    if (!(o_ptr->is_aware())) {
+    rfu.reset_flags(flags_srf);
+    if (!o_ptr->is_aware()) {
         chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
         chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
         chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
-    object_tried(o_ptr);
+    o_ptr->mark_as_tried();
     if (ident && !o_ptr->is_aware()) {
         object_aware(this->player_ptr, o_ptr);
         gain_exp(this->player_ptr, (lev + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 
-    set_bits(this->player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
-    set_bits(this->player_ptr->update, inventory_flags);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::FLOOR_ITEMS,
+        SubWindowRedrawingFlag::FOUND_ITEMS,
+    };
+    rfu.set_flags(flags_swrf);
+    rfu.set_flags(flags_srf);
     o_ptr->pval--;
-    if (item >= 0) {
-        inven_item_charges(this->player_ptr->inventory_list[item]);
+    if (i_idx >= 0) {
+        inven_item_charges(this->player_ptr->inventory_list[i_idx]);
         return;
     }
 
-    floor_item_charges(this->player_ptr->current_floor_ptr, 0 - item);
+    floor_item_charges(this->player_ptr->current_floor_ptr, 0 - i_idx);
 }
 
 bool ObjectZapWandEntity::check_can_zap() const

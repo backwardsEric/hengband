@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file savedata-old-flag-types.h
  * @brief 過去に存在したセーブデータ有無フラグを定義する。古いセーブデータからのマイグレーション用。
  */
@@ -69,6 +69,13 @@ enum class SavedataLoreOlderThan18FlagType {
 enum class SavedataLoreOlderThan19FlagType {
     RF2_PASS_WALL = 0x00040000, /*!< モンスター特性: 壁を抜けることができる / Monster can pass walls */
     RF2_KILL_WALL = 0x00080000, /*!< モンスター特性: 壁を破壊して進む / Monster can destroy walls */
+};
+
+enum class SavedataLoreOlderThan19FlagType_No_Debuff : uint32_t {
+    RF3_NO_FEAR = 0x10000000, /*!< モンスター特性: 恐怖しない / Cannot be scared */
+    RF3_NO_STUN = 0x20000000, /*!< モンスター特性: 朦朧としない / Cannot be stunned */
+    RF3_NO_CONF = 0x40000000, /*!< モンスター特性: 混乱しない / Cannot be confused and resist confusion */
+    RF3_NO_SLEEP = 0x80000000, /*!< モンスター特性: 眠らない / Cannot be slept */
 };
 
 enum class OldQuestId15 {

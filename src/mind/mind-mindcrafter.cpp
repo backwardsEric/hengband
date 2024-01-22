@@ -1,7 +1,6 @@
-﻿#include "mind/mind-mindcrafter.h"
+#include "mind/mind-mindcrafter.h"
 #include "autopick/autopick.h"
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -35,6 +34,7 @@
 #include "status/sight-setter.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -53,11 +53,10 @@
  */
 bool psychometry(PlayerType *player_ptr)
 {
-    concptr q = _("どのアイテムを調べますか？", "Meditate on which item? ");
-    concptr s = _("調べるアイテムがありません。", "You have nothing appropriate.");
-    ItemEntity *o_ptr;
-    OBJECT_IDX item;
-    o_ptr = choose_object(player_ptr, &item, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
+    constexpr auto q = _("どのアイテムを調べますか？", "Meditate on which item? ");
+    constexpr auto s = _("調べるアイテムがありません。", "You have nothing appropriate.");
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
     if (!o_ptr) {
         return false;
     }
@@ -84,8 +83,20 @@ bool psychometry(PlayerType *player_ptr)
     o_ptr->feeling = feel;
     o_ptr->marked.set(OmType::TOUCHED);
 
-    set_bits(player_ptr->update, PU_COMBINATION | PU_REORDER);
-    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::COMBINATION,
+        StatusRecalculatingFlag::REORDER,
+    };
+    rfu.set_flags(flags_srf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::FLOOR_ITEMS,
+        SubWindowRedrawingFlag::FOUND_ITEMS,
+    };
+    rfu.set_flags(flags_swrf);
 
     bool okay = false;
     switch (o_ptr->bi_key.tval()) {
@@ -118,7 +129,7 @@ bool psychometry(PlayerType *player_ptr)
         break;
     }
 
-    autopick_alter_item(player_ptr, item, (bool)(okay && destroy_feeling));
+    autopick_alter_item(player_ptr, i_idx, (bool)(okay && destroy_feeling));
     return true;
 }
 

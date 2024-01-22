@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file main-win-utils.cpp
  * @brief Windows版固有実装(ユーティリティー)
  */
@@ -37,9 +37,7 @@ bool is_already_running(void)
 void save_screen_as_html(HWND hWnd)
 {
     std::vector<WCHAR> buf(MAIN_WIN_MAX_PATH + 1);
-    OPENFILENAMEW ofnw;
-
-    memset(&ofnw, 0, sizeof(ofnw));
+    OPENFILENAMEW ofnw{};
     ofnw.lStructSize = sizeof(ofnw);
     ofnw.hwndOwner = hWnd;
     ofnw.lpstrFilter = L"HTML Files (*.html)\0*.html\0";
@@ -52,7 +50,7 @@ void save_screen_as_html(HWND hWnd)
     ofnw.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
 
     if (GetSaveFileNameW(&ofnw)) {
-        do_cmd_save_screen_html_aux(to_multibyte(&buf[0]).c_str(), 0);
+        exe_cmd_save_screen_html(to_multibyte(&buf[0]).c_str(), false);
     }
 }
 
@@ -60,48 +58,39 @@ void save_screen_as_html(HWND hWnd)
  * @brief 対象ファイルを選択した状態でエクスプローラーを開く
  * @param filename 対象ファイル
  */
-void open_dir_in_explorer(char *filename)
+void open_dir_in_explorer(std::string_view filename)
 {
-    std::string str = "/select," + std::string(filename);
-    ShellExecuteW(NULL, NULL, L"explorer.exe", to_wchar(str.data()).wc_str(), NULL, SW_SHOWNORMAL);
+    std::stringstream ss;
+    ss << "/select," << filename;
+    ShellExecuteW(NULL, NULL, L"explorer.exe", to_wchar(ss.str().data()).wc_str(), NULL, SW_SHOWNORMAL);
 }
 
 /*!
  * @brief GetOpenFileNameW APIのラッパー
- * @details
- * ワイド文字列版のAPIを使用するが、選択ファイルのパスをマルチバイト文字列で受け取る。
  * @param ofn GetOpenFileNameWに指定するOPENFILENAMEW構造体へのポインタ。
  * lpstrFile、nMaxFileメンバの設定は無視される（関数内で上書きするため）。
- * @param dirname GetOpenFileNameWに指定する初期フォルダパス。
- * NULL以外を指定した場合、ワイド文字列に変換しlpstrInitialDirに設定される。
- * @param filename 選択ファイルパス設定先バッファへのポインタ
- * @param max_name_size filenameのバッファサイズ
- * @retval true filenameに選択されたファイルのパスが設定されている。
- * @retval false ファイル選択がキャンセルされた。
+ * @param path_dir GetOpenFileNameWに指定する初期フォルダパス。
+ * @param path_file 初期選択ファイルパス
+ * @param max_name_size 選択ファイルパスの最大長
+ * @return 選択されたファイルパス。選択をキャンセルした場合はstd::nullopt。
  */
-bool get_open_filename(OPENFILENAMEW *ofn, const std::filesystem::path &dirname, char *filename, DWORD max_name_size)
+std::optional<std::filesystem::path> get_open_filename(OPENFILENAMEW *ofn, const std::filesystem::path &path_dir, const std::filesystem::path &path_file, DWORD max_name_size)
 {
     std::vector<WCHAR> buf(max_name_size);
-    wcscpy(&buf[0], to_wchar(filename).wc_str());
-    const char *dir = nullptr;
-    const auto &dirname_str = dirname.string();
-    if (dirname_str != "") {
-        dir = dirname_str.data();
+    const auto path_file_str = path_file.wstring();
+    const auto path_dir_str = path_dir.wstring();
+
+    if (path_file_str.length() < buf.size()) {
+        std::copy(path_file_str.begin(), path_file_str.end(), buf.begin());
     }
 
-    to_wchar wc_dir(dir);
+    ofn->lpstrFile = buf.data();
+    ofn->nMaxFile = buf.size();
+    ofn->lpstrInitialDir = path_dir_str.empty() ? nullptr : path_dir_str.data();
 
-    // Overwrite struct data
-    ofn->lpstrFile = &buf[0];
-    ofn->nMaxFile = max_name_size - 1;
-    ofn->lpstrInitialDir = wc_dir.wc_str();
-
-    // call API
     if (GetOpenFileNameW(ofn)) {
-        // to multibyte
-        strncpy_s(filename, max_name_size, to_multibyte(&buf[0]).c_str(), _TRUNCATE);
-        return true;
+        return std::make_optional<std::filesystem::path>(buf.data());
     }
 
-    return false;
+    return std::nullopt;
 }

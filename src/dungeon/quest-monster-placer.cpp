@@ -1,4 +1,4 @@
-﻿#include "dungeon/quest-monster-placer.h"
+#include "dungeon/quest-monster-placer.h"
 #include "dungeon/quest.h"
 #include "floor/floor-generator-util.h"
 #include "floor/geometry.h"
@@ -30,7 +30,7 @@ bool place_quest_monsters(PlayerType *player_ptr)
         auto no_quest_monsters = quest.status != QuestStatusType::TAKEN;
         no_quest_monsters |= (quest.type != QuestKindType::KILL_LEVEL && quest.type != QuestKindType::RANDOM);
         no_quest_monsters |= quest.level != floor_ptr->dun_level;
-        no_quest_monsters |= player_ptr->dungeon_idx != quest.dungeon;
+        no_quest_monsters |= floor_ptr->dungeon_idx != quest.dungeon;
         no_quest_monsters |= any_bits(quest.flags, QUEST_FLAG_PRESET);
 
         if (no_quest_monsters) {
@@ -54,13 +54,11 @@ bool place_quest_monsters(PlayerType *player_ptr)
                 POSITION y = 0;
                 int l;
                 for (l = SAFE_MAX_ATTEMPTS; l > 0; l--) {
-                    grid_type *g_ptr;
-                    TerrainType *f_ptr;
                     y = randint0(floor_ptr->height);
                     x = randint0(floor_ptr->width);
-                    g_ptr = &floor_ptr->grid_array[y][x];
-                    f_ptr = &terrains_info[g_ptr->feat];
-                    if (f_ptr->flags.has_none_of({ TerrainCharacteristics::MOVE, TerrainCharacteristics::CAN_FLY })) {
+                    const auto &grid = floor_ptr->get_grid({ y, x });
+                    const auto &terrain = grid.get_terrain();
+                    if (terrain.flags.has_none_of({ TerrainCharacteristics::MOVE, TerrainCharacteristics::CAN_FLY })) {
                         continue;
                     }
 
@@ -72,7 +70,7 @@ bool place_quest_monsters(PlayerType *player_ptr)
                         continue;
                     }
 
-                    if (g_ptr->is_icky()) {
+                    if (grid.is_icky()) {
                         continue;
                     } else {
                         break;
@@ -83,7 +81,7 @@ bool place_quest_monsters(PlayerType *player_ptr)
                     return false;
                 }
 
-                if (place_monster_aux(player_ptr, 0, y, x, quest.r_idx, mode)) {
+                if (place_specific_monster(player_ptr, 0, y, x, quest.r_idx, mode)) {
                     break;
                 } else {
                     continue;

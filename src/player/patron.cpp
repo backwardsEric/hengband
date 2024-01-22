@@ -1,4 +1,4 @@
-﻿#include "player/patron.h"
+#include "player/patron.h"
 #include "cmd-action/cmd-pet.h"
 #include "cmd-io/cmd-dump.h"
 #include "flavor/flavor-describer.h"
@@ -229,13 +229,13 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
         case REW_GOOD_OBJ:
             msg_format(_("%sの声がささやいた:", "The voice of %s whispers:"), this->name.data());
             msg_print(_("「我が与えし物を賢明に使うべし。」", "'Use my gift wisely.'"));
-            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, 1, false, false, false);
+            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, 1, false);
             reward = _("上質なアイテムを手に入れた。", "a good item");
             break;
         case REW_GREA_OBJ:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「我が与えし物を賢明に使うべし。」", "'Use my gift wisely.'"));
-            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, 1, true, false, false);
+            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, 1, true);
             reward = _("高級品のアイテムを手に入れた。", "an excellent item");
             break;
         case REW_CHAOS_WP:
@@ -247,13 +247,13 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
         case REW_GOOD_OBS:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「汝の行いは貴き報いに値せり。」", "'Thy deed hath earned thee a worthy reward.'"));
-            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, randint1(2) + 1, false, false, false);
+            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, randint1(2) + 1, false);
             reward = _("上質なアイテムを手に入れた。", "good items");
             break;
         case REW_GREA_OBS:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「下僕よ、汝の献身への我が惜しみ無き報いを見るがよい。」", "'Behold, mortal, how generously I reward thy loyalty.'"));
-            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, randint1(2) + 1, true, false, false);
+            acquirement(this->player_ptr, this->player_ptr->y, this->player_ptr->x, randint1(2) + 1, true);
             reward = _("高級品のアイテムを手に入れた。", "excellent items");
             break;
         case REW_TY_CURSE:
@@ -334,7 +334,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「苦しむがよい、無能な愚か者よ！」", "'Suffer, pathetic fool!'"));
             fire_ball(this->player_ptr, AttributeType::DISINTEGRATE, 0, this->player_ptr->lev * 4, 4);
-            take_hit(this->player_ptr, DAMAGE_NOESCAPE, this->player_ptr->lev * 4, wrath_reason.data());
+            take_hit(this->player_ptr, DAMAGE_NOESCAPE, this->player_ptr->lev * 4, wrath_reason);
             reward = _("分解の球が発生した。", "generating disintegration ball");
             break;
         case REW_HEAL_FUL:
@@ -429,7 +429,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
         case REW_WRATH:
             msg_format(_("%sの声が轟き渡った:", "The voice of %s thunders:"), this->name.data());
             msg_print(_("「死ぬがよい、下僕よ！」", "'Die, mortal!'"));
-            take_hit(this->player_ptr, DAMAGE_LOSELIFE, this->player_ptr->lev * 4, wrath_reason.data());
+            take_hit(this->player_ptr, DAMAGE_LOSELIFE, this->player_ptr->lev * 4, wrath_reason);
             for (int stat = 0; stat < A_MAX; stat++) {
                 (void)dec_stat(this->player_ptr, stat, 10 + randint1(15), false);
             }
@@ -517,7 +517,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
 
     if (!reward.empty()) {
         const auto note = format(_("パトロンの報酬で%s", "The patron rewarded you with %s."), reward.data());
-        exe_write_diary(this->player_ptr, DIARY_DESCRIPTION, 0, note.data());
+        exe_write_diary(this->player_ptr, DiaryKind::DESCRIPTION, 0, note);
     }
 }
 

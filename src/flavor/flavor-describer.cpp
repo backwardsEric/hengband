@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 武器/防具/アクセサリアイテムにおける、耐性やスレイ等の表記
  * @date 2020/07/06
  * @author Hourier
@@ -20,7 +20,6 @@
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trg-types.h"
 #include "object-hook/hook-quest.h"
-#include "object/object-flags.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
@@ -36,23 +35,22 @@
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
-#include "util/quarks.h"
 #include "util/string-processor.h"
 #include <sstream>
 
 static std::string describe_chest_trap(const ItemEntity &item)
 {
-    auto trap_kinds = chest_traps[item.pval];
+    auto &trap_kinds = chest_traps[item.pval];
     if (trap_kinds.count() >= 2) {
         return _("(マルチ・トラップ)", " (Multiple Traps)");
     }
 
     auto trap_kind = trap_kinds.first();
-    if (!trap_kind.has_value()) {
+    if (!trap_kind) {
         return _("(施錠)", " (Locked)");
     }
 
-    switch (trap_kind.value()) {
+    switch (*trap_kind) {
     case ChestTrapType::LOSE_STR:
         return _("(毒針)", " (Poison Needle)");
     case ChestTrapType::LOSE_CON:
@@ -113,7 +111,7 @@ static bool should_show_ac_bonus(const ItemEntity &item)
 
 static bool should_show_slaying_bonus(const ItemEntity &item)
 {
-    if (object_flags(&item).has(TR_SHOW_MODS)) {
+    if (item.get_flags().has(TR_SHOW_MODS)) {
         return true;
     }
 
@@ -155,7 +153,7 @@ static std::string describe_weapon_dice(PlayerType *player_ptr, const ItemEntity
 static std::string describe_bow_power(PlayerType *player_ptr, const ItemEntity &item, const describe_option_type &opt)
 {
     auto power = item.get_arrow_magnification();
-    const auto tr_flags = object_flags(&item);
+    const auto tr_flags = item.get_flags();
     if (tr_flags.has(TR_XTRA_MIGHT)) {
         power++;
     }
@@ -356,7 +354,7 @@ static std::string describe_charges_rod(const ItemEntity &item)
 
 static std::string describe_pval_type(const ItemEntity &item)
 {
-    const auto tr_flags = object_flags(&item);
+    const auto tr_flags = item.get_flags();
     if (tr_flags.has(TR_HIDE_TYPE)) {
         return "";
     }
@@ -386,7 +384,7 @@ static std::string describe_pval_type(const ItemEntity &item)
 
 static std::string describe_pval(const ItemEntity &item)
 {
-    const auto tr_flags = object_flags(&item);
+    const auto tr_flags = item.get_flags();
     if (tr_flags.has_none_of(TR_PVAL_FLAG_MASK)) {
         return "";
     }
@@ -577,7 +575,7 @@ static describe_option_type decide_describe_option(const ItemEntity &item, BIT_F
  * @param mode 表記に関するオプション指定
  * @return modeに応じたオブジェクトの表記
  */
-std::string describe_flavor(PlayerType *player_ptr, const ItemEntity *o_ptr, BIT_FLAGS mode)
+std::string describe_flavor(PlayerType *player_ptr, const ItemEntity *o_ptr, BIT_FLAGS mode, const size_t max_length)
 {
     const auto &item = *o_ptr;
     const auto opt = decide_describe_option(item, mode);
@@ -585,7 +583,7 @@ std::string describe_flavor(PlayerType *player_ptr, const ItemEntity *o_ptr, BIT
     ss << describe_named_item(player_ptr, item, opt);
 
     if (any_bits(mode, OD_NAME_ONLY) || !o_ptr->is_valid()) {
-        return ss.str();
+        return str_substr(ss.str(), 0, max_length);
     }
 
     ss << describe_chest(item, opt)
@@ -604,14 +602,14 @@ std::string describe_flavor(PlayerType *player_ptr, const ItemEntity *o_ptr, BIT
 
     ss << describe_ac(item, opt);
     if (any_bits(mode, OD_NAME_AND_ENCHANT)) {
-        return ss.str();
+        return str_substr(ss.str(), 0, max_length);
     }
 
     ss << describe_remaining(item, opt);
     if (any_bits(mode, OD_OMIT_INSCRIPTION)) {
-        return ss.str();
+        return str_substr(ss.str(), 0, max_length);
     }
 
     ss << describe_inscription(item, opt);
-    return ss.str();
+    return str_substr(ss.str(), 0, max_length);
 }

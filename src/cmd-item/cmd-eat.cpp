@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief プレイヤーの食べるコマンド実装
  * @date 2018/09/07
  @ @author deskull
@@ -6,7 +6,6 @@
 
 #include "cmd-item/cmd-eat.h"
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
@@ -48,6 +47,7 @@
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "view/object-describer.h"
@@ -65,7 +65,7 @@ static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &
     }
 
     BadStatusSetter bss(player_ptr);
-    switch (bi_key.sval().value()) {
+    switch (*bi_key.sval()) {
     case SV_FOOD_POISON:
         return (!(has_resist_pois(player_ptr) || is_oppose_pois(player_ptr))) && bss.mod_poison(randint0(10) + 10);
     case SV_FOOD_BLINDNESS:
@@ -148,28 +148,28 @@ static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &
  * @brief 魔法道具のチャージをの食料として食べたときの効果を発動
  * @param player_ptr プレイヤー情報への参照ポインタ
  * @param o_ptr 食べるオブジェクト
- * @param inventory オブジェクトのインベントリ番号
+ * @param i_idx オブジェクトのインベントリ番号
  * @return 食べようとしたらTRUE、しなかったらFALSE
  */
-static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o_ptr, short inventory)
+static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o_ptr, short i_idx)
 {
     if (!o_ptr->is_wand_staff() || (PlayerRace(player_ptr).food() != PlayerRaceFoodType::MANA)) {
         return false;
     }
 
     const auto is_staff = o_ptr->bi_key.tval() == ItemKindType::STAFF;
-    if (is_staff && (inventory < 0) && (o_ptr->number > 1)) {
+    if (is_staff && (i_idx < 0) && (o_ptr->number > 1)) {
         msg_print(_("まずは杖を拾わなければ。", "You must first pick up the staffs."));
         return true;
     }
 
     const auto staff = is_staff ? _("杖", "staff") : _("魔法棒", "wand");
 
-    /* "Eat" charges */
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (o_ptr->pval == 0) {
         msg_format(_("この%sにはもう魔力が残っていない。", "The %s has no charges left."), staff);
         o_ptr->ident |= IDENT_EMPTY;
-        player_ptr->window_flags |= PW_INVENTORY;
+        rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
         return true;
     }
 
@@ -182,7 +182,7 @@ static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o
     set_food(player_ptr, player_ptr->food + 5000);
 
     /* XXX Hack -- unstack if necessary */
-    if (is_staff && (inventory >= 0) && (o_ptr->number > 1)) {
+    if (is_staff && (i_idx >= 0) && (o_ptr->number > 1)) {
         auto item = *o_ptr;
 
         /* Modify quantity */
@@ -193,25 +193,29 @@ static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o
 
         /* Unstack the used item */
         o_ptr->number--;
-        inventory = store_item_to_inventory(player_ptr, &item);
+        i_idx = store_item_to_inventory(player_ptr, &item);
         msg_format(_("杖をまとめなおした。", "You unstack your staff."));
     }
 
-    if (inventory >= 0) {
-        inven_item_charges(player_ptr->inventory_list[inventory]);
+    if (i_idx >= 0) {
+        inven_item_charges(player_ptr->inventory_list[i_idx]);
     } else {
-        floor_item_charges(player_ptr->current_floor_ptr, 0 - inventory);
+        floor_item_charges(player_ptr->current_floor_ptr, 0 - i_idx);
     }
 
-    player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT;
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+    };
+    rfu.set_flags(flags);
     return true;
 }
 
 /*!
  * @brief 食料を食べるコマンドのサブルーチン
- * @param item 食べるオブジェクトの所持品ID
+ * @param i_idx 食べるオブジェクトの所持品ID
  */
-void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
+void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX i_idx)
 {
     if (music_singing_any(player_ptr)) {
         stop_singing(player_ptr);
@@ -222,7 +226,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
         (void)spell_hex.stop_all_spells();
     }
 
-    auto *o_ptr = ref_item(player_ptr, item);
+    auto *o_ptr = ref_item(player_ptr, i_idx);
 
     sound(SOUND_EAT);
 
@@ -240,9 +244,14 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
      * do not rearrange the inventory before the food item is destroyed in
      * the pack.
      */
-    BIT_FLAGS inventory_flags = (PU_COMBINATION | PU_REORDER | (player_ptr->update & PU_AUTO_DESTRUCTION));
-    player_ptr->update &= ~(PU_COMBINATION | PU_REORDER | PU_AUTO_DESTRUCTION);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    using Srf = StatusRecalculatingFlag;
+    EnumClassFlagGroup<Srf> flags_srf = { Srf::COMBINATION, Srf::REORDER };
+    if (rfu.has(Srf::AUTO_DESTRUCTION)) {
+        flags_srf.set(Srf::AUTO_DESTRUCTION);
+    }
 
+    rfu.reset_flags(flags_srf);
     if (!(o_ptr->is_aware())) {
         chg_virtue(player_ptr, Virtue::KNOWLEDGE, -1);
         chg_virtue(player_ptr, Virtue::PATIENCE, -1);
@@ -252,7 +261,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
     /* We have tried it */
     const auto tval = bi_key.tval();
     if (tval == ItemKindType::FOOD) {
-        object_tried(o_ptr);
+        o_ptr->mark_as_tried();
     }
 
     /* The player is now aware of the object */
@@ -261,11 +270,16 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
         gain_exp(player_ptr, (lev + (player_ptr->lev >> 1)) / player_ptr->lev);
     }
 
-    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+    };
+    rfu.set_flags(flags_swrf);
 
     /* Undeads drain recharge of magic device */
-    if (exe_eat_charge_of_magic_device(player_ptr, o_ptr, item)) {
-        player_ptr->update |= inventory_flags;
+    if (exe_eat_charge_of_magic_device(player_ptr, o_ptr, i_idx)) {
+        rfu.set_flags(flags_srf);
         return;
     }
 
@@ -273,13 +287,14 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
 
     /* Balrogs change humanoid corpses to energy */
     const auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-    if (food_type == PlayerRaceFoodType::CORPSE && (bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE) && angband_strchr("pht", monraces_info[corpse_r_idx].d_char))) {
+    const auto search = angband_strchr("pht", monraces_info[corpse_r_idx].d_char);
+    if (food_type == PlayerRaceFoodType::CORPSE && o_ptr->is_corpse() && (search != nullptr)) {
         const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
         msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%s^ is burnt to ashes.  You absorb its vitality!"), item_name.data());
         (void)set_food(player_ptr, PY_FOOD_MAX - 1);
 
-        player_ptr->update |= inventory_flags;
-        vary_item(player_ptr, item, -1);
+        rfu.set_flags(flags_srf);
+        vary_item(player_ptr, i_idx, -1);
         return;
     }
 
@@ -321,8 +336,8 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
         }
     }
 
-    player_ptr->update |= inventory_flags;
-    vary_item(player_ptr, item, -1);
+    rfu.set_flags(flags_srf);
+    vary_item(player_ptr, i_idx, -1);
 }
 
 /*!
@@ -331,17 +346,13 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX item)
  */
 void do_cmd_eat_food(PlayerType *player_ptr)
 {
-    OBJECT_IDX item;
-    concptr q, s;
-
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU, SamuraiStanceType::KOUKIJIN });
-
-    q = _("どれを食べますか? ", "Eat which item? ");
-    s = _("食べ物がない。", "You have nothing to eat.");
-
-    if (!choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(item_tester_hook_eatable, player_ptr))) {
+    constexpr auto q = _("どれを食べますか? ", "Eat which item? ");
+    constexpr auto s = _("食べ物がない。", "You have nothing to eat.");
+    short i_idx;
+    if (!choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(item_tester_hook_eatable, player_ptr))) {
         return;
     }
 
-    exe_eat_food(player_ptr, item);
+    exe_eat_food(player_ptr, i_idx);
 }

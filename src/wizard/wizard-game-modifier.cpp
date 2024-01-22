@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ゲーム属性を変更するデバッグコマンド
  * @date 2021/03/07
  */
@@ -12,6 +12,7 @@
 #include "monster-race/monster-race.h"
 #include "monster-race/race-flags1.h"
 #include "monster-race/race-flags7.h"
+#include "monster-race/race-indice-types.h"
 #include "player-info/self-info.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-race-info.h"
@@ -57,7 +58,7 @@ void display_wizard_game_modifier_menu()
     for (const auto &[symbol, desc] : wizard_game_modifier_menu_table) {
         std::stringstream ss;
         ss << symbol << ") " << desc;
-        put_str(ss.str().data(), r++, c);
+        put_str(ss.str(), r++, c);
     }
 }
 
@@ -70,8 +71,8 @@ void wizard_game_modifier(PlayerType *player_ptr)
     screen_save();
     display_wizard_game_modifier_menu();
 
-    char cmd;
-    get_com("Player Command: ", &cmd, false);
+    const auto command = input_command("Player Command: ");
+    const auto cmd = command.value_or(ESCAPE);
     screen_load();
 
     switch (cmd) {
@@ -104,13 +105,14 @@ void wizard_game_modifier(PlayerType *player_ptr)
  */
 void wiz_enter_quest(PlayerType *player_ptr)
 {
-    auto quest_num = 0;
     auto &quest_list = QuestList::get_instance();
     const auto quest_max = enum2i(quest_list.rbegin()->first);
-    if (!get_value("QuestID", 0, quest_max - 1, &quest_num)) {
+    const auto quest_num = input_numerics("QuestID", 0, quest_max - 1, QuestId::NONE);
+    if (!quest_num) {
         return;
     }
-    auto q_idx = i2enum<QuestId>(quest_num);
+
+    auto q_idx = *quest_num;
     init_flags = i2enum<init_flags_type>(INIT_SHOW_TEXT | INIT_ASSIGN);
     player_ptr->current_floor_ptr->quest_number = q_idx;
     parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
@@ -126,7 +128,7 @@ void wiz_enter_quest(PlayerType *player_ptr)
  */
 void wiz_complete_quest(PlayerType *player_ptr)
 {
-    if (!inside_quest(player_ptr->current_floor_ptr->quest_number)) {
+    if (!player_ptr->current_floor_ptr->is_in_quest()) {
         msg_print("No current quest");
         msg_print(nullptr);
         return;
@@ -141,34 +143,29 @@ void wiz_complete_quest(PlayerType *player_ptr)
 void wiz_restore_monster_max_num(MonsterRaceId r_idx)
 {
     if (!MonsterRace(r_idx).is_valid()) {
-        int val = 1;
-        if (!get_value("MonsterID", 1, monraces_info.size() - 1, &val)) {
+        const auto restore_monrace_id = input_numerics("MonsterID", 1, monraces_info.size() - 1, MonsterRaceId::FILTHY_URCHIN);
+        if (!restore_monrace_id) {
             return;
         }
-        r_idx = static_cast<MonsterRaceId>(val);
+
+        r_idx = *restore_monrace_id;
     }
 
     auto *r_ptr = &monraces_info[r_idx];
-    if (r_ptr->name.empty()) {
-        msg_print("そのモンスターは存在しません。");
-        msg_print(nullptr);
-        return;
-    }
-
-    auto n = 0;
+    std::optional<int> max_num;
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-        n = 1;
+        max_num = MAX_UNIQUE_NUM;
     } else if (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) {
-        n = MAX_NAZGUL_NUM;
+        max_num = MAX_NAZGUL_NUM;
     }
 
-    if (n == 0) {
-        msg_print("出現数に制限がないモンスターです。");
+    if (!max_num) {
+        msg_print(_("出現数に制限がないモンスターです。", "This monster can appear any time."));
         msg_print(nullptr);
         return;
     }
 
-    r_ptr->max_num = n;
+    r_ptr->max_num = *max_num;
     r_ptr->r_pkills = 0;
     r_ptr->r_akills = 0;
 

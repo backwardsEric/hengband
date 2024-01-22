@@ -1,4 +1,4 @@
-﻿#include "save/player-class-specific-data-writer.h"
+#include "save/player-class-specific-data-writer.h"
 #include "player-info/bard-data-type.h"
 #include "player-info/bluemage-data-type.h"
 #include "player-info/force-trainer-data-type.h"
@@ -67,7 +67,7 @@ void PlayerClassSpecificDataWriter::operator()(const std::shared_ptr<mane_data_t
     }
 }
 
-void PlayerClassSpecificDataWriter::operator()(const std::shared_ptr<sniper_data_type> &sniper_data) const
+void PlayerClassSpecificDataWriter::operator()(const std::shared_ptr<SniperData> &sniper_data) const
 {
     wr_s16b(sniper_data->concent);
 }

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief アイテムに影響のある魔法の処理
  * @date 2019/01/22
  * @author deskull
@@ -7,7 +7,6 @@
 #include "spell/spells-object.h"
 #include "artifact/fixed-art-types.h"
 #include "avatar/avatar.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
@@ -41,6 +40,7 @@
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/probability-table.h"
@@ -145,15 +145,15 @@ void generate_amusement(PlayerType *player_ptr, int num, bool known)
         std::optional<FixedArtifactId> opt_a_idx(std::nullopt);
         if (insta_art || fixed_art) {
             opt_a_idx = sweep_amusement_artifact(insta_art, bi_id);
-            if (!opt_a_idx.has_value()) {
+            if (!opt_a_idx) {
                 continue;
             }
         }
 
         ItemEntity item;
         item.prep(bi_id);
-        if (opt_a_idx.has_value()) {
-            item.fixed_artifact_idx = opt_a_idx.value();
+        if (opt_a_idx) {
+            item.fixed_artifact_idx = *opt_a_idx;
         }
 
         ItemMagicApplier(player_ptr, &item, 1, AM_NO_FIXED_ART).execute();
@@ -173,7 +173,7 @@ void generate_amusement(PlayerType *player_ptr, int num, bool known)
 
         if (known) {
             object_aware(player_ptr, &item);
-            object_known(&item);
+            item.mark_as_known();
         }
 
         (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
@@ -188,21 +188,14 @@ void generate_amusement(PlayerType *player_ptr, int num, bool known)
  * @param x1 配置したいフロアのX座標
  * @param num 獲得の処理回数
  * @param great TRUEならば必ず高級品以上を落とす
- * @param special TRUEならば必ず特別品を落とす
- * @param known TRUEならばオブジェクトが必ず＊鑑定＊済になる
  */
-void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool great, bool special, bool known)
+void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool great)
 {
-    auto mode = AM_GOOD | (great || special ? AM_GREAT : AM_NONE) | (special ? AM_SPECIAL : AM_NONE);
+    auto mode = AM_GOOD | (great ? AM_GREAT : AM_NONE);
     for (auto i = 0; i < num; i++) {
         ItemEntity item;
         if (!make_object(player_ptr, &item, mode)) {
             continue;
-        }
-
-        if (known) {
-            object_aware(player_ptr, &item);
-            object_known(&item);
         }
 
         (void)drop_near(player_ptr, &item, -1, y1, x1);
@@ -247,8 +240,18 @@ bool curse_armor(PlayerType *player_ptr)
     o_ptr->art_flags.clear();
     o_ptr->curse_flags.set(CurseTraitType::CURSED);
     o_ptr->ident |= IDENT_BROKEN;
-    player_ptr->update |= PU_BONUS | PU_MP;
-    player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::MP,
+    };
+    rfu.set_flags(flags_srf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+    };
+    rfu.set_flags(flags_swrf);
     return true;
 }
 
@@ -293,8 +296,18 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity *o_ptr)
     o_ptr->art_flags.clear();
     o_ptr->curse_flags.set(CurseTraitType::CURSED);
     o_ptr->ident |= IDENT_BROKEN;
-    player_ptr->update |= PU_BONUS | PU_MP;
-    player_ptr->window_flags |= PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::MP,
+    };
+    rfu.set_flags(flags_srf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+    };
+    rfu.set_flags(flags_swrf);
     return true;
 }
 
@@ -325,7 +338,7 @@ void brand_bolts(PlayerType *player_ptr)
 
         msg_print(_("クロスボウの矢が炎のオーラに包まれた！", "Your bolts are covered in a fiery aura!"));
         o_ptr->ego_idx = EgoType::FLAME;
-        enchant_equipment(player_ptr, o_ptr, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
+        enchant_equipment(o_ptr, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
         return;
     }
 
@@ -357,13 +370,12 @@ static void break_curse(ItemEntity *o_ptr)
 
 /*!
  * @brief 装備修正強化処理
- * @param player_ptr プレイヤーへの参照ポインタ
  * @param o_ptr 強化するアイテムの参照ポインタ
  * @param n 強化基本量
  * @param eflag 強化オプション(命中/ダメージ/AC)
  * @return 強化に成功した場合TRUEを返す
  */
-bool enchant_equipment(PlayerType *player_ptr, ItemEntity *o_ptr, int n, int eflag)
+bool enchant_equipment(ItemEntity *o_ptr, int n, int eflag)
 {
     auto prob = o_ptr->number * 100;
     if (o_ptr->is_ammo()) {
@@ -440,8 +452,21 @@ bool enchant_equipment(PlayerType *player_ptr, ItemEntity *o_ptr, int n, int efl
         return false;
     }
 
-    set_bits(player_ptr->update, PU_BONUS | PU_COMBINATION | PU_REORDER);
-    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_PLAYER | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::COMBINATION,
+        StatusRecalculatingFlag::REORDER,
+    };
+    rfu.set_flags(flags_srf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::FLOOR_ITEMS,
+        SubWindowRedrawingFlag::FOUND_ITEMS,
+    };
+    rfu.set_flags(flags_swrf);
     return true;
 }
 
@@ -460,11 +485,11 @@ bool enchant_spell(PlayerType *player_ptr, HIT_PROB num_hit, int num_dam, ARMOUR
         item_tester = FuncItemTester(&ItemEntity::is_protector);
     }
 
-    const auto q = _("どのアイテムを強化しますか? ", "Enchant which item? ");
-    const auto s = _("強化できるアイテムがない。", "You have nothing to enchant.");
-    short item;
+    constexpr auto q = _("どのアイテムを強化しますか? ", "Enchant which item? ");
+    constexpr auto s = _("強化できるアイテムがない。", "You have nothing to enchant.");
+    short i_idx;
     const auto options = USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, options, item_tester);
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options, item_tester);
     if (!o_ptr) {
         return false;
     }
@@ -473,19 +498,19 @@ bool enchant_spell(PlayerType *player_ptr, HIT_PROB num_hit, int num_dam, ARMOUR
 #ifdef JP
     msg_format("%s は明るく輝いた！", item_name.data());
 #else
-    msg_format("%s %s glow%s brightly!", ((item >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
+    msg_format("%s %s glow%s brightly!", ((i_idx >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
 #endif
 
     auto is_enchant_successful = false;
-    if (enchant_equipment(player_ptr, o_ptr, num_hit, ENCH_TOHIT)) {
+    if (enchant_equipment(o_ptr, num_hit, ENCH_TOHIT)) {
         is_enchant_successful = true;
     }
 
-    if (enchant_equipment(player_ptr, o_ptr, num_dam, ENCH_TODAM)) {
+    if (enchant_equipment(o_ptr, num_dam, ENCH_TODAM)) {
         is_enchant_successful = true;
     }
 
-    if (enchant_equipment(player_ptr, o_ptr, num_ac, ENCH_TOAC)) {
+    if (enchant_equipment(o_ptr, num_ac, ENCH_TOAC)) {
         is_enchant_successful = true;
     }
 
@@ -512,11 +537,11 @@ bool enchant_spell(PlayerType *player_ptr, HIT_PROB num_hit, int num_dam, ARMOUR
  */
 void brand_weapon(PlayerType *player_ptr, int brand_type)
 {
-    const auto q = _("どの武器を強化しますか? ", "Enchant which weapon? ");
-    const auto s = _("強化できる武器がない。", "You have nothing to enchant.");
-    short item;
+    constexpr auto q = _("どの武器を強化しますか? ", "Enchant which weapon? ");
+    constexpr auto s = _("強化できる武器がない。", "You have nothing to enchant.");
+    short i_idx;
     const auto options = USE_EQUIP | IGNORE_BOTHHAND_SLOT;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, options, FuncItemTester(&ItemEntity::allow_enchant_melee_weapon));
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options, FuncItemTester(&ItemEntity::allow_enchant_melee_weapon));
     if (o_ptr == nullptr) {
         return;
     }
@@ -627,7 +652,7 @@ void brand_weapon(PlayerType *player_ptr, int brand_type)
     }
 
     msg_format(_("あなたの%s%s", "Your %s %s"), item_name.data(), act);
-    enchant_equipment(player_ptr, o_ptr, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
+    enchant_equipment(o_ptr, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
     o_ptr->discount = 99;
     chg_virtue(player_ptr, Virtue::ENCHANT, 2);
     calc_android_exp(player_ptr);

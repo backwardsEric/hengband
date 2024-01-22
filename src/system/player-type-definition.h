@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "mutation/mutation-flag-types.h"
 #include "object-enchant/trc-types.h"
@@ -11,6 +11,7 @@
 #include "system/angband.h"
 #include "system/system-variables.h"
 #include "util/flag-group.h"
+#include "util/point-2d.h"
 #include <array>
 #include <map>
 #include <string>
@@ -29,10 +30,6 @@ class PlayerType {
 public:
     PlayerType();
     bool is_true_winner() const;
-
-    int player_uid{};
-    int player_euid{};
-    int player_egid{};
 
     FloorType *current_floor_ptr{};
     POSITION oldpy{}; /* Previous player location -KMW- */
@@ -68,9 +65,7 @@ public:
 
     int16_t town_num{}; /* Current town number */
     int16_t arena_number{}; /* monster number in on_defeat_arena_monster -KMW- */
-    bool phase_out{}; /*!< フェイズアウト状態(闘技場観戦状態などに利用、NPCの処理の対象にならず自身もほとんどの行動ができない) */
 
-    DUNGEON_IDX dungeon_idx{}; /* current dungeon index */
     POSITION wilderness_x{}; /* Coordinates in the wilderness */
     POSITION wilderness_y{};
     bool wild_mode{};
@@ -86,9 +81,9 @@ public:
 
     int16_t max_plv{}; /* Max Player Level */
 
-    BASE_STATUS stat_max[A_MAX]{}; /* Current "maximal" stat values */
-    BASE_STATUS stat_max_max[A_MAX]{}; /* Maximal "maximal" stat values */
-    BASE_STATUS stat_cur[A_MAX]{}; /* Current "natural" stat values */
+    short stat_max[A_MAX]{}; /* Current "maximal" stat values */
+    short stat_max_max[A_MAX]{}; /* Maximal "maximal" stat values */
+    short stat_cur[A_MAX]{}; /* Current "natural" stat values */
 
     int16_t learned_spells{};
     int16_t add_spells{};
@@ -190,7 +185,7 @@ public:
 
     int player_hp[PY_MAX_LEVEL]{};
     std::string died_from{}; /* What killed the player */
-    concptr last_message{}; /* Last message on death or retirement */
+    std::string last_message = ""; /* Last message on death or retirement */
     char history[4][60]{}; /* Textual "history" for the Player */
 
     uint16_t panic_save{}; /* Panic save */
@@ -239,9 +234,6 @@ public:
 
     bool monk_notify_aux{};
 
-    byte leave_bldg{};
-    byte exit_bldg{}; /* Goal obtained in on_defeat_arena_monster? -KMW- */
-
     bool leaving_dungeon{}; /* True if player is leaving the dungeon */
     bool teleport_town{};
     bool enter_dungeon{}; /* Just enter the dungeon */
@@ -282,9 +274,6 @@ public:
 
     POSITION cur_lite{}; /* Radius of lite (if any) */
 
-    BIT_FLAGS update{}; /* Pending Updates */
-    BIT_FLAGS redraw{}; /* Normal Redraws */
-    BIT_FLAGS window_flags{}; /* Window Redraws */
     int16_t stat_use[A_MAX]{}; /* Current modified stats */
     int16_t stat_top[A_MAX]{}; /* Maximal modified stats */
 
@@ -346,7 +335,7 @@ public:
     BIT_FLAGS earthquake{}; //!< 地震を起こす装備をしている / Earthquake blows
     BIT_FLAGS dec_mana{};
     BIT_FLAGS easy_spell{};
-    BIT_FLAGS heavy_spell{};
+    BIT_FLAGS hard_spell{};
     BIT_FLAGS warning{};
     BIT_FLAGS mighty_throw{};
     BIT_FLAGS see_nocto{}; /* Noctovision */
@@ -411,6 +400,11 @@ public:
 
     std::shared_ptr<TimedEffects> effects() const;
     bool is_fully_healthy() const;
+    std::string decrease_ability_random();
+    std::string decrease_ability_all();
+    Pos2D get_position() const;
+    bool is_located_at_running_destination() const;
+    bool is_located_at(const Pos2D &pos) const;
 
 private:
     std::shared_ptr<TimedEffects> timed_effects;

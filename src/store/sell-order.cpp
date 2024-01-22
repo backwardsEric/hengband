@@ -1,9 +1,8 @@
-﻿#include "store/sell-order.h"
+#include "store/sell-order.h"
 #include "action/weapon-shield.h"
 #include "autopick/autopick.h"
 #include "avatar/avatar.h"
 #include "core/asking-player.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
@@ -34,6 +33,7 @@
 #include "store/store.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -55,7 +55,7 @@ static std::optional<PRICE> prompt_to_sell(PlayerType *player_ptr, ItemEntity *o
     price_ask = std::min(price_ask, ot_ptr->max_cost);
     price_ask *= o_ptr->number;
     const auto s = format(_("売値 $%ld で売りますか？", "Do you sell for $%ld? "), static_cast<long>(price_ask));
-    if (get_check_strict(player_ptr, s, CHECK_DEFAULT_Y)) {
+    if (input_check_strict(player_ptr, s, UserCheck::DEFAULT_Y)) {
         return price_ask;
     }
 
@@ -90,21 +90,21 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         break;
     }
 
-    OBJECT_IDX item;
+    short i_idx;
     const auto options = USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s_none, options, FuncItemTester(store_will_buy, player_ptr, store_num));
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s_none, options, FuncItemTester(store_will_buy, player_ptr, store_num));
     if (o_ptr == nullptr) {
         return;
     }
 
-    if ((item >= INVEN_MAIN_HAND) && o_ptr->is_cursed()) {
+    if ((i_idx >= INVEN_MAIN_HAND) && o_ptr->is_cursed()) {
         msg_print(_("ふーむ、どうやらそれは呪われているようだね。", "Hmmm, it seems to be cursed."));
         return;
     }
 
-    int amt = 1;
+    auto amt = 1;
     if (o_ptr->number > 1) {
-        amt = get_quantity(std::nullopt, o_ptr->number);
+        amt = input_quantity(o_ptr->number);
         if (amt <= 0) {
             return;
         }
@@ -129,16 +129,16 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         return;
     }
 
-    bool placed = false;
+    auto placed = false;
     if ((store_num != StoreSaleType::HOME) && (store_num != StoreSaleType::MUSEUM)) {
         const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
-        msg_format(_("%s(%c)を売却する。", "Selling %s (%c)."), item_name.data(), index_to_label(item));
+        msg_format(_("%s(%c)を売却する。", "Selling %s (%c)."), item_name.data(), index_to_label(i_idx));
         msg_print(nullptr);
 
         auto res = prompt_to_sell(player_ptr, q_ptr, store_num);
         placed = res.has_value();
         if (placed) {
-            const auto price = res.value();
+            const auto price = *res;
             store_owner_says_comment(player_ptr, store_num);
 
             sound(SOUND_SELL);
@@ -170,7 +170,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             msg_format(_("%sを $%dで売却しました。", "You sold %s for %d gold."), sold_item_name.data(), price);
 
             if (record_sell) {
-                exe_write_diary(player_ptr, DIARY_SELL, 0, sold_item_name.data());
+                exe_write_diary(player_ptr, DiaryKind::SELL, 0, sold_item_name);
             }
 
             if (!((tval == ItemKindType::FIGURINE) && (value > 0))) {
@@ -179,13 +179,13 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
 
             distribute_charges(o_ptr, q_ptr, amt);
             q_ptr->timeout = 0;
-            inven_item_increase(player_ptr, item, -amt);
-            inven_item_describe(player_ptr, item);
+            inven_item_increase(player_ptr, i_idx, -amt);
+            inven_item_describe(player_ptr, i_idx);
             if (o_ptr->number > 0) {
-                autopick_alter_item(player_ptr, item, false);
+                autopick_alter_item(player_ptr, i_idx, false);
             }
 
-            inven_item_optimize(player_ptr, item);
+            inven_item_optimize(player_ptr, i_idx);
             int item_pos = store_carry(q_ptr);
             if (item_pos >= 0) {
                 store_top = (item_pos / store_bottom) * store_bottom;
@@ -200,7 +200,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             msg_print(_("博物館に寄贈したものは取り出すことができません！！", "You cannot take back items which have been donated to the Museum!!"));
         }
 
-        if (!get_check(format(_("本当に%sを寄贈しますか？", "Really give %s to the Museum? "), museum_item_name.data()))) {
+        if (!input_check(format(_("本当に%sを寄贈しますか？", "Really give %s to the Museum? "), museum_item_name.data()))) {
             return;
         }
 
@@ -208,10 +208,10 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         q_ptr->ident |= IDENT_FULL_KNOWN;
 
         distribute_charges(o_ptr, q_ptr, amt);
-        msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), museum_item_name.data(), index_to_label(item));
+        msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), museum_item_name.data(), index_to_label(i_idx));
         placed = true;
 
-        vary_item(player_ptr, item, -amt);
+        vary_item(player_ptr, i_idx, -amt);
 
         int item_pos = home_carry(player_ptr, q_ptr, store_num);
         if (item_pos >= 0) {
@@ -221,9 +221,9 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
     } else {
         distribute_charges(o_ptr, q_ptr, amt);
         const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
-        msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), item_name.data(), index_to_label(item));
+        msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), item_name.data(), index_to_label(i_idx));
         placed = true;
-        vary_item(player_ptr, item, -amt);
+        vary_item(player_ptr, i_idx, -amt);
         int item_pos = home_carry(player_ptr, q_ptr, store_num);
         if (item_pos >= 0) {
             store_top = (item_pos / store_bottom) * store_bottom;
@@ -231,12 +231,13 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         }
     }
 
-    set_bits(player_ptr->update, PU_BONUS);
-    set_bits(player_ptr->window_flags, PW_PLAYER);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     handle_stuff(player_ptr);
 
-    if (placed && (item >= INVEN_MAIN_HAND)) {
+    if (placed && (i_idx >= INVEN_MAIN_HAND)) {
         calc_android_exp(player_ptr);
-        verify_equip_slot(player_ptr, item);
+        verify_equip_slot(player_ptr, i_idx);
     }
 }

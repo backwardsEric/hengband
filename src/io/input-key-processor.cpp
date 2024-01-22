@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief キー入力に応じてゲーム内コマンドを実行する
  * @date 2022/02/20
  * @author Hourier
@@ -46,8 +46,6 @@
 #include "cmd-visual/cmd-map.h"
 #include "cmd-visual/cmd-visuals.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/special-internal-keys.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "dungeon/quest.h" //!< @do_cmd_quest() がある。後で移設する.
@@ -89,6 +87,7 @@
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
@@ -115,12 +114,12 @@ bool enter_wizard_mode(PlayerType *player_ptr)
         msg_print(_("ウィザードモードはデバッグと実験のためのモードです。 ", "Wizard mode is for debugging and experimenting."));
         msg_print(_("一度ウィザードモードに入るとスコアは記録されません。", "The game will not be scored if you enter wizard mode."));
         msg_print(nullptr);
-        if (!get_check(_("本当にウィザードモードに入りたいのですか? ", "Are you sure you want to enter wizard mode? "))) {
+        if (!input_check(_("本当にウィザードモードに入りたいのですか? ", "Are you sure you want to enter wizard mode? "))) {
             return false;
         }
 
-        exe_write_diary(
-            player_ptr, DIARY_DESCRIPTION, 0, _("ウィザードモードに突入してスコアを残せなくなった。", "gave up recording score to enter wizard mode."));
+        constexpr auto mes = _("ウィザードモードに突入してスコアを残せなくなった。", "gave up recording score to enter wizard mode.");
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, mes);
         w_ptr->noscore |= 0x0002;
     }
 
@@ -144,12 +143,12 @@ static bool enter_debug_mode(PlayerType *player_ptr)
         msg_print(_("デバッグ・コマンドはデバッグと実験のためのコマンドです。 ", "The debug commands are for debugging and experimenting."));
         msg_print(_("デバッグ・コマンドを使うとスコアは記録されません。", "The game will not be scored if you use debug commands."));
         msg_print(nullptr);
-        if (!get_check(_("本当にデバッグ・コマンドを使いますか? ", "Are you sure you want to use debug commands? "))) {
+        if (!input_check(_("本当にデバッグ・コマンドを使いますか? ", "Are you sure you want to use debug commands? "))) {
             return false;
         }
 
-        exe_write_diary(
-            player_ptr, DIARY_DESCRIPTION, 0, _("デバッグモードに突入してスコアを残せなくなった。", "gave up sending score to use debug commands."));
+        constexpr auto mes = _("デバッグモードに突入してスコアを残せなくなった。", "gave up sending score to use debug commands.");
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, mes);
         w_ptr->noscore |= 0x0008;
     }
 
@@ -166,7 +165,7 @@ void process_command(PlayerType *player_ptr)
     COMMAND_CODE old_now_message = now_message;
     repeat_check();
     now_message = 0;
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
     if (sniper_data && sniper_data->concent > 0) {
         sniper_data->reset_concent = true;
     }
@@ -189,8 +188,9 @@ void process_command(PlayerType *player_ptr)
             msg_print(_("ウィザードモード突入。", "Wizard mode on."));
         }
 
-        player_ptr->update |= (PU_MONSTER_STATUSES);
-        player_ptr->redraw |= (PR_TITLE);
+        auto &rfu = RedrawingFlagsUpdater::get_instance();
+        rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        rfu.set_flag(MainWindowRedrawingFlag::TITLE);
         break;
     }
     case KTRL('A'): {
@@ -239,7 +239,7 @@ void process_command(PlayerType *player_ptr)
     }
 
     case KTRL('I'): {
-        toggle_inventory_equipment(player_ptr);
+        toggle_inventory_equipment();
         break;
     }
     case '+': {
@@ -309,7 +309,7 @@ void process_command(PlayerType *player_ptr)
         break;
     }
     case '<': {
-        if (!player_ptr->wild_mode && !floor_ptr->dun_level && !floor_ptr->inside_arena && !inside_quest(floor_ptr->quest_number)) {
+        if (!player_ptr->wild_mode && !floor_ptr->dun_level && !floor_ptr->inside_arena && !floor_ptr->is_in_quest()) {
             if (vanilla_town) {
                 break;
             }
@@ -403,13 +403,16 @@ void process_command(PlayerType *player_ptr)
             break;
         }
 
-        if (floor_ptr->dun_level && dungeons_info[player_ptr->dungeon_idx].flags.has(DungeonFeatureType::NO_MAGIC) && !pc.equals(PlayerClassType::BERSERKER) && !pc.equals(PlayerClassType::SMITH)) {
+        const auto &dungeon = floor_ptr->get_dungeon_definition();
+        auto non_magic_class = pc.equals(PlayerClassType::BERSERKER);
+        non_magic_class |= pc.equals(PlayerClassType::SMITH);
+        if (floor_ptr->dun_level && dungeon.flags.has(DungeonFeatureType::NO_MAGIC) && !non_magic_class) {
             msg_print(_("ダンジョンが魔法を吸収した！", "The dungeon absorbs all attempted magic!"));
             msg_print(nullptr);
             break;
         }
 
-        if (player_ptr->anti_magic && !pc.equals(PlayerClassType::BERSERKER) && !pc.equals(PlayerClassType::SMITH)) {
+        if (player_ptr->anti_magic && !non_magic_class) {
             concptr which_power = _("魔法", "magic");
             switch (player_ptr->pclass) {
             case PlayerClassType::MINDCRAFTER:
@@ -667,7 +670,7 @@ void process_command(PlayerType *player_ptr)
         break;
     }
     case KTRL('V'): {
-        spoil_random_artifact(player_ptr, "randifact.txt");
+        spoil_random_artifact(player_ptr);
         break;
     }
     case '`': {
@@ -685,8 +688,8 @@ void process_command(PlayerType *player_ptr)
         if (one_in_(2)) {
             sound(SOUND_ILLEGAL);
             const auto error_mes = get_random_line(_("error_j.txt", "error.txt"), 0);
-            if (error_mes.has_value()) {
-                msg_print(error_mes.value());
+            if (error_mes) {
+                msg_print(*error_mes);
             }
         } else {
             prt(_(" '?' でヘルプが表示されます。", "Type '?' for help."), 0, 0);

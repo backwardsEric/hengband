@@ -1,8 +1,9 @@
-﻿#include "core/show-file.h"
+#include "core/show-file.h"
 #include "core/asking-player.h"
 #include "io/files-util.h"
 #include "io/input-key-acceptor.h"
 #include "main/sound-of-music.h"
+#include "system/angband-exceptions.h"
 #include "system/angband-version.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
@@ -13,6 +14,9 @@
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
+#include <sstream>
+#include <string>
+#include <string_view>
 
 /*!
  * @brief ファイル内容の一行をコンソールに出力する
@@ -30,15 +34,15 @@
  * </pre>
  * @todo 表示とそれ以外を分割する
  */
-static void show_file_aux_line(concptr str, int cy, concptr shower)
+static void show_file_aux_line(std::string_view str, int cy, std::string_view shower)
 {
     char lcstr[1024];
     concptr ptr;
     byte textcolor = TERM_WHITE;
     byte focuscolor = TERM_YELLOW;
 
-    if (shower) {
-        strcpy(lcstr, str);
+    if (!shower.empty()) {
+        strcpy(lcstr, str.data());
         str_tolower(lcstr);
 
         ptr = angband_strstr(lcstr, shower);
@@ -51,12 +55,12 @@ static void show_file_aux_line(concptr str, int cy, concptr shower)
     static const char tag_str[] = "[[[[";
     byte color = textcolor;
     char in_tag = '\0';
-    for (int i = 0; str[i];) {
+    for (size_t i = 0; i < str.length();) {
         int len = strlen(&str[i]);
         int showercol = len + 1;
         int bracketcol = len + 1;
         int endcol = len;
-        if (shower) {
+        if (!shower.empty()) {
             ptr = angband_strstr(&lcstr[i], shower);
             if (ptr) {
                 showercol = ptr - &lcstr[i];
@@ -78,8 +82,8 @@ static void show_file_aux_line(concptr str, int cy, concptr shower)
         cx += endcol;
         i += endcol;
 
-        if (shower && endcol == showercol) {
-            int showerlen = strlen(shower);
+        if (!shower.empty() && (endcol == showercol)) {
+            const auto showerlen = shower.length();
             term_addstr(showerlen, focuscolor, &str[i]);
             cx += showerlen;
             i += showerlen;
@@ -111,7 +115,7 @@ static void show_file_aux_line(concptr str, int cy, concptr shower)
         i++;
     }
 
-    term_erase(cx, cy, 255);
+    term_erase(cx, cy);
 }
 
 /*!
@@ -131,82 +135,62 @@ static void show_file_aux_line(concptr str, int cy, concptr shower)
  * </pre>
  * @todo 表示とそれ以外を分割する
  */
-bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr what, int line, BIT_FLAGS mode)
+bool show_file(PlayerType *player_ptr, bool show_version, std::string_view name_with_tag, int initial_line, uint32_t mode, std::string_view what)
 {
     TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
 
-    int wid, hgt;
-    term_get_size(&wid, &hgt);
+    const auto &[wid, hgt] = term_get_size();
 
-    char finder_str[81] = "";
-
-    char shower_str[81] = "";
-
-    std::string caption;
-
-    char hook[68][32];
-    for (int i = 0; i < 68; i++) {
-        hook[i][0] = '\0';
-    }
-
-    std::string stripped_name;
-    concptr tag = angband_strstr(name, "#");
-    if (tag) {
-        stripped_name.append(name, tag - name);
-        name = stripped_name.data();
-        ++tag;
-    }
-
+    char hook[68][32]{};
+    auto stripped_names = str_split(name_with_tag, '#');
+    auto &name = stripped_names[0];
+    auto tag = stripped_names.size() > 1 ? stripped_names[1] : "";
+    std::filesystem::path path_reopen("");
     FILE *fff = nullptr;
-    char path[1024];
-    if (what) {
-        caption = what;
-        angband_strcpy(path, name, sizeof(path));
-        fff = angband_fopen(path, FileOpenMode::READ);
+    std::stringstream caption;
+    if (!what.empty()) {
+        caption << what;
+        path_reopen = name;
+        fff = angband_fopen(path_reopen, FileOpenMode::READ);
     }
 
     if (!fff) {
-        caption = _("ヘルプ・ファイル'", "Help file '");
-        caption.append(name).append("'");
-        path_build(path, sizeof(path), ANGBAND_DIR_HELP, name);
-        fff = angband_fopen(path, FileOpenMode::READ);
+        caption.clear();
+        caption << _("ヘルプ・ファイル'", "Help file '");
+        caption << name << "'";
+        path_reopen = path_build(ANGBAND_DIR_HELP, name);
+        fff = angband_fopen(path_reopen, FileOpenMode::READ);
     }
 
     if (!fff) {
-        caption = _("スポイラー・ファイル'", "Info file '");
-        caption.append(name).append("'");
-        path_build(path, sizeof(path), ANGBAND_DIR_INFO, name);
-        fff = angband_fopen(path, FileOpenMode::READ);
+        caption.clear();
+        caption << _("スポイラー・ファイル'", "Info file '");
+        caption << name << "'";
+        path_reopen = path_build(ANGBAND_DIR_INFO, name);
+        fff = angband_fopen(path_reopen, FileOpenMode::READ);
     }
 
     if (!fff) {
-        path_build(path, sizeof(path), ANGBAND_DIR, name);
-
-        for (int i = 0; path[i]; i++) {
-            if ('\\' == path[i]) {
-                path[i] = PATH_SEP[0];
-            }
-        }
-
-        caption = _("スポイラー・ファイル'", "Info file '");
-        caption.append(name).append("'");
-        fff = angband_fopen(path, FileOpenMode::READ);
+        caption.clear();
+        path_reopen = path_build(ANGBAND_DIR, name);
+        caption << _("スポイラー・ファイル'", "Info file '");
+        caption << name << "'";
+        fff = angband_fopen(path_reopen, FileOpenMode::READ);
     }
 
+    const auto open_error_mes = format(_("'%s'をオープンできません。", "Cannot open '%s'."), name.data());
     if (!fff) {
-        msg_format(_("'%s'をオープンできません。", "Cannot open '%s'."), name);
-        msg_print(nullptr);
-
-        return true;
+        THROW_EXCEPTION(std::runtime_error, open_error_mes);
     }
 
+    const auto caption_str = caption.str();
     int skey;
-    int next = 0;
-    int size = 0;
-    int back = 0;
-    bool menu = false;
-    char buf[1024];
-    bool reverse = (line < 0);
+    auto next = 0;
+    auto back = 0;
+    auto menu = false;
+    char buf[1024]{};
+    auto reverse = initial_line < 0;
+    auto line = initial_line;
     while (true) {
         char *str = buf;
         if (angband_fgets(fff, buf, sizeof(buf))) {
@@ -221,8 +205,7 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
             int k = str[7] - 'A';
             menu = true;
             if ((str[8] == ']') && (str[9] == ' ')) {
-                memcpy(hook[k], str + 10, 31);
-                hook[k][31] = '\0';
+                angband_strcpy(hook[k], str + 10, sizeof(hook[k]));
             }
 
             continue;
@@ -235,13 +218,13 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
         size_t len = strlen(str);
         if (str[len - 1] == '>') {
             str[len - 1] = '\0';
-            if (tag && streq(str + 7, tag)) {
+            if (!tag.empty() && streq(str + 7, tag)) {
                 line = next;
             }
         }
     }
 
-    size = next;
+    auto size = next;
     int rows = hgt - 4;
     if (line == -1) {
         line = ((size - 1) / rows) * rows;
@@ -249,8 +232,10 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
 
     term_clear();
 
-    concptr find = nullptr;
-    concptr shower = nullptr;
+    std::string find;
+    std::string finder_str;
+    std::string shower;
+    std::string shower_str;
     while (true) {
         if (line >= size - rows) {
             line = size - rows;
@@ -261,9 +246,9 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
 
         if (next > line) {
             angband_fclose(fff);
-            fff = angband_fopen(path, FileOpenMode::READ);
+            fff = angband_fopen(path_reopen, FileOpenMode::READ);
             if (!fff) {
-                return false;
+                THROW_EXCEPTION(std::runtime_error, open_error_mes);
             }
 
             next = 0;
@@ -292,40 +277,38 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
                 continue;
             }
             next++;
-            if (find && !row_count) {
+            if (!find.empty() && !row_count) {
                 char lc_buf[1024];
                 strcpy(lc_buf, str);
                 str_tolower(lc_buf);
-                if (!angband_strstr(lc_buf, find)) {
+                if (!str_find(lc_buf, find)) {
                     continue;
                 }
             }
 
-            find = nullptr;
+            find.clear();
             show_file_aux_line(str, row_count + 2, shower);
             row_count++;
         }
 
         while (row_count < rows) {
-            term_erase(0, row_count + 2, 255);
+            term_erase(0, row_count + 2);
             row_count++;
         }
 
-        if (find) {
+        if (!find.empty()) {
             bell();
             line = back;
-            find = nullptr;
+            find.clear();
             continue;
         }
 
-        prt(format(_("[変愚蛮怒 %d.%d.%d, %s, %d/%d]", "[Hengband %d.%d.%d, %s, Line %d/%d]"), H_VER_MAJOR, H_VER_MINOR, H_VER_PATCH, caption.data(),
-                line, size),
-            0, 0);
-
         if (show_version) {
-            prt(format("[%s]", get_version().data()), 0, 0);
+            constexpr auto title = _("[%s, %s, %d/%d]", "[%s, %s, Line %d/%d]");
+            prt(format(title, get_version().data(), caption_str.data(), line, size), 0, 0);
         } else {
-            prt(format(_("[%s, %d/%d]", "[%s, Line %d/%d]"), caption.data(), line, size), 0, 0);
+            constexpr auto title = _("[%s, %d/%d]", "[%s, Line %d/%d]");
+            prt(format(title, caption_str.data(), line, size), 0, 0);
         }
 
         if (size <= rows) {
@@ -345,155 +328,161 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
         skey = inkey_special(true);
         switch (skey) {
         case '?':
-            if (strcmp(name, _("jhelpinfo.txt", "helpinfo.txt")) != 0) {
-                show_file(player_ptr, true, _("jhelpinfo.txt", "helpinfo.txt"), nullptr, 0, mode);
+            if (name != _("jhelpinfo.txt", "helpinfo.txt")) {
+                show_file(player_ptr, true, _("jhelpinfo.txt", "helpinfo.txt"), 0, mode);
             }
+
             break;
-        case '=':
+        case '=': {
             prt(_("強調: ", "Show: "), hgt - 1, 0);
-
-            char back_str[81];
-            strcpy(back_str, shower_str);
-            if (askfor(shower_str, 80)) {
-                if (shower_str[0]) {
-                    str_tolower(shower_str);
-                    shower = shower_str;
-                } else {
-                    shower = nullptr;
-                }
-            } else {
-                strcpy(shower_str, back_str);
+            auto ask_result = askfor(80, shower_str);
+            if (!ask_result) {
+                break;
             }
-            break;
 
-        case '/':
-        case KTRL('s'):
-            prt(_("検索: ", "Find: "), hgt - 1, 0);
-            strcpy(back_str, finder_str);
-            if (askfor(finder_str, 80)) {
-                if (finder_str[0]) {
-                    find = finder_str;
-                    back = line;
-                    line = line + 1;
-                    str_tolower(finder_str);
-                    shower = finder_str;
-                } else {
-                    shower = nullptr;
-                }
-            } else {
-                strcpy(finder_str, back_str);
+            shower_str = *ask_result;
+            if (shower_str.empty()) {
+                shower.clear();
+                break;
             }
-            break;
 
-        case '#': {
-            char tmp[81];
-            prt(_("行: ", "Goto Line: "), hgt - 1, 0);
-            strcpy(tmp, "0");
-
-            if (askfor(tmp, 80)) {
-                line = atoi(tmp);
-            }
+            str_tolower(shower_str.data());
+            shower = shower_str;
             break;
         }
+        case '/':
+        case KTRL('s'): {
+            prt(_("検索: ", "Find: "), hgt - 1, 0);
+            auto ask_result = askfor(80, finder_str);
+            if (!ask_result) {
+                break;
+            }
 
+            finder_str = *ask_result;
+            if (finder_str.empty()) {
+                shower.clear();
+                break;
+            }
+
+            find = finder_str;
+            back = line;
+            line = line + 1;
+            str_tolower(finder_str.data());
+            shower = finder_str;
+            break;
+        }
+        case '#': {
+            prt(_("行: ", "Goto Line: "), hgt - 1, 0);
+            constexpr auto initial_goto = "0";
+            while (true) {
+                const auto ask_result = askfor(10, initial_goto);
+                if (!ask_result) {
+                    break;
+                }
+
+                try {
+                    line = std::stoi(*ask_result);
+                    break;
+                } catch (std::invalid_argument const &) {
+                    prt(_("数値を入力して下さい。", "Please input numeric value."), hgt - 1, 0);
+                } catch (std::out_of_range const &) {
+                    prt(_("入力可能な数値の範囲を超えています。", "Input value overflows the maximum number."), hgt - 1, 0);
+                }
+            }
+
+            break;
+        }
         case SKEY_TOP:
             line = 0;
             break;
-
         case SKEY_BOTTOM:
             line = ((size - 1) / rows) * rows;
             break;
-
         case '%': {
-            char tmp[81];
             prt(_("ファイル・ネーム: ", "Goto File: "), hgt - 1, 0);
-            strcpy(tmp, _("jhelp.hlp", "help.hlp"));
+            const auto ask_result = askfor(80, _("jhelp.hlp", "help.hlp"));
+            if (!ask_result) {
+                break;
+            }
 
-            if (askfor(tmp, 80)) {
-                if (!show_file(player_ptr, true, tmp, nullptr, 0, mode)) {
-                    skey = 'q';
-                }
+            if (!show_file(player_ptr, true, *ask_result, 0, mode)) {
+                skey = 'q';
             }
 
             break;
         }
-
         case '-':
             line = line + (reverse ? rows : -rows);
             if (line < 0) {
                 line = 0;
             }
-            break;
 
+            break;
         case SKEY_PGUP:
             line = line - rows;
             if (line < 0) {
                 line = 0;
             }
-            break;
 
+            break;
         case '\n':
         case '\r':
             line = line + (reverse ? -1 : 1);
             if (line < 0) {
                 line = 0;
             }
-            break;
 
+            break;
         case '8':
         case SKEY_UP:
             line--;
             if (line < 0) {
                 line = 0;
             }
-            break;
 
+            break;
         case '2':
         case SKEY_DOWN:
             line++;
             break;
-
         case ' ':
             line = line + (reverse ? -rows : rows);
             if (line < 0) {
                 line = 0;
             }
-            break;
 
+            break;
         case SKEY_PGDOWN:
             line = line + rows;
+            break;
+        default:
             break;
         }
 
         if (menu) {
-            int key = -1;
+            auto key = -1;
             if (!(skey & SKEY_MASK) && isalpha(skey)) {
                 key = skey - 'A';
             }
 
             if ((key > -1) && hook[key][0]) {
                 /* Recurse on that file */
-                if (!show_file(player_ptr, true, hook[key], nullptr, 0, mode)) {
+                if (!show_file(player_ptr, true, hook[key], 0, mode)) {
                     skey = 'q';
                 }
             }
         }
 
         if (skey == '|') {
-            FILE *ffp;
-            char buff[1024];
-            char xtmp[81] = "";
-
-            if (!get_string(_("ファイル名: ", "File name: "), xtmp, 80)) {
+            const auto xtmp = input_string(_("ファイル名: ", "File name: "), 80);
+            if (!xtmp) {
                 continue;
             }
+
             angband_fclose(fff);
-            path_build(buff, sizeof(buff), ANGBAND_DIR_USER, xtmp);
-
-            /* Hack -- Re-Open the file */
-            fff = angband_fopen(path, FileOpenMode::READ);
-
-            ffp = angband_fopen(buff, FileOpenMode::WRITE);
+            fff = angband_fopen(path_reopen, FileOpenMode::READ);
+            const auto &path_xtemp = path_build(ANGBAND_DIR_USER, *xtmp);
+            auto *ffp = angband_fopen(path_xtemp, FileOpenMode::WRITE);
 
             if (!(fff && ffp)) {
                 msg_print(_("ファイルを開けません。", "Failed to open file."));
@@ -501,14 +490,14 @@ bool show_file(PlayerType *player_ptr, bool show_version, concptr name, concptr 
                 break;
             }
 
-            fprintf(ffp, "%s: %s\n", player_ptr->name, what ? what : caption.data());
-
+            fprintf(ffp, "%s: %s\n", player_ptr->name, !what.empty() ? what.data() : caption_str.data());
+            char buff[1024]{};
             while (!angband_fgets(fff, buff, sizeof(buff))) {
                 angband_fputs(ffp, buff, 80);
             }
             angband_fclose(fff);
             angband_fclose(ffp);
-            fff = angband_fopen(path, FileOpenMode::READ);
+            fff = angband_fopen(path_reopen, FileOpenMode::READ);
         }
 
         if ((skey == ESCAPE) || (skey == '<')) {

@@ -1,14 +1,16 @@
-﻿/*!
- *  @file japanese.c
+/*!
+ *  @file japanese.cpp
  *  @brief 日本語処理関数
  *  @date 2014/07/07
  */
 
 #include "locale/japanese.h"
 #include "locale/utf-8.h"
+#include "util/enum-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include <set>
+#include <sstream>
 
 #ifdef JP
 
@@ -78,13 +80,15 @@ std::string sindarin_to_kana(std::string_view sindarin)
     return kana;
 }
 
-/*! 日本語動詞活用 (打つ＞打って,打ち etc)
- * JVERB_AND: 殴る,蹴る > 殴り,蹴る
- * JVERB_TO:  殴る,蹴る > 殴って蹴る
- * JVERB_OR:  殴る,蹴る > 殴ったり蹴ったり */
-static const struct jverb_table_t {
-    const char *from;
-    const char *to[3];
+/*!
+ * 日本語動詞活用 (打つ＞打って,打ち etc)
+ * AND : 殴る,蹴る > 殴り,蹴る
+ * TO  : 殴る,蹴る > 殴って蹴る
+ * OR  : 殴る,蹴る > 殴ったり蹴ったり
+ */
+static constexpr struct jverb_table_t {
+    std::string_view from;
+    std::string_view to_list[3];
 } jverb_table[] = {
     { "する", { "し", "して", "した" } },
     { "いる", { "いて", "いて", "いた" } },
@@ -114,34 +118,34 @@ static const struct jverb_table_t {
     { "ぶ", { "び", "んで", "んだ" } },
     { "む", { "み", "んで", "んだ" } },
     { "る", { "り", "って", "った" } },
-    { nullptr, { "そして", "ことにより", "ことや" } },
 };
 
 /*!
  * @brief jverb_table_tに従って動詞を活用する
- * @param in 変換元文字列ポインタ
- * @param out 変換先文字列ポインタ
- * @param flag 変換種類を指定(JVERB_AND/JVERB_TO/JVERB_OR)
- * @details
+ * @param in 変換元となる原形動詞
+ * @param type 変換種類を指定(AND/TO/OR)
+ * @return 活用形の動詞
  */
-void jverb(concptr in, char *out, int flag)
+std::string conjugate_jverb(std::string_view in, JVerbConjugationType type)
 {
-    const struct jverb_table_t *p;
-    int in_len = strlen(in);
+    std::stringstream ss;
 
-    strcpy(out, in);
-
-    for (p = jverb_table; p->from; p++) {
-        int from_len = strlen(p->from);
-        if (strncmp(&in[in_len - from_len], p->from, from_len) == 0) {
-            strcpy(&out[in_len - from_len], p->to[flag - 1]);
-            break;
+    for (const auto &[from, to_list] : jverb_table) {
+        const auto stem_length = in.length() - from.length();
+        if (in.substr(stem_length) == from) {
+            ss << in.substr(0, stem_length) << to_list[enum2i(type)];
+            return ss.str();
         }
     }
 
-    if (p->from == nullptr) {
-        strcpy(&out[in_len], p->to[flag - 1]);
-    }
+    constexpr std::string_view conjuctions[3] = {
+        "そして",
+        "ことにより",
+        "ことや",
+    };
+
+    ss << in << conjuctions[enum2i(type)];
+    return ss.str();
 }
 
 static const std::set<std::string_view> kinsoku_list{
@@ -250,9 +254,7 @@ void euc2sjis(char *str)
 byte codeconv(char *str)
 {
     byte code = 0;
-    int i;
-
-    for (i = 0; str[i]; i++) {
+    for (auto i = 0; str[i]; i++) {
         unsigned char c1;
         unsigned char c2;
 
@@ -280,9 +282,13 @@ byte codeconv(char *str)
                 /* No conversion */
                 return 0;
             }
-        }
+        } else {
+            auto is_cp932 = (0x81 <= c1 && c1 <= 0x9f) && ((0x40 <= c2 && c2 <= 0x7e) || (0x80 <= c2 && c2 <= 0xfc));
+            is_cp932 |= (0xe0 <= c1 && c1 <= 0xfc) && (0x40 <= c2 && c2 <= 0x7e);
+            if (!is_cp932) {
+                continue;
+            }
 
-        else if (((0x81 <= c1 && c1 <= 0x9f) && ((0x40 <= c2 && c2 <= 0x7e) || (0x80 <= c2 && c2 <= 0xfc))) || ((0xe0 <= c1 && c1 <= 0xfc) && (0x40 <= c2 && c2 <= 0x7e))) {
             /* Only SJIS is allowed */
             if (!code) {
                 /* SJIS */
@@ -357,20 +363,45 @@ static bool is_ascii_str(concptr str)
 }
 
 #if defined(EUC)
+#include <algorithm>
 #include <iconv.h>
+#include <initializer_list>
+#include <vector>
 
-static const struct ms_to_jis_unicode_conv_t {
-    unsigned char from[3];
-    unsigned char to[3];
-} ms_to_jis_unicode_conv[] = {
-    { { 0xef, 0xbd, 0x9e }, { 0xe3, 0x80, 0x9c } }, /* FULLWIDTH TILDE -> WAVE DASH */
-    { { 0xef, 0xbc, 0x8d }, { 0xe2, 0x88, 0x92 } }, /* FULLWIDTH HYPHEN-MINUS -> MINUS SIGN */
+// UTF-8 の文字列長は必ずしも3バイトとは限らないが、変愚蛮怒の仕様範囲では3固定.
+constexpr auto ENCODING_LENGTH = 3;
+class EncodingConverter {
+public:
+    EncodingConverter(const std::initializer_list<unsigned char> from, const std::initializer_list<unsigned char> to)
+        : from(from)
+        , to(to)
+    {
+    }
+
+    bool equals(const unsigned char *p) const
+    {
+        return std::equal(from.begin(), from.end(), p);
+    }
+
+    void replace(unsigned char *p) const
+    {
+        std::copy_n(to.begin(), ENCODING_LENGTH, p);
+    }
+
+private:
+    std::vector<unsigned char> from;
+    std::vector<unsigned char> to;
+};
+
+const std::vector<EncodingConverter> encoding_characters = {
+    { { 0xef, 0xbd, 0x9e }, { 0xe3, 0x80, 0x9c } }, /* FULLWIDTH TILDE -> WAVE DASH (全角チルダ → 波ダッシュ) */
+    { { 0xef, 0xbc, 0x8d }, { 0xe2, 0x88, 0x92 } }, /* FULLWIDTH HYPHEN-MINUS -> MINUS SIGN (全角ハイフン → マイナス記号) */
 };
 
 /*!
  * @brief 受け取ったUTF-8文字列を調べ、特定のコードポイントの文字の置き換えを行う
  *
- * 受け取ったUTF-8の文字列に含まれる文字を1つ1つしらべて、ms_to_jis_unicode_conv で
+ * 受け取ったUTF-8の文字列に含まれる文字を1つ1つ調べて、encoding_characters で
  * 定義されている特定のコードポイントの文字の変換を行う。
  *
  * '～'と'－'は、Windows環境(CP932)とLinux/UNIX環境(EUC-JP)でUTF-8に対応する
@@ -386,9 +417,8 @@ static const struct ms_to_jis_unicode_conv_t {
  */
 static void ms_to_jis_unicode(char *str)
 {
-    unsigned char *p;
-    for (p = (unsigned char *)str; *p; p++) {
-        int subseq_num = 0;
+    for (auto *p = (unsigned char *)str; *p; p++) {
+        auto subseq_num = 0;
         if (0x00 < *p && *p <= 0x7f) {
             continue;
         }
@@ -396,16 +426,17 @@ static void ms_to_jis_unicode(char *str)
         if ((*p & 0xe0) == 0xc0) {
             subseq_num = 1;
         }
+
         if ((*p & 0xf0) == 0xe0) {
-            size_t i;
-            for (i = 0; i < sizeof(ms_to_jis_unicode_conv) / sizeof(ms_to_jis_unicode_conv[0]); ++i) {
-                const struct ms_to_jis_unicode_conv_t *c = &ms_to_jis_unicode_conv[i];
-                if (memcmp(p, c->from, 3) == 0) {
-                    memcpy(p, c->to, 3);
+            for (const auto &converter : encoding_characters) {
+                if (converter.equals(p)) {
+                    converter.replace(p);
                 }
             }
+
             subseq_num = 2;
         }
+
         if ((*p & 0xf8) == 0xf0) {
             subseq_num = 3;
         }
@@ -511,6 +542,42 @@ static bool utf8_to_sys(char *utf8_str, char *sys_str_buffer, size_t sys_str_buf
 
     return true;
 
+#else
+    return false;
+#endif
+}
+
+/*!
+ * @brief システムの文字コードからUTF-8に変換する
+ * @param str システムの文字コードの文字列
+ * @return UTF-8に変換した文字列
+ *         変換に失敗した場合はstd::nullopt
+ */
+std::optional<std::string> sys_to_utf8(std::string_view str)
+{
+#if defined(EUC)
+    std::string utf8str(str.length() * 2 + 1, '\0');
+    const auto len = euc_to_utf8(str.data(), str.length(), utf8str.data(), utf8str.size());
+
+    return (len >= 0) ? std::make_optional(std::move(utf8str.erase(len))) : std::nullopt;
+#elif defined(SJIS) && defined(WINDOWS)
+    /* SJIS(CP932) -> UTF-16 */
+    std::vector<WCHAR> utf16buf(str.length());
+    const auto utf16_len = MultiByteToWideChar(932, 0, str.data(), str.size(), utf16buf.data(), utf16buf.size());
+    if (utf16_len == 0) {
+        return std::nullopt;
+    }
+
+    /* UTF-16 -> UTF-8 */
+    std::vector<char> utf8buf(str.length() * 2 + 1);
+    const auto utf8_len = WideCharToMultiByte(CP_UTF8, 0, utf16buf.data(), utf16_len, utf8buf.data(), utf8buf.size(), nullptr, nullptr);
+    if (utf8_len == 0) {
+        return std::nullopt;
+    }
+
+    return std::make_optional<std::string>(utf8buf.data(), utf8_len);
+#else
+    return std::nullopt;
 #endif
 }
 

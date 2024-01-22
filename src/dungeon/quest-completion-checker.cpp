@@ -1,5 +1,4 @@
-﻿#include "dungeon/quest-completion-checker.h"
-#include "core/player-update-types.h"
+#include "dungeon/quest-completion-checker.h"
 #include "dungeon/quest.h"
 #include "effect/effect-characteristics.h"
 #include "floor/cave.h"
@@ -18,6 +17,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include <algorithm>
@@ -25,6 +25,7 @@
 QuestCompletionChecker::QuestCompletionChecker(PlayerType *player_ptr, MonsterEntity *m_ptr)
     : player_ptr(player_ptr)
     , m_ptr(m_ptr)
+    , quest_idx(QuestId::NONE)
 {
 }
 
@@ -240,7 +241,7 @@ Pos2D QuestCompletionChecker::make_stairs(const bool create_stairs)
 
     msg_print(_("魔法の階段が現れた...", "A magical staircase appears..."));
     cave_set_feat(this->player_ptr, y, x, feat_down_stair);
-    set_bits(this->player_ptr->update, PU_FLOW);
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
     return Pos2D(y, x);
 }
 
@@ -251,8 +252,8 @@ void QuestCompletionChecker::make_reward(const Pos2D pos)
         ItemEntity item;
         while (true) {
             item.wipe();
-            auto &r_ref = monraces_info[this->m_ptr->r_idx];
-            (void)make_object(this->player_ptr, &item, AM_GOOD | AM_GREAT, r_ref.level);
+            const auto &monrace = this->m_ptr->get_monrace();
+            (void)make_object(this->player_ptr, &item, AM_GOOD | AM_GREAT, monrace.level);
             if (!this->check_quality(item)) {
                 continue;
             }

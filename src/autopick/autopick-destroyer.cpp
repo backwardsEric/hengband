@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 自動破壊の実行
  * @date 2020/04/25
  * @author Hourier
@@ -8,7 +8,6 @@
 #include "autopick/autopick-methods-table.h"
 #include "autopick/autopick-util.h"
 #include "core/disturbance.h"
-#include "core/player-update-types.h"
 #include "flavor/flavor-describer.h"
 #include "game-option/auto-destruction-options.h"
 #include "game-option/input-options.h"
@@ -30,6 +29,7 @@
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 
@@ -49,8 +49,8 @@ static bool is_leave_special_item(PlayerType *player_ptr, ItemEntity *o_ptr)
     const auto &bi_key = o_ptr->bi_key;
     const auto tval = bi_key.tval();
     if (PlayerRace(player_ptr).equals(PlayerRaceType::BALROG)) {
-        auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        if (bi_key == BaseitemKey(ItemKindType::CORPSE, SV_CORPSE) && angband_strchr("pht", monraces_info[r_idx].d_char)) {
+        const auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
+        if (o_ptr->is_corpse() && angband_strchr("pht", monraces_info[r_idx].d_char)) {
             return false;
         }
     } else if (pc.equals(PlayerClassType::ARCHER)) {
@@ -149,7 +149,7 @@ void auto_destroy_item(PlayerType *player_ptr, ItemEntity *o_ptr, int autopick_i
     }
 
     disturb(player_ptr, false, false);
-    if (!can_player_destroy_object(player_ptr, o_ptr)) {
+    if (!can_player_destroy_object(o_ptr)) {
         const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
         msg_format(_("%sは破壊不能だ。", "You cannot auto-destroy %s."), item_name.data());
         return;
@@ -157,5 +157,5 @@ void auto_destroy_item(PlayerType *player_ptr, ItemEntity *o_ptr, int autopick_i
 
     autopick_last_destroyed_object = *o_ptr;
     o_ptr->marked.set(OmType::AUTODESTROY);
-    player_ptr->update |= PU_AUTO_DESTRUCTION;
+    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::AUTO_DESTRUCTION);
 }

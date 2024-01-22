@@ -1,4 +1,4 @@
-﻿#include "grid/trap.h"
+#include "grid/trap.h"
 #include "cmd-io/cmd-dump.h"
 #include "cmd-io/cmd-save.h"
 #include "core/disturbance.h"
@@ -153,43 +153,31 @@ void init_normal_traps(void)
 }
 
 /*!
- * @brief 基本トラップをランダムに選択する /
- * Get random trap
+ * @brief 基本トラップをランダムに選択する
+ * @param floor_ptr 現在フロアへの参照ポインタ
  * @return 選択したトラップのID
- * @details
- * This routine should be redone to reflect trap "level".\n
- * That is, it does not make sense to have spiked pits at 50 feet.\n
- * Actually, it is not this routine, but the "trap instantiation"\n
- * code, which should also check for "trap doors" on quest levels.\n
+ * @details トラップドアでないならばそのID.
+ * トラップドアは、アリーナ・クエスト・ダンジョンの最下層には設置しない.
  */
-FEAT_IDX choose_random_trap(PlayerType *player_ptr)
+short choose_random_trap(FloorType *floor_ptr)
 {
-    FEAT_IDX feat;
-
-    /* Pick a trap */
-    auto *floor_ptr = player_ptr->current_floor_ptr;
+    const auto &terrains = TerrainList::get_instance();
     while (true) {
-        feat = normal_traps[randint0(normal_traps.size())];
-
-        /* Accept non-trapdoors */
-        if (terrains_info[feat].flags.has_not(TerrainCharacteristics::MORE)) {
-            break;
+        const auto terrain_id = rand_choice(normal_traps);
+        if (terrains[terrain_id].flags.has_not(TerrainCharacteristics::MORE)) {
+            return terrain_id;
         }
 
-        /* Hack -- no trap doors on special levels */
-        if (floor_ptr->inside_arena || inside_quest(quest_number(player_ptr, floor_ptr->dun_level))) {
+        if (floor_ptr->inside_arena || inside_quest(floor_ptr->get_quest_id())) {
             continue;
         }
 
-        /* Hack -- no trap doors on the deepest level */
-        if (floor_ptr->dun_level >= dungeons_info[floor_ptr->dungeon_idx].maxdepth) {
+        if (floor_ptr->dun_level >= floor_ptr->get_dungeon_definition().maxdepth) {
             continue;
         }
 
-        break;
+        return terrain_id;
     }
-
-    return feat;
 }
 
 /*!
@@ -225,9 +213,8 @@ void disclose_grid(PlayerType *player_ptr, POSITION y, POSITION x)
  * when they are "discovered" (by detecting them or setting them off),\n
  * the trap is "instantiated" as a visible, "typed", trap.\n
  */
-void place_trap(PlayerType *player_ptr, POSITION y, POSITION x)
+void place_trap(FloorType *floor_ptr, POSITION y, POSITION x)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *g_ptr = &floor_ptr->grid_array[y][x];
 
     /* Paranoia -- verify location */
@@ -242,7 +229,7 @@ void place_trap(PlayerType *player_ptr, POSITION y, POSITION x)
 
     /* Place an invisible trap */
     g_ptr->mimic = g_ptr->feat;
-    g_ptr->feat = choose_random_trap(player_ptr);
+    g_ptr->feat = choose_random_trap(floor_ptr);
 }
 
 /*!
@@ -398,16 +385,14 @@ static void hit_trap_slow(PlayerType *player_ptr)
  */
 void hit_trap(PlayerType *player_ptr, bool break_trap)
 {
-    int i, num, dam;
-    POSITION x = player_ptr->x, y = player_ptr->y;
-    auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
-    auto *f_ptr = &terrains_info[g_ptr->feat];
-    TrapType trap_feat_type = f_ptr->flags.has(TerrainCharacteristics::TRAP) ? i2enum<TrapType>(f_ptr->subtype) : TrapType::NOT_TRAP;
-    concptr name = _("トラップ", "a trap");
+    const Pos2D p_pos(player_ptr->y, player_ptr->x);
+    const auto &grid = player_ptr->current_floor_ptr->get_grid(p_pos);
+    const auto &terrain = grid.get_terrain();
+    TrapType trap_feat_type = terrain.flags.has(TerrainCharacteristics::TRAP) ? i2enum<TrapType>(terrain.subtype) : TrapType::NOT_TRAP;
 
     disturb(player_ptr, false, true);
 
-    cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HIT_TRAP);
+    cave_alter_feat(player_ptr, p_pos.y, p_pos.x, TerrainCharacteristics::HIT_TRAP);
 
     /* Analyze */
     switch (trap_feat_type) {
@@ -423,8 +408,8 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
             }
 
             sound(SOUND_FALL);
-            dam = damroll(2, 8);
-            name = _("落とし戸", "a trap door");
+            const auto dam = damroll(2, 8);
+            constexpr auto name = _("落とし戸", "a trap door");
 
             take_hit(player_ptr, DAMAGE_NOESCAPE, dam, name);
 
@@ -433,7 +418,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
                 do_cmd_save_game(player_ptr, true);
             }
 
-            exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, _("落とし戸に落ちた", "fell through a trap door!"));
+            exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("落とし戸に落ちた", "fell through a trap door!"));
             prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_DOWN | CFM_RAND_PLACE | CFM_RAND_CONNECT);
             player_ptr->leaving = true;
         }
@@ -449,9 +434,9 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 
     case TrapType::TY_CURSE: {
         msg_print(_("何かがピカッと光った！", "There is a flash of shimmering light!"));
-        num = 2 + randint1(3);
-        for (i = 0; i < num; i++) {
-            (void)summon_specific(player_ptr, 0, y, x, player_ptr->current_floor_ptr->dun_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+        const auto num = 2 + randint1(3);
+        for (auto i = 0; i < num; i++) {
+            (void)summon_specific(player_ptr, 0, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
         }
 
         if (player_ptr->current_floor_ptr->dun_level > randint1(100)) /* No nasty effect for low levels */
@@ -474,14 +459,14 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 
     case TrapType::FIRE: {
         msg_print(_("炎に包まれた！", "You are enveloped in flames!"));
-        dam = damroll(4, 6);
+        const auto dam = damroll(4, 6);
         (void)fire_dam(player_ptr, dam, _("炎のトラップ", "a fire trap"), false);
         break;
     }
 
     case TrapType::ACID: {
         msg_print(_("酸が吹きかけられた！", "You are splashed with acid!"));
-        dam = damroll(4, 6);
+        const auto dam = damroll(4, 6);
         (void)acid_dam(player_ptr, dam, _("酸のトラップ", "an acid trap"), false);
         break;
     }
@@ -550,7 +535,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
     case TrapType::TRAPS: {
         msg_print(_("まばゆい閃光が走った！", "There is a bright flash of light!"));
         /* Make some new traps */
-        project(player_ptr, 0, 1, y, x, 0, AttributeType::MAKE_TRAP, PROJECT_HIDE | PROJECT_JUMP | PROJECT_GRID);
+        project(player_ptr, 0, 1, p_pos.y, p_pos.x, 0, AttributeType::MAKE_TRAP, PROJECT_HIDE | PROJECT_JUMP | PROJECT_GRID);
 
         break;
     }
@@ -565,9 +550,9 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 
     case TrapType::OPEN: {
         msg_print(_("大音響と共にまわりの壁が崩れた！", "Suddenly, surrounding walls are opened!"));
-        (void)project(player_ptr, 0, 3, y, x, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
-        (void)project(player_ptr, 0, 3, y, x - 4, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
-        (void)project(player_ptr, 0, 3, y, x + 4, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
+        (void)project(player_ptr, 0, 3, p_pos.y, p_pos.x, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
+        (void)project(player_ptr, 0, 3, p_pos.y, p_pos.x - 4, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
+        (void)project(player_ptr, 0, 3, p_pos.y, p_pos.x + 4, 0, AttributeType::DISINTEGRATE, PROJECT_GRID | PROJECT_HIDE);
         aggravate_monsters(player_ptr, 0);
 
         break;
@@ -582,10 +567,10 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 
         /* Summon Demons and Angels */
         for (lev = player_ptr->current_floor_ptr->dun_level; lev >= 20; lev -= 1 + lev / 16) {
-            num = levs[std::min(lev / 10, 9)];
-            for (i = 0; i < num; i++) {
-                POSITION x1 = rand_spread(x, 7);
-                POSITION y1 = rand_spread(y, 5);
+            const auto num = levs[std::min(lev / 10, 9)];
+            for (auto i = 0; i < num; i++) {
+                POSITION x1 = rand_spread(p_pos.x, 7);
+                POSITION y1 = rand_spread(p_pos.y, 5);
 
                 if (!in_bounds(player_ptr->current_floor_ptr, y1, x1)) {
                     continue;
@@ -626,9 +611,9 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         fire_ball_hide(player_ptr, AttributeType::WATER_FLOW, 0, 1, 10);
 
         /* Summon Piranhas */
-        num = 1 + player_ptr->current_floor_ptr->dun_level / 20;
-        for (i = 0; i < num; i++) {
-            (void)summon_specific(player_ptr, 0, y, x, player_ptr->current_floor_ptr->dun_level, SUMMON_PIRANHAS, (PM_ALLOW_GROUP | PM_NO_PET));
+        const auto num = 1 + player_ptr->current_floor_ptr->dun_level / 20;
+        for (auto i = 0; i < num; i++) {
+            (void)summon_specific(player_ptr, 0, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_PIRANHAS, (PM_ALLOW_GROUP | PM_NO_PET));
         }
         break;
     }
@@ -637,8 +622,8 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         break;
     }
 
-    if (break_trap && is_trap(player_ptr, g_ptr->feat)) {
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::DISARM);
+    if (break_trap && is_trap(player_ptr, grid.feat)) {
+        cave_alter_feat(player_ptr, p_pos.y, p_pos.x, TerrainCharacteristics::DISARM);
         msg_print(_("トラップを粉砕した。", "You destroyed the trap."));
     }
 }

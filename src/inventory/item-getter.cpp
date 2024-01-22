@@ -1,4 +1,4 @@
-﻿#include "inventory/item-getter.h"
+#include "inventory/item-getter.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "game-option/input-options.h"
@@ -21,6 +21,7 @@
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
@@ -82,15 +83,15 @@ static bool check_item_tag_aux(PlayerType *player_ptr, item_selection_type *item
  */
 static bool check_item_tag_inventory(PlayerType *player_ptr, item_selection_type *item_selection_ptr, char *prev_tag, const ItemTester &item_tester)
 {
-    if ((!item_selection_ptr->inven || (*item_selection_ptr->cp < 0) || (*item_selection_ptr->cp >= INVEN_PACK)) && (!item_selection_ptr->equip || (*item_selection_ptr->cp < INVEN_MAIN_HAND) || (*item_selection_ptr->cp >= INVEN_TOTAL))) {
+    auto should_check = !item_selection_ptr->inven || (*item_selection_ptr->cp < 0) || (*item_selection_ptr->cp >= INVEN_PACK);
+    should_check &= !item_selection_ptr->equip || (*item_selection_ptr->cp < INVEN_MAIN_HAND) || (*item_selection_ptr->cp >= INVEN_TOTAL);
+    if (should_check) {
         return false;
     }
 
     if (*prev_tag && command_cmd) {
-
-        bool flag = false;
-        item_use_flag use_flag = (*item_selection_ptr->cp >= INVEN_MAIN_HAND) ? USE_EQUIP : USE_INVEN;
-
+        auto flag = false;
+        const auto use_flag = (*item_selection_ptr->cp >= INVEN_MAIN_HAND) ? USE_EQUIP : USE_INVEN;
         flag |= !get_tag(player_ptr, &item_selection_ptr->k, *prev_tag, use_flag, item_tester);
         flag |= !get_item_okay(player_ptr, item_selection_ptr->k, item_tester);
 
@@ -294,6 +295,11 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
         screen_save();
     }
 
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+    };
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     while (!item_selection_ptr->done) {
         COMMAND_CODE get_item_label = 0;
         int ni = 0;
@@ -303,21 +309,21 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
                 continue;
             }
 
-            if (window_flag[i] & (PW_INVENTORY)) {
+            if (g_window_flags[i].has(SubWindowRedrawingFlag::INVENTORY)) {
                 ni++;
             }
 
-            if (window_flag[i] & (PW_EQUIPMENT)) {
+            if (g_window_flags[i].has(SubWindowRedrawingFlag::EQUIPMENT)) {
                 ne++;
             }
         }
 
         if ((command_wrk && ni && !ne) || (!command_wrk && !ni && ne)) {
-            toggle_inventory_equipment(player_ptr);
+            toggle_inventory_equipment();
             item_selection_ptr->toggle = !item_selection_ptr->toggle;
         }
 
-        player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
+        rfu.set_flags(flags);
         handle_stuff(player_ptr);
 
         if (!command_wrk) {
@@ -637,10 +643,10 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
     }
 
     if (item_selection_ptr->toggle) {
-        toggle_inventory_equipment(player_ptr);
+        toggle_inventory_equipment();
     }
 
-    player_ptr->window_flags |= (PW_INVENTORY | PW_EQUIPMENT);
+    rfu.set_flags(flags);
     handle_stuff(player_ptr);
     prt("", 0, 0);
     if (item_selection_ptr->oops && str) {

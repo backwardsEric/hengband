@@ -1,5 +1,4 @@
-﻿#include "cmd-io/cmd-diary.h"
-#include "cmd-io/diary-subtitle-table.h"
+#include "cmd-io/cmd-diary.h"
 #include "core/asking-player.h"
 #include "core/show-file.h"
 #include "game-option/play-record-options.h"
@@ -11,6 +10,7 @@
 #include "player-base/player-class.h"
 #include "player/player-personality.h"
 #include "system/player-type-definition.h"
+#include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
@@ -26,30 +26,19 @@
  */
 static void display_diary(PlayerType *player_ptr)
 {
-    std::stringstream ss;
-    ss << _("playrecord-", "playrec-") << savefile_base << ".txt";
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, ss.str());
-
-    PlayerClass pc(player_ptr);
-    const auto max_subtitles = diary_subtitles.size();
-    std::string subtitle;
-    if (pc.is_tough()) {
-        subtitle = diary_subtitles[randint0(max_subtitles - 1)];
-    } else if (pc.is_wizard()) {
-        subtitle = diary_subtitles[randint0(max_subtitles - 1) + 1];
-    } else {
-        subtitle = diary_subtitles[randint0(max_subtitles - 2) + 1];
-    }
-
-    char diary_title[256];
+    const auto subtitle_candidates = PlayerClass(player_ptr).get_subtitle_candidates();
+    const auto choice = Rand_external(subtitle_candidates.size());
+    const auto &subtitle = subtitle_candidates[choice];
 #ifdef JP
-    strnfmt(diary_title, sizeof(diary_title), "「%s%s%sの伝説 -%s-」", ap_ptr->title, ap_ptr->no ? "の" : "", player_ptr->name, subtitle.data());
+    const auto diary_title = format("「%s%s%sの伝説 -%s-」", ap_ptr->title, ap_ptr->no ? "の" : "", player_ptr->name, subtitle.data());
 #else
-    strnfmt(diary_title, sizeof(diary_title), "Legend of %s %s '%s'", ap_ptr->title, player_ptr->name, subtitle.data());
+    const auto diary_title = format("Legend of %s %s '%s'", ap_ptr->title, player_ptr->name, subtitle.data());
 #endif
 
-    (void)show_file(player_ptr, false, buf, diary_title, -1, 0);
+    std::stringstream ss;
+    ss << _("playrecord-", "playrec-") << savefile_base << ".txt";
+    const auto &path = path_build(ANGBAND_DIR_USER, ss.str());
+    (void)show_file(player_ptr, false, path.string(), -1, 0, diary_title);
 }
 
 /*!
@@ -57,11 +46,9 @@ static void display_diary(PlayerType *player_ptr)
  */
 static void add_diary_note(PlayerType *player_ptr)
 {
-    char tmp[80] = "\0";
-    char bunshou[80] = "\0";
-    if (get_string(_("内容: ", "diary note: "), tmp, 79)) {
-        strcpy(bunshou, tmp);
-        exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, bunshou);
+    const auto input_str = input_string(_("内容: ", "diary note: "), 1000);
+    if (input_str) {
+        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, *input_str);
     }
 }
 
@@ -74,16 +61,15 @@ static void do_cmd_last_get(PlayerType *player_ptr)
         return;
     }
 
-    char buf[256];
-    strnfmt(buf, sizeof(buf), _("%sの入手を記録します。", "Do you really want to record getting %s? "), record_o_name);
-    if (!get_check(buf)) {
+    const auto record = format(_("%sの入手を記録します。", "Do you really want to record getting %s? "), record_o_name);
+    if (!input_check(record)) {
         return;
     }
 
     GAME_TURN turn_tmp = w_ptr->game_turn;
     w_ptr->game_turn = record_turn;
-    strnfmt(buf, sizeof(buf), _("%sを手に入れた。", "discover %s."), record_o_name);
-    exe_write_diary(player_ptr, DIARY_DESCRIPTION, 0, buf);
+    const auto mes = format(_("%sを手に入れた。", "discover %s."), record_o_name);
+    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, mes);
     w_ptr->game_turn = turn_tmp;
 }
 
@@ -92,22 +78,22 @@ static void do_cmd_last_get(PlayerType *player_ptr)
  */
 static void do_cmd_erase_diary()
 {
-    if (!get_check(_("本当に記録を消去しますか？", "Do you really want to delete all your records? "))) {
+    if (!input_check(_("本当に記録を消去しますか？", "Do you really want to delete all your records? "))) {
         return;
     }
 
     std::stringstream ss;
     ss << _("playrecord-", "playrec-") << savefile_base << ".txt";
-    char buf[256];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_USER, ss.str());
-    fd_kill(buf);
+    const auto &path = path_build(ANGBAND_DIR_USER, ss.str());
+    fd_kill(path);
 
-    auto *fff = angband_fopen(buf, FileOpenMode::WRITE);
+    auto *fff = angband_fopen(path, FileOpenMode::WRITE);
     if (fff) {
         angband_fclose(fff);
         msg_format(_("記録を消去しました。", "deleted record."));
     } else {
-        msg_format(_("%s の消去に失敗しました。", "failed to delete %s."), buf);
+        const auto &filename = path.string();
+        msg_format(_("%s の消去に失敗しました。", "failed to delete %s."), filename.data());
     }
 
     msg_print(nullptr);
@@ -120,6 +106,8 @@ static void do_cmd_erase_diary()
 void do_cmd_diary(PlayerType *player_ptr)
 {
     screen_save();
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
+
     while (true) {
         term_clear();
         prt(_("[ 記録の設定 ]", "[ Play Record ]"), 2, 0);

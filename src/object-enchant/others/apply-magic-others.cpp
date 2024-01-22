@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 武器でも防具でもアクセサリでもない、その他のアイテム群を生成・強化する処理
  * @date 2022/02/23
  * @author Hourier
@@ -9,6 +9,7 @@
 #include "artifact/random-art-generator.h"
 #include "game-option/cheat-options.h"
 #include "inventory/inventory-slot-types.h"
+#include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/monster-race.h"
 #include "monster-race/race-indice-types.h"
@@ -65,7 +66,7 @@ void OtherItemsEnchanter::apply_magic()
     case ItemKindType::CAPTURE:
         this->o_ptr->pval = 0;
         object_aware(this->player_ptr, this->o_ptr);
-        object_known(this->o_ptr);
+        this->o_ptr->mark_as_known();
         break;
     case ItemKindType::FIGURINE:
         this->generate_figurine();
@@ -138,7 +139,7 @@ void OtherItemsEnchanter::generate_figurine()
  */
 void OtherItemsEnchanter::generate_corpse()
 {
-    const std::unordered_map<OBJECT_SUBTYPE_VALUE, MonsterDropType> match = {
+    const std::unordered_map<int, MonsterDropType> match = {
         { SV_SKELETON, MonsterDropType::DROP_SKELETON },
         { SV_CORPSE, MonsterDropType::DROP_CORPSE },
     };
@@ -147,15 +148,15 @@ void OtherItemsEnchanter::generate_corpse()
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
     MonsterRaceId r_idx;
     while (true) {
-        r_idx = get_mon_num(this->player_ptr, 0, floor_ptr->dun_level, 0);
+        r_idx = get_mon_num(this->player_ptr, 0, floor_ptr->dun_level, PM_NONE);
         auto &r_ref = monraces_info[r_idx];
         auto check = (floor_ptr->dun_level < r_ref.level) ? (r_ref.level - floor_ptr->dun_level) : 0;
         const auto sval = this->o_ptr->bi_key.sval();
-        if (!sval.has_value()) {
+        if (!sval) {
             continue;
         }
 
-        if ((r_ref.rarity == 0) || (match.find(sval.value()) != match.end() && r_ref.drop_flags.has_not(match.at(sval.value()))) || (randint0(check) > 0)) {
+        if ((r_ref.rarity == 0) || (match.find(*sval) != match.end() && r_ref.drop_flags.has_not(match.at(*sval))) || (randint0(check) > 0)) {
             continue;
         }
 
@@ -164,7 +165,7 @@ void OtherItemsEnchanter::generate_corpse()
 
     this->o_ptr->pval = enum2i(r_idx);
     object_aware(this->player_ptr, this->o_ptr);
-    object_known(this->o_ptr);
+    this->o_ptr->mark_as_known();
 }
 
 /*
@@ -190,7 +191,7 @@ void OtherItemsEnchanter::generate_statue()
     }
 
     object_aware(this->player_ptr, this->o_ptr);
-    object_known(this->o_ptr);
+    this->o_ptr->mark_as_known();
 }
 
 /*

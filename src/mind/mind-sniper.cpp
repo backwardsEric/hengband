@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief スナイパー技能の実装 / Sniping
  * @date 2014/01/18
  * @author
@@ -9,8 +9,6 @@
 #include "action/action-limited.h"
 #include "cmd-action/cmd-shoot.h"
 #include "core/asking-player.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "floor/geometry.h"
@@ -33,6 +31,7 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "term/z-form.h"
@@ -128,13 +127,25 @@ static snipe_power const snipe_powers[MAX_SNIPE_POWERS] = {
 #endif
 };
 
+void SniperData::reset_concentration_flag()
+{
+    this->reset_concent = false;
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::MONSTER_STATUSES,
+    };
+    rfu.set_flags(flags);
+    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+}
+
 /*!
  * @brief スナイパーの集中度加算
  * @return 集中度を加算した場合は true、そうでなければ false
  */
 static bool snipe_concentrate(PlayerType *player_ptr)
 {
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
     if (!sniper_data) {
         return false;
     }
@@ -144,10 +155,7 @@ static bool snipe_concentrate(PlayerType *player_ptr)
     }
 
     msg_format(_("集中した。(集中度 %d)", "You concentrate deeply. (lvl %d)"), sniper_data->concent);
-    sniper_data->reset_concent = false;
-
-    player_ptr->update |= (PU_BONUS | PU_MONSTER_STATUSES);
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
+    sniper_data->reset_concentration_flag();
     return true;
 }
 
@@ -158,7 +166,7 @@ static bool snipe_concentrate(PlayerType *player_ptr)
  */
 void reset_concentration(PlayerType *player_ptr, bool msg)
 {
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
     if (!sniper_data) {
         return;
     }
@@ -168,10 +176,7 @@ void reset_concentration(PlayerType *player_ptr, bool msg)
     }
 
     sniper_data->concent = 0;
-    sniper_data->reset_concent = false;
-
-    player_ptr->update |= (PU_BONUS | PU_MONSTER_STATUSES);
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
+    sniper_data->reset_concentration_flag();
 }
 
 /*!
@@ -181,7 +186,7 @@ void reset_concentration(PlayerType *player_ptr, bool msg)
  */
 int boost_concentration_damage(PlayerType *player_ptr, int tdam)
 {
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
     const auto sniper_concent = sniper_data ? sniper_data->concent : 0;
 
     tdam = tdam * (10 + sniper_concent) / 10;
@@ -206,7 +211,7 @@ void display_snipe_list(PlayerType *player_ptr)
     put_str(_("名前", "Name"), y, x + 5);
     put_str(_("Lv   MP", "Lv Mana"), y, x + 35);
 
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
 
     for (i = 0; i < MAX_SNIPE_POWERS; i++) {
         /* Access the available spell */
@@ -247,8 +252,6 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
     TERM_LEN y = 1;
     TERM_LEN x = 20;
     PLAYER_LEVEL plev = player_ptr->lev;
-    char choice;
-    char out_val[160];
     concptr p = _("射撃術", "power");
     snipe_power spell;
     bool flag, redraw;
@@ -258,7 +261,7 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
     /* Assume cancelled */
     *sn = (-1);
 
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
 
     /* Repeat previous command */
     /* Get the spell, if available */
@@ -279,21 +282,25 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
         }
     }
 
-    /* Build a prompt (accept all spells) */
+    std::string fmt;
     if (only_browse) {
-        (void)strnfmt(
-            out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0), I2A(num), p);
+        fmt = _("(%s^ %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? ");
     } else {
-        (void)strnfmt(
-            out_val, 78, _("(%s^ %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? "), p, I2A(0), I2A(num), p);
+        fmt = _("(%s^ %c-%c, '*'で一覧, ESC) どの%sを使いますか？", "(%s^s %c-%c, *=List, ESC=exit) Use which %s? ");
     }
 
-    choice = always_show_list ? ESCAPE : 1;
+    const auto prompt = format(fmt.data(), p, I2A(0), I2A(num), p);
+    auto choice = always_show_list ? ESCAPE : '\1';
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
-        } else if (!get_com(out_val, &choice, false)) {
-            break;
+        } else {
+            const auto new_choice = input_command(prompt);
+            if (!new_choice) {
+                break;
+            }
+
+            choice = *new_choice;
         }
 
         /* Request redraw */
@@ -313,7 +320,7 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
                 /* Dump the spells */
                 for (i = 0; i < MAX_SNIPE_POWERS; i++) {
                     term_color_type tcol = TERM_WHITE;
-                    term_erase(x, y + i + 1, 255);
+                    term_erase(x, y + i + 1);
 
                     /* Access the spell */
                     spell = snipe_powers[i];
@@ -363,7 +370,7 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
         screen_load();
     }
 
-    player_ptr->window_flags |= (PW_SPELL);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     handle_stuff(player_ptr);
 
     /* Abort if needed */
@@ -389,10 +396,10 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
  */
 MULTIPLY calc_snipe_damage_with_slay(PlayerType *player_ptr, MULTIPLY mult, MonsterEntity *m_ptr, SPELL_IDX snipe_type)
 {
-    auto *r_ptr = &monraces_info[m_ptr->r_idx];
+    auto *r_ptr = &m_ptr->get_monrace();
     bool seen = is_seen(player_ptr, m_ptr);
 
-    auto sniper_data = PlayerClass(player_ptr).get_specific_data<sniper_data_type>();
+    auto sniper_data = PlayerClass(player_ptr).get_specific_data<SniperData>();
     const auto sniper_concent = sniper_data ? sniper_data->concent : 0;
 
     switch (snipe_type) {
@@ -597,31 +604,38 @@ static bool cast_sniper_spell(PlayerType *player_ptr, int spell)
  */
 void do_cmd_snipe(PlayerType *player_ptr)
 {
-    COMMAND_CODE n = 0;
-    bool cast;
-
     if (cmd_limit_confused(player_ptr)) {
         return;
     }
+
     if (cmd_limit_image(player_ptr)) {
         return;
     }
+
     if (cmd_limit_stun(player_ptr)) {
         return;
     }
 
+    COMMAND_CODE n = 0;
     if (!get_snipe_power(player_ptr, &n, false)) {
         return;
     }
 
-    cast = cast_sniper_spell(player_ptr, n);
-
-    if (!cast) {
+    if (!cast_sniper_spell(player_ptr, n)) {
         return;
     }
-    player_ptr->redraw |= (PR_HP | PR_MP);
-    player_ptr->window_flags |= (PW_PLAYER);
-    player_ptr->window_flags |= (PW_SPELL);
+
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags_mwrf = {
+        MainWindowRedrawingFlag::HP,
+        MainWindowRedrawingFlag::MP,
+    };
+    rfu.set_flags(flags_mwrf);
+    static constexpr auto flags_swrf = {
+        SubWindowRedrawingFlag::PLAYER,
+        SubWindowRedrawingFlag::SPELL,
+    };
+    rfu.set_flags(flags_swrf);
 }
 
 /*!
@@ -640,11 +654,11 @@ void do_cmd_snipe_browse(PlayerType *player_ptr)
         }
 
         /* Clear lines, position cursor  (really should use strlen here) */
-        term_erase(12, 22, 255);
-        term_erase(12, 21, 255);
-        term_erase(12, 20, 255);
-        term_erase(12, 19, 255);
-        term_erase(12, 18, 255);
+        term_erase(12, 22);
+        term_erase(12, 21);
+        term_erase(12, 20);
+        term_erase(12, 19);
+        term_erase(12, 18);
 
         display_wrap_around(snipe_tips[n], 62, 19, 15);
     }

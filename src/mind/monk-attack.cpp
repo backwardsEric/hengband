@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief 素手で攻撃することに補正のある職業 (修行僧、狂戦士、練気術師)の打撃処理
  * @date 2020/05/23
  * @author Hourier
@@ -20,7 +20,7 @@
 #include "monster-race/race-flags3.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
-#include "player-attack/player-attack-util.h"
+#include "player-attack/player-attack.h"
 #include "player-base/player-class.h"
 #include "player-info/monk-data-type.h"
 #include "player/attack-defense-types.h"
@@ -45,21 +45,21 @@
  */
 static int calc_stun_resistance(player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &pa_ptr->m_ptr->get_monrace();
     int resist_stun = 0;
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
         resist_stun += 88;
     }
 
-    if (r_ptr->flags3 & RF3_NO_STUN) {
+    if (r_ptr->resistance_flags.has(MonsterResistanceType::NO_STUN)) {
         resist_stun += 66;
     }
 
-    if (r_ptr->flags3 & RF3_NO_CONF) {
+    if (r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) {
         resist_stun += 33;
     }
 
-    if (r_ptr->flags3 & RF3_NO_SLEEP) {
+    if (r_ptr->resistance_flags.has(MonsterResistanceType::NO_SLEEP)) {
         resist_stun += 33;
     }
 
@@ -106,7 +106,7 @@ static int select_blow(PlayerType *player_ptr, player_attack_type *pa_ptr, int m
     const martial_arts *old_ptr = &ma_blows[0];
     for (int times = 0; times < max_blow_selection_times; times++) {
         do {
-            pa_ptr->ma_ptr = &ma_blows[randint0(MAX_MA)];
+            pa_ptr->ma_ptr = &rand_choice(ma_blows);
             if (PlayerClass(player_ptr).equals(PlayerClassType::FORCETRAINER) && (pa_ptr->ma_ptr->min_level > 1)) {
                 min_level = pa_ptr->ma_ptr->min_level + 3;
             } else {
@@ -140,9 +140,9 @@ static int select_blow(PlayerType *player_ptr, player_attack_type *pa_ptr, int m
 static int process_monk_additional_effect(player_attack_type *pa_ptr, int *stun_effect)
 {
     int special_effect = 0;
-    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &pa_ptr->m_ptr->get_monrace();
     if (pa_ptr->ma_ptr->effect == MA_KNEE) {
-        if (r_ptr->flags1 & RF1_MALE) {
+        if (is_male(*r_ptr)) {
             msg_format(_("%sに金的膝蹴りをくらわした！", "You hit %s in the groin with your knee!"), pa_ptr->m_name);
             sound(SOUND_PAIN);
             special_effect = MA_KNEE;
@@ -202,7 +202,7 @@ static WEIGHT calc_monk_attack_weight(PlayerType *player_ptr)
  */
 static void process_attack_vital_spot(PlayerType *player_ptr, player_attack_type *pa_ptr, int *stun_effect, int *resist_stun, const int special_effect)
 {
-    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &pa_ptr->m_ptr->get_monrace();
     if ((special_effect == MA_KNEE) && ((pa_ptr->attack_damage + player_ptr->to_d[pa_ptr->hand]) < pa_ptr->m_ptr->hp)) {
         msg_format(_("%s^は苦痛にうめいている！", "%s^ moans in agony!"), pa_ptr->m_name);
         *stun_effect = 7 + randint1(13);
@@ -229,7 +229,7 @@ static void process_attack_vital_spot(PlayerType *player_ptr, player_attack_type
  */
 static void print_stun_effect(PlayerType *player_ptr, player_attack_type *pa_ptr, const int stun_effect, const int resist_stun)
 {
-    auto *r_ptr = &monraces_info[pa_ptr->m_ptr->r_idx];
+    auto *r_ptr = &pa_ptr->m_ptr->get_monrace();
     if (stun_effect && ((pa_ptr->attack_damage + player_ptr->to_d[pa_ptr->hand]) < pa_ptr->m_ptr->hp)) {
         if (player_ptr->lev > randint1(r_ptr->level + resist_stun + 10)) {
             if (set_monster_stunned(player_ptr, pa_ptr->g_ptr->m_idx, stun_effect + pa_ptr->m_ptr->get_remaining_stun())) {
@@ -269,7 +269,7 @@ void process_monk_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
 bool double_attack(PlayerType *player_ptr)
 {
     DIRECTION dir;
-    if (!get_rep_dir(player_ptr, &dir, false)) {
+    if (!get_rep_dir(player_ptr, &dir)) {
         return false;
     }
     POSITION y = player_ptr->y + ddy[dir];

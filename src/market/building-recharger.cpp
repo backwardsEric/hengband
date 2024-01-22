@@ -1,7 +1,6 @@
-﻿#include "market/building-recharger.h"
+#include "market/building-recharger.h"
 #include "autopick/autopick.h"
 #include "core/asking-player.h"
-#include "core/player-update-types.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
@@ -17,6 +16,7 @@
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
 
@@ -36,10 +36,10 @@ void building_recharge(PlayerType *player_ptr)
     msg_flag = false;
     clear_bldg(4, 18);
     prt(_("  再充填の費用はアイテムの種類によります。", "  The prices of recharge depend on the type."), 6, 0);
-    const auto q = _("どのアイテムに魔力を充填しますか? ", "Recharge which item? ");
-    const auto s = _("魔力を充填すべきアイテムがない。", "You have nothing to recharge.");
-    OBJECT_IDX item;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::can_recharge));
+    constexpr auto q = _("どのアイテムに魔力を充填しますか? ", "Recharge which item? ");
+    constexpr auto s = _("魔力を充填すべきアイテムがない。", "You have nothing to recharge.");
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), FuncItemTester(&ItemEntity::can_recharge));
     if (o_ptr == nullptr) {
         return;
     }
@@ -51,12 +51,12 @@ void building_recharge(PlayerType *player_ptr)
     if (!o_ptr->is_known()) {
         msg_format(_("充填する前に鑑定されている必要があります！", "The item must be identified first!"));
         msg_print(nullptr);
-        if ((player_ptr->au >= 50) && get_check(_("＄50で鑑定しますか？ ", "Identify for 50 gold? "))) {
+        if ((player_ptr->au >= 50) && input_check(_("＄50で鑑定しますか？ ", "Identify for 50 gold? "))) {
             player_ptr->au -= 50;
             identify_item(player_ptr, o_ptr);
             const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
             msg_format(_("%s です。", "You have: %s."), item_name.data());
-            autopick_alter_item(player_ptr, item, false);
+            autopick_alter_item(player_ptr, i_idx, false);
             building_prt_gold(player_ptr);
         }
 
@@ -117,9 +117,9 @@ void building_recharge(PlayerType *player_ptr)
 
     if (tval == ItemKindType::ROD) {
 #ifdef JP
-        if (get_check(format("そのロッドを＄%d で再充填しますか？", price)))
+        if (input_check(format("そのロッドを＄%d で再充填しますか？", price)))
 #else
-        if (get_check(format("Recharge the %s for %d gold? ", ((o_ptr->number > 1) ? "rods" : "rod"), price)))
+        if (input_check(format("Recharge the %s for %d gold? ", ((o_ptr->number > 1) ? "rods" : "rod"), price)))
 #endif
 
         {
@@ -136,7 +136,7 @@ void building_recharge(PlayerType *player_ptr)
         }
 
         const auto mes = _("一回分＄%d で何回分充填しますか？", "Add how many charges for %d gold apiece? ");
-        const auto charges = get_quantity(format(mes, price), std::min(player_ptr->au / price, max_charges));
+        const auto charges = input_quantity(std::min(player_ptr->au / price, max_charges), format(mes, price));
         if (charges < 1) {
             return;
         }
@@ -152,8 +152,13 @@ void building_recharge(PlayerType *player_ptr)
 #else
     msg_format("%s^ %s recharged for %d gold.", item_name.data(), ((o_ptr->number > 1) ? "were" : "was"), price);
 #endif
-    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVENTORY);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags = {
+        StatusRecalculatingFlag::COMBINATION,
+        StatusRecalculatingFlag::REORDER,
+    };
+    rfu.set_flags(flags);
+    rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
     player_ptr->au -= price;
 }
 
@@ -223,7 +228,7 @@ void building_recharge_all(PlayerType *player_ptr)
         return;
     }
 
-    if (!get_check(format(_("すべてのアイテムを ＄%d で再充填しますか？", "Recharge all items for %d gold? "), total_cost))) {
+    if (!input_check(format(_("すべてのアイテムを ＄%d で再充填しますか？", "Recharge all items for %d gold? "), total_cost))) {
         return;
     }
 
@@ -264,7 +269,12 @@ void building_recharge_all(PlayerType *player_ptr)
 
     msg_format(_("＄%d で再充填しました。", "You pay %d gold."), total_cost);
     msg_print(nullptr);
-    player_ptr->update |= (PU_COMBINATION | PU_REORDER);
-    player_ptr->window_flags |= (PW_INVENTORY);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    static constexpr auto flags = {
+        StatusRecalculatingFlag::COMBINATION,
+        StatusRecalculatingFlag::REORDER,
+    };
+    rfu.set_flags(flags);
+    rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
     player_ptr->au -= total_cost;
 }

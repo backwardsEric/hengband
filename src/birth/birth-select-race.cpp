@@ -1,4 +1,4 @@
-﻿#include "birth/birth-select-race.h"
+#include "birth/birth-select-race.h"
 #include "birth/birth-util.h"
 #include "io/input-key-acceptor.h"
 #include "player-info/race-info.h"
@@ -161,7 +161,7 @@ static bool select_race(PlayerType *player_ptr, char *sym, int *k)
             *k = -1;
         }
 
-        birth_help_option(player_ptr, c, BK_RACE);
+        birth_help_option(player_ptr, c, BirthKind::RACE);
     }
 
     return true;

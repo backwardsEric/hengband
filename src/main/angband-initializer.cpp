@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file angband-initializer.cpp
  * @brief 変愚蛮怒のシステム初期化
  * @date 2014/01/28
@@ -103,8 +103,7 @@ void init_file_paths(const std::filesystem::path &libpath, const std::filesystem
     struct tm *t = localtime(&now);
     char tmp[128];
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", t);
-    path_build(debug_savefile, sizeof(debug_savefile), ANGBAND_DIR_DEBUG_SAVE, tmp);
-
+    debug_savefile = path_build(ANGBAND_DIR_DEBUG_SAVE, tmp);
     remove_old_debug_savefiles();
 }
 
@@ -195,7 +194,7 @@ void create_needed_dirs(void)
  */
 static void init_note_term(concptr str)
 {
-    term_erase(0, 23, 255);
+    term_erase(0, 23);
     term_putstr(20, 23, -1, TERM_WHITE, str);
     term_fresh();
 }
@@ -250,12 +249,11 @@ static void put_title()
  */
 void init_angband(PlayerType *player_ptr, bool no_term)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, _("news_j.txt", "news.txt"));
-    auto fd = fd_open(buf, O_RDONLY);
+    const auto &path_news = path_build(ANGBAND_DIR_FILE, _("news_j.txt", "news.txt"));
+    auto fd = fd_open(path_news, O_RDONLY);
     if (fd < 0) {
         std::string why = _("'", "Cannot access the '");
-        why.append(buf);
+        why.append(path_news.string());
         why.append(_("'ファイルにアクセスできません!", "' file!"));
         init_angband_aux(why);
     }
@@ -263,10 +261,10 @@ void init_angband(PlayerType *player_ptr, bool no_term)
     (void)fd_close(fd);
     if (!no_term) {
         term_clear();
-        path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, _("news_j.txt", "news.txt"));
-        auto *fp = angband_fopen(buf, FileOpenMode::READ);
+        auto *fp = angband_fopen(path_news, FileOpenMode::READ);
         if (fp) {
             int i = 0;
+            char buf[1024]{};
             while (0 == angband_fgets(fp, buf, sizeof(buf))) {
                 term_putstr(0, i++, -1, TERM_WHITE, buf);
             }
@@ -277,15 +275,16 @@ void init_angband(PlayerType *player_ptr, bool no_term)
         term_flush();
     }
 
-    path_build(buf, sizeof(buf), ANGBAND_DIR_APEX, "scores.raw");
-    fd = fd_open(buf, O_RDONLY);
+    const auto &path_score = path_build(ANGBAND_DIR_APEX, "scores.raw");
+    fd = fd_open(path_score, O_RDONLY);
     if (fd < 0) {
-        safe_setuid_grab(player_ptr);
-        fd = fd_make(buf, true);
+        safe_setuid_grab();
+        fd = fd_make(path_score, true);
         safe_setuid_drop();
         if (fd < 0) {
+            const auto &filename_score = path_score.string();
             std::string why = _("'", "Cannot create the '");
-            why.append(buf);
+            why.append(filename_score);
             why.append(_("'ファイルを作成できません!", "' file!"));
             init_angband_aux(why);
         }
@@ -367,10 +366,12 @@ void init_angband(PlayerType *player_ptr, bool no_term)
 
     init_note(_("[データの初期化中... (その他)]", "[Initializing arrays... (other)]"));
     init_other(player_ptr);
-    init_note(_("[データの初期化中... (アロケーション)]", "[Initializing arrays... (alloc)]"));
-    init_alloc();
+    init_note(_("[データの初期化中... (モンスターアロケーション)]", "[Initializing arrays... (monsters alloc)]"));
+    init_monsters_alloc();
+    init_note(_("[データの初期化中... (アイテムアロケーション)]", "[Initializing arrays... (items alloc)]"));
+    init_items_alloc();
     init_note(_("[ユーザー設定ファイルを初期化しています...]", "[Initializing user pref files...]"));
     process_pref_file(player_ptr, "pref.prf");
-    process_pref_file(player_ptr, std::string("pref-").append(ANGBAND_SYS).append(".prf").data());
+    process_pref_file(player_ptr, std::string("pref-").append(ANGBAND_SYS).append(".prf"));
     init_note(_("[初期化終了]", "[Initialization complete]"));
 }

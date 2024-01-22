@@ -1,8 +1,6 @@
-﻿#include "spell-realm/spells-craft.h"
+#include "spell-realm/spells-craft.h"
 #include "avatar/avatar.h"
 #include "core/disturbance.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
@@ -12,7 +10,6 @@
 #include "io/input-key-acceptor.h"
 #include "object-enchant/object-ego.h"
 #include "object/item-use-flags.h"
-#include "object/object-flags.h"
 #include "player-info/equipment-info.h"
 #include "player/attack-defense-types.h"
 #include "player/special-defense-types.h"
@@ -21,6 +18,7 @@
 #include "sv-definition/sv-protector-types.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "view/display-messages.h"
@@ -64,32 +62,39 @@ bool set_ele_attack(PlayerType *player_ptr, uint32_t attack_type, TIME_EFFECT v)
     if ((v) && (attack_type)) {
         player_ptr->special_attack |= (attack_type);
         player_ptr->ele_attack = v;
-#ifdef JP
-        msg_format("%sで攻撃できるようになった！",
-            ((attack_type == ATTACK_ACID)
-                    ? "酸"
-                    : ((attack_type == ATTACK_ELEC)
-                              ? "電撃"
-                              : ((attack_type == ATTACK_FIRE) ? "火炎"
-                                                              : ((attack_type == ATTACK_COLD) ? "冷気" : ((attack_type == ATTACK_POIS) ? "毒" : "(なし)"))))));
-#else
-        msg_format("For a while, the blows you deal will %s",
-            ((attack_type == ATTACK_ACID)
-                    ? "melt with acid!"
-                    : ((attack_type == ATTACK_ELEC)
-                              ? "shock your foes!"
-                              : ((attack_type == ATTACK_FIRE)
-                                        ? "burn with fire!"
-                                        : ((attack_type == ATTACK_COLD) ? "chill to the bone!"
-                                                                        : ((attack_type == ATTACK_POIS) ? "poison your enemies!" : "do nothing special."))))));
-#endif
+        std::string element;
+        switch (attack_type) {
+        case ATTACK_ACID:
+            element = _("酸", "melt with acid!");
+            break;
+        case ATTACK_ELEC:
+            element = _("電撃", "shock your foes!");
+            break;
+        case ATTACK_FIRE:
+            element = _("火炎", "burn with fire!");
+            break;
+        case ATTACK_COLD:
+            element = _("冷気", "chill to the bone!");
+            break;
+        case ATTACK_POIS:
+            element = _("毒", "poison your enemies!");
+            break;
+        default: // @todo 本来はruntime_error を飛ばすべきだが、既存コードと同じように動くことを優先した.
+            element = _("(なし)", "do nothing special.");
+            break;
+        }
+
+        constexpr auto mes = _("%sで攻撃できるようになった！", "For a while, the blows you deal will %s");
+        msg_format(mes, element.data());
     }
 
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
-    player_ptr->update |= (PU_BONUS);
+
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 
     return true;
@@ -134,23 +139,38 @@ bool set_ele_immune(PlayerType *player_ptr, uint32_t immune_type, TIME_EFFECT v)
     if ((v) && (immune_type)) {
         player_ptr->special_defense |= (immune_type);
         player_ptr->ele_immune = v;
-        msg_format(_("%sの攻撃を受けつけなくなった！", "For a while, you are immune to %s"),
-            ((immune_type == DEFENSE_ACID)
-                    ? _("酸", "acid!")
-                    : ((immune_type == DEFENSE_ELEC)
-                              ? _("電撃", "electricity!")
-                              : ((immune_type == DEFENSE_FIRE)
-                                        ? _("火炎", "fire!")
-                                        : ((immune_type == DEFENSE_COLD)
-                                                  ? _("冷気", "cold!")
-                                                  : ((immune_type == DEFENSE_POIS) ? _("毒", "poison!") : _("(なし)", "nothing special.")))))));
+        std::string element;
+        switch (immune_type) {
+        case ATTACK_ACID:
+            element = _("酸", "acid!");
+            break;
+        case ATTACK_ELEC:
+            element = _("電撃", "electricity!");
+            break;
+        case ATTACK_FIRE:
+            element = _("火炎", "fire!");
+            break;
+        case ATTACK_COLD:
+            element = _("冷気", "cold!");
+            break;
+        case ATTACK_POIS:
+            element = _("毒", "poison!");
+            break;
+        default: // @todo 本来はruntime_error を飛ばすべきだが、既存コードと同じように動くことを優先した.
+            element = _("(なし)", "nothing special.");
+            break;
+        }
+
+        msg_format(_("%sの攻撃を受けつけなくなった！", "For a while, you are immune to %s"), element.data());
     }
 
     if (disturb_state) {
         disturb(player_ptr, false, false);
     }
-    player_ptr->redraw |= (PR_TIMED_EFFECT);
-    player_ptr->update |= (PU_BONUS);
+
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+    rfu.set_flag(StatusRecalculatingFlag::BONUS);
     handle_stuff(player_ptr);
 
     return true;
@@ -269,11 +289,11 @@ bool choose_ele_immune(PlayerType *player_ptr, TIME_EFFECT immune_turn)
  */
 bool pulish_shield(PlayerType *player_ptr)
 {
-    const auto q = _("どの盾を磨きますか？", "Polish which shield? ");
-    const auto s = _("磨く盾がありません。", "You have no shield to polish.");
+    constexpr auto q = _("どの盾を磨きますか？", "Polish which shield? ");
+    constexpr auto s = _("磨く盾がありません。", "You have no shield to polish.");
     const auto options = USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT;
-    short item;
-    auto *o_ptr = choose_object(player_ptr, &item, q, s, options, TvalItemTester(ItemKindType::SHIELD));
+    short i_idx;
+    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options, TvalItemTester(ItemKindType::SHIELD));
     if (o_ptr == nullptr) {
         return false;
     }
@@ -286,10 +306,10 @@ bool pulish_shield(PlayerType *player_ptr)
 #ifdef JP
         msg_format("%sは輝いた！", item_name.data());
 #else
-        msg_format("%s %s shine%s!", ((item >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
+        msg_format("%s %s shine%s!", ((i_idx >= 0) ? "Your" : "The"), item_name.data(), ((o_ptr->number > 1) ? "" : "s"));
 #endif
         o_ptr->ego_idx = EgoType::REFLECTION;
-        enchant_equipment(player_ptr, o_ptr, randint0(3) + 4, ENCH_TOAC);
+        enchant_equipment(o_ptr, randint0(3) + 4, ENCH_TOAC);
         o_ptr->discount = 99;
         chg_virtue(player_ptr, Virtue::ENCHANT, 2);
         return true;

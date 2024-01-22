@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief レイシャルと突然変異の技能処理 / Racial powers (and mutations)
  * @date 2014/01/08
  * @author
@@ -16,8 +16,6 @@
 #include "cmd-action/cmd-spell.h"
 #include "cmd-item/cmd-magiceat.h"
 #include "cmd-item/cmd-zapwand.h"
-#include "core/player-redraw-types.h"
-#include "core/player-update-types.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "effect/spells-effect-util.h"
@@ -79,6 +77,7 @@
 #include "status/buff-setter.h"
 #include "status/experience.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
 #include "timed-effect/player-paralysis.h"
 #include "timed-effect/timed-effects.h"
@@ -94,7 +93,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
         return sword_dancing(player_ptr);
     case PlayerClassType::HIGH_MAGE:
         if (player_ptr->realm1 == REALM_HEX) {
-            auto retval = SpellHex(player_ptr).stop_spells_with_selection();
+            const auto retval = SpellHex(player_ptr).stop_spells_with_selection();
             if (retval) {
                 PlayerEnergy(player_ptr).set_player_turn_energy(10);
             }
@@ -155,7 +154,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
                 return false;
             }
 
-            set_bits(player_ptr->update, PU_BONUS);
+            RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
             return true;
         }
 
@@ -248,7 +247,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
             return false;
         }
 
-        set_bits(player_ptr->update, PU_BONUS);
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
         return true;
     case PlayerClassType::BLUE_MAGE:
         set_action(player_ptr, player_ptr->action == ACTION_LEARN ? ACTION_NONE : ACTION_LEARN);

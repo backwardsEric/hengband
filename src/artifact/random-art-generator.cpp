@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @file random-art-generator.cpp
  * @brief ランダムアーティファクトの生成メイン定義 / Artifact code
  * @date 2020/07/14
@@ -24,7 +24,6 @@
 #include "object-enchant/tr-types.h"
 #include "object-hook/hook-armor.h"
 #include "object-hook/hook-weapon.h"
-#include "object/object-flags.h"
 #include "object/object-kind-hook.h"
 #include "object/object-value-calc.h"
 #include "object/tval-types.h"
@@ -34,8 +33,8 @@
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
+#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
-#include "util/quarks.h"
 #include "view/display-messages.h"
 #include "wizard/artifact-bias-table.h"
 #include "wizard/wizard-messages.h"
@@ -45,9 +44,7 @@
 static bool weakening_artifact(ItemEntity *o_ptr)
 {
     const auto &baseitem = o_ptr->get_baseitem();
-    auto flags = object_flags(o_ptr);
-
-    if (flags.has(TR_KILL_EVIL)) {
+    if (o_ptr->get_flags().has(TR_KILL_EVIL)) {
         o_ptr->art_flags.reset(TR_KILL_EVIL);
         o_ptr->art_flags.set(TR_SLAY_EVIL);
         return true;
@@ -389,9 +386,9 @@ static std::string name_unnatural_random_artifact(PlayerType *player_ptr, ItemEn
         return get_random_name(*o_ptr, o_ptr->is_protector(), power_level);
     }
 
-    concptr ask_msg = _("このアーティファクトを何と名付けますか？", "What do you want to call the artifact? ");
+    constexpr auto prompt = _("このアーティファクトを何と名付けますか？", "What do you want to call the artifact? ");
     object_aware(player_ptr, o_ptr);
-    object_known(o_ptr);
+    o_ptr->mark_as_known();
     o_ptr->ident |= IDENT_FULL_KNOWN;
     o_ptr->randart_name.reset();
     (void)screen_object(player_ptr, o_ptr, 0L);
@@ -401,16 +398,16 @@ static std::string name_unnatural_random_artifact(PlayerType *player_ptr, ItemEn
         ss << _("《", "'") << name << _("》", "'");
         return ss.str();
     };
-    char new_name[160] = "";
-    if (!get_string(ask_msg, new_name, sizeof new_name) || !new_name[0]) {
-        if (one_in_(2)) {
-            return wrap_name(get_table_sindarin_aux());
-        } else {
-            return wrap_name(get_table_name_aux());
-        }
+    const auto new_name = input_string(prompt, 160);
+    if (new_name && !new_name->empty()) {
+        return wrap_name(*new_name);
     }
 
-    return wrap_name(new_name);
+    if (one_in_(2)) {
+        return wrap_name(get_table_sindarin_aux());
+    }
+
+    return wrap_name(get_table_name_aux());
 }
 
 static void generate_unnatural_random_artifact(
@@ -420,7 +417,13 @@ static void generate_unnatural_random_artifact(
     msg_format_wizard(player_ptr, CHEAT_OBJECT,
         _("パワー %d で 価値 %d のランダムアーティファクト生成 バイアスは「%s」", "Random artifact generated - Power:%d Value:%d Bias:%s."), max_powers,
         total_flags, artifact_bias_name[o_ptr->artifact_bias]);
-    set_bits(player_ptr->window_flags, PW_INVENTORY | PW_EQUIPMENT | PW_FLOOR_ITEMS | PW_FOUND_ITEMS);
+    static constexpr auto flags = {
+        SubWindowRedrawingFlag::INVENTORY,
+        SubWindowRedrawingFlag::EQUIPMENT,
+        SubWindowRedrawingFlag::FLOOR_ITEMS,
+        SubWindowRedrawingFlag::FOUND_ITEMS,
+    };
+    RedrawingFlagsUpdater::get_instance().set_flags(flags);
 }
 
 /*!

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * @brief ゲームデータ初期化1 / Initialization (part 1) -BEN-
  * @date 2014/01/28
  * @author
@@ -17,6 +17,7 @@
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
 #include "realm/realm-names-table.h"
+#include "system/angband-exceptions.h"
 #include "system/floor-type-definition.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
@@ -25,7 +26,6 @@
 #include "world/world.h"
 #include <algorithm>
 #include <sstream>
-#include <stdexcept>
 
 static concptr variant = "ZANGBAND";
 
@@ -253,9 +253,8 @@ static concptr parse_fixed_map_expression(PlayerType *player_ptr, char **sp, cha
  */
 parse_error_type parse_fixed_map(PlayerType *player_ptr, std::string_view name, int ymin, int xmin, int ymax, int xmax)
 {
-    char buf[1024];
-    path_build(buf, sizeof(buf), ANGBAND_DIR_EDIT, name);
-    auto *fp = angband_fopen(buf, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_EDIT, name);
+    auto *fp = angband_fopen(path, FileOpenMode::READ);
     if (fp == nullptr) {
         return PARSE_ERROR_GENERIC;
     }
@@ -266,6 +265,7 @@ parse_error_type parse_fixed_map(PlayerType *player_ptr, std::string_view name, 
     int x = xmin;
     int y = ymin;
     qtwg_type tmp_qg;
+    char buf[1024]{};
     qtwg_type *qg_ptr = initialize_quest_generator_type(&tmp_qg, buf, ymin, xmin, ymax, xmax, &y, &x);
     while (angband_fgets(fp, buf, sizeof(buf)) == 0) {
         num++;
@@ -338,19 +338,18 @@ static void parse_quest_info_aux(std::string_view file_name, std::set<QuestId> &
         if (key_list_ref.find(q) != key_list_ref.end()) {
             std::stringstream ss;
             ss << _("重複したQuestID ", "Duplicated Quest Id ") << enum2i(q) << '(' << file_name << ", L" << line << ')';
-            throw std::runtime_error(ss.str());
+            THROW_EXCEPTION(std::runtime_error, ss.str());
         }
 
         key_list_ref.insert(q);
     };
 
-    char file_buf[1024];
-    path_build(file_buf, sizeof(file_buf), ANGBAND_DIR_EDIT, file_name);
-    auto *fp = angband_fopen(file_buf, FileOpenMode::READ);
+    const auto &path = path_build(ANGBAND_DIR_EDIT, file_name);
+    auto *fp = angband_fopen(path, FileOpenMode::READ);
     if (fp == nullptr) {
         std::stringstream ss;
         ss << _("ファイルが見つかりません (", "File is not found (") << file_name << ')';
-        throw std::runtime_error(ss.str());
+        THROW_EXCEPTION(std::runtime_error, ss.str());
     }
 
     char buf[4096];

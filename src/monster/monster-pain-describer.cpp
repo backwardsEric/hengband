@@ -1,4 +1,4 @@
-﻿#include "monster/monster-pain-describer.h"
+#include "monster/monster-pain-describer.h"
 #include "monster-race/monster-race.h"
 #include "monster/monster-describer.h"
 #include "system/floor-type-definition.h"
@@ -28,8 +28,8 @@ struct pain_message_type {
 static auto d_char_is_any_of(concptr symbols)
 {
     return [symbols](const MonsterEntity &monster) {
-        const auto &m_info = monraces_info[monster.r_idx];
-        return angband_strchr(symbols, m_info.d_char) != nullptr;
+        const auto &monrace = monster.get_monrace();
+        return angband_strchr(symbols, monrace.d_char) != nullptr;
     };
 }
 
@@ -65,8 +65,8 @@ static const std::vector<pain_message_type> pain_messages{
             { 0, _("はくしゃくしゃになった。", " crumples.") },
         } },
     { [](const MonsterEntity &monster) {
-        const auto &m_info = monraces_info[monster.r_idx];
-        return d_char_is_any_of("JMR")(monster) || !isalpha(m_info.d_char); },
+        const auto &monrace = monster.get_monrace();
+        return d_char_is_any_of("JMR")(monster) || !isalpha(monrace.d_char); },
         {
             { 95, _("はほとんど気にとめていない。", " barely notices.") },
             { 75, _("はシーッと鳴いた。", " hisses.") },
