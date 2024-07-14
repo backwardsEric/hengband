@@ -17,8 +17,6 @@
 #include "util/string-processor.h"
 #ifdef JP
 #else
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "object/tval-types.h"
 #include "system/monster-race-info.h"
 #endif
@@ -217,7 +215,7 @@ static std::string describe_vowel(const ItemEntity &item, std::string_view basen
         vowel = is_a_vowel(modstr[0]);
         break;
     case '%':
-        vowel = is_a_vowel(baseitems_info[item.bi_id].name[0]);
+        vowel = is_a_vowel(item.get_baseitem().name[0]);
         break;
     default:
         vowel = is_a_vowel(basename[0]);
@@ -250,10 +248,9 @@ static std::string describe_item_count_or_article_en(const ItemEntity &item, con
         return prefix;
     }
 
-    const auto corpse_r_idx = i2enum<MonsterRaceId>(item.pval);
-    auto is_unique_corpse = item.bi_key.tval() == ItemKindType::CORPSE;
-    is_unique_corpse &= monraces_info[corpse_r_idx].kind_flags.has(MonsterKindType::UNIQUE);
-    if ((opt.known && item.is_fixed_or_random_artifact()) || is_unique_corpse) {
+    auto is_unique_item = opt.known && item.is_fixed_or_random_artifact();
+    is_unique_item |= (item.bi_key.tval() == ItemKindType::MONSTER_REMAINS) && item.get_monrace().kind_flags.has(MonsterKindType::UNIQUE);
+    if (is_unique_item) {
         return "The ";
     }
 
@@ -291,7 +288,7 @@ static std::string describe_unique_name_after_body_en(const ItemEntity &item, co
     }
 
     if (item.is_fixed_artifact()) {
-        const auto &artifact = ArtifactsInfo::get_instance().get_artifact(item.fixed_artifact_idx);
+        const auto &artifact = ArtifactList::get_instance().get_artifact(item.fa_id);
         ss << ' ' << artifact.name;
         return ss.str();
     }

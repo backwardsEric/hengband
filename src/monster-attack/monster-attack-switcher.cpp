@@ -33,7 +33,6 @@
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-acceleration.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
@@ -218,7 +217,7 @@ static void calc_blow_paralysis(PlayerType *player_ptr, MonsterAttackPlayer *mon
  */
 static void calc_blow_drain_exp(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr, const int drain_value, const int hold_exp_prob)
 {
-    int32_t d = damroll(drain_value, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
+    int32_t d = Dice::roll(drain_value, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
     monap_ptr->obvious = true;
     int damage_ratio = 1000;
     if (has_hold_exp(player_ptr)) {
@@ -264,7 +263,7 @@ static void calc_blow_time(PlayerType *player_ptr, MonsterAttackPlayer *monap_pt
  */
 static void calc_blow_drain_life(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
-    int32_t d = damroll(60, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
+    int32_t d = Dice::roll(60, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
     monap_ptr->obvious = true;
     if (player_ptr->hold_exp) {
         monap_ptr->damage = monap_ptr->damage * 9 / 10;
@@ -307,7 +306,7 @@ static void calc_blow_drain_mana(PlayerType *player_ptr, MonsterAttackPlayer *mo
 
 static void calc_blow_inertia(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
-    if (player_ptr->effects()->acceleration()->is_fast() || (player_ptr->pspeed >= 130)) {
+    if (player_ptr->effects()->acceleration().is_fast() || (player_ptr->pspeed >= 130)) {
         monap_ptr->damage = monap_ptr->damage * (randint1(4) + 4) / 9;
     }
 
@@ -554,7 +553,7 @@ void switch_monster_blow_to_player(PlayerType *player_ptr, MonsterAttackPlayer *
                     return;
                 }
 
-                int32_t d = damroll(60, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
+                int32_t d = Dice::roll(60, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
 
                 bool resist_drain = check_drain_hp(player_ptr, d);
                 process_drain_life(player_ptr, monap_ptr, resist_drain);
@@ -564,7 +563,7 @@ void switch_monster_blow_to_player(PlayerType *player_ptr, MonsterAttackPlayer *
         if (one_in_(250)) {
             monap_ptr->obvious = true;
             const auto *floor_ptr = player_ptr->current_floor_ptr;
-            if (floor_ptr->is_in_dungeon() && (!floor_ptr->is_in_quest() || !QuestType::is_fixed(floor_ptr->quest_number))) {
+            if (floor_ptr->is_in_underground() && (!floor_ptr->is_in_quest() || !QuestType::is_fixed(floor_ptr->quest_number))) {
                 if (monap_ptr->damage > 23 || monap_ptr->explode) {
                     msg_print(_("カオスの力でダンジョンが崩れ始める！", "The dungeon tumbles by the chaotic power!"));
                     earthquake(player_ptr, monap_ptr->m_ptr->fy, monap_ptr->m_ptr->fx, 8, monap_ptr->m_idx);

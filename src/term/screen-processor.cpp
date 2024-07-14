@@ -3,6 +3,7 @@
 #include "locale/japanese.h"
 #include "term/term-color-types.h"
 #include "view/display-messages.h"
+#include "view/display-symbol.h"
 #include "world/world.h"
 
 /*
@@ -41,7 +42,7 @@ void screen_save()
 
     term_save();
 
-    w_ptr->character_icky_depth++;
+    AngbandWorld::get_instance().character_icky_depth++;
     screen_depth++;
 }
 
@@ -53,20 +54,18 @@ void screen_save()
 void screen_load(ScreenLoadOptType opt)
 {
     msg_print(nullptr);
-
+    auto &world = AngbandWorld::get_instance();
     switch (opt) {
     case ScreenLoadOptType::ONE:
         term_load(false);
-        w_ptr->character_icky_depth--;
+        world.character_icky_depth--;
         screen_depth--;
         break;
-
     case ScreenLoadOptType::ALL:
         term_load(true);
-        w_ptr->character_icky_depth -= static_cast<byte>(screen_depth);
+        world.character_icky_depth -= static_cast<byte>(screen_depth);
         screen_depth = 0;
         break;
-
     default:
         break;
     }
@@ -110,13 +109,13 @@ void prt(std::string_view sv, TERM_LEN row, TERM_LEN col)
     c_prt(TERM_WHITE, sv, row, col);
 }
 
-static std::vector<std::pair<TERM_COLOR, char>> c_roff_wrap(int x, int y, int w, const char *s)
+static std::vector<DisplaySymbol> c_roff_wrap(int x, int y, int w, const char *s)
 {
     if (x >= w) {
         return {};
     }
 
-    std::vector<std::pair<TERM_COLOR, char>> wrap_chars;
+    std::vector<DisplaySymbol> wrap_chars;
     auto wrap_col = w;
 
     if (_(iskanji(*s), false)) {
@@ -201,17 +200,17 @@ void c_roff(TERM_COLOR a, std::string_view str)
             }
 
             term_erase(0, y);
-            for (const auto &[ca, cv] : wrap_chars) {
-                term_addch(ca, cv);
+            for (const auto &symbol : wrap_chars) {
+                term_addch(symbol);
             }
             x = wrap_chars.size();
         }
 
-        term_addch(_((a | 0x10), a), ch);
+        term_addch({ static_cast<uint8_t>(_(a | 0x10, a)), ch });
         if (is_kanji) {
             s++;
             x++;
-            term_addch((a | 0x20), *s);
+            term_addch({ static_cast<uint8_t>(a | 0x20), *s });
         }
 
         if (++x > wid) {

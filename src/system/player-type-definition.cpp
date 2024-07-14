@@ -1,15 +1,7 @@
 #include "system/player-type-definition.h"
-#include "market/arena-info-table.h"
+#include "floor/geometry.h"
+#include "system/angband-exceptions.h"
 #include "system/redrawing-flags-updater.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-deceleration.h"
-#include "timed-effect/player-fear.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
-#include "timed-effect/player-poison.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "world/world.h"
 
@@ -28,11 +20,6 @@ PlayerType::PlayerType()
 {
 }
 
-bool PlayerType::is_true_winner() const
-{
-    return (w_ptr->total_winner > 0) && (this->arena_number > MAX_ARENA_MONS + 2);
-}
-
 std::shared_ptr<TimedEffects> PlayerType::effects() const
 {
     return this->timed_effects;
@@ -48,15 +35,15 @@ bool PlayerType::is_fully_healthy() const
     auto effects = this->effects();
     auto is_fully_healthy = this->chp == this->mhp;
     is_fully_healthy &= this->csp >= this->msp;
-    is_fully_healthy &= !effects->blindness()->is_blind();
-    is_fully_healthy &= !effects->confusion()->is_confused();
-    is_fully_healthy &= !effects->poison()->is_poisoned();
-    is_fully_healthy &= !effects->fear()->is_fearful();
-    is_fully_healthy &= !effects->stun()->is_stunned();
-    is_fully_healthy &= !effects->cut()->is_cut();
-    is_fully_healthy &= !effects->deceleration()->is_slow();
-    is_fully_healthy &= !effects->paralysis()->is_paralyzed();
-    is_fully_healthy &= !effects->hallucination()->is_hallucinated();
+    is_fully_healthy &= !effects->blindness().is_blind();
+    is_fully_healthy &= !effects->confusion().is_confused();
+    is_fully_healthy &= !effects->poison().is_poisoned();
+    is_fully_healthy &= !effects->fear().is_fearful();
+    is_fully_healthy &= !effects->stun().is_stunned();
+    is_fully_healthy &= !effects->cut().is_cut();
+    is_fully_healthy &= !effects->deceleration().is_slow();
+    is_fully_healthy &= !effects->paralysis().is_paralyzed();
+    is_fully_healthy &= !effects->hallucination().is_hallucinated();
     is_fully_healthy &= !this->word_recall;
     is_fully_healthy &= !this->alter_reality;
     return is_fully_healthy;
@@ -115,6 +102,24 @@ Pos2D PlayerType::get_position() const
     return Pos2D(this->y, this->x);
 }
 
+/*!
+ * @brief 現在地の隣 (瞬時値)または現在地を返す
+ * @param dir 隣を表す方向番号
+ * @details プレイヤーが移動する前後の文脈で使用すると不整合を起こすので注意
+ * 方向番号による位置取りは以下の通り. 0と5は現在地.
+ * 123 ...
+ * 456 .@.
+ * 789 ...
+ */
+Pos2D PlayerType::get_neighbor(int dir) const
+{
+    if ((dir < 0) || (dir >= static_cast<int>(std::size(ddx)))) {
+        THROW_EXCEPTION(std::logic_error, "Invalid direction is specified!");
+    }
+
+    return Pos2D(this->y + ddy[dir], this->x + ddx[dir]);
+}
+
 bool PlayerType::is_located_at_running_destination() const
 {
     return (this->y == this->run_py) && (this->x == this->run_px);
@@ -123,4 +128,33 @@ bool PlayerType::is_located_at_running_destination() const
 bool PlayerType::is_located_at(const Pos2D &pos) const
 {
     return (this->y == pos.y) && (this->x == pos.x);
+}
+
+bool PlayerType::in_saved_floor() const
+{
+    return this->floor_id != 0;
+}
+
+/*!
+ * @brief プレイヤーの体力ランクを計算する
+ *
+ * プレイヤーの体力ランク（最大レベル時のHPの期待値に対する実際のHPの値の割合）を計算する。
+ *
+ * @return 体力ランク[%]
+ */
+int PlayerType::calc_life_rating() const
+{
+    const auto actual_hp = this->player_hp[PY_MAX_LEVEL - 1];
+
+    // ダイスによる上昇回数は52回（初期3回+LV50までの49回）なので
+    // 期待値計算のため2で割っても端数は出ない
+    constexpr auto roll_num = 3 + PY_MAX_LEVEL - 1;
+    const auto expected_hp = this->hit_dice.maxroll() + this->hit_dice.floored_expected_value_multiplied_by(roll_num);
+
+    return actual_hp * 100 / expected_hp;
+}
+
+bool PlayerType::try_resist_eldritch_horror() const
+{
+    return evaluate_percent(this->skill_sav) || one_in_(2);
 }

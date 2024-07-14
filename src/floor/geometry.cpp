@@ -9,49 +9,8 @@
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
-
-/*!
- * キーパッドの方向を南から反時計回り順に列挙 / Global array for looping through the "keypad directions"
- */
-const int ddd[9] = { 2, 8, 6, 4, 3, 1, 9, 7, 5 };
-
-/*!
- * dddで定義した順にベクトルのX軸成分を定義 / Global arrays for converting "keypad direction" into offsets
- */
-const int ddx[10] = { 0, -1, 0, 1, -1, 0, 1, -1, 0, 1 };
-
-/*!
- * dddで定義した順にベクトルのY軸成分を定義 / Global arrays for converting "keypad direction" into offsets
- */
-const int ddy[10] = { 0, 1, 1, 1, 0, 0, 0, -1, -1, -1 };
-
-/*!
- * ddd越しにベクトルのX軸成分を定義 / Global arrays for optimizing "ddx[ddd[i]]" and "ddy[ddd[i]]"
- */
-const int ddx_ddd[9] = { 0, 0, 1, -1, 1, -1, 1, -1, 0 };
-
-/*!
- * ddd越しにベクトルのY軸成分を定義 / Global arrays for optimizing "ddx[ddd[i]]" and "ddy[ddd[i]]"
- */
-const int ddy_ddd[9] = { 1, -1, 0, 0, 1, 1, -1, -1, 0 };
-
-/*!
- * キーパッドの円環状方向配列 / Circular keypad direction array
- */
-const int cdd[8] = { 2, 3, 6, 9, 8, 7, 4, 1 };
-
-/*!
- * cdd越しにベクトルのX軸成分を定義 / Global arrays for optimizing "ddx[cdd[i]]" and "ddy[cdd[i]]"
- */
-const int ddx_cdd[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-
-/*!
- * cdd越しにベクトルのY軸成分を定義 / Global arrays for optimizing "ddx[cdd[i]]" and "ddy[cdd[i]]"
- */
-const int ddy_cdd[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
 
 /*!
  * @brief 2点間の距離をニュートン・ラプソン法で算出する / Distance between two points via Newton-Raphson technique
@@ -154,7 +113,7 @@ DIRECTION coords_to_dir(PlayerType *player_ptr, POSITION y, POSITION x)
 bool player_can_see_bold(PlayerType *player_ptr, POSITION y, POSITION x)
 {
     /* Blind players see nothing */
-    if (player_ptr->effects()->blindness()->is_blind()) {
+    if (player_ptr->effects()->blindness().is_blind()) {
         return false;
     }
 

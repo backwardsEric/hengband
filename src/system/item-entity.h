@@ -14,6 +14,7 @@
 #include "system/angband.h"
 #include "system/baseitem-info.h"
 #include "system/system-variables.h"
+#include "util/dice.h"
 #include "util/flag-group.h"
 #include <optional>
 #include <string>
@@ -21,16 +22,22 @@
 
 enum class FixedArtifactId : short;
 enum class ItemKindType : short;
-enum class SmithEffectType : int16_t;
+enum class SmithEffectType : short;
+enum class QuestId : short;
+enum class RandomArtifactBias : int;
 enum class RandomArtActType : short;
 
 class ActivationType;
 class ArtifactType;
 class BaseitemInfo;
+class DisplaySymbol;
 class EgoItemDefinition;
+class MonsterRaceInfo;
 class ItemEntity {
 public:
     ItemEntity();
+    ItemEntity(short bi_id);
+    ItemEntity(const BaseitemKey &bi_key);
     short bi_id{}; /*!< ベースアイテムID (0は、不具合調査用の無効アイテム または 何も装備していない箇所のアイテム であることを示す) */
     POSITION iy{}; /*!< Y-position on map, or zero */
     POSITION ix{}; /*!< X-position on map, or zero */
@@ -40,7 +47,7 @@ public:
     byte discount{}; /*!< ゲーム中の値引き率 (0～100) / Discount (if any) */
     ITEM_NUMBER number{}; /*!< Number of items */
     WEIGHT weight{}; /*!< Item weight */
-    FixedArtifactId fixed_artifact_idx; /*!< 固定アーティファクト番号 (固定アーティファクトでないなら0) */
+    FixedArtifactId fa_id; /*!< 固定アーティファクト番号 (固定アーティファクトでないなら0) */
     EgoType ego_idx{}; /*!< エゴ番号 (エゴでないなら0) */
 
     RandomArtActType activation_id{}; /*!< エゴ/アーティファクトの発動ID / Extra info activation index */
@@ -60,8 +67,7 @@ public:
     ARMOUR_CLASS to_a{}; /*!< Plusses to AC */
     ARMOUR_CLASS ac{}; /*!< Normal AC */
 
-    DICE_NUMBER dd{}; /*!< Damage dice/nums */
-    DICE_SID ds{}; /*!< Damage dice/sides */
+    Dice damage_dice{}; /*!< Damage dice */
     TIME_EFFECT timeout{}; /*!< Timeout Counter */
     byte ident{}; /*!< Special flags  */
     EnumClassFlagGroup<OmType> marked{}; /*!< Object is marked */
@@ -72,11 +78,12 @@ public:
     TrFlags art_flags{}; /*!< Extra Flags for ego and artifacts */
     EnumClassFlagGroup<CurseTraitType> curse_flags{}; /*!< Flags for curse */
     MONSTER_IDX held_m_idx{}; /*!< アイテムを所持しているモンスターID (いないなら 0) / Monster holding us (if any) */
-    int artifact_bias{}; /*!< ランダムアーティファクト生成時のバイアスID */
+    RandomArtifactBias artifact_bias{}; /*!< ランダムアーティファクト生成時のバイアスID */
 
     void wipe();
     void copy_from(const ItemEntity *j_ptr);
-    void prep(short new_bi_id);
+    void generate(const BaseitemKey &new_bi_key);
+    void generate(short new_bi_id);
     bool is(ItemKindType tval) const;
     bool is_weapon() const;
     bool is_weapon_ammo() const;
@@ -123,8 +130,7 @@ public:
     bool is_spell_book() const;
     bool is_glove_same_temper(const ItemEntity *j_ptr) const;
     bool can_pile(const ItemEntity *j_ptr) const;
-    TERM_COLOR get_color() const;
-    char get_symbol() const;
+    DisplaySymbol get_symbol() const;
     int get_price() const;
     bool is_specific_artifact(FixedArtifactId id) const;
     bool has_unidentified_name() const;
@@ -142,16 +148,23 @@ public:
     bool is_inscribed() const;
     std::vector<ActivationType>::const_iterator find_activation_info() const;
     bool has_activation() const;
-
+    bool has_bias() const;
+    bool is_bounty() const;
+    bool is_target_of(QuestId quest_id) const;
     BaseitemInfo &get_baseitem() const;
     EgoItemDefinition &get_ego() const;
     ArtifactType &get_fixed_artifact() const;
     TrFlags get_flags() const;
     TrFlags get_flags_known() const;
     std::string explain_activation() const;
+    bool has_monrace() const;
+    const MonsterRaceInfo &get_monrace() const;
+    void track_baseitem() const;
 
     void mark_as_known();
     void mark_as_tried() const;
+
+    bool try_become_artifact(int dungeon_level);
 
 private:
     int get_baseitem_price() const;
@@ -164,4 +177,6 @@ private:
     std::string build_timeout_description(const ActivationType &act) const;
     std::string build_activation_description(const ActivationType &act) const;
     std::string build_activation_description_dragon_breath() const;
+    uint8_t get_color() const;
+    char get_character() const;
 };

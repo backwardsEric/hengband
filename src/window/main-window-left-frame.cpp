@@ -2,8 +2,7 @@
 #include "dungeon/quest.h"
 #include "game-option/special-options.h"
 #include "game-option/text-display-options.h"
-#include "market/arena-info-table.h"
-#include "monster-race/monster-race.h"
+#include "market/arena-entry.h"
 #include "monster/monster-status.h"
 #include "player-base/player-race.h"
 #include "player-info/class-info.h"
@@ -18,8 +17,8 @@
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "term/z-form.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/health-bar-tracker.h"
 #include "util/string-processor.h"
 #include "window/main-window-row-column.h"
 #include "window/main-window-stat-poster.h"
@@ -39,19 +38,18 @@ struct condition_layout_info {
  */
 void print_title(PlayerType *player_ptr)
 {
-    GAME_TEXT str[14];
-    concptr p = "";
-    if (w_ptr->wizard) {
+    std::string p;
+    const auto &world = AngbandWorld::get_instance();
+    if (world.wizard) {
         p = _("[ウィザード]", "[=-WIZARD-=]");
-    } else if (w_ptr->total_winner) {
-        if (player_ptr->is_true_winner()) {
+    } else if (world.total_winner) {
+        if (world.is_player_true_winner()) {
             p = _("*真・勝利者*", "*TRUEWINNER*");
         } else {
             p = _("***勝利者***", "***WINNER***");
         }
     } else {
-        angband_strcpy(str, player_titles[enum2i(player_ptr->pclass)][(player_ptr->lev - 1) / 5], sizeof(str));
-        p = str;
+        p = player_titles.at(player_ptr->pclass).at((player_ptr->lev - 1) / 5);
     }
 
     print_field(p, ROW_TITLE, COL_TITLE);
@@ -243,14 +241,10 @@ void print_depth(PlayerType *player_ptr)
  */
 void print_frame_basic(PlayerType *player_ptr)
 {
-    if (player_ptr->mimic_form != MimicKindType::NONE) {
-        print_field(mimic_info.at(player_ptr->mimic_form).title, ROW_RACE, COL_RACE);
-    } else {
-        char str[14];
-        angband_strcpy(str, rp_ptr->title, sizeof(str));
-        print_field(str, ROW_RACE, COL_RACE);
-    }
-
+    const auto title = player_ptr->mimic_form == MimicKindType::NONE
+                           ? rp_ptr->title
+                           : mimic_info.at(player_ptr->mimic_form).title;
+    print_field(title, ROW_RACE, COL_RACE);
     print_title(player_ptr);
     print_level(player_ptr);
     print_exp(player_ptr);
@@ -285,10 +279,10 @@ static void print_health_monster_in_arena_for_wizard(PlayerType *player_ptr)
         term_putstr(col - 2, row + row_offset, 12, TERM_WHITE, "      /     ");
 
         auto &monster = player_ptr->current_floor_ptr->m_list[monster_list_index];
-        if (MonsterRace(monster.r_idx).is_valid()) {
+        if (monster.is_valid()) {
             const auto &monrace = monster.get_monrace();
-            term_putstr(col - 2, row + row_offset, 2, monrace.x_attr,
-                format("%c", monrace.x_char));
+            const auto &symbol_config = monrace.symbol_config;
+            term_putstr(col - 2, row + row_offset, 2, symbol_config.color, format("%c", symbol_config.character));
             term_putstr(col - 1, row + row_offset, 5, TERM_WHITE, format("%5d", monster.hp));
             term_putstr(col + 5, row + row_offset, 6, TERM_WHITE, format("%5d", monster.max_maxhp));
         }
@@ -361,12 +355,14 @@ void print_health(PlayerType *player_ptr, bool riding)
         col = COL_RIDING_INFO;
     } else {
         // ウィザードモードで闘技場観戦時の表示
-        if (w_ptr->wizard && AngbandSystem::get_instance().is_phase_out()) {
+        if (AngbandWorld::get_instance().wizard && AngbandSystem::get_instance().is_phase_out()) {
             print_health_monster_in_arena_for_wizard(player_ptr);
             return;
         }
-        if (player_ptr->health_who > 0) {
-            monster_idx = player_ptr->health_who;
+
+        auto &tracker = HealthBarTracker::get_instance();
+        if (tracker.is_tracking()) {
+            monster_idx = tracker.get_trackee();
         }
         row = ROW_INFO;
         col = COL_INFO;
@@ -385,7 +381,7 @@ void print_health(PlayerType *player_ptr, bool riding)
 
     const auto &monster = player_ptr->current_floor_ptr->m_list[*monster_idx];
 
-    if ((!monster.ml) || (player_ptr->effects()->hallucination()->is_hallucinated()) || monster.is_dead()) {
+    if ((!monster.ml) || (player_ptr->effects()->hallucination().is_hallucinated()) || monster.is_dead()) {
         term_putstr(col, row, max_width, TERM_WHITE, "[----------]");
         return;
     }

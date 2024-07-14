@@ -3,10 +3,7 @@
 #include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "grid/grid.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status-setter.h"
@@ -19,6 +16,7 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
+#include "tracking/health-bar-tracker.h"
 
 /*!
  * @brief モンスター配列からモンスターを消去する / Delete a monster by index.
@@ -37,7 +35,7 @@ void delete_monster_idx(PlayerType *player_ptr, MONSTER_IDX i)
     POSITION x = m_ptr->fx;
 
     m_ptr->get_real_monrace().cur_num--;
-    if (r_ptr->flags2 & (RF2_MULTIPLY)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::MULTIPLY)) {
         floor_ptr->num_repro--;
     }
 
@@ -67,7 +65,7 @@ void delete_monster_idx(PlayerType *player_ptr, MONSTER_IDX i)
         target_who = 0;
     }
 
-    if (i == player_ptr->health_who) {
+    if (HealthBarTracker::get_instance().is_tracking(i)) {
         health_track(player_ptr, 0);
     }
 
@@ -90,9 +88,9 @@ void delete_monster_idx(PlayerType *player_ptr, MONSTER_IDX i)
     // 召喚元のモンスターが消滅した時は、召喚されたモンスターのparent_m_idxが
     // 召喚されたモンスター自身のm_idxを指すようにする
     for (MONSTER_IDX child_m_idx = 1; child_m_idx < floor_ptr->m_max; child_m_idx++) {
-        MonsterEntity *child_m_ptr = &floor_ptr->m_list[child_m_idx];
-        if (MonsterRace(child_m_ptr->r_idx).is_valid() && child_m_ptr->parent_m_idx == i) {
-            child_m_ptr->parent_m_idx = child_m_idx;
+        auto &child_monster = floor_ptr->m_list[child_m_idx];
+        if (child_monster.is_valid() && child_monster.parent_m_idx == i) {
+            child_monster.parent_m_idx = child_m_idx;
         }
     }
 
@@ -160,7 +158,7 @@ void delete_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     g_ptr = &floor_ptr->grid_array[y][x];
-    if (g_ptr->m_idx) {
+    if (g_ptr->has_monster()) {
         delete_monster_idx(player_ptr, g_ptr->m_idx);
     }
 }

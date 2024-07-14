@@ -11,10 +11,7 @@
 #include "io/cursor.h"
 #include "io/input-key-acceptor.h"
 #include "locale/english.h"
-#include "lore/lore-store.h"
 #include "monster-race/monster-kind-mask.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
@@ -29,6 +26,7 @@
 #include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "term/screen-processor.h"
+#include "tracking/lore-tracker.h"
 #include "view/display-messages.h"
 
 /*!
@@ -212,9 +210,9 @@ bool crusade(PlayerType *player_ptr)
 /*!
  * @brief 視界内モンスターを怒らせる処理 / Wake up all monsters, and speed up "los" monsters.
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param who 怒らせる原因を起こしたモンスター(0ならばプレイヤー)
+ * @param src_idx 怒らせる原因を起こしたモンスター(0ならばプレイヤー)
  */
-void aggravate_monsters(PlayerType *player_ptr, MONSTER_IDX who)
+void aggravate_monsters(PlayerType *player_ptr, MONSTER_IDX src_idx)
 {
     auto sleep = false;
     auto speed = false;
@@ -224,7 +222,7 @@ void aggravate_monsters(PlayerType *player_ptr, MONSTER_IDX who)
         if (!monster.is_valid()) {
             continue;
         }
-        if (i == who) {
+        if (i == src_idx) {
             continue;
         }
 
@@ -406,7 +404,7 @@ std::string probed_monster_info(PlayerType *player_ptr, MonsterEntity *m_ptr, Mo
     constexpr auto mes = _("%s ... 属性:%s HP:%d/%d AC:%d 速度:%s%d 経験:", "%s ... align:%s HP:%d/%d AC:%d speed:%s%d exp:");
     auto result = format(mes, m_name.data(), align, (int)m_ptr->hp, (int)m_ptr->maxhp, r_ptr->ac, (speed > 0) ? "+" : "", speed);
 
-    if (MonsterRace(r_ptr->next_r_idx).is_valid()) {
+    if (r_ptr->get_next().is_valid()) {
         result.append(format("%d/%d ", m_ptr->exp, r_ptr->next_exp));
     } else {
         result.append("xxx ");
@@ -471,17 +469,13 @@ bool probing(PlayerType *player_ptr)
         move_cursor_relative(monster.fy, monster.fx);
         inkey();
         term_erase(0, 0);
-        if (lore_do_probe(player_ptr, monster.r_idx)) {
-#ifdef JP
-            msg_format("%sについてさらに詳しくなった気がする。", monrace.name.data());
-#else
-            std::string nm = monrace.name;
-            /* Leave room for making it plural. */
-            nm.resize(monrace.name.length() + 16);
-            plural_aux(nm.data());
-            msg_format("You now know more about %s.", nm.data());
-#endif
+        const auto mes = monrace.probe_lore();
+        if (mes) {
+            msg_print(*mes);
             msg_print(nullptr);
+            if (LoreTracker::get_instance().is_tracking(monster.r_idx)) {
+                RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
+            }
         }
 
         probe = true;

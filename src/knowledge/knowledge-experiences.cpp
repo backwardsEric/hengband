@@ -6,14 +6,13 @@
 
 #include "knowledge/knowledge-experiences.h"
 #include "core/show-file.h"
-#include "flavor/object-flavor.h"
 #include "game-option/cheat-options.h"
 #include "game-option/text-display-options.h"
 #include "io-dump/dump-util.h"
 #include "player-info/class-info.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "player/player-status.h"
-#include "realm/realm-names-table.h"
 #include "spell/spells-execution.h"
 #include "spell/technic-info-table.h"
 #include "sv-definition/sv-bow-types.h"
@@ -35,7 +34,7 @@ void do_cmd_knowledge_weapon_exp(PlayerType *player_ptr)
     for (auto tval : { ItemKindType::SWORD, ItemKindType::POLEARM, ItemKindType::HAFTED, ItemKindType::DIGGING, ItemKindType::BOW }) {
         for (int num = 0; num < 64; num++) {
             BaseitemKey bi_key(tval, num);
-            for (const auto &baseitem : baseitems_info) {
+            for (const auto &baseitem : BaseitemList::get_instance()) {
                 if (baseitem.bi_key != bi_key) {
                     continue;
                 }
@@ -47,8 +46,7 @@ void do_cmd_knowledge_weapon_exp(PlayerType *player_ptr)
 
                 SUB_EXP weapon_exp = player_ptr->weapon_exp[tval][num];
                 SUB_EXP weapon_max = player_ptr->weapon_exp_max[tval][num];
-                const auto tmp = strip_name(baseitem.idx);
-                fprintf(fff, "%-25s ", tmp.data());
+                fprintf(fff, "%-25s ", baseitem.stripped_name().data());
                 if (show_actual_value) {
                     fprintf(fff, "%4d/%4d ", weapon_exp, weapon_max);
                 }
@@ -69,7 +67,7 @@ void do_cmd_knowledge_weapon_exp(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, 0, 0, _("武器の経験値", "Weapon Proficiency"));
+    FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, _("武器の経験値", "Weapon Proficiency"));
     fd_kill(file_name);
 }
 
@@ -85,24 +83,21 @@ void do_cmd_knowledge_spell_exp(PlayerType *player_ptr)
         return;
     }
 
-    if (player_ptr->realm1 != REALM_NONE) {
-        fprintf(fff, _("%sの魔法書\n", "%s Spellbook\n"), realm_names[player_ptr->realm1]);
-        for (SPELL_IDX i = 0; i < 32; i++) {
-            const magic_type *s_ptr;
-            if (!is_magic(player_ptr->realm1)) {
-                s_ptr = &technic_info[player_ptr->realm1 - MIN_TECHNIC][i];
-            } else {
-                s_ptr = &mp_ptr->info[player_ptr->realm1 - 1][i];
-            }
+    PlayerRealm pr(player_ptr);
 
-            if (s_ptr->slevel >= 99) {
+    if (pr.realm1().is_available()) {
+        fprintf(fff, _("%sの魔法書\n", "%s Spellbook\n"), pr.realm1().get_name().data());
+        for (SPELL_IDX i = 0; i < 32; i++) {
+            const auto &spell = pr.realm1().get_spell_info(i);
+
+            if (spell.slevel >= 99) {
                 continue;
             }
             SUB_EXP spell_exp = player_ptr->spell_exp[i];
             auto skill_rank = PlayerSkill::spell_skill_rank(spell_exp);
-            const auto spell_name = exe_spell(player_ptr, player_ptr->realm1, i, SpellProcessType::NAME);
-            fprintf(fff, "%-25s ", spell_name->data());
-            if (player_ptr->realm1 == REALM_HISSATSU) {
+            const auto &spell_name = pr.realm1().get_spell_name(i);
+            fprintf(fff, "%-25s ", spell_name.data());
+            if (pr.realm1().equals(RealmType::HISSATSU)) {
                 if (show_actual_value) {
                     fprintf(fff, "----/---- ");
                 }
@@ -126,24 +121,19 @@ void do_cmd_knowledge_spell_exp(PlayerType *player_ptr)
         }
     }
 
-    if (player_ptr->realm2 != REALM_NONE) {
-        fprintf(fff, _("%sの魔法書\n", "\n%s Spellbook\n"), realm_names[player_ptr->realm2]);
+    if (pr.realm2().is_available()) {
+        fprintf(fff, _("%sの魔法書\n", "\n%s Spellbook\n"), pr.realm2().get_name().data());
         for (SPELL_IDX i = 0; i < 32; i++) {
-            const magic_type *s_ptr;
-            if (!is_magic(player_ptr->realm1)) {
-                s_ptr = &technic_info[player_ptr->realm2 - MIN_TECHNIC][i];
-            } else {
-                s_ptr = &mp_ptr->info[player_ptr->realm2 - 1][i];
-            }
+            const auto &spell = pr.realm2().get_spell_info(i);
 
-            if (s_ptr->slevel >= 99) {
+            if (spell.slevel >= 99) {
                 continue;
             }
 
             SUB_EXP spell_exp = player_ptr->spell_exp[i + 32];
             auto skill_rank = PlayerSkill::spell_skill_rank(spell_exp);
-            const auto spell_name = exe_spell(player_ptr, player_ptr->realm2, i, SpellProcessType::NAME);
-            fprintf(fff, "%-25s ", spell_name->data());
+            const auto spell_name = pr.realm2().get_spell_name(i);
+            fprintf(fff, "%-25s ", spell_name.data());
             if (show_actual_value) {
                 fprintf(fff, "%4d/%4d ", spell_exp, PlayerSkill::spell_exp_at(PlayerSkillRank::MASTER));
             }
@@ -161,7 +151,7 @@ void do_cmd_knowledge_spell_exp(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, 0, 0, _("魔法の経験値", "Spell Proficiency"));
+    FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, _("魔法の経験値", "Spell Proficiency"));
     fd_kill(file_name);
 }
 
@@ -198,6 +188,6 @@ void do_cmd_knowledge_skill_exp(PlayerType *player_ptr)
     }
 
     angband_fclose(fff);
-    (void)show_file(player_ptr, true, file_name, 0, 0, _("技能の経験値", "Miscellaneous Proficiency"));
+    FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, _("技能の経験値", "Miscellaneous Proficiency"));
     fd_kill(file_name);
 }

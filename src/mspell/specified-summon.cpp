@@ -5,7 +5,6 @@
 #include "floor/floor-util.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "mspell/mspell-checker.h"
@@ -14,7 +13,6 @@
 #include "spell/summon-types.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
@@ -32,7 +30,7 @@ MONSTER_NUMBER summon_EAGLE(PlayerType *player_ptr, POSITION y, POSITION x, int 
     int count = 0;
     int num = 4 + randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_EAGLES, PM_ALLOW_GROUP | PM_ALLOW_UNIQUE);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_EAGLES, PM_ALLOW_GROUP | PM_ALLOW_UNIQUE) ? 1 : 0;
     }
 
     return count;
@@ -52,7 +50,7 @@ MONSTER_NUMBER summon_EDGE(PlayerType *player_ptr, POSITION y, POSITION x, int r
     int count = 0;
     int num = 2 + randint1(1 + rlev / 20);
     for (int k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::EDGE, PM_NONE);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::EDGE, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -90,7 +88,7 @@ MONSTER_NUMBER summon_guardian(PlayerType *player_ptr, POSITION y, POSITION x, i
 
     int count = 0;
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_GUARDIANS, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_GUARDIANS, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
     }
 
     return count;
@@ -109,7 +107,7 @@ MONSTER_NUMBER summon_LOCKE_CLONE(PlayerType *player_ptr, POSITION y, POSITION x
     int count = 0;
     int num = randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::LOCKE_CLONE, PM_NONE);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::LOCKE_CLONE, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -129,7 +127,7 @@ MONSTER_NUMBER summon_LOUSE(PlayerType *player_ptr, POSITION y, POSITION x, int 
     int count = 0;
     int num = 2 + randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_LOUSE, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_LOUSE, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
     return count;
@@ -140,7 +138,7 @@ MONSTER_NUMBER summon_MOAI(PlayerType *player_ptr, POSITION y, POSITION x, int r
     int count = 0;
     int num = 3 + randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_SMALL_MOAI, PM_NONE);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_SMALL_MOAI, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -156,7 +154,7 @@ MONSTER_NUMBER summon_DEMON_SLAYER(PlayerType *player_ptr, POSITION y, POSITION 
 
     auto count = 0;
     for (auto k = 0; k < MAX_NAZGUL_NUM; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::DEMON_SLAYER_MEMBER, PM_NONE);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::DEMON_SLAYER_MEMBER, PM_NONE) ? 1 : 0;
     }
 
     if (count == 0) {
@@ -181,7 +179,7 @@ MONSTER_NUMBER summon_NAZGUL(PlayerType *player_ptr, POSITION y, POSITION x, MON
     POSITION cx = x;
     const auto m_name = monster_name(player_ptr, m_idx);
 
-    if (player_ptr->effects()->blindness()->is_blind()) {
+    if (player_ptr->effects()->blindness().is_blind()) {
         msg_format(_("%s^が何かをつぶやいた。", "%s^ mumbles."), m_name.data());
     } else {
         msg_format(_("%s^が魔法で幽鬼戦隊を召喚した！", "%s^ magically summons rangers of Nazgul!"), m_name.data());
@@ -236,7 +234,7 @@ MONSTER_NUMBER summon_APOCRYPHA(PlayerType *player_ptr, POSITION y, POSITION x, 
     int num = 4 + randint1(4);
     summon_type followers = one_in_(2) ? SUMMON_APOCRYPHA_FOLLOWERS : SUMMON_APOCRYPHA_DRAGONS;
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, 200, followers, PM_ALLOW_UNIQUE);
+        count += summon_specific(player_ptr, m_idx, y, x, 200, followers, PM_ALLOW_UNIQUE) ? 1 : 0;
     }
 
     return count;
@@ -247,7 +245,7 @@ MONSTER_NUMBER summon_HIGHEST_DRAGON(PlayerType *player_ptr, POSITION y, POSITIO
     int count = 0;
     int num = 4 + randint1(4);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, 100, SUMMON_APOCRYPHA_DRAGONS, PM_ALLOW_UNIQUE);
+        count += summon_specific(player_ptr, m_idx, y, x, 100, SUMMON_APOCRYPHA_DRAGONS, PM_ALLOW_UNIQUE) ? 1 : 0;
     }
 
     return count;
@@ -258,7 +256,7 @@ MONSTER_NUMBER summon_PYRAMID(PlayerType *player_ptr, POSITION y, POSITION x, in
     int count = 0;
     int num = 2 + randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_PYRAMID, PM_NONE);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_PYRAMID, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -269,7 +267,7 @@ MONSTER_NUMBER summon_EYE_PHORN(PlayerType *player_ptr, POSITION y, POSITION x, 
     int count = 0;
     int num = 2 + randint1(1 + rlev / 20);
     for (int k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::EYE_PHORN, PM_NONE);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::EYE_PHORN, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -280,7 +278,7 @@ MONSTER_NUMBER summon_VESPOID(PlayerType *player_ptr, POSITION y, POSITION x, in
     int count = 0;
     int num = 2 + randint1(3);
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_VESPOID, PM_NONE);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_VESPOID, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -291,7 +289,7 @@ MONSTER_NUMBER summon_THUNDERS(PlayerType *player_ptr, POSITION y, POSITION x, i
     auto count = (MONSTER_NUMBER)0;
     auto num = 11;
     for (auto k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANTI_TIGERS, PM_NONE);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANTI_TIGERS, PM_NONE) ? 1 : 0;
     }
 
     return count;
@@ -313,7 +311,7 @@ MONSTER_NUMBER summon_YENDER_WIZARD(PlayerType *player_ptr, POSITION y, POSITION
         return 0;
     }
 
-    auto count = (MONSTER_NUMBER)summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::YENDOR_WIZARD_2, PM_NONE);
+    auto count = summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::YENDOR_WIZARD_2, PM_NONE) ? 1 : 0;
     if (count == 0) {
         msg_print(_("どこからか声が聞こえる…「三重苦は負わぬ。。。」", "Heard a voice from somewhere... 'I will deny the triple suffering...'"));
         return 0;
@@ -328,9 +326,27 @@ MONSTER_NUMBER summon_PLASMA(PlayerType *player_ptr, POSITION y, POSITION x, int
     auto count = 0;
     auto num = 2 + randint1(1 + rlev / 20);
     for (auto k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::PLASMA_VORTEX, PM_NONE);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::PLASMA_VORTEX, PM_NONE) ? 1 : 0;
     }
 
     msg_print(_("プーラーズーマーッ！！", "P--la--s--ma--!!"));
+    return count;
+}
+
+/*!
+ * @brief ウサウサストライカー召喚の処理。 /
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param y 対象の地点のy座標
+ * @param x 対象の地点のx座標
+ * @param m_idx 呪文を唱えるモンスターID
+ * @return 召喚したモンスターの数を返す。
+ */
+MONSTER_NUMBER summon_LAFFEY_II(PlayerType *player_ptr, const Pos2D &position, MONSTER_IDX m_idx)
+{
+    auto count = 0;
+    constexpr auto summon_num = 2;
+    for (auto k = 0; k < summon_num; k++) {
+        count += summon_named_creature(player_ptr, m_idx, position.y, position.x, MonsterRaceId::BUNBUN_STRIKERS, PM_NONE) ? 1 : 0;
+    }
     return count;
 }

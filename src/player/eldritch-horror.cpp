@@ -9,10 +9,6 @@
 #include "locale/english.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster/horror-descriptions.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
@@ -32,48 +28,22 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <string>
 #include <string_view>
 
-/*!
- * @brief エルドリッチホラー持ちのモンスターを見た時の反応 (モンスター名版)
- * @param m_name モンスター名
- * @param r_ptr モンスター情報への参照ポインタ
- * @todo m_nameとdescで何が違うのかは良く分からない
- */
-static void see_eldritch_horror(std::string_view m_name, MonsterRaceInfo *r_ptr)
-{
-    const auto &horror_message = r_ptr->decide_horror_message();
-    msg_format(_("%s%sの顔を見てしまった！", "You behold the %s visage of %s!"), horror_message.data(), m_name.data());
-    r_ptr->r_flags2 |= RF2_ELDRITCH_HORROR;
-}
-
-/*!
- * @brief エルドリッチホラー持ちのモンスターを見た時の反応 (モンスター名版)
- * @param desc モンスター名 (エルドリッチホラー持ちの全モンスターからランダム…のはず)
- * @param r_ptr モンスターへの参照ポインタ
- */
-static void feel_eldritch_horror(std::string_view desc, MonsterRaceInfo *r_ptr)
-{
-    const auto &horror_message = r_ptr->decide_horror_message();
-    msg_format(_("%s%sの顔を見てしまった！", "You behold the %s visage of %s!"), horror_message.data(), desc.data());
-    r_ptr->r_flags2 |= RF2_ELDRITCH_HORROR;
-}
-
 static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m_name, const MonsterRaceInfo &monrace)
 {
-    if (!player_ptr->effects()->hallucination()->is_hallucinated()) {
+    if (!player_ptr->effects()->hallucination().is_hallucinated()) {
         return false;
     }
 
     msg_format(_("%s%sの顔を見てしまった！", "You behold the %s visage of %s!"), rand_choice(funny_desc).data(), m_name.data());
     if (one_in_(3)) {
         msg_print(rand_choice(funny_comments));
-        BadStatusSetter(player_ptr).mod_hallucination(randint1(monrace.level));
+        BadStatusSetter(player_ptr).mod_hallucination(randnum1<short>(monrace.level));
     }
 
     return true;
@@ -86,24 +56,26 @@ static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m
  */
 void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
 {
-    if (AngbandSystem::get_instance().is_phase_out() || !w_ptr->character_dungeon) {
+    const auto &world = AngbandWorld::get_instance();
+    if (AngbandSystem::get_instance().is_phase_out() || !world.character_dungeon) {
         return;
     }
 
-    int power = 100;
+    auto &monraces = MonraceList::get_instance();
+    auto power = 100;
     if (!necro && m_ptr) {
-        auto *r_ptr = &m_ptr->get_appearance_monrace();
+        auto &monrace = m_ptr->get_appearance_monrace();
         const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-        power = r_ptr->level / 2;
-        if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
-            if (r_ptr->flags1 & RF1_FRIENDS) {
+        power = monrace.level / 2;
+        if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+            if (monrace.misc_flags.has(MonsterMiscType::HAS_FRIENDS)) {
                 power /= 2;
             }
         } else {
             power *= 2;
         }
 
-        if (!w_ptr->is_loading_now) {
+        if (!world.is_loading_now) {
             return;
         }
 
@@ -111,7 +83,7 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
             return;
         }
 
-        if (!(r_ptr->flags2 & RF2_ELDRITCH_HORROR)) {
+        if (monrace.misc_flags.has_not(MonsterMiscType::ELDRITCH_HORROR)) {
             return;
         }
 
@@ -123,20 +95,21 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
             return;
         }
 
-        if (saving_throw(player_ptr->skill_sav - power)) {
+        if (evaluate_percent(player_ptr->skill_sav - power)) {
             return;
         }
 
-        if (process_mod_hallucination(player_ptr, m_name, *r_ptr)) {
+        if (process_mod_hallucination(player_ptr, m_name, monrace)) {
             return;
         }
 
-        see_eldritch_horror(m_name, r_ptr);
+        msg_print(monrace.build_eldritch_horror_message(m_name));
+        monrace.r_misc_flags.set(MonsterMiscType::ELDRITCH_HORROR);
         switch (PlayerRace(player_ptr).life()) {
         case PlayerRaceLifeType::DEMON:
             return;
         case PlayerRaceLifeType::UNDEAD:
-            if (saving_throw(25 + player_ptr->lev)) {
+            if (evaluate_percent(25 + player_ptr->lev)) {
                 return;
             }
             break;
@@ -145,46 +118,48 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
         }
     } else if (!necro) {
         get_mon_num_prep(player_ptr, get_nightmare, nullptr);
-        auto *r_ptr = &monraces_info[get_mon_num(player_ptr, 0, MAX_DEPTH, PM_NONE)];
-        power = r_ptr->level + 10;
-        const auto &desc = r_ptr->name;
+        const auto monrace_id = get_mon_num(player_ptr, 0, MAX_DEPTH, PM_NONE);
+        auto &monrace = monraces.get_monrace(monrace_id);
+        power = monrace.level + 10;
+        const auto &desc = monrace.name;
         get_mon_num_prep(player_ptr, nullptr, nullptr);
         std::string m_name;
 #ifdef JP
 #else
 
-        if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
-            m_name = (is_a_vowel(desc[0])) ? "an " : "a ";
+        if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+            m_name = (is_a_vowel(desc.data()[0])) ? "an " : "a ";
         }
 #endif
         m_name.append(desc);
 
-        if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
-            if (r_ptr->flags1 & RF1_FRIENDS) {
+        if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+            if (monrace.misc_flags.has(MonsterMiscType::HAS_FRIENDS)) {
                 power /= 2;
             }
         } else {
             power *= 2;
         }
 
-        if (saving_throw(player_ptr->skill_sav * 100 / power)) {
+        if (evaluate_percent(player_ptr->skill_sav * 100 / power)) {
             msg_format(_("夢の中で%sに追いかけられた。", "%s^ chases you through your dreams."), m_name.data());
             return;
         }
 
-        if (process_mod_hallucination(player_ptr, m_name, *r_ptr)) {
+        if (process_mod_hallucination(player_ptr, m_name, monrace)) {
             return;
         }
 
-        feel_eldritch_horror(desc, r_ptr);
+        msg_print(monrace.build_eldritch_horror_message(desc));
+        monrace.r_misc_flags.set(MonsterMiscType::ELDRITCH_HORROR);
         switch (PlayerRace(player_ptr).life()) {
         case PlayerRaceLifeType::DEMON:
-            if (saving_throw(20 + player_ptr->lev)) {
+            if (evaluate_percent(20 + player_ptr->lev)) {
                 return;
             }
             break;
         case PlayerRaceLifeType::UNDEAD:
-            if (saving_throw(10 + player_ptr->lev)) {
+            if (evaluate_percent(10 + player_ptr->lev)) {
                 return;
             }
             break;
@@ -198,7 +173,7 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
     /* 過去の効果無効率再現のため5回saving_throw 実行 */
     auto save = true;
     for (auto i = 0; i < 5; i++) {
-        save &= saving_throw(player_ptr->skill_sav - power);
+        save &= evaluate_percent(player_ptr->skill_sav - power);
     }
 
     if (save) {
@@ -290,11 +265,11 @@ void sanity_blast(PlayerType *player_ptr, MonsterEntity *m_ptr, bool necro)
 
         do {
             (void)do_dec_stat(player_ptr, A_INT);
-        } while (randint0(100) > player_ptr->skill_sav && one_in_(2));
+        } while (!player_ptr->try_resist_eldritch_horror());
 
         do {
             (void)do_dec_stat(player_ptr, A_WIS);
-        } while (randint0(100) > player_ptr->skill_sav && one_in_(2));
+        } while (!player_ptr->try_resist_eldritch_horror());
 
         break;
     }

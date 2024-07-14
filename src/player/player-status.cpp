@@ -26,16 +26,12 @@
 #include "io/write-diary.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "market/arena-info-table.h"
+#include "market/arena-entry.h"
 #include "mind/mind-force-trainer.h"
 #include "mind/mind-ninja.h"
 #include "monster-floor/monster-lite.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-update.h"
 #include "monster/smart-learn-types.h"
 #include "mutation/mutation-calculator.h"
@@ -77,6 +73,7 @@
 #include "player/player-move.h"
 #include "player/player-personality-types.h"
 #include "player/player-personality.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "player/player-status-flags.h"
 #include "player/player-status-table.h"
@@ -84,7 +81,6 @@
 #include "player/race-info-table.h"
 #include "player/special-defense-types.h"
 #include "realm/realm-hex-numbers.h"
-#include "realm/realm-names-table.h"
 #include "realm/realm-song-numbers.h"
 #include "specific-object/torch.h"
 #include "spell-realm/spells-hex.h"
@@ -108,16 +104,12 @@
 #include "system/redrawing-flags-updater.h"
 #include "system/terrain-type-definition.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-acceleration.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
-
-static const int extra_magic_glove_reduce_mana = 1;
 
 static bool is_martial_arts_mode(PlayerType *player_ptr);
 
@@ -148,7 +140,7 @@ static int16_t calc_to_hit_bow(PlayerType *player_ptr, bool is_real_value);
 static int16_t calc_to_damage_misc(PlayerType *player_ptr);
 static int16_t calc_to_hit_misc(PlayerType *player_ptr);
 
-static DICE_NUMBER calc_to_weapon_dice_num(PlayerType *player_ptr, INVENTORY_IDX slot);
+static int calc_to_weapon_dice_num(PlayerType *player_ptr, INVENTORY_IDX slot);
 static player_hand main_attack_hand(PlayerType *player_ptr);
 
 /*** Player information ***/
@@ -176,7 +168,7 @@ static void delayed_visual_update(PlayerType *player_ptr)
         }
 
         lite_spot(player_ptr, y, x);
-        if (g_ptr->m_idx) {
+        if (g_ptr->has_monster()) {
             update_monster(player_ptr, g_ptr->m_idx, false);
         }
 
@@ -339,8 +331,8 @@ static void update_bonuses(PlayerType *player_ptr)
         player_ptr->is_icky_riding_wield[i] = is_wielding_icky_riding_weapon(player_ptr, i);
         player_ptr->heavy_wield[i] = is_heavy_wield(player_ptr, i);
         player_ptr->num_blow[i] = calc_num_blow(player_ptr, i);
-        player_ptr->to_dd[i] = calc_to_weapon_dice_num(player_ptr, INVEN_MAIN_HAND + i);
-        player_ptr->to_ds[i] = 0;
+        player_ptr->damage_dice_bonus[i].num = calc_to_weapon_dice_num(player_ptr, INVEN_MAIN_HAND + i);
+        player_ptr->damage_dice_bonus[i].sides = 0;
     }
 
     player_ptr->pspeed = PlayerSpeed(player_ptr).get_value();
@@ -412,7 +404,7 @@ static void update_bonuses(PlayerType *player_ptr)
         rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     }
 
-    if (w_ptr->character_xtra) {
+    if (AngbandWorld::get_instance().character_xtra) {
         return;
     }
 
@@ -431,18 +423,12 @@ static void update_max_hitpoints(PlayerType *player_ptr)
     int bonus = ((int)(adj_con_mhp[player_ptr->stat_index[A_CON]]) - 128) * player_ptr->lev / 4;
     int mhp = player_ptr->player_hp[player_ptr->lev - 1];
 
-    byte tmp_hitdie;
     PlayerClass pc(player_ptr);
     auto is_sorcerer = pc.equals(PlayerClassType::SORCERER);
     if (player_ptr->mimic_form != MimicKindType::NONE) {
         auto r_mhp = mimic_info.at(player_ptr->mimic_form).r_mhp;
-        if (is_sorcerer) {
-            tmp_hitdie = r_mhp / 2 + cp_ptr->c_mhp + ap_ptr->a_mhp;
-        } else {
-            tmp_hitdie = r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp;
-        }
-
-        mhp = mhp * tmp_hitdie / player_ptr->hitdie;
+        const auto mimic_hit_dice = Dice(1, (is_sorcerer ? r_mhp / 2 : r_mhp) + cp_ptr->c_mhp + ap_ptr->a_mhp);
+        mhp = mhp * mimic_hit_dice.maxroll() / player_ptr->hit_dice.maxroll();
     }
 
     if (is_sorcerer) {
@@ -509,7 +495,8 @@ static void update_max_hitpoints(PlayerType *player_ptr)
  */
 static void update_num_of_spells(PlayerType *player_ptr)
 {
-    if ((mp_ptr->spell_book == ItemKindType::NONE) || !w_ptr->character_generated || w_ptr->character_xtra) {
+    const auto &world = AngbandWorld::get_instance();
+    if ((mp_ptr->spell_book == ItemKindType::NONE) || !world.character_generated || world.character_xtra) {
         return;
     }
 
@@ -531,9 +518,10 @@ static void update_num_of_spells(PlayerType *player_ptr)
         bonus = 4;
     }
 
+    PlayerRealm pr(player_ptr);
     if (pc.equals(PlayerClassType::SAMURAI)) {
         num_allowed = 32;
-    } else if (player_ptr->realm2 == REALM_NONE) {
+    } else if (!pr.realm2().is_available()) {
         num_allowed = (num_allowed + 1) / 2;
         if (num_allowed > (32 + bonus)) {
             num_allowed = 32 + bonus;
@@ -566,20 +554,10 @@ static void update_num_of_spells(PlayerType *player_ptr)
             continue;
         }
 
-        const magic_type *s_ptr;
-        if (!is_magic((j < 32) ? player_ptr->realm1 : player_ptr->realm2)) {
-            if (j < 32) {
-                s_ptr = &technic_info[player_ptr->realm1 - MIN_TECHNIC][j];
-            } else {
-                s_ptr = &technic_info[player_ptr->realm2 - MIN_TECHNIC][j % 32];
-            }
-        } else if (j < 32) {
-            s_ptr = &mp_ptr->info[player_ptr->realm1 - 1][j];
-        } else {
-            s_ptr = &mp_ptr->info[player_ptr->realm2 - 1][j % 32];
-        }
+        const auto &realm = (j < 32) ? pr.realm1() : pr.realm2();
+        const auto &spell = realm.get_spell_info(j % 32);
 
-        if (s_ptr->slevel <= player_ptr->lev) {
+        if (spell.slevel <= player_ptr->lev) {
             continue;
         }
 
@@ -588,28 +566,23 @@ static void update_num_of_spells(PlayerType *player_ptr)
             continue;
         }
 
-        int16_t which;
         if (j < 32) {
             set_bits(player_ptr->spell_forgotten1, (1UL << j));
-            which = player_ptr->realm1;
         } else {
             set_bits(player_ptr->spell_forgotten2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
         if (j < 32) {
             reset_bits(player_ptr->spell_learned1, (1UL << j));
-            which = player_ptr->realm1;
         } else {
             reset_bits(player_ptr->spell_learned2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
-        const auto spell_name = exe_spell(player_ptr, which, j % 32, SpellProcessType::NAME);
+        const auto &spell_name = realm.get_spell_name(j % 32);
 #ifdef JP
-        msg_format("%sの%sを忘れてしまった。", spell_name->data(), spell_category.data());
+        msg_format("%sの%sを忘れてしまった。", spell_name.data(), spell_category.data());
 #else
-        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name->data());
+        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name.data());
 #endif
         player_ptr->new_spells++;
     }
@@ -633,28 +606,24 @@ static void update_num_of_spells(PlayerType *player_ptr)
             continue;
         }
 
-        int16_t which;
         if (j < 32) {
             set_bits(player_ptr->spell_forgotten1, (1UL << j));
-            which = player_ptr->realm1;
         } else {
             set_bits(player_ptr->spell_forgotten2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
         if (j < 32) {
             reset_bits(player_ptr->spell_learned1, (1UL << j));
-            which = player_ptr->realm1;
         } else {
             reset_bits(player_ptr->spell_learned2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
-        const auto spell_name = exe_spell(player_ptr, which, j % 32, SpellProcessType::NAME);
+        const auto &realm = (j < 32) ? pr.realm1() : pr.realm2();
+        const auto &spell_name = realm.get_spell_name(j % 32);
 #ifdef JP
-        msg_format("%sの%sを忘れてしまった。", spell_name->data(), spell_category.data());
+        msg_format("%sの%sを忘れてしまった。", spell_name.data(), spell_category.data());
 #else
-        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name->data());
+        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name.data());
 #endif
         player_ptr->new_spells++;
     }
@@ -672,20 +641,10 @@ static void update_num_of_spells(PlayerType *player_ptr)
             break;
         }
 
-        const magic_type *s_ptr;
-        if (!is_magic((j < 32) ? player_ptr->realm1 : player_ptr->realm2)) {
-            if (j < 32) {
-                s_ptr = &technic_info[player_ptr->realm1 - MIN_TECHNIC][j];
-            } else {
-                s_ptr = &technic_info[player_ptr->realm2 - MIN_TECHNIC][j % 32];
-            }
-        } else if (j < 32) {
-            s_ptr = &mp_ptr->info[player_ptr->realm1 - 1][j];
-        } else {
-            s_ptr = &mp_ptr->info[player_ptr->realm2 - 1][j % 32];
-        }
+        const auto &realm = (j < 32) ? pr.realm1() : pr.realm2();
+        const auto &spell = realm.get_spell_info(j % 32);
 
-        if (s_ptr->slevel > player_ptr->lev) {
+        if (spell.slevel > player_ptr->lev) {
             continue;
         }
 
@@ -694,43 +653,34 @@ static void update_num_of_spells(PlayerType *player_ptr)
             continue;
         }
 
-        int16_t which;
         if (j < 32) {
             reset_bits(player_ptr->spell_forgotten1, (1UL << j));
-            which = player_ptr->realm1;
         } else {
             reset_bits(player_ptr->spell_forgotten2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
         if (j < 32) {
             set_bits(player_ptr->spell_learned1, (1UL << j));
-            which = player_ptr->realm1;
+
         } else {
             set_bits(player_ptr->spell_learned2, (1UL << (j - 32)));
-            which = player_ptr->realm2;
         }
 
-        const auto spell_name = exe_spell(player_ptr, which, j % 32, SpellProcessType::NAME);
+        const auto &spell_name = realm.get_spell_name(j % 32);
 #ifdef JP
-        msg_format("%sの%sを思い出した。", spell_name->data(), spell_category.data());
+        msg_format("%sの%sを思い出した。", spell_name.data(), spell_category.data());
 #else
-        msg_format("You have remembered the %s of %s.", spell_category.data(), spell_name->data());
+        msg_format("You have remembered the %s of %s.", spell_category.data(), spell_name.data());
 #endif
         player_ptr->new_spells--;
     }
 
-    if (player_ptr->realm2 == REALM_NONE) {
+    if (!pr.realm2().is_available()) {
         int k = 0;
         for (int j = 0; j < 32; j++) {
-            const magic_type *s_ptr;
-            if (!is_magic(player_ptr->realm1)) {
-                s_ptr = &technic_info[player_ptr->realm1 - MIN_TECHNIC][j];
-            } else {
-                s_ptr = &mp_ptr->info[player_ptr->realm1 - 1][j];
-            }
+            const auto &spell = pr.realm1().get_spell_info(j);
 
-            if (s_ptr->slevel > player_ptr->lev) {
+            if (spell.slevel > player_ptr->lev) {
                 continue;
             }
 
@@ -831,7 +781,7 @@ static void update_max_mana(PlayerType *player_ptr)
         }
     }
 
-    if (any_bits(mp_ptr->spell_xtra, extra_magic_glove_reduce_mana)) {
+    if (mp_ptr->has_glove_mp_penalty) {
         player_ptr->cumber_glove = false;
         const auto *o_ptr = &player_ptr->inventory_list[INVEN_ARMS];
         const auto flags = o_ptr->get_flags();
@@ -1011,7 +961,7 @@ static void update_max_mana(PlayerType *player_ptr)
         rfu.set_flags(flags);
     }
 
-    if (w_ptr->character_xtra) {
+    if (AngbandWorld::get_instance().character_xtra) {
         return;
     }
 
@@ -1130,10 +1080,10 @@ static ACTION_SKILL_POWER calc_disarming(PlayerType *player_ptr)
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
 
-    pow = tmp_rp_ptr->r_dis + c_ptr->c_dis + a_ptr->a_dis;
+    pow = tmp_rp_ptr->r_dis + player_class.c_dis + player_personality.a_dis;
     pow += ((cp_ptr->x_dis * player_ptr->lev / 10) + (ap_ptr->a_dis * player_ptr->lev / 50));
     pow += adj_dex_dis[player_ptr->stat_index[A_DEX]];
     pow += adj_int_dis[player_ptr->stat_index[A_INT]];
@@ -1162,11 +1112,11 @@ static ACTION_SKILL_POWER calc_device_ability(PlayerType *player_ptr)
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
 
-    pow = tmp_rp_ptr->r_dev + c_ptr->c_dev + a_ptr->a_dev;
-    pow += ((c_ptr->x_dev * player_ptr->lev / 10) + (ap_ptr->a_dev * player_ptr->lev / 50));
+    pow = tmp_rp_ptr->r_dev + player_class.c_dev + player_personality.a_dev;
+    pow += ((player_class.x_dev * player_ptr->lev / 10) + (ap_ptr->a_dev * player_ptr->lev / 50));
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         ItemEntity *o_ptr;
@@ -1218,10 +1168,10 @@ static ACTION_SKILL_POWER calc_saving_throw(PlayerType *player_ptr)
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
 
-    pow = tmp_rp_ptr->r_sav + c_ptr->c_sav + a_ptr->a_sav;
+    pow = tmp_rp_ptr->r_sav + player_class.c_sav + player_personality.a_sav;
     pow += ((cp_ptr->x_sav * player_ptr->lev / 10) + (ap_ptr->a_sav * player_ptr->lev / 50));
 
     if (player_ptr->muta.has(PlayerMutationType::MAGIC_RES)) {
@@ -1291,11 +1241,10 @@ static ACTION_SKILL_POWER calc_search(PlayerType *player_ptr)
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
-
-    pow = tmp_rp_ptr->r_srh + c_ptr->c_srh + a_ptr->a_srh;
-    pow += (c_ptr->x_srh * player_ptr->lev / 10);
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
+    pow = tmp_rp_ptr->r_srh + player_class.c_srh + player_personality.a_srh;
+    pow += (player_class.x_srh * player_ptr->lev / 10);
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         ItemEntity *o_ptr;
@@ -1335,18 +1284,16 @@ static ACTION_SKILL_POWER calc_search_freq(PlayerType *player_ptr)
 {
     ACTION_SKILL_POWER pow;
     const player_race_info *tmp_rp_ptr;
-
     if (player_ptr->mimic_form != MimicKindType::NONE) {
         tmp_rp_ptr = &mimic_info.at(player_ptr->mimic_form);
     } else {
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
-
-    pow = tmp_rp_ptr->r_fos + c_ptr->c_fos + a_ptr->a_fos;
-    pow += (c_ptr->x_fos * player_ptr->lev / 10);
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
+    pow = tmp_rp_ptr->r_fos + player_class.c_fos + player_personality.a_fos;
+    pow += (player_class.x_fos * player_ptr->lev / 10);
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
         ItemEntity *o_ptr;
@@ -1381,18 +1328,17 @@ static ACTION_SKILL_POWER calc_search_freq(PlayerType *player_ptr)
 static ACTION_SKILL_POWER calc_to_hit_melee(PlayerType *player_ptr)
 {
     ACTION_SKILL_POWER pow;
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
     const player_race_info *tmp_rp_ptr;
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
-
     if (player_ptr->mimic_form != MimicKindType::NONE) {
         tmp_rp_ptr = &mimic_info.at(player_ptr->mimic_form);
     } else {
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    pow = tmp_rp_ptr->r_thn + c_ptr->c_thn + a_ptr->a_thn;
-    pow += ((c_ptr->x_thn * player_ptr->lev / 10) + (a_ptr->a_thn * player_ptr->lev / 50));
+    pow = tmp_rp_ptr->r_thn + player_class.c_thn + player_personality.a_thn;
+    pow += ((player_class.x_thn * player_ptr->lev / 10) + (player_personality.a_thn * player_ptr->lev / 50));
     return pow;
 }
 
@@ -1406,18 +1352,17 @@ static ACTION_SKILL_POWER calc_to_hit_melee(PlayerType *player_ptr)
 static ACTION_SKILL_POWER calc_to_hit_shoot(PlayerType *player_ptr)
 {
     ACTION_SKILL_POWER pow;
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
     const player_race_info *tmp_rp_ptr;
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
-
     if (player_ptr->mimic_form != MimicKindType::NONE) {
         tmp_rp_ptr = &mimic_info.at(player_ptr->mimic_form);
     } else {
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    pow = tmp_rp_ptr->r_thb + c_ptr->c_thb + a_ptr->a_thb;
-    pow += ((c_ptr->x_thb * player_ptr->lev / 10) + (a_ptr->a_thb * player_ptr->lev / 50));
+    pow = tmp_rp_ptr->r_thb + player_class.c_thb + player_personality.a_thb;
+    pow += ((player_class.x_thb * player_ptr->lev / 10) + (player_personality.a_thb * player_ptr->lev / 50));
     return pow;
 }
 
@@ -1432,18 +1377,17 @@ static ACTION_SKILL_POWER calc_to_hit_shoot(PlayerType *player_ptr)
 static ACTION_SKILL_POWER calc_to_hit_throw(PlayerType *player_ptr)
 {
     ACTION_SKILL_POWER pow;
+    const auto &player_class = class_info.at(player_ptr->pclass);
+    const auto &player_personality = personality_info[player_ptr->ppersonality];
     const player_race_info *tmp_rp_ptr;
-    const player_class_info *c_ptr = &class_info[enum2i(player_ptr->pclass)];
-    const player_personality *a_ptr = &personality_info[player_ptr->ppersonality];
-
     if (player_ptr->mimic_form != MimicKindType::NONE) {
         tmp_rp_ptr = &mimic_info.at(player_ptr->mimic_form);
     } else {
         tmp_rp_ptr = &race_info[enum2i(player_ptr->prace)];
     }
 
-    pow = tmp_rp_ptr->r_thb + c_ptr->c_thb + a_ptr->a_thb;
-    pow += ((c_ptr->x_thb * player_ptr->lev / 10) + (a_ptr->a_thb * player_ptr->lev / 50));
+    pow = tmp_rp_ptr->r_thb + player_class.c_thb + player_personality.a_thb;
+    pow += ((player_class.x_thb * player_ptr->lev / 10) + (player_personality.a_thb * player_ptr->lev / 50));
 
     if (is_shero(player_ptr)) {
         pow -= 20;
@@ -1543,10 +1487,10 @@ static int16_t calc_num_blow(PlayerType *player_ptr, int i)
             int str_index, dex_index;
             int num = 0, wgt = 0, mul = 0, div = 0;
 
-            auto &info = class_info[enum2i(player_ptr->pclass)];
-            num = info.num;
-            wgt = info.wgt;
-            mul = info.mul;
+            auto &player_class = class_info.at(player_ptr->pclass);
+            num = player_class.num;
+            wgt = player_class.wgt;
+            mul = player_class.mul;
 
             if (pc.equals(PlayerClassType::CAVALRY) && player_ptr->riding && o_ptr->get_flags().has(TR_RIDING)) {
                 num = 5;
@@ -1857,7 +1801,7 @@ static ARMOUR_CLASS calc_to_ac(PlayerType *player_ptr, bool is_real_value)
         }
     }
 
-    if (player_ptr->realm1 == REALM_HEX) {
+    if (PlayerRealm(player_ptr).is_realm_hex()) {
         if (SpellHex(player_ptr).is_spelling_specific(HEX_ICE_ARMOR)) {
             ac += 30;
         }
@@ -2004,7 +1948,7 @@ static int16_t calc_riding_bow_penalty(PlayerType *player_ptr)
             penalty = 5;
         }
     } else {
-        penalty = monraces_info[floor_ptr->m_list[player_ptr->riding].r_idx].level - player_ptr->skill_exp[PlayerSkillKindType::RIDING] / 80;
+        penalty = floor_ptr->m_list[player_ptr->riding].get_monrace().level - player_ptr->skill_exp[PlayerSkillKindType::RIDING] / 80;
         penalty += 30;
         if (penalty < 30) {
             penalty = 30;
@@ -2065,7 +2009,7 @@ void put_equipment_warning(PlayerType *player_ptr)
 
         if (player_ptr->is_icky_wield[i]) {
             msg_print(_("今の装備はどうも自分にふさわしくない気がする。", "You do not feel comfortable with your weapon."));
-            if (w_ptr->is_loading_now) {
+            if (AngbandWorld::get_instance().is_loading_now) {
                 chg_virtue(player_ptr, Virtue::FAITH, -1);
             }
         } else if (has_melee_weapon(player_ptr, INVEN_MAIN_HAND + i)) {
@@ -2099,7 +2043,7 @@ void put_equipment_warning(PlayerType *player_ptr)
     if ((pc.is_martial_arts_pro() || pc.equals(PlayerClassType::NINJA)) && (heavy_armor(player_ptr) != player_ptr->monk_notify_aux)) {
         if (heavy_armor(player_ptr)) {
             msg_print(_("装備が重くてバランスを取れない。", "The weight of your armor disrupts your balance."));
-            if (w_ptr->is_loading_now) {
+            if (AngbandWorld::get_instance().is_loading_now) {
                 chg_virtue(player_ptr, Virtue::HARMONY, -1);
             }
         } else {
@@ -2135,8 +2079,7 @@ static short calc_to_damage(PlayerType *player_ptr, INVENTORY_IDX slot, bool is_
         damage += 3 + (player_ptr->lev / 5);
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    damage -= player_stun->get_damage_penalty();
+    damage -= player_ptr->effects()->stun().get_damage_penalty();
     PlayerClass pc(player_ptr);
     const auto tval = o_ptr->bi_key.tval();
     if (pc.equals(PlayerClassType::PRIEST) && (o_ptr->get_flags().has_not(TR_BLESSED)) && ((tval == ItemKindType::SWORD) || (tval == ItemKindType::POLEARM))) {
@@ -2161,7 +2104,7 @@ static short calc_to_damage(PlayerType *player_ptr, INVENTORY_IDX slot, bool is_
         }
     }
 
-    if ((player_ptr->realm1 == REALM_HEX) && o_ptr->is_cursed()) {
+    if (PlayerRealm(player_ptr).is_realm_hex() && o_ptr->is_cursed()) {
         if (SpellHex(player_ptr).is_spelling_specific(HEX_RUNESWORD)) {
             if (o_ptr->curse_flags.has(CurseTraitType::CURSED)) {
                 damage += 5;
@@ -2293,8 +2236,7 @@ static short calc_to_hit(PlayerType *player_ptr, INVENTORY_IDX slot, bool is_rea
         hit += 12;
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    hit -= player_stun->get_damage_penalty();
+    hit -= player_ptr->effects()->stun().get_damage_penalty();
     player_hand calc_hand = PLAYER_HAND_OTHER;
     if (slot == INVEN_MAIN_HAND) {
         calc_hand = PLAYER_HAND_MAIN;
@@ -2365,7 +2307,7 @@ static short calc_to_hit(PlayerType *player_ptr, INVENTORY_IDX slot, bool is_rea
                 if (PlayerClass(player_ptr).is_tamer()) {
                     penalty = 5;
                 } else {
-                    penalty = monraces_info[player_ptr->current_floor_ptr->m_list[player_ptr->riding].r_idx].level - player_ptr->skill_exp[PlayerSkillKindType::RIDING] / 80;
+                    penalty = player_ptr->current_floor_ptr->m_list[player_ptr->riding].get_monrace().level - player_ptr->skill_exp[PlayerSkillKindType::RIDING] / 80;
                     penalty += 30;
                     if (penalty < 30) {
                         penalty = 30;
@@ -2399,7 +2341,7 @@ static short calc_to_hit(PlayerType *player_ptr, INVENTORY_IDX slot, bool is_rea
         }
 
         /* Hex realm bonuses */
-        if ((player_ptr->realm1 == REALM_HEX) && o_ptr->is_cursed()) {
+        if (PlayerRealm(player_ptr).is_realm_hex() && o_ptr->is_cursed()) {
             if (o_ptr->curse_flags.has(CurseTraitType::CURSED)) {
                 hit += 5;
             }
@@ -2529,8 +2471,7 @@ static int16_t calc_to_hit_bow(PlayerType *player_ptr, bool is_real_value)
         }
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    pow -= player_stun->get_damage_penalty();
+    pow -= player_ptr->effects()->stun().get_damage_penalty();
     if (is_blessed(player_ptr)) {
         pow += 10;
     }
@@ -2613,8 +2554,7 @@ static int16_t calc_to_damage_misc(PlayerType *player_ptr)
         to_dam += 3 + (player_ptr->lev / 5);
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    to_dam -= player_stun->get_damage_penalty();
+    to_dam -= player_ptr->effects()->stun().get_damage_penalty();
     to_dam += ((int)(adj_str_td[player_ptr->stat_index[A_STR]]) - 128);
     return to_dam;
 }
@@ -2652,15 +2592,14 @@ static int16_t calc_to_hit_misc(PlayerType *player_ptr)
         to_hit += 12;
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    to_hit -= player_stun->get_damage_penalty();
+    to_hit -= player_ptr->effects()->stun().get_damage_penalty();
     to_hit += ((int)(adj_dex_th[player_ptr->stat_index[A_DEX]]) - 128);
     to_hit += ((int)(adj_str_th[player_ptr->stat_index[A_STR]]) - 128);
 
     return to_hit;
 }
 
-static DICE_NUMBER calc_to_weapon_dice_num(PlayerType *player_ptr, INVENTORY_IDX slot)
+static int calc_to_weapon_dice_num(PlayerType *player_ptr, INVENTORY_IDX slot)
 {
     auto *o_ptr = &player_ptr->inventory_list[slot];
     return (player_ptr->riding > 0) && o_ptr->is_lance() ? 2 : 0;
@@ -2736,7 +2675,8 @@ void update_creature(PlayerType *player_ptr)
         update_num_of_spells(player_ptr);
     }
 
-    if (!w_ptr->character_generated || (w_ptr->character_icky_depth > 0)) {
+    const auto &world = AngbandWorld::get_instance();
+    if (!world.character_generated || (world.character_icky_depth > 0)) {
         return;
     }
 
@@ -2819,7 +2759,7 @@ bool player_has_no_spellbooks(PlayerType *player_ptr)
  */
 bool player_place(PlayerType *player_ptr, POSITION y, POSITION x)
 {
-    if (player_ptr->current_floor_ptr->grid_array[y][x].m_idx != 0) {
+    if (player_ptr->current_floor_ptr->grid_array[y][x].has_monster()) {
         return false;
     }
 
@@ -2845,7 +2785,7 @@ void wreck_the_pattern(PlayerType *player_ptr)
     msg_print(_("何か恐ろしい事が起こった！", "Something terrible happens!"));
 
     if (!is_invuln(player_ptr)) {
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(10, 8), _("パターン損壊", "corrupting the Pattern"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(10, 8), _("パターン損壊", "corrupting the Pattern"));
     }
 
     auto to_ruin = randint1(45) + 35;
@@ -2938,7 +2878,7 @@ void check_experience(PlayerType *player_ptr)
             }
             level_inc_stat = true;
 
-            exe_write_diary(player_ptr, DiaryKind::LEVELUP, player_ptr->lev);
+            exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::LEVELUP, player_ptr->lev);
         }
 
         sound(SOUND_LEVEL);
@@ -3100,9 +3040,10 @@ int16_t modify_stat_value(int value, int amount)
  */
 long calc_score(PlayerType *player_ptr)
 {
-    int arena_win = std::min<int>(player_ptr->arena_number, MAX_ARENA_MONS);
-
-    int mult = 100;
+    const auto &entries = ArenaEntryList::get_instance();
+    const auto current_entry = entries.get_current_entry();
+    const auto arena_win = std::min(current_entry, entries.get_max_entries());
+    auto mult = 100;
     if (!preserve_mode) {
         mult += 10;
     }
@@ -3158,7 +3099,7 @@ long calc_score(PlayerType *player_ptr)
     point_l /= 100;
 
     uint32_t point = (point_h << 16) + (point_l);
-    if (player_ptr->arena_number >= 0) {
+    if (current_entry >= 0) {
         point += (arena_win * arena_win * (arena_win > 29 ? 1000 : 100));
     }
 
@@ -3173,7 +3114,7 @@ long calc_score(PlayerType *player_ptr)
 
     if ((player_ptr->ppersonality == PERSONALITY_MUNCHKIN) && point) {
         point = 1;
-        if (w_ptr->total_winner) {
+        if (AngbandWorld::get_instance().total_winner) {
             point = 2;
         }
     }
@@ -3231,7 +3172,7 @@ void stop_mouth(PlayerType *player_ptr)
 
 bool is_fast(PlayerType *player_ptr)
 {
-    return player_ptr->effects()->acceleration()->is_fast() || music_singing(player_ptr, MUSIC_SPEED) || music_singing(player_ptr, MUSIC_SHERO);
+    return player_ptr->effects()->acceleration().is_fast() || music_singing(player_ptr, MUSIC_SPEED) || music_singing(player_ptr, MUSIC_SHERO);
 }
 
 bool is_invuln(PlayerType *player_ptr)

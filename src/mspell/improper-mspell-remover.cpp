@@ -1,7 +1,5 @@
 #include "mspell/improper-mspell-remover.h"
 #include "game-option/birth-options.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags2.h"
 #include "monster/smart-learn-types.h"
 #include "mspell/element-resistance-checker.h"
 #include "mspell/high-resistance-checker.h"
@@ -44,7 +42,7 @@ void remove_bad_spells(MONSTER_IDX m_idx, PlayerType *player_ptr, EnumClassFlagG
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     if (smart_learn) {
         /* 時々学習情報を忘れる */
-        if (randint0(100) < 1) {
+        if (one_in_(100)) {
             m_ptr->smart.clear();
         }
 

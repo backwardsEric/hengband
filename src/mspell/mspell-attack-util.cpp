@@ -1,5 +1,4 @@
 #include "mspell/mspell-attack-util.h"
-#include "monster-race/monster-race.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
@@ -14,6 +13,6 @@ msa_type::msa_type(PlayerType *player_ptr, MONSTER_IDX m_idx)
     , thrown_spell(MonsterAbilityType::MAX)
 {
     this->r_ptr = &this->m_ptr->get_monrace();
-    this->no_inate = randint0(100) >= (this->r_ptr->freq_spell * 2);
+    this->no_inate = !evaluate_percent(this->r_ptr->freq_spell * 2);
     this->ability_flags = this->r_ptr->ability_flags;
 }

@@ -7,8 +7,6 @@
 #include "load/floor-loader.h"
 #include "load/load-util.h"
 #include "load/old/load-v1-5-0.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "save/floor-writer.h"
 #include "system/floor-type-definition.h"
 #include "system/monster-race-info.h"
@@ -27,13 +25,13 @@
  */
 static errr rd_dungeon(PlayerType *player_ptr)
 {
-    init_saved_floors(player_ptr, false);
+    init_saved_floors(false);
     errr err = 0;
     auto &floor = *player_ptr->current_floor_ptr;
     if (h_older_than(1, 5, 0, 0)) {
         err = rd_dungeon_old(player_ptr);
         if (floor.dungeon_idx) {
-            player_ptr->floor_id = get_new_floor_id(player_ptr);
+            player_ptr->floor_id = get_unused_floor_id(player_ptr);
             get_sf_ptr(player_ptr->floor_id)->dun_level = floor.dun_level;
         }
 
@@ -62,7 +60,7 @@ static errr rd_dungeon(PlayerType *player_ptr)
 
         for (int i = 0; i < num; i++) {
             saved_floor_type *sf_ptr = &saved_floors[i];
-            if (!sf_ptr->floor_id) {
+            if (!is_saved_floor(sf_ptr)) {
                 continue;
             }
             if (rd_byte() != 0) {
@@ -129,16 +127,16 @@ static errr rd_dungeon(PlayerType *player_ptr)
         break;
     }
 
-    w_ptr->character_dungeon = true;
+    AngbandWorld::get_instance().character_dungeon = true;
     return err;
 }
 
 errr restore_dungeon(PlayerType *player_ptr)
 {
     if (player_ptr->is_dead) {
-        const auto &quest_list = QuestList::get_instance();
-        for (auto q_idx : EnumRange(QuestId::RANDOM_QUEST1, QuestId::RANDOM_QUEST10)) {
-            reset_bits(monraces_info[quest_list[q_idx].r_idx].flags1, RF1_QUESTOR);
+        auto &quests = QuestList::get_instance();
+        for (const auto quest_id : RANDOM_QUEST_ID_RANGE) {
+            quests.get_quest(quest_id).get_bounty().misc_flags.reset(MonsterMiscType::QUESTOR);
         }
 
         return 0;

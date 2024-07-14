@@ -83,6 +83,7 @@ public:
     bool is_mirror() const;
     bool is_rune_protection() const;
     bool is_rune_explosion() const;
+    bool has_monster() const;
     byte get_cost(const MonsterRaceInfo *r_ptr) const;
     byte get_distance(const MonsterRaceInfo *r_ptr) const;
     FEAT_IDX get_feat_mimic() const;
@@ -97,6 +98,8 @@ public:
     const TerrainType &get_terrain_mimic() const;
     TerrainType &get_terrain_mimic_raw();
     const TerrainType &get_terrain_mimic_raw() const;
+    void place_closed_curtain();
+    void add_info(int grid_info);
 
 private:
     flow_type get_grid_flow_type(const MonsterRaceInfo *r_ptr) const;

@@ -29,7 +29,6 @@
 #include "perception/object-perception.h"
 #include "system/alloc-entries.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
@@ -103,7 +102,7 @@ static void set_ammo_quantity(ItemEntity *j_ptr)
     auto is_ammo = j_ptr->is_ammo();
     is_ammo |= j_ptr->bi_key.tval() == ItemKindType::SPIKE;
     if (is_ammo && !j_ptr->is_fixed_artifact()) {
-        j_ptr->number = damroll(6, 7);
+        j_ptr->number = Dice::roll(6, 7);
     }
 }
 
@@ -140,7 +139,7 @@ bool make_object(PlayerType *player_ptr, ItemEntity *j_ptr, BIT_FLAGS mode, std:
             return false;
         }
 
-        j_ptr->prep(bi_id);
+        j_ptr->generate(bi_id);
     }
 
     ItemMagicApplier(player_ptr, j_ptr, floor_ptr->object_level, mode).execute();
@@ -154,32 +153,30 @@ bool make_object(PlayerType *player_ptr, ItemEntity *j_ptr, BIT_FLAGS mode, std:
 
 /*!
  * @brief 生成階に応じた財宝オブジェクトの生成を行う。
- * Make a treasure object
- * @param floor_ptr 現在フロアへの参照ポインタ
- * @param j_ptr 生成結果を収めたいオブジェクト構造体の参照ポインタ
+ * @param floor 現在フロアへの参照
+ * @param j_ptr 生成結果を収めたいアイテムの参照ポインタ
  * @return 生成に成功したらTRUEを返す。
- * @details
- * The location must be a legal, clean, floor grid.
  */
 bool make_gold(PlayerType *player_ptr, ItemEntity *j_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    int i = ((randint1(floor_ptr->object_level + 2) + 2) / 2) - 1;
+    const auto &floor = *player_ptr->current_floor_ptr;
+    auto i = ((randint1(floor.object_level + 2) + 2) / 2) - 1;
     if (one_in_(CHANCE_BASEITEM_LEVEL_BOOST)) {
-        i += randint1(floor_ptr->object_level + 1);
+        i += randint1(floor.object_level + 1);
     }
 
     if (coin_type) {
         i = coin_type;
     }
+
     if (i >= MAX_GOLD) {
         i = MAX_GOLD - 1;
     }
-    j_ptr->prep(OBJ_GOLD_LIST + i);
 
-    int32_t base = baseitems_info[OBJ_GOLD_LIST + i].cost;
+    j_ptr->generate(OBJ_GOLD_LIST + i);
+    const auto &baseitems = BaseitemList::get_instance();
+    const auto base = baseitems.get_baseitem(OBJ_GOLD_LIST + i).cost;
     j_ptr->pval = (base + (8L * randint1(base)) + randint1(8));
-
     return true;
 }
 
@@ -330,7 +327,7 @@ ObjectIndexList &get_o_idx_list_contains(FloorType *floor_ptr, OBJECT_IDX o_idx)
  * @param x 配置したいフロアのX座標
  * @return 生成に成功したらオブジェクトのIDを返す。
  * @details
- * The initial location is assumed to be "in_bounds(floor_ptr, )".\n
+ * The initial location is assumed to be "in_bounds(floor, )".\n
  *\n
  * This function takes a parameter "chance".  This is the percentage\n
  * chance that the item will "disappear" instead of drop.  If the object\n
@@ -356,14 +353,15 @@ OBJECT_IDX drop_near(PlayerType *player_ptr, ItemEntity *j_ptr, PERCENTAGE chanc
 #else
     bool plural = (j_ptr->number != 1);
 #endif
+    const auto &world = AngbandWorld::get_instance();
     const auto item_name = describe_flavor(player_ptr, j_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    if (!j_ptr->is_fixed_or_random_artifact() && (randint0(100) < chance)) {
+    if (!j_ptr->is_fixed_or_random_artifact() && evaluate_percent(chance)) {
 #ifdef JP
         msg_format("%sは消えた。", item_name.data());
 #else
         msg_format("The %s disappear%s.", item_name.data(), (plural ? "" : "s"));
 #endif
-        if (w_ptr->wizard) {
+        if (world.wizard) {
             msg_print(_("(破損)", "(breakage)"));
         }
 
@@ -443,7 +441,7 @@ OBJECT_IDX drop_near(PlayerType *player_ptr, ItemEntity *j_ptr, PERCENTAGE chanc
 #else
         msg_format("The %s disappear%s.", item_name.data(), (plural ? "" : "s"));
 #endif
-        if (w_ptr->wizard) {
+        if (world.wizard) {
             msg_print(_("(床スペースがない)", "(no floor space)"));
         }
 
@@ -486,7 +484,7 @@ OBJECT_IDX drop_near(PlayerType *player_ptr, ItemEntity *j_ptr, PERCENTAGE chanc
             msg_format("The %s disappear%s.", item_name.data(), (plural ? "" : "s"));
 #endif
 
-            if (w_ptr->wizard) {
+            if (world.wizard) {
                 msg_print(_("(床スペースがない)", "(no floor space)"));
             }
 
@@ -540,7 +538,7 @@ OBJECT_IDX drop_near(PlayerType *player_ptr, ItemEntity *j_ptr, PERCENTAGE chanc
 #else
         msg_format("The %s disappear%s.", item_name.data(), (plural ? "" : "s"));
 #endif
-        if (w_ptr->wizard) {
+        if (world.wizard) {
             msg_print(_("(アイテムが多過ぎる)", "(too many objects)"));
         }
 
@@ -561,7 +559,7 @@ OBJECT_IDX drop_near(PlayerType *player_ptr, ItemEntity *j_ptr, PERCENTAGE chanc
         done = true;
     }
 
-    if (j_ptr->is_fixed_artifact() && w_ptr->character_dungeon) {
+    if (j_ptr->is_fixed_artifact() && world.character_dungeon) {
         artifact.floor_id = player_ptr->floor_id;
     }
 

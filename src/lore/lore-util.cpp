@@ -1,7 +1,6 @@
 #include "lore/lore-util.h"
 #include "game-option/birth-options.h"
 #include "monster-attack/monster-attack-table.h"
-#include "monster-race/monster-race.h"
 #include "system/monster-race-info.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -29,6 +28,12 @@ const who_word_definition Who::words = {
  */
 hook_c_roff_pf hook_c_roff = c_roff;
 
+lore_msg::lore_msg(std::string_view msg, byte color)
+    : msg(msg)
+    , color(color)
+{
+}
+
 lore_type::lore_type(MonsterRaceId r_idx, monster_lore_mode mode)
     : r_idx(r_idx)
     , mode(mode)
@@ -40,17 +45,15 @@ lore_type::lore_type(MonsterRaceId r_idx, monster_lore_mode mode)
     this->speed = this->nightmare ? this->r_ptr->speed + 5 : this->r_ptr->speed;
     this->drop_gold = this->r_ptr->r_drop_gold;
     this->drop_item = this->r_ptr->r_drop_item;
-    this->flags1 = (this->r_ptr->flags1 & this->r_ptr->r_flags1);
-    this->flags2 = (this->r_ptr->flags2 & this->r_ptr->r_flags2);
-    this->flags3 = (this->r_ptr->flags3 & this->r_ptr->r_flags3);
     this->ability_flags = (this->r_ptr->ability_flags & this->r_ptr->r_ability_flags);
     this->aura_flags = (this->r_ptr->aura_flags & this->r_ptr->r_aura_flags);
     this->behavior_flags = (this->r_ptr->behavior_flags & this->r_ptr->r_behavior_flags);
     this->drop_flags = (this->r_ptr->drop_flags & this->r_ptr->r_drop_flags);
-    this->flags7 = (this->r_ptr->flags7 & this->r_ptr->flags7);
     this->resistance_flags = (this->r_ptr->resistance_flags & this->r_ptr->r_resistance_flags);
     this->feature_flags = (this->r_ptr->feature_flags & this->r_ptr->r_feature_flags);
     this->brightness_flags = this->r_ptr->brightness_flags;
+    this->special_flags = (this->r_ptr->special_flags & this->r_ptr->r_special_flags);
+    this->misc_flags = (this->r_ptr->misc_flags & this->r_ptr->r_misc_flags);
 }
 
 /*!

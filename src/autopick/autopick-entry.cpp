@@ -8,12 +8,9 @@
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "object-enchant/item-feeling.h"
 #include "object-enchant/object-ego.h"
 #include "object-enchant/special-object-flags.h"
-#include "object-hook/hook-quest.h"
 #include "object-hook/hook-weapon.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
@@ -85,21 +82,18 @@ bool autopick_new_entry(autopick_type *entry, concptr str, bool allow_default)
         break;
     }
 
-    concptr insc = nullptr;
-    char buf[MAX_LINELEN];
-    int i;
-    for (i = 0; *str; i++) {
-        char c = *str++;
+    std::string inscription;
+    std::stringstream ss;
+    while (*str != '\0') {
+        auto c = *str++;
 #ifdef JP
         if (iskanji(c)) {
-            buf[i++] = c;
-            buf[i] = *str++;
+            ss << c << *str++;
             continue;
         }
 #endif
         if (c == '#') {
-            buf[i] = '\0';
-            insc = str;
+            inscription = str;
             break;
         }
 
@@ -107,19 +101,16 @@ bool autopick_new_entry(autopick_type *entry, concptr str, bool allow_default)
             c = (char)tolower(c);
         }
 
-        buf[i] = c;
+        ss << c;
     }
 
-    buf[i] = '\0';
-    if (!allow_default && *buf == 0) {
-        return false;
-    }
-    if (*buf == 0 && insc) {
+    const auto buf = ss.str();
+    if (buf.empty() && (!allow_default || !inscription.empty())) {
         return false;
     }
 
-    concptr prev_ptr, ptr;
-    ptr = prev_ptr = buf;
+    concptr prev_ptr = buf.data();
+    concptr ptr = buf.data();
     concptr old_ptr = nullptr;
     while (old_ptr != ptr) {
         old_ptr = ptr;
@@ -340,7 +331,7 @@ bool autopick_new_entry(autopick_type *entry, concptr str, bool allow_default)
 
     entry->name = ptr;
     entry->action = act;
-    entry->insc = insc != nullptr ? insc : "";
+    entry->insc = std::move(inscription);
 
     return true;
 }
@@ -348,7 +339,7 @@ bool autopick_new_entry(autopick_type *entry, concptr str, bool allow_default)
 /*!
  * @brief Get auto-picker entry from o_ptr.
  */
-void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, ItemEntity *o_ptr)
+void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, const ItemEntity *o_ptr)
 {
     /* Assume that object name is to be added */
     bool name = true;
@@ -431,25 +422,28 @@ void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, It
 
     if (o_ptr->is_melee_weapon()) {
         const auto &baseitem = o_ptr->get_baseitem();
-        if ((o_ptr->dd != baseitem.dd) || (o_ptr->ds != baseitem.ds)) {
+        if (o_ptr->damage_dice != baseitem.damage_dice) {
             entry->add(FLG_BOOSTED);
         }
     }
 
-    if (object_is_bounty(player_ptr, o_ptr)) {
+    if (o_ptr->is_bounty()) {
         entry->remove(FLG_WORTHLESS);
         entry->add(FLG_WANTED);
     }
 
-    const auto r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
     const auto &bi_key = o_ptr->bi_key;
     const auto tval = bi_key.tval();
-    if ((tval == ItemKindType::CORPSE || tval == ItemKindType::STATUE) && monraces_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
-        entry->add(FLG_UNIQUE);
+    if ((tval == ItemKindType::MONSTER_REMAINS) || (tval == ItemKindType::STATUE)) {
+        if (o_ptr->get_monrace().kind_flags.has(MonsterKindType::UNIQUE)) {
+            entry->add(FLG_UNIQUE);
+        }
     }
 
-    if (tval == ItemKindType::CORPSE && angband_strchr("pht", monraces_info[r_idx].d_char)) {
-        entry->add(FLG_HUMAN);
+    if (tval == ItemKindType::MONSTER_REMAINS) {
+        if (o_ptr->get_monrace().symbol_char_is_any_of("pht")) {
+            entry->add(FLG_HUMAN);
+        }
     }
 
     if (o_ptr->is_spell_book() && !check_book_realm(player_ptr, bi_key)) {
@@ -462,12 +456,13 @@ void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, It
     PlayerClass pc(player_ptr);
     auto realm_except_class = pc.equals(PlayerClassType::SORCERER) || pc.equals(PlayerClassType::RED_MAGE);
 
-    if ((get_realm1_book(player_ptr) == tval) && !realm_except_class) {
+    PlayerRealm pr(player_ptr);
+    if ((pr.realm1().get_book() == tval) && !realm_except_class) {
         entry->add(FLG_REALM1);
         name = false;
     }
 
-    if ((get_realm2_book(player_ptr) == tval) && !realm_except_class) {
+    if ((pr.realm2().get_book() == tval) && !realm_except_class) {
         entry->add(FLG_REALM2);
         name = false;
     }
@@ -494,7 +489,7 @@ void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, It
         entry->add(FLG_LIGHTS);
     } else if (o_ptr->is_junk()) {
         entry->add(FLG_JUNKS);
-    } else if (tval == ItemKindType::CORPSE) {
+    } else if (tval == ItemKindType::MONSTER_REMAINS) {
         entry->add(FLG_CORPSES);
     } else if (o_ptr->is_spell_book()) {
         entry->add(FLG_SPELLBOOKS);

@@ -5,7 +5,7 @@
 #include "object-enchant/special-object-flags.h"
 #include "object-enchant/trg-types.h"
 #include "object/object-value.h"
-#include "system/angband-version.h"
+#include "system/angband-system.h"
 #include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -41,12 +41,11 @@ static std::string describe_dam_or_ac(const ItemEntity &item)
     case ItemKindType::SHOT:
     case ItemKindType::BOLT:
     case ItemKindType::ARROW:
-        return format("%dd%d", item.dd, item.ds);
     case ItemKindType::HAFTED:
     case ItemKindType::POLEARM:
     case ItemKindType::SWORD:
     case ItemKindType::DIGGING:
-        return format("%dd%d", item.dd, item.ds);
+        return item.damage_dice.to_string();
     case ItemKindType::BOOTS:
     case ItemKindType::GLOVES:
     case ItemKindType::CLOAK:
@@ -96,16 +95,25 @@ static std::string describe_weight(const ItemEntity &item)
 
 /*!
  * @brief obj-desc.txt出力用にベースアイテムIDからItemEntityオブジェクトを生成する
- *
  * @param bi_id ベースアイテムID
  * @return obj-desc.txt出力用に使用するItemEntityオブジェクト
+ * @details 人形・像・死体類はpvalが0だと異常アイテム扱いで例外が飛ぶためダミー値を入れておく.
  */
 static ItemEntity prepare_item_for_obj_desc(short bi_id)
 {
-    ItemEntity item;
-    item.prep(bi_id);
+    ItemEntity item(bi_id);
     item.ident |= IDENT_KNOWN;
-    item.pval = 0;
+    switch (item.bi_key.tval()) {
+    case ItemKindType::FIGURINE:
+    case ItemKindType::STATUE:
+    case ItemKindType::MONSTER_REMAINS:
+        item.pval = 1;
+        break;
+    default:
+        item.pval = 0;
+        break;
+    }
+
     item.to_a = 0;
     item.to_h = 0;
     item.to_d = 0;
@@ -117,20 +125,21 @@ static ItemEntity prepare_item_for_obj_desc(short bi_id)
  */
 SpoilerOutputResultType spoil_obj_desc()
 {
-    const auto &path = path_build(ANGBAND_DIR_USER, "obj-desc.txt");
+    const auto path = path_build(ANGBAND_DIR_USER, "obj-desc.txt");
     std::ofstream ofs(path);
     if (!ofs) {
         return SpoilerOutputResultType::FILE_OPEN_FAILED;
     }
 
-    ofs << format("Spoiler File -- Basic Items (%s)\n\n\n", get_version().data());
+    constexpr auto fmt_version = "Spoiler File -- Basic Items (%s)\n\n\n";
+    ofs << format(fmt_version, AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data());
     ofs << format("%-37s%8s%7s%5s %40s%9s\n", "Description", "Dam/AC", "Wgt", "Lev", "Chance", "Cost");
     ofs << format("%-37s%8s%7s%5s %40s%9s\n", "-------------------------------------", "------", "---", "---", "----------------", "----");
 
     for (const auto &[tval_list, name] : group_item_list) {
         std::vector<short> whats;
         for (auto tval : tval_list) {
-            for (const auto &baseitem : baseitems_info) {
+            for (const auto &baseitem : BaseitemList::get_instance()) {
                 if ((baseitem.bi_key.tval() == tval) && baseitem.gen_flags.has_not(ItemGenerationTraitType::INSTA_ART)) {
                     whats.push_back(baseitem.idx);
                 }

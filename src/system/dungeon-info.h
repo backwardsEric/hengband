@@ -8,9 +8,11 @@
 #include "monster-race/race-feature-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
+#include "monster-race/race-misc-flags.h"
 #include "monster-race/race-population-flags.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster-race/race-speak-flags.h"
+#include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "monster-race/race-wilderness-flags.h"
 #include "system/angband.h"
@@ -41,7 +43,8 @@ constexpr auto DUNGEON_FEAT_PROB_NUM = 3;
 #define DUNGEON_NO_MELEE 17
 #define DUNGEON_CHAMELEON 18
 #define DUNGEON_DARKNESS 19
-#define DUNGEON_MAX 19
+#define DUNGEON_GLASS 20
+#define DUNGEON_MAX 20
 
 enum class FixedArtifactId : short;
 enum class MonsterRaceId : int16_t;
@@ -53,6 +56,7 @@ struct feat_prob {
 };
 
 /* A structure for the != dungeon types */
+class MonsterRaceInfo;
 struct dungeon_type {
     DUNGEON_IDX idx{};
 
@@ -81,12 +85,6 @@ struct dungeon_type {
 
     EnumClassFlagGroup<DungeonFeatureType> flags{}; /* Dungeon Flags */
 
-    BIT_FLAGS mflags1{}; /* The monster flags that are allowed */
-    BIT_FLAGS mflags2{};
-    BIT_FLAGS mflags3{};
-    BIT_FLAGS mflags7{};
-    BIT_FLAGS mflags8{};
-
     EnumClassFlagGroup<MonsterAbilityType> mon_ability_flags;
     EnumClassFlagGroup<MonsterBehaviorType> mon_behavior_flags;
     EnumClassFlagGroup<MonsterVisualType> mon_visual_flags;
@@ -98,6 +96,8 @@ struct dungeon_type {
     EnumClassFlagGroup<MonsterPopulationType> mon_population_flags;
     EnumClassFlagGroup<MonsterSpeakType> mon_speak_flags;
     EnumClassFlagGroup<MonsterBrightnessType> mon_brightness_flags;
+    EnumClassFlagGroup<MonsterSpecialType> mon_special_flags;
+    EnumClassFlagGroup<MonsterMiscType> mon_misc_flags;
     MonsterSex mon_sex{};
 
     std::vector<char> r_chars; /* Monster symbols allowed */
@@ -111,6 +111,10 @@ struct dungeon_type {
     int obj_good{};
 
     bool has_river_flag() const;
+    bool is_dungeon() const;
+    bool has_guardian() const;
+    MonsterRaceInfo &get_guardian();
+    const MonsterRaceInfo &get_guardian() const;
 };
 
 extern std::vector<DEPTH> max_dlv;

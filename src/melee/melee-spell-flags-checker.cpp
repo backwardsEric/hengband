@@ -5,12 +5,8 @@
 #include "floor/line-of-sight.h"
 #include "melee/melee-spell-util.h"
 #include "monster-floor/monster-move.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-status.h"
 #include "mspell/mspell-checker.h"
@@ -192,7 +188,7 @@ static void check_melee_spell_distance(PlayerType *player_ptr, melee_spell_type 
         MonsterAbilityType::BA_COLD
     };
     auto *r_ptr = &ms_ptr->m_ptr->get_monrace();
-    if (any_bits(r_ptr->flags2, RF2_POWERFUL)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::POWERFUL)) {
         ms_ptr->ability_flags.reset(ball_when_powerful_rad4);
     }
 
@@ -228,7 +224,7 @@ static void check_melee_spell_breath(PlayerType *player_ptr, melee_spell_type *m
         return;
     }
 
-    POSITION rad = (ms_ptr->r_ptr->flags2 & RF2_POWERFUL) ? 3 : 2;
+    POSITION rad = ms_ptr->r_ptr->misc_flags.has(MonsterMiscType::POWERFUL) ? 3 : 2;
     if (!breath_direct(player_ptr, ms_ptr->m_ptr->fy, ms_ptr->m_ptr->fx, ms_ptr->t_ptr->fy, ms_ptr->t_ptr->fx, rad, AttributeType::NONE, true)) {
         ms_ptr->ability_flags.reset(RF_ABILITY_BREATH_MASK);
         return;
@@ -260,7 +256,7 @@ static void check_melee_spell_special(PlayerType *player_ptr, melee_spell_type *
         return;
     }
 
-    if (ms_ptr->r_ptr->d_char == 'B') {
+    if (ms_ptr->r_ptr->symbol_char_is_any_of("B")) {
         if ((player_ptr->pet_extra_flags & (PF_ATTACK_SPELL | PF_TELEPORT)) != (PF_ATTACK_SPELL | PF_TELEPORT)) {
             ms_ptr->ability_flags.reset(MonsterAbilityType::SPECIAL);
         }
@@ -342,7 +338,7 @@ static void check_smart(PlayerType *player_ptr, melee_spell_type *ms_ptr)
         return;
     }
 
-    if ((ms_ptr->m_ptr->hp < ms_ptr->m_ptr->maxhp / 10) && (randint0(100) < 50)) {
+    if ((ms_ptr->m_ptr->hp < ms_ptr->m_ptr->maxhp / 10) && one_in_(2)) {
         ms_ptr->ability_flags &= RF_ABILITY_INT_MASK;
     }
 
@@ -384,7 +380,7 @@ bool check_melee_spell_set(PlayerType *player_ptr, melee_spell_type *ms_ptr)
         ms_ptr->ability_flags.reset(MonsterAbilityType::BR_LITE);
     }
 
-    if (ms_ptr->ability_flags.has(MonsterAbilityType::SPECIAL) && (ms_ptr->m_ptr->r_idx != MonsterRaceId::ROLENTO) && (ms_ptr->r_ptr->d_char != 'B')) {
+    if (ms_ptr->ability_flags.has(MonsterAbilityType::SPECIAL) && (ms_ptr->m_ptr->r_idx != MonsterRaceId::ROLENTO) && !ms_ptr->r_ptr->symbol_char_is_any_of("B")) {
         ms_ptr->ability_flags.reset(MonsterAbilityType::SPECIAL);
     }
 

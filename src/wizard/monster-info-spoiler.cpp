@@ -1,42 +1,38 @@
 #include "wizard/monster-info-spoiler.h"
 #include "io/files-util.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags7.h"
-#include "monster-race/race-flags8.h"
-#include "system/angband-version.h"
+#include "system/angband-system.h"
 #include "system/monster-race-info.h"
 #include "term/term-color-types.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
 #include "util/bit-flags-calculator.h"
-#include "util/sort.h"
+#include "util/enum-converter.h"
 #include "util/string-processor.h"
 #include "view/display-lore.h"
 #include "view/display-messages.h"
 #include "wizard/spoiler-util.h"
 
 /*!
- * @brief シンボル職の記述名を返す /
- * Extract a textual representation of an attribute
- * @param r_ptr モンスター種族の構造体ポインタ
+ * @brief シンボル職の記述名を返す
+ * @param monrace モンスター種族の構造体ポインタ
  * @return シンボル職の記述名
+ * @todo MonsterRaceInfo のオブジェクトメソッドへ繰り込む
  */
-static concptr attr_to_text(MonsterRaceInfo *r_ptr)
+static std::string attr_to_text(const MonsterRaceInfo &monrace)
 {
-    if (r_ptr->visual_flags.has(MonsterVisualType::CLEAR_COLOR)) {
+    if (monrace.visual_flags.has(MonsterVisualType::CLEAR_COLOR)) {
         return _("透明な", "Clear");
     }
 
-    if (r_ptr->visual_flags.has(MonsterVisualType::MULTI_COLOR)) {
+    if (monrace.visual_flags.has(MonsterVisualType::MULTI_COLOR)) {
         return _("万色の", "Multi");
     }
 
-    if (r_ptr->visual_flags.has(MonsterVisualType::RANDOM_COLOR)) {
+    if (monrace.visual_flags.has(MonsterVisualType::RANDOM_COLOR)) {
         return _("準ランダムな", "S.Rand");
     }
 
-    switch (r_ptr->d_attr) {
+    switch (monrace.symbol_definition.color) {
     case TERM_DARK:
         return _("黒い", "Dark");
     case TERM_WHITE:
@@ -76,15 +72,14 @@ static concptr attr_to_text(MonsterRaceInfo *r_ptr)
 
 SpoilerOutputResultType spoil_mon_desc(std::string_view filename, std::function<bool(const MonsterRaceInfo *)> filter_monster)
 {
-    PlayerType dummy;
-    uint16_t why = 2;
-    const auto &path = path_build(ANGBAND_DIR_USER, filename);
+    const auto path = path_build(ANGBAND_DIR_USER, filename);
     std::ofstream ofs(path);
     if (!ofs) {
         return SpoilerOutputResultType::FILE_OPEN_FAILED;
     }
 
-    ofs << format("Monster Spoilers for %s\n", get_version().data());
+    constexpr auto fmt_version = "Monster Spoilers for %s\n";
+    ofs << format(fmt_version, AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data());
     ofs << "------------------------------------------\n\n";
     ofs << format("%-45.45s%4s %4s %4s %7s %7s  %19.19s\n", "Name", "Lev", "Rar", "Spd", "Hp", "Ac", "Visual Info");
     ofs << format("%-45.45s%4s %4s %4s %7s %7s  %4.19s\n",
@@ -93,47 +88,42 @@ SpoilerOutputResultType spoil_mon_desc(std::string_view filename, std::function<
         "----------",
         "---", "---", "---", "-----", "-----", "-------------------");
 
-    std::vector<MonsterRaceId> who;
-    for (const auto &[monrace_id, monrace] : monraces_info) {
-        if (MonsterRace(monrace_id).is_valid()) {
-            who.push_back(monrace_id);
-        }
-    }
-
-    ang_sort(&dummy, who.data(), &why, who.size(), ang_sort_comp_hook, ang_sort_swap_hook);
-    for (auto r_idx : who) {
-        auto *r_ptr = &monraces_info[r_idx];
-        if (filter_monster && !filter_monster(r_ptr)) {
+    const auto &monraces = MonraceList::get_instance();
+    std::vector<MonsterRaceId> monrace_ids = monraces.get_valid_monrace_ids();
+    std::stable_sort(monrace_ids.begin(), monrace_ids.end(), [&monraces](auto x, auto y) { return monraces.order(x, y); });
+    for (auto monrace_id : monrace_ids) {
+        const auto &monrace = monraces_info[monrace_id];
+        if (filter_monster && !filter_monster(&monrace)) {
             continue;
         }
 
-        if (any_bits(r_ptr->flags7, RF7_KAGE)) {
+        if (monrace.misc_flags.has(MonsterMiscType::KAGE)) {
             continue;
         }
 
-        const auto name = str_separate(r_ptr->name, 40);
+        const auto name = str_separate(monrace.name, 40);
         std::string nam;
-        if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+        if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
             nam = "[U] ";
-        } else if (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) {
+        } else if (monrace.population_flags.has(MonsterPopulationType::NAZGUL)) {
             nam = "[N] ";
         } else {
             nam = _("    ", "The ");
         }
         nam.append(name.front());
 
-        const auto lev = format("%d", r_ptr->level);
-        const auto rar = format("%d", (int)r_ptr->rarity);
-        const auto spd = format("%+d", r_ptr->speed - STANDARD_SPEED);
-        const auto ac = format("%d", r_ptr->ac);
+        const auto lev = format("%d", monrace.level);
+        const auto rar = format("%d", (int)monrace.rarity);
+        const auto spd = format("%+d", monrace.speed - STANDARD_SPEED);
+        const auto ac = format("%d", monrace.ac);
         std::string hp;
-        if (any_bits(r_ptr->flags1, RF1_FORCE_MAXHP) || (r_ptr->hside == 1)) {
-            hp = format("%d", r_ptr->hdice * r_ptr->hside);
+        if (monrace.misc_flags.has(MonsterMiscType::FORCE_MAXHP) || (monrace.hit_dice.sides == 1)) {
+            hp = format("%d", monrace.hit_dice.maxroll());
         } else {
-            hp = format("%dd%d", r_ptr->hdice, r_ptr->hside);
+            hp = monrace.hit_dice.to_string();
         }
 
-        const auto symbol = format("%s '%c'", attr_to_text(r_ptr), r_ptr->d_char);
+        const auto symbol = format("%s '%c'", attr_to_text(monrace).data(), monrace.symbol_definition.character);
         ofs << format("%-45.45s%4s %4s %4s %7s %7s  %19.19s\n",
             nam.data(), lev.data(), rar.data(), spd.data(), hp.data(),
             ac.data(), symbol.data());
@@ -166,50 +156,44 @@ static void roff_func(TERM_COLOR attr, std::string_view str)
  */
 SpoilerOutputResultType spoil_mon_info()
 {
-    PlayerType dummy;
-    const auto &path = path_build(ANGBAND_DIR_USER, "mon-info.txt");
+    const auto path = path_build(ANGBAND_DIR_USER, "mon-info.txt");
     spoiler_file = angband_fopen(path, FileOpenMode::WRITE);
     if (!spoiler_file) {
         return SpoilerOutputResultType::FILE_OPEN_FAILED;
     }
 
-    spoil_out(std::string("Monster Spoilers for ").append(get_version()).append("\n"));
+    constexpr auto fmt_version = "Monster Spoilers for %s\n";
+    spoil_out(format(fmt_version, AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data()));
     spoil_out("------------------------------------------\n\n");
 
-    std::vector<MonsterRaceId> who;
-    for (const auto &[monrace_id, monrace] : monraces_info) {
-        if (MonsterRace(monrace_id).is_valid()) {
-            who.push_back(monrace_id);
-        }
-    }
-
-    uint16_t why = 2;
-    ang_sort(&dummy, who.data(), &why, who.size(), ang_sort_comp_hook, ang_sort_swap_hook);
-    for (auto r_idx : who) {
-        auto *r_ptr = &monraces_info[r_idx];
-        if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+    const auto &monraces = MonraceList::get_instance();
+    std::vector<MonsterRaceId> monrace_ids = monraces.get_valid_monrace_ids();
+    std::stable_sort(monrace_ids.begin(), monrace_ids.end(), [&monraces](auto x, auto y) { return monraces.order(x, y); });
+    for (auto monrace_id : monrace_ids) {
+        const auto &monrace = monraces_info[monrace_id];
+        if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
             spoil_out("[U] ");
-        } else if (r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) {
+        } else if (monrace.population_flags.has(MonsterPopulationType::NAZGUL)) {
             spoil_out("[N] ");
         }
 
-        spoil_out(format(_("%s/%s  (", "%s%s ("), r_ptr->name.data(), _(r_ptr->E_name.data(), ""))); /* ---)--- */
-        spoil_out(attr_to_text(r_ptr));
-        spoil_out(format(" '%c')\n", r_ptr->d_char));
+        spoil_out(format(_("%s/%s  (", "%s%s ("), monrace.name.data(), _(monrace.name.en_string().data(), ""))); /* ---)--- */
+        spoil_out(attr_to_text(monrace));
+        spoil_out(format(" '%c')\n", monrace.symbol_definition.character));
         spoil_out("=== ");
-        spoil_out(format("Num:%d  ", enum2i(r_idx)));
-        spoil_out(format("Lev:%d  ", (int)r_ptr->level));
-        spoil_out(format("Rar:%d  ", r_ptr->rarity));
-        spoil_out(format("Spd:%+d  ", r_ptr->speed - STANDARD_SPEED));
-        if (any_bits(r_ptr->flags1, RF1_FORCE_MAXHP) || (r_ptr->hside == 1)) {
-            spoil_out(format("Hp:%d  ", r_ptr->hdice * r_ptr->hside));
+        spoil_out(format("Num:%d  ", enum2i(monrace_id)));
+        spoil_out(format("Lev:%d  ", (int)monrace.level));
+        spoil_out(format("Rar:%d  ", monrace.rarity));
+        spoil_out(format("Spd:%+d  ", monrace.speed - STANDARD_SPEED));
+        if (monrace.misc_flags.has(MonsterMiscType::FORCE_MAXHP) || (monrace.hit_dice.sides == 1)) {
+            spoil_out(format("Hp:%d  ", monrace.hit_dice.maxroll()));
         } else {
-            spoil_out(format("Hp:%dd%d  ", r_ptr->hdice, r_ptr->hside));
+            spoil_out(format("Hp:%s  ", monrace.hit_dice.to_string().data()));
         }
 
-        spoil_out(format("Ac:%d  ", r_ptr->ac));
-        spoil_out(format("Exp:%ld\n", (long)(r_ptr->mexp)));
-        output_monster_spoiler(r_idx, roff_func);
+        spoil_out(format("Ac:%d  ", monrace.ac));
+        spoil_out(format("Exp:%ld\n", (long)(monrace.mexp)));
+        output_monster_spoiler(monrace_id, roff_func);
         spoil_out({}, true);
     }
 

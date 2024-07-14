@@ -16,8 +16,6 @@
 #include "monster-floor/monster-death.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/monster-summon.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
@@ -36,7 +34,6 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include <algorithm>
@@ -69,12 +66,16 @@ static MonsterSpellResult spell_RF6_SPECIAL_UNIFICATION(PlayerType *player_ptr, 
 
         delete_monster_idx(player_ptr, floor_ptr->grid_array[m_ptr->fy][m_ptr->fx].m_idx);
         for (const auto separate : it_unified->second) {
-            summon_named_creature(player_ptr, 0, dummy_y, dummy_x, separate, MD_NONE);
-            floor_ptr->m_list[hack_m_idx_ii].hp = separated_hp;
-            floor_ptr->m_list[hack_m_idx_ii].maxhp = separated_maxhp;
+            auto summoned_m_idx = summon_named_creature(player_ptr, 0, dummy_y, dummy_x, separate, MD_NONE);
+            if (!summoned_m_idx) {
+                continue;
+            }
+
+            floor_ptr->m_list[*summoned_m_idx].hp = separated_hp;
+            floor_ptr->m_list[*summoned_m_idx].maxhp = separated_maxhp;
         }
 
-        const auto &m_name = monraces[it_unified->first].name;
+        const auto &m_name = monraces.get_monrace(it_unified->first).name;
         msg_format(_("%sが分離した！", "%s splits!"), m_name.data());
         return MonsterSpellResult::make_valid();
     }
@@ -106,13 +107,14 @@ static MonsterSpellResult spell_RF6_SPECIAL_UNIFICATION(PlayerType *player_ptr, 
             delete_monster_idx(player_ptr, k);
         }
 
-        summon_named_creature(player_ptr, 0, dummy_y, dummy_x, unified_unique, MD_NONE);
-        floor_ptr->m_list[hack_m_idx_ii].hp = unified_hp;
-        floor_ptr->m_list[hack_m_idx_ii].maxhp = unified_maxhp;
+        if (auto summoned_m_idx = summon_named_creature(player_ptr, 0, dummy_y, dummy_x, unified_unique, MD_NONE)) {
+            floor_ptr->m_list[*summoned_m_idx].hp = unified_hp;
+            floor_ptr->m_list[*summoned_m_idx].maxhp = unified_maxhp;
+        }
         std::vector<std::string> m_names;
         for (const auto &separate : separates) {
-            const auto &monrace = monraces[separate];
-            m_names.push_back(monrace.name);
+            const auto &monrace = monraces.get_monrace(separate);
+            m_names.push_back(monrace.name.string());
         }
 
         std::stringstream ss;
@@ -160,9 +162,9 @@ static MonsterSpellResult spell_RF6_SPECIAL_ROLENTO(PlayerType *player_ptr, POSI
     }
 
     for (k = 0; k < num; k++) {
-        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::GRENADE, mode);
+        count += summon_named_creature(player_ptr, m_idx, y, x, MonsterRaceId::GRENADE, mode) ? 1 : 0;
     }
-    if (player_ptr->effects()->blindness()->is_blind() && count) {
+    if (player_ptr->effects()->blindness().is_blind() && count) {
         msg_print(_("多くのものが間近にばらまかれる音がする。", "You hear many things scattered nearby."));
     }
 
@@ -180,7 +182,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_ROLENTO(PlayerType *player_ptr, POSI
  */
 static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX m_idx, MONSTER_IDX t_idx, int target_type)
 {
-    mspell_cast_msg_simple msg;
+    mspell_cast_msg_simple msg{};
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
     MonsterEntity *t_ptr = &floor_ptr->m_list[t_idx];
@@ -212,7 +214,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
 
     bool fear, dead; /* dummy */
-    int dam = damroll(4, 8);
+    int dam = Dice::roll(4, 8);
 
     if (monster_to_player || t_idx == player_ptr->riding) {
         teleport_player_to(player_ptr, m_ptr->fy, m_ptr->fx, i2enum<teleport_flags>(TELEPORT_NONMAGICAL | TELEPORT_PASSIVE));
@@ -229,7 +231,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     }
 
     simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
-    dam += damroll(6, 8);
+    dam += Dice::roll(6, 8);
 
     if (monster_to_player || (monster_to_monster && player_ptr->riding == t_idx)) {
         int get_damage = take_hit(player_ptr, DAMAGE_NOESCAPE, dam, m_name);
@@ -280,7 +282,7 @@ MonsterSpellResult spell_RF6_SPECIAL(PlayerType *player_ptr, POSITION y, POSITIO
     case MonsterRaceId::ROLENTO:
         return spell_RF6_SPECIAL_ROLENTO(player_ptr, y, x, m_idx, t_idx, target_type);
     default:
-        if (monrace.d_char == 'B') {
+        if (monrace.symbol_char_is_any_of("B")) {
             return spell_RF6_SPECIAL_B(player_ptr, y, x, m_idx, t_idx, target_type);
         }
 

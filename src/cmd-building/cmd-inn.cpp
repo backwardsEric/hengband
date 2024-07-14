@@ -14,10 +14,8 @@
 #include "player/eldritch-horror.h"
 #include "status/bad-status-setter.h"
 #include "store/rumor.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-poison.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -47,7 +45,7 @@ static bool buy_food(PlayerType *player_ptr)
 static bool is_healthy_stay(PlayerType *player_ptr)
 {
     const auto effects = player_ptr->effects();
-    if (!effects->poison()->is_poisoned() && !effects->cut()->is_cut()) {
+    if (!effects->poison().is_poisoned() && !effects->cut().is_cut()) {
         return true;
     }
 
@@ -69,33 +67,15 @@ static bool is_player_undead(PlayerType *player_ptr)
  */
 static void write_diary_stay_inn(PlayerType *player_ptr, int prev_hour)
 {
+    const auto &floor = *player_ptr->current_floor_ptr;
     if ((prev_hour >= 6) && (prev_hour < 18)) {
         const auto stay_message = _(is_player_undead(player_ptr) ? "宿屋に泊まった。" : "日が暮れるまで宿屋で過ごした。", "stayed during the day at the inn.");
-        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, stay_message);
+        exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, stay_message);
         return;
     }
 
     const auto stay_message = _(is_player_undead(player_ptr) ? "夜が明けるまで宿屋で過ごした。" : "宿屋に泊まった。", "stayed overnight at the inn.");
-    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, stay_message);
-}
-
-/*!
- * @brief 宿泊によってゲーム内ターンを経過させる
- * @param なし
- */
-static void pass_game_turn_by_stay(void)
-{
-    int32_t oldturn = w_ptr->game_turn;
-    w_ptr->game_turn = (w_ptr->game_turn / (TURNS_PER_TICK * TOWN_DAWN / 2) + 1) * (TURNS_PER_TICK * TOWN_DAWN / 2);
-    if (w_ptr->dungeon_turn >= w_ptr->dungeon_turn_limit) {
-        return;
-    }
-
-    constexpr auto stay_magnificant = 10;
-    w_ptr->dungeon_turn += std::min<int>((w_ptr->game_turn - oldturn), TURNS_PER_TICK * 250) * stay_magnificant;
-    if (w_ptr->dungeon_turn > w_ptr->dungeon_turn_limit) {
-        w_ptr->dungeon_turn = w_ptr->dungeon_turn_limit;
-    }
+    exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, stay_message);
 }
 
 /*!
@@ -119,7 +99,7 @@ static bool has_a_nightmare(PlayerType *player_ptr)
     }
 
     msg_print(_("あなたは絶叫して目を覚ました。", "You awake screaming."));
-    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("悪夢にうなされてよく眠れなかった。", "had a nightmare."));
+    exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::DESCRIPTION, 0, _("悪夢にうなされてよく眠れなかった。", "had a nightmare."));
     return true;
 }
 
@@ -132,7 +112,7 @@ static void back_to_health(PlayerType *player_ptr)
     BadStatusSetter bss(player_ptr);
     (void)bss.set_blindness(0);
     (void)bss.set_confusion(0);
-    player_ptr->effects()->stun()->reset();
+    player_ptr->effects()->stun().reset();
     player_ptr->chp = player_ptr->mhp;
     player_ptr->csp = player_ptr->msp;
 }
@@ -165,6 +145,7 @@ static void charge_magic_eating_energy(PlayerType *player_ptr)
  */
 static void display_stay_result(PlayerType *player_ptr, int prev_hour)
 {
+    const auto &floor = *player_ptr->current_floor_ptr;
     if ((prev_hour >= 6) && (prev_hour < 18)) {
 #if JP
         msg_format("あなたはリフレッシュして目覚め、%sを迎えた。", is_player_undead(player_ptr) ? "夜" : "夕方");
@@ -172,13 +153,13 @@ static void display_stay_result(PlayerType *player_ptr, int prev_hour)
         msg_format("You awake refreshed for the %s.", is_player_undead(player_ptr) ? "evening" : "twilight");
 #endif
         const auto awake_message = _(is_player_undead(player_ptr) ? "すがすがしい夜を迎えた。" : "夕方を迎えた。", "awoke refreshed.");
-        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, awake_message);
+        exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, awake_message);
         return;
     }
 
     msg_print(_("あなたはリフレッシュして目覚め、新たな日を迎えた。", "You awake refreshed for the new day."));
     const auto awake_message = _(is_player_undead(player_ptr) ? "すがすがしい朝を迎えた。" : "朝を迎えた。", "awoke refreshed.");
-    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, awake_message);
+    exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, awake_message);
 }
 
 /*!
@@ -192,15 +173,14 @@ static bool stay_inn(PlayerType *player_ptr)
         return false;
     }
 
-    const auto &[prev_day, prev_hour, prev_min] = w_ptr->extract_date_time(player_ptr->start_race);
+    auto &world = AngbandWorld::get_instance();
+    const auto &[prev_day, prev_hour, prev_min] = world.extract_date_time(InnerGameData::get_instance().get_start_race());
     write_diary_stay_inn(player_ptr, prev_hour);
-
-    pass_game_turn_by_stay();
+    world.pass_game_turn_by_stay();
     prevent_turn_overflow(player_ptr);
-
     if ((prev_hour >= 18) && (prev_hour <= 23)) {
         determine_daily_bounty(player_ptr, false); /* Update daily bounty */
-        exe_write_diary(player_ptr, DiaryKind::DIALY, 0);
+        exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::DIALY, 0);
     }
 
     player_ptr->chp = player_ptr->mhp;

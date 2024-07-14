@@ -5,6 +5,7 @@
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
 #include "util/bit-flags-calculator.h"
+#include "util/dice.h"
 
 /*!
  * @brief ボール系スペルの発動 / Cast a ball spell
@@ -131,7 +132,7 @@ bool fire_ball_hide(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, in
 /*!
  * @brief メテオ系スペルの発動 / Cast a meteor spell
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param who スぺル詠唱者のモンスターID(0=プレイヤー)
+ * @param src_idx スぺル詠唱者のモンスターID(0=プレイヤー)
  * @param typ 効果属性
  * @param dam 威力
  * @param rad 半径
@@ -147,10 +148,10 @@ bool fire_ball_hide(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, in
  * Option to hurt the player.
  * </pre>
  */
-bool fire_meteor(PlayerType *player_ptr, MONSTER_IDX who, AttributeType typ, POSITION y, POSITION x, int dam, POSITION rad)
+bool fire_meteor(PlayerType *player_ptr, MONSTER_IDX src_idx, AttributeType typ, POSITION y, POSITION x, int dam, POSITION rad)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
-    return project(player_ptr, who, rad, y, x, dam, typ, flg).notice;
+    return project(player_ptr, src_idx, rad, y, x, dam, typ, flg).notice;
 }
 
 /*!
@@ -158,13 +159,12 @@ bool fire_meteor(PlayerType *player_ptr, MONSTER_IDX who, AttributeType typ, POS
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param typ 効果属性
  * @param dir 方向(5ならばグローバル変数 target_col/target_row の座標を目標にする)
- * @param dd 威力ダイス数
- * @param ds 威力ダイス目
+ * @param dice 威力ダイス
  * @param num 基本回数
  * @param dev 回数分散
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool fire_blast(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, DICE_NUMBER dd, DICE_SID ds, int num, int dev)
+bool fire_blast(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, const Dice &dice, int num, int dev)
 {
     POSITION ty, tx, y, x;
     POSITION ly, lx;
@@ -194,7 +194,7 @@ bool fire_blast(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, DICE_N
         }
 
         /* Analyze the "dir" and the "target". */
-        const auto proj_res = project(player_ptr, 0, 0, y, x, damroll(dd, ds), typ, flg);
+        const auto proj_res = project(player_ptr, 0, 0, y, x, dice.roll(), typ, flg);
         if (!proj_res.notice) {
             result = false;
         }
@@ -260,7 +260,7 @@ bool fire_beam(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, int dam
  */
 bool fire_bolt_or_beam(PlayerType *player_ptr, PERCENTAGE prob, AttributeType typ, DIRECTION dir, int dam)
 {
-    if (randint0(100) < prob) {
+    if (evaluate_percent(prob)) {
         return (fire_beam(player_ptr, typ, dir, dam));
     }
 
@@ -279,12 +279,6 @@ bool fire_bolt_or_beam(PlayerType *player_ptr, PERCENTAGE prob, AttributeType ty
 bool project_hook(PlayerType *player_ptr, AttributeType typ, DIRECTION dir, int dam, BIT_FLAGS flg)
 {
     flg |= (PROJECT_THRU);
-    POSITION tx = player_ptr->x + ddx[dir];
-    POSITION ty = player_ptr->y + ddy[dir];
-    if ((dir == 5) && target_okay(player_ptr)) {
-        tx = target_col;
-        ty = target_row;
-    }
-
-    return project(player_ptr, 0, 0, ty, tx, dam, typ, flg).notice;
+    const auto pos = ((dir == 5) && target_okay(player_ptr)) ? Pos2D(target_row, target_col) : player_ptr->get_neighbor(dir);
+    return project(player_ptr, 0, 0, pos.y, pos.x, dam, typ, flg).notice;
 }

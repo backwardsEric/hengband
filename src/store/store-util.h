@@ -25,7 +25,7 @@ enum class StoreSaleType : int {
 };
 constexpr int MAX_STORES = enum2i(StoreSaleType::MAX); /*!< 店舗の種類最大数 / Total number of stores (see "store.c", etc) */
 
-constexpr auto STORE_SALE_TYPE_LIST = EnumRange(StoreSaleType::GENERAL, StoreSaleType::MUSEUM);
+constexpr auto STORE_SALE_TYPE_LIST = EnumRange(StoreSaleType::GENERAL, StoreSaleType::MAX);
 
 using store_k_idx = std::vector<short>;
 
@@ -56,7 +56,7 @@ struct store_type {
 extern store_type *st_ptr;
 
 class PlayerType;
-void store_delete(void);
+void store_delete();
 std::vector<PARAMETER_VALUE> store_same_magic_device_pvals(ItemEntity *j_ptr);
 void store_item_increase(INVENTORY_IDX i_idx, ITEM_NUMBER num);
 void store_item_optimize(INVENTORY_IDX i_idx);

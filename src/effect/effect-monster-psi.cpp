@@ -4,10 +4,6 @@
 #include "floor/line-of-sight.h"
 #include "mind/mind-mirror-master.h"
 #include "monster-race/monster-kind-mask.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-info.h"
@@ -32,14 +28,14 @@
  */
 static bool resisted_psi_because_empty_mind(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if (none_bits(em_ptr->r_ptr->flags2, RF2_EMPTY_MIND)) {
+    if (em_ptr->r_ptr->misc_flags.has_not(MonsterMiscType::EMPTY_MIND)) {
         return false;
     }
 
     em_ptr->dam = 0;
     em_ptr->note = _("には完全な耐性がある！", " is immune.");
     if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
-        set_bits(em_ptr->r_ptr->r_flags2, RF2_EMPTY_MIND);
+        em_ptr->r_ptr->r_misc_flags.set(MonsterMiscType::EMPTY_MIND);
     }
 
     return true;
@@ -58,7 +54,7 @@ static bool resisted_psi_because_empty_mind(PlayerType *player_ptr, EffectMonste
 static bool resisted_psi_because_weird_mind_or_powerful(EffectMonster *em_ptr)
 {
     bool has_resistance = em_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID);
-    has_resistance |= any_bits(em_ptr->r_ptr->flags2, RF2_WEIRD_MIND);
+    has_resistance |= em_ptr->r_ptr->misc_flags.has(MonsterMiscType::WEIRD_MIND);
     has_resistance |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::ANIMAL);
     has_resistance |= (em_ptr->r_ptr->level > randint1(3 * em_ptr->dam));
     if (!has_resistance) {
@@ -116,7 +112,7 @@ static void effect_monster_psi_reflect_extra_effect(PlayerType *player_ptr, Effe
         (void)bss.mod_confusion(3 + randint1(em_ptr->dam));
         return;
     case 2:
-        (void)bss.mod_stun(randint1(em_ptr->dam));
+        (void)bss.mod_stun(randnum1<short>(em_ptr->dam));
         return;
     case 3:
         if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_FEAR)) {
@@ -128,7 +124,7 @@ static void effect_monster_psi_reflect_extra_effect(PlayerType *player_ptr, Effe
         return;
     default:
         if (!player_ptr->free_act) {
-            (void)bss.mod_paralysis(randint1(em_ptr->dam));
+            (void)bss.mod_paralysis(randnum1<short>(em_ptr->dam));
         }
 
         return;
@@ -262,7 +258,7 @@ static void effect_monster_psi_drain_resist(PlayerType *player_ptr, EffectMonste
     }
 
     msg_print(_("超能力パワーを吸いとられた！", "Your psychic energy is drained!"));
-    player_ptr->csp -= damroll(5, em_ptr->dam) / 2;
+    player_ptr->csp -= Dice::roll(5, em_ptr->dam) / 2;
     if (player_ptr->csp < 0) {
         player_ptr->csp = 0;
     }
@@ -281,7 +277,7 @@ static void effect_monster_psi_drain_resist(PlayerType *player_ptr, EffectMonste
  */
 static void effect_monster_psi_drain_change_power(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    int b = damroll(5, em_ptr->dam) / 4;
+    int b = Dice::roll(5, em_ptr->dam) / 4;
     concptr str = PlayerClass(player_ptr).equals(PlayerClassType::MINDCRAFTER) ? _("超能力パワー", "psychic energy") : _("魔力", "mana");
     concptr msg = _("あなたは%sの苦痛を%sに変換した！", (em_ptr->seen ? "You convert %s's pain into %s!" : "You convert %ss pain into %s!"));
     msg_format(msg, em_ptr->m_name, str);
@@ -337,7 +333,7 @@ ProcessResult effect_monster_telekinesis(PlayerType *player_ptr, EffectMonster *
         }
     }
 
-    em_ptr->do_stun = damroll((em_ptr->caster_lev / 20) + 3, em_ptr->dam) + 1;
+    em_ptr->do_stun = Dice::roll((em_ptr->caster_lev / 20) + 3, em_ptr->dam) + 1;
     if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || (em_ptr->r_ptr->level > 5 + randint1(em_ptr->dam))) {
         em_ptr->do_stun = 0;
         em_ptr->obvious = false;

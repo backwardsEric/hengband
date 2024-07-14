@@ -37,9 +37,8 @@
 #include "target/grid-selector.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/lore-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include <algorithm>
@@ -62,7 +61,7 @@ void SpellsMirrorMaster::remove_mirror(int y, int x)
             reset_bits(g_ptr->info, CAVE_MARK);
         }
 
-        if (g_ptr->m_idx) {
+        if (g_ptr->has_monster()) {
             update_monster(this->player_ptr, g_ptr->m_idx, false);
         }
 
@@ -196,7 +195,7 @@ void SpellsMirrorMaster::seal_of_mirror(const int dam)
                 continue;
             }
 
-            if (g_ref.m_idx == 0) {
+            if (!g_ref.has_monster()) {
                 this->remove_mirror(y, x);
             }
         }
@@ -205,72 +204,50 @@ void SpellsMirrorMaster::seal_of_mirror(const int dam)
 
 void SpellsMirrorMaster::seeker_ray(int dir, int dam)
 {
-    POSITION tx = this->player_ptr->x + ddx[dir];
-    POSITION ty = this->player_ptr->y + ddy[dir];
-    if ((dir == 5) && target_okay(this->player_ptr)) {
-        tx = target_col;
-        ty = target_row;
-    }
-
-    project_seeker_ray(tx, ty, dam);
+    const auto pos = ((dir == 5) && target_okay(this->player_ptr)) ? Pos2D(target_row, target_col) : this->player_ptr->get_neighbor(dir);
+    project_seeker_ray(pos.x, pos.y, dam);
 }
 
 void SpellsMirrorMaster::super_ray(int dir, int dam)
 {
-    POSITION tx = this->player_ptr->x + ddx[dir];
-    POSITION ty = this->player_ptr->y + ddy[dir];
-    if ((dir == 5) && target_okay(this->player_ptr)) {
-        tx = target_col;
-        ty = target_row;
-    }
-
-    project_super_ray(tx, ty, dam);
+    const auto pos = ((dir == 5) && target_okay(this->player_ptr)) ? Pos2D(target_row, target_col) : this->player_ptr->get_neighbor(dir);
+    project_super_ray(pos.x, pos.y, dam);
 }
 
 /*!
- * @brief 配置した鏡リストの次を取得する /
- * Get another mirror. for SEEKER
- * @param next_y 次の鏡のy座標を返す参照ポインタ
- * @param next_x 次の鏡のx座標を返す参照ポインタ
- * @param cury 現在の鏡のy座標
- * @param curx 現在の鏡のx座標
+ * @brief 配置した鏡リストの次を取得する
+ * @param pos_current 現在の鏡位置
+ * @return 次の鏡位置
  */
-void SpellsMirrorMaster::next_mirror(int *next_y, int *next_x, int cury, int curx)
+Pos2D SpellsMirrorMaster::get_next_mirror_position(const Pos2D &pos_current) const
 {
-    POSITION mirror_x[10], mirror_y[10]; /* 鏡はもっと少ない */
-    int mirror_num = 0; /* 鏡の数 */
-
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
-
-    for (POSITION x = 0; x < floor_ptr->width; x++) {
-        for (POSITION y = 0; y < floor_ptr->height; y++) {
-            if (floor_ptr->grid_array[y][x].is_mirror()) {
-                mirror_y[mirror_num] = y;
-                mirror_x[mirror_num] = x;
-                mirror_num++;
+    std::vector<Pos2D> mirror_positions;
+    const auto &floor = *this->player_ptr->current_floor_ptr;
+    for (auto x = 0; x < floor.width; x++) {
+        for (auto y = 0; y < floor.height; y++) {
+            const Pos2D pos(y, x);
+            if (floor.get_grid(pos).is_mirror()) {
+                mirror_positions.push_back(pos);
             }
         }
     }
 
-    if (mirror_num) {
-        int num = randint0(mirror_num);
-        *next_y = mirror_y[num];
-        *next_x = mirror_x[num];
-        return;
+    if (!mirror_positions.empty()) {
+        return rand_choice(mirror_positions);
     }
 
-    do {
-        *next_y = cury + randint0(5) - 2;
-        *next_x = curx + randint0(5) - 2;
-    } while ((*next_y == cury) && (*next_x == curx));
+    while (true) {
+        const Pos2D next_mirror(pos_current.y + randint0(5) - 2, pos_current.x + randint0(5) - 2);
+        if (next_mirror != pos_current) {
+            return next_mirror;
+        }
+    }
 }
 
 void SpellsMirrorMaster::project_seeker_ray(int target_x, int target_y, int dam)
 {
     constexpr auto typ = AttributeType::SEEKER;
     BIT_FLAGS flag = PROJECT_BEAM | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM | PROJECT_THRU | PROJECT_MIRROR;
-    rakubadam_p = 0;
-    rakubadam_m = 0;
     monster_target_y = this->player_ptr->y;
     monster_target_x = this->player_ptr->x;
     auto &floor = *this->player_ptr->current_floor_ptr;
@@ -294,9 +271,10 @@ void SpellsMirrorMaster::project_seeker_ray(int target_x, int target_y, int dam)
     project_m_x = 0;
     project_m_y = 0;
     auto visual = false;
+    auto &tracker = LoreTracker::get_instance();
     const auto max_range = AngbandSystem::get_instance().get_max_range();
     while (true) {
-        projection_path path_g(this->player_ptr, (project_length ? project_length : max_range), y1, x1, y2, x2, flag);
+        ProjectionPath path_g(this->player_ptr, (project_length ? project_length : max_range), { y1, x1 }, { y2, x2 }, flag);
 
         if (path_g.path_num() == 0) {
             break;
@@ -306,7 +284,7 @@ void SpellsMirrorMaster::project_seeker_ray(int target_x, int target_y, int dam)
             const auto &[oy, ox] = *(path_g_ite == path_g.begin() ? path_g.begin() : path_g_ite - 1);
             const auto &[ny, nx] = *path_g_ite;
 
-            if (delay_factor > 0 && !this->player_ptr->effects()->blindness()->is_blind()) {
+            if (delay_factor > 0 && !this->player_ptr->effects()->blindness().is_blind()) {
                 if (panel_contains(ny, nx) && floor.has_los({ ny, nx })) {
                     print_bolt_pict(this->player_ptr, oy, ox, ny, nx, typ);
                     move_cursor_relative(ny, nx);
@@ -334,10 +312,11 @@ void SpellsMirrorMaster::project_seeker_ray(int target_x, int target_y, int dam)
             }
             const auto &grid = floor.grid_array[project_m_y][project_m_x];
             const auto &monster = floor.m_list[grid.m_idx];
-            if (project_m_n == 1 && grid.m_idx > 0 && monster.ml) {
-                if (!this->player_ptr->effects()->hallucination()->is_hallucinated()) {
-                    monster_race_track(this->player_ptr, monster.ap_r_idx);
+            if (project_m_n == 1 && grid.has_monster() && monster.ml) {
+                if (!this->player_ptr->effects()->hallucination().is_hallucinated()) {
+                    tracker.set_trackee(monster.ap_r_idx);
                 }
+
                 health_track(this->player_ptr, grid.m_idx);
             }
 
@@ -353,14 +332,16 @@ void SpellsMirrorMaster::project_seeker_ray(int target_x, int target_y, int dam)
         monster_target_y = y;
         monster_target_x = x;
         this->remove_mirror(y, x);
-        this->next_mirror(&y2, &x2, y, x);
+        const auto pos = this->get_next_mirror_position({ y, x });
+        y2 = pos.y;
+        x2 = pos.x;
         y1 = y;
         x1 = x;
     }
 }
 
-static void draw_super_ray_pict(PlayerType *player_ptr, const std::map<int, std::vector<projection_path::const_iterator>> &pos_list_map,
-    const std::vector<projection_path> &second_path_g_list, const std::pair<int, int> &center)
+static void draw_super_ray_pict(PlayerType *player_ptr, const std::map<int, std::vector<ProjectionPath::pp_const_iterator>> &pos_list_map,
+    const std::vector<ProjectionPath> &second_path_g_list, const Pos2D &center)
 {
     if (delay_factor <= 0) {
         return;
@@ -369,40 +350,40 @@ static void draw_super_ray_pict(PlayerType *player_ptr, const std::map<int, std:
     constexpr auto typ = AttributeType::SUPER_RAY;
 
     // 8方向のスーパーレイの軌道上の最後の到達点の座標のリスト
-    std::vector<std::pair<int, int>> last_pos_list;
+    std::vector<Pos2D> last_pos_list;
     std::transform(second_path_g_list.begin(), second_path_g_list.end(), std::back_inserter(last_pos_list),
         [](const auto &path_g) { return path_g.back(); });
 
     // スーパーレイの描画を行った座標のリスト。スーパーレイの全ての描画完了後に描画を消去するのに使用する。
-    std::vector<std::pair<int, int>> drawn_pos_list;
+    std::vector<Pos2D> drawn_pos_list;
 
     const auto &floor = *player_ptr->current_floor_ptr;
     for (const auto &[n, pos_list] : pos_list_map) {
         // スーパーレイの最終到達点の座標の描画を行った座標のリスト。最終到達点の描画を '*' で上書きするのに使用する。
-        std::vector<std::pair<int, int>> drawn_last_pos_list;
+        std::vector<Pos2D> drawn_last_pos_list;
 
         for (const auto &it : pos_list) {
-            const auto &[y, x] = (n == 1) ? center : *std::next(it, -1);
-            const auto &[ny, nx] = *it;
+            const auto &pos = (n == 1) ? center : *std::next(it, -1);
+            const auto &pos_new = *it;
 
-            if (panel_contains(y, x) && floor.has_los({ y, x })) {
-                print_bolt_pict(player_ptr, y, x, y, x, typ);
-                drawn_pos_list.emplace_back(y, x);
+            if (panel_contains(pos.y, pos.x) && floor.has_los(pos)) {
+                print_bolt_pict(player_ptr, pos.y, pos.x, pos.y, pos.x, typ);
+                drawn_pos_list.push_back(pos);
             }
-            if (panel_contains(ny, nx) && floor.has_los({ ny, nx })) {
-                print_bolt_pict(player_ptr, y, x, ny, nx, typ);
+            if (panel_contains(pos_new.y, pos_new.x) && floor.has_los(pos_new)) {
+                print_bolt_pict(player_ptr, pos.y, pos.x, pos_new.y, pos_new.x, typ);
                 if (std::find(last_pos_list.begin(), last_pos_list.end(), *it) != last_pos_list.end()) {
-                    drawn_last_pos_list.emplace_back(ny, nx);
+                    drawn_last_pos_list.push_back(pos_new);
                 }
             }
         }
         term_fresh();
         term_xtra(TERM_XTRA_DELAY, delay_factor);
 
-        for (const auto &[y, x] : drawn_last_pos_list) {
-            if (panel_contains(y, x) && floor.has_los({ y, x })) {
-                print_bolt_pict(player_ptr, y, x, y, x, typ);
-                drawn_pos_list.emplace_back(y, x);
+        for (const auto &pos : drawn_last_pos_list) {
+            if (panel_contains(pos.y, pos.x) && floor.has_los(pos)) {
+                print_bolt_pict(player_ptr, pos.y, pos.x, pos.y, pos.x, typ);
+                drawn_pos_list.push_back(pos);
             }
         }
     }
@@ -410,8 +391,8 @@ static void draw_super_ray_pict(PlayerType *player_ptr, const std::map<int, std:
     term_fresh();
     term_xtra(TERM_XTRA_DELAY, delay_factor);
 
-    for (const auto &[y, x] : drawn_pos_list) {
-        lite_spot(player_ptr, y, x);
+    for (const auto &pos : drawn_pos_list) {
+        lite_spot(player_ptr, pos.y, pos.x);
     }
 }
 
@@ -431,10 +412,11 @@ static bool activate_super_ray_effect(PlayerType *player_ptr, int y, int x, int 
     const auto *floor_ptr = player_ptr->current_floor_ptr;
     const auto *g_ptr = &floor_ptr->grid_array[project_m_y][project_m_x];
     const auto *m_ptr = &floor_ptr->m_list[g_ptr->m_idx];
-    if (project_m_n == 1 && g_ptr->m_idx > 0 && m_ptr->ml) {
-        if (!player_ptr->effects()->hallucination()->is_hallucinated()) {
-            monster_race_track(player_ptr, m_ptr->ap_r_idx);
+    if (project_m_n == 1 && g_ptr->has_monster() && m_ptr->ml) {
+        if (!player_ptr->effects()->hallucination().is_hallucinated()) {
+            LoreTracker::get_instance().set_trackee(m_ptr->ap_r_idx);
         }
+
         health_track(player_ptr, g_ptr->m_idx);
     }
 
@@ -449,8 +431,6 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
     POSITION x2;
     constexpr auto typ = AttributeType::SUPER_RAY;
     BIT_FLAGS flag = PROJECT_BEAM | PROJECT_KILL | PROJECT_GRID | PROJECT_ITEM | PROJECT_THRU | PROJECT_MIRROR;
-    rakubadam_p = 0;
-    rakubadam_m = 0;
     monster_target_y = this->player_ptr->y;
     monster_target_x = this->player_ptr->x;
     const auto &floor = *this->player_ptr->current_floor_ptr;
@@ -469,8 +449,8 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
 
     /* Calculate the projection path */
     const auto &system = AngbandSystem::get_instance();
-    projection_path path_g(this->player_ptr, (project_length ? project_length : system.get_max_range()), y1, x1, y2, x2, flag);
-    std::vector<projection_path> second_path_g_list;
+    ProjectionPath path_g(this->player_ptr, (project_length ? project_length : system.get_max_range()), { y1, x1 }, { y2, x2 }, flag);
+    std::vector<ProjectionPath> second_path_g_list;
     handle_stuff(this->player_ptr);
 
     if (path_g.path_num() == 0) {
@@ -511,7 +491,7 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
     }
 
     for (const auto &[y, x] : drawn_pos_list) {
-        lite_spot(player_ptr, y, x);
+        lite_spot(this->player_ptr, y, x);
     }
 
     {
@@ -522,10 +502,9 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
             reset_bits(project_flag, PROJECT_MIRROR);
 
             const auto length = project_length ? project_length : system.get_max_range();
-            for (auto i : cdd) {
-                const auto dy = ddy[i];
-                const auto dx = ddx[i];
-                second_path_g_list.emplace_back(this->player_ptr, length, y, x, y + dy, x + dx, project_flag);
+            for (const auto &dd : CCW_DD) {
+                const Pos2D pos(y, x);
+                second_path_g_list.emplace_back(this->player_ptr, length, pos, pos + dd, project_flag);
             }
         }
     }
@@ -535,7 +514,7 @@ void SpellsMirrorMaster::project_super_ray(int target_x, int target_y, int dam)
     }
 
     // 起点の鏡からの距離 → 8方向へのスーパーレイの軌道上のその距離にある座標のイテレータのリストの map
-    std::map<int, std::vector<projection_path::const_iterator>> pos_list_map;
+    std::map<int, std::vector<ProjectionPath::pp_const_iterator>> pos_list_map;
     for (const auto &second_path_g : second_path_g_list) {
         for (auto it = second_path_g.begin(); it != second_path_g.end(); ++it) {
             const auto &[o_y, o_x] = path_g.back();

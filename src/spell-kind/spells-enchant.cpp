@@ -97,7 +97,7 @@ bool artifact_scroll(PlayerType *player_ptr)
 
     if (record_rand_art) {
         const auto diary_item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
-        exe_write_diary(player_ptr, DiaryKind::ART_SCROLL, 0, diary_item_name);
+        exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::ART_SCROLL, 0, diary_item_name);
     }
 
     chg_virtue(player_ptr, Virtue::ENCHANT, 1);
@@ -128,24 +128,21 @@ bool mundane_spell(PlayerType *player_ptr, bool only_equip)
     constexpr auto q = _("どのアイテムを凡庸化しますか？", "Mundanify which item? ");
     constexpr auto s = _("凡庸化できるアイテムがない。", "You have nothing to mundanify.");
     short i_idx;
-    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
-    if (!o_ptr) {
+    auto *item_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
+    if (item_ptr == nullptr) {
         return false;
     }
 
     msg_print(_("まばゆい閃光が走った！", "There is a bright flash of light!"));
-    POSITION iy = o_ptr->iy;
-    POSITION ix = o_ptr->ix;
-    auto marked = o_ptr->marked;
-    auto inscription = std::move(o_ptr->inscription);
-
-    o_ptr->prep(o_ptr->bi_id);
-
-    o_ptr->iy = iy;
-    o_ptr->ix = ix;
-    o_ptr->marked = marked;
-    o_ptr->inscription = std::move(inscription);
-
+    POSITION iy = item_ptr->iy;
+    POSITION ix = item_ptr->ix;
+    auto marked = item_ptr->marked;
+    auto inscription = std::move(item_ptr->inscription);
+    item_ptr->generate(item_ptr->bi_id);
+    item_ptr->iy = iy;
+    item_ptr->ix = ix;
+    item_ptr->marked = marked;
+    item_ptr->inscription = std::move(inscription);
     calc_android_exp(player_ptr);
     return true;
 }

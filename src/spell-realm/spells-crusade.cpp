@@ -61,7 +61,7 @@ bool cast_wrath_of_the_god(PlayerType *player_ptr, int dam, POSITION rad)
         if (!cave_has_flag_bold(&floor, pos_to.y, pos_to.x, TerrainCharacteristics::PROJECT)) {
             break;
         }
-        if ((dir != 5) && floor.get_grid(pos_to).m_idx != 0) {
+        if ((dir != 5) && floor.get_grid(pos_to).has_monster()) {
             break;
         }
 
@@ -90,8 +90,7 @@ bool cast_wrath_of_the_god(PlayerType *player_ptr, int dam, POSITION rad)
             continue;
         }
 
-        auto should_cast = in_bounds(&floor, pos_explode.y, pos_explode.x);
-        should_cast &= !cave_stop_disintegration(&floor, pos_explode.y, pos_explode.x);
+        auto should_cast = in_bounds(&floor, pos_explode.y, pos_explode.x) && !cave_stop_disintegration(&floor, pos_explode.y, pos_explode.x);
         should_cast &= in_disintegration_range(&floor, pos_target.y, pos_target.x, pos_explode.y, pos_explode.x);
         if (!should_cast) {
             continue;

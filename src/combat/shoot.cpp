@@ -27,18 +27,12 @@
 #include "mind/snipe-types.h"
 #include "monster-floor/monster-death.h"
 #include "monster-floor/monster-move.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
-#include "monster/monster-pain-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
@@ -65,8 +59,8 @@
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/lore-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
@@ -498,7 +492,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
     auto tdis = 10;
 
     /* Base damage from thrown object plus launcher bonus */
-    auto tdam_base = damroll(o_ptr->dd, o_ptr->ds) + o_ptr->to_d + j_ptr->to_d;
+    auto tdam_base = o_ptr->damage_dice.roll() + o_ptr->to_d + j_ptr->to_d;
 
     /* Actually "fire" the object */
     const auto tval = j_ptr->bi_key.tval();
@@ -573,7 +567,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
     }
 
     /* Get projection path length */
-    projection_path path_g(player_ptr, project_length, player_ptr->y, player_ptr->x, ty, tx, PROJECT_PATH | PROJECT_THRU);
+    ProjectionPath path_g(player_ptr, project_length, player_ptr->get_position(), { ty, tx }, PROJECT_PATH | PROJECT_THRU);
     tdis = path_g.path_num() - 1;
 
     project_length = 0; /* reset to default */
@@ -597,6 +591,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
     }
 
     /* Sniper - Repeat shooting when double shots */
+    auto &tracker = LoreTracker::get_instance();
     for (auto i = 0; i < ((snipe_type == SP_DOUBLE) ? 2 : 1); i++) {
         /* Start at the player */
         y = player_ptr->y;
@@ -636,7 +631,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             if (snipe_type == SP_KILL_WALL) {
                 g_ptr = &floor_ptr->grid_array[ny][nx];
 
-                if (g_ptr->cave_has_flag(TerrainCharacteristics::HURT_ROCK) && !g_ptr->m_idx) {
+                if (g_ptr->cave_has_flag(TerrainCharacteristics::HURT_ROCK) && !g_ptr->has_monster()) {
                     if (any_bits(g_ptr->info, (CAVE_MARK))) {
                         msg_print(_("岩が砕け散った。", "Wall rocks were shattered."));
                     }
@@ -659,7 +654,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             }
 
             /* Stopped by walls/doors */
-            if (!cave_has_flag_bold(floor_ptr, ny, nx, TerrainCharacteristics::PROJECT) && !floor_ptr->grid_array[ny][nx].m_idx) {
+            if (!cave_has_flag_bold(floor_ptr, ny, nx, TerrainCharacteristics::PROJECT) && !floor_ptr->grid_array[ny][nx].has_monster()) {
                 break;
             }
 
@@ -675,12 +670,11 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
 
             /* The player can see the (on screen) missile */
             if (panel_contains(ny, nx) && player_can_see_bold(player_ptr, ny, nx)) {
-                const auto a = q_ptr->get_color();
-                const auto c = q_ptr->get_symbol();
+                const auto symbol = q_ptr->get_symbol();
 
                 /* Draw, Hilite, Fresh, Pause, Erase */
                 if (delay_factor > 0) {
-                    print_rel(player_ptr, c, a, ny, nx);
+                    print_rel(player_ptr, symbol, ny, nx);
                     move_cursor_relative(ny, nx);
                     term_fresh();
                     term_xtra(TERM_XTRA_DELAY, delay_factor);
@@ -718,7 +712,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             y = ny;
 
             /* Monster here, Try to hit it */
-            if (floor_ptr->grid_array[y][x].m_idx) {
+            if (floor_ptr->grid_array[y][x].has_monster()) {
                 sound(SOUND_SHOOT_HIT);
                 Grid *c_mon_ptr = &floor_ptr->grid_array[y][x];
 
@@ -771,8 +765,8 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                         msg_format(_("%sが%sに命中した。", "The %s hits %s."), item_name.data(), m_name.data());
 
                         if (m_ptr->ml) {
-                            if (!player_ptr->effects()->hallucination()->is_hallucinated()) {
-                                monster_race_track(player_ptr, m_ptr->ap_r_idx);
+                            if (!player_ptr->effects()->hallucination().is_hallucinated()) {
+                                tracker.set_trackee(m_ptr->ap_r_idx);
                             }
 
                             health_track(player_ptr, c_mon_ptr->m_idx);
@@ -841,17 +835,16 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
 
                     /* No death */
                     else {
+                        const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                         /* STICK TO */
                         if (q_ptr->is_fixed_artifact() && (sniper_concent == 0)) {
-                            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-
                             stick_to = true;
                             msg_format(_("%sは%sに突き刺さった！", "%s^ is stuck in %s!"), item_name.data(), m_name.data());
                         }
 
-                        if (const auto pain_message = MonsterPainDescriber(player_ptr, c_mon_ptr->m_idx).describe(tdam);
-                            !pain_message.empty()) {
-                            msg_print(pain_message);
+                        const auto pain_message = m_ptr->get_pain_message(m_name, tdam);
+                        if (pain_message) {
+                            msg_print(*pain_message);
                         }
 
                         /* Anger the monster */
@@ -860,7 +853,6 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                         }
 
                         if (fear && m_ptr->ml) {
-                            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                             sound(SOUND_FLEE);
                             msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), m_name.data());
                         }
@@ -870,6 +862,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                         /* Sniper */
                         if (snipe_type == SP_RUSH) {
                             int n = randint1(5) + 3;
+                            int n0 = n;
                             MONSTER_IDX m_idx = c_mon_ptr->m_idx;
 
                             for (; cur_dis <= tdis;) {
@@ -913,6 +906,8 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                                     lite_spot(player_ptr, oy, ox);
                                     term_fresh();
                                     term_xtra(TERM_XTRA_DELAY, delay_factor);
+                                } else if (n == n0) {
+                                    lite_spot(player_ptr, oy, ox);
                                 }
 
                                 x = nx;
@@ -946,7 +941,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             if (!o_idx) {
                 msg_format(_("%sはどこかへ行った。", "The %s went somewhere."), item_name.data());
                 if (q_ptr->is_fixed_artifact()) {
-                    ArtifactsInfo::get_instance().get_artifact(j_ptr->fixed_artifact_idx).is_generated = false;
+                    ArtifactList::get_instance().get_artifact(j_ptr->fa_id).is_generated = false;
                 }
                 return;
             }
@@ -1195,14 +1190,15 @@ int calc_expect_crit_shot(PlayerType *player_ptr, WEIGHT weight, int plus_ammo, 
  * @brief 攻撃時クリティカルによるダメージ期待値修正計算（重量と毒針処理） / critical happens at i / 10000
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param weight 武器の重量
- * @param plus 武器のダメージ修正
+ * @param plus 武器の命中修正
  * @param dam 基本ダメージ
- * @param meichuu 命中値
+ * @param meichuu 武器以外の命中修正
  * @param dokubari 毒針処理か否か
  * @param impact 強撃かどうか
+ * @param mult 期待値計算時のdam倍率
  * @return ダメージ期待値
  */
-int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, int16_t meichuu, bool dokubari, bool impact)
+int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, int16_t meichuu, bool dokubari, bool impact, int mult)
 {
     if (dokubari) {
         return dam;
@@ -1214,11 +1210,11 @@ int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, i
     }
 
     // 通常ダメージdam、武器重量weightでクリティカルが発生した時のクリティカルダメージ期待値
-    auto calc_weight_expect_dam = [](int dam, WEIGHT weight) {
+    auto calc_weight_expect_dam = [](int dam, WEIGHT weight, int mult) {
         int sum = 0;
         for (int d = 1; d <= 650; ++d) {
             int k = weight + d;
-            sum += std::get<0>(apply_critical_norm_damage(k, dam));
+            sum += std::get<0>(apply_critical_norm_damage(k, dam, mult));
         }
         return sum / 650;
     };
@@ -1227,11 +1223,11 @@ int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, i
 
     if (impact) {
         for (int d = 1; d <= 650; ++d) {
-            num += calc_weight_expect_dam(dam, weight + d);
+            num += calc_weight_expect_dam(dam, weight + d, mult);
         }
         num /= 650;
     } else {
-        num += calc_weight_expect_dam(dam, weight);
+        num += calc_weight_expect_dam(dam, weight, mult);
     }
 
     int pow = PlayerClass(player_ptr).equals(PlayerClassType::NINJA) ? 4444 : 5000;
@@ -1244,4 +1240,95 @@ int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, i
     num /= pow;
 
     return num;
+}
+
+/*!
+ * @brief 攻撃時スレイによるダメージ期待値修正計算 / critical happens at i / 10000
+ * @param dam 基本ダメージ
+ * @param mult スレイ倍率（掛け算部分）
+ * @param div スレイ倍率（割り算部分）
+ * @param force 理力特別計算フラグ
+ * @return ダメージ期待値
+ */
+static int calc_slaydam(int dam, int mult, int div, bool force)
+{
+    int tmp;
+    if (force) {
+        tmp = dam * 60;
+        tmp *= mult * 3;
+        tmp /= div * 2;
+        tmp += dam * 60 * 2;
+        tmp /= 60;
+        return tmp;
+    }
+
+    tmp = dam * 60;
+    tmp *= mult;
+    tmp /= div;
+    tmp /= 60;
+    return tmp;
+}
+
+/*!
+ * @brief 攻撃時の期待値計算（スレイ→重量クリティカル→切れ味効果）
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param dam 基本ダメージ
+ * @param to_h 武器以外の命中修正
+ * @param o_ptr 武器への参照ポインタ
+ * @return ダメージ期待値
+ */
+uint32_t calc_expect_dice(
+    PlayerType *player_ptr, uint32_t dam, int16_t to_h, ItemEntity *o_ptr)
+{
+    auto flags = o_ptr->get_flags_known();
+    bool impact = player_ptr->impact != 0;
+
+    int vorpal_mult = 1;
+    int vorpal_div = 1;
+    const auto is_vorpal_blade = o_ptr->is_specific_artifact(FixedArtifactId::VORPAL_BLADE);
+    const auto is_chainsword = o_ptr->is_specific_artifact(FixedArtifactId::CHAINSWORD);
+    if (o_ptr->is_fully_known() && (is_vorpal_blade || is_chainsword)) {
+        /* vorpal blade */
+        vorpal_mult = 5;
+        vorpal_div = 3;
+    } else if (flags.has(TR_VORPAL)) {
+        /* vorpal flag only */
+        vorpal_mult = 11;
+        vorpal_div = 9;
+    }
+
+    // 理力
+    bool is_force = !PlayerClass(player_ptr).equals(PlayerClassType::SAMURAI);
+    is_force &= flags.has(TR_FORCE_WEAPON);
+    is_force &= player_ptr->csp > (o_ptr->damage_dice.maxroll() / 5);
+
+    dam = calc_slaydam(dam, 1, 1, is_force);
+    dam = calc_expect_crit(player_ptr, o_ptr->weight, o_ptr->to_h, dam, to_h, false, impact);
+    dam = calc_slaydam(dam, vorpal_mult, vorpal_div, false);
+    return dam;
+}
+
+/*!
+ * @brief 攻撃時の期待値計算（スレイ→重量クリティカル→切れ味効果）
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param dam 基本ダメージ
+ * @param mult スレイ倍率（掛け算部分）
+ * @param div スレイ倍率（割り算部分）
+ * @param force 理力特別計算フラグ
+ * @param weight 重量
+ * @param plus 武器命中修正
+ * @param meichuu 武器以外の命中修正
+ * @param dokubari 毒針処理か否か
+ * @param impact 強撃か否か
+ * @param vorpal_mult 切れ味倍率（掛け算部分）
+ * @param vorpal_div 切れ味倍率（割り算部分）
+ * @return ダメージ期待値
+ */
+uint32_t calc_expect_dice(
+    PlayerType *player_ptr, uint32_t dam, int mult, int div, bool force, WEIGHT weight, int plus, int16_t meichuu, bool dokubari, bool impact, int vorpal_mult, int vorpal_div)
+{
+    dam = calc_slaydam(dam, mult, div, force);
+    dam = calc_expect_crit(player_ptr, weight, plus, dam, meichuu, dokubari, impact);
+    dam = calc_slaydam(dam, vorpal_mult, vorpal_div, false);
+    return dam;
 }

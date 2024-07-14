@@ -14,8 +14,6 @@
 #include "grid/grid.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-ninja.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster/monster-info.h"
 #include "monster/monster-list.h"
 #include "monster/monster-status.h"
@@ -66,18 +64,18 @@ static void update_sun_light(PlayerType *player_ptr)
 void day_break(PlayerType *player_ptr)
 {
     msg_print(_("夜が明けた。", "The sun has risen."));
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         update_sun_light(player_ptr);
         return;
     }
 
-    for (auto y = 0; y < floor_ptr->height; y++) {
-        for (auto x = 0; x < floor_ptr->width; x++) {
-            auto *g_ptr = &floor_ptr->grid_array[y][x];
-            g_ptr->info |= CAVE_GLOW;
+    auto &floor = *player_ptr->current_floor_ptr;
+    for (auto y = 0; y < floor.height; y++) {
+        for (auto x = 0; x < floor.width; x++) {
+            auto &grid = floor.get_grid({ y, x });
+            grid.add_info(CAVE_GLOW);
             if (view_perma_grids) {
-                g_ptr->info |= CAVE_MARK;
+                grid.add_info(CAVE_MARK);
             }
 
             note_spot(player_ptr, y, x);
@@ -90,7 +88,7 @@ void day_break(PlayerType *player_ptr)
 void night_falls(PlayerType *player_ptr)
 {
     msg_print(_("日が沈んだ。", "The sun has fallen."));
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         update_sun_light(player_ptr);
         return;
     }
@@ -158,7 +156,7 @@ static byte get_dungeon_feeling(PlayerType *player_ptr)
             delta += (r_ptr->level - floor_ptr->dun_level) * base;
         }
 
-        if (r_ptr->flags1 & RF1_FRIENDS) {
+        if (r_ptr->misc_flags.has(MonsterMiscType::HAS_FRIENDS)) {
             if (5 <= get_monster_crowd_number(floor_ptr, i)) {
                 delta += 1;
             }
@@ -291,26 +289,27 @@ void update_dungeon_feeling(PlayerType *player_ptr)
         return;
     }
 
-    int delay = std::max(10, 150 - player_ptr->skill_fos) * (150 - floor.dun_level) * TURNS_PER_TICK / 100;
-    if (w_ptr->game_turn < player_ptr->feeling_turn + delay && !cheat_xtra) {
+    const auto delay = std::max(10, 150 - player_ptr->skill_fos) * (150 - floor.dun_level) * TURNS_PER_TICK / 100;
+    const auto &world = AngbandWorld::get_instance();
+    if (world.game_turn < player_ptr->feeling_turn + delay && !cheat_xtra) {
         return;
     }
 
-    auto quest_num = floor.get_quest_id();
-    const auto &quest_list = QuestList::get_instance();
+    const auto quest_id = floor.get_quest_id();
+    const auto &quests = QuestList::get_instance();
 
-    auto dungeon_quest = (quest_num == QuestId::OBERON);
-    dungeon_quest |= (quest_num == QuestId::SERPENT);
-    dungeon_quest |= !(quest_list[quest_num].flags & QUEST_FLAG_PRESET);
+    auto dungeon_quest = (quest_id == QuestId::OBERON);
+    dungeon_quest |= (quest_id == QuestId::SERPENT);
+    dungeon_quest |= !(quests.get_quest(quest_id).flags & QUEST_FLAG_PRESET);
 
-    auto feeling_quest = inside_quest(quest_num);
-    feeling_quest &= QuestType::is_fixed(quest_num);
+    auto feeling_quest = inside_quest(quest_id);
+    feeling_quest &= QuestType::is_fixed(quest_id);
     feeling_quest &= !dungeon_quest;
     if (feeling_quest) {
         return;
     }
     byte new_feeling = get_dungeon_feeling(player_ptr);
-    player_ptr->feeling_turn = w_ptr->game_turn;
+    player_ptr->feeling_turn = world.game_turn;
     if (player_ptr->feeling == new_feeling) {
         return;
     }

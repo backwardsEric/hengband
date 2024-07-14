@@ -41,6 +41,7 @@
 #include "player/player-sex.h"
 #include "player/race-info-table.h"
 #include "system/angband-exceptions.h"
+#include "system/angband-system.h"
 #include "system/angband-version.h"
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
@@ -72,9 +73,9 @@ static errr load_town_quest(PlayerType *player_ptr)
     auto [max_quests_load, max_rquests_load] = load_quest_info();
     analyze_quests(player_ptr, max_quests_load, max_rquests_load);
     if (h_older_than(1, 7, 0, 6)) {
-        auto &quest_list = QuestList::get_instance();
-        quest_list[i2enum<QuestId>(OLD_QUEST_WATER_CAVE)] = {};
-        quest_list[i2enum<QuestId>(OLD_QUEST_WATER_CAVE)].status = QuestStatusType::UNTAKEN;
+        auto &quests = QuestList::get_instance();
+        quests.get_quest(i2enum<QuestId>(OLD_QUEST_WATER_CAVE)) = {};
+        quests.get_quest(i2enum<QuestId>(OLD_QUEST_WATER_CAVE)).status = QuestStatusType::UNTAKEN;
     }
 
     load_wilderness_info(player_ptr);
@@ -90,7 +91,7 @@ static void rd_total_play_time()
         return;
     }
 
-    w_ptr->sf_play_time = rd_u32b();
+    AngbandWorld::get_instance().sf_play_time = rd_u32b();
 }
 
 /*!
@@ -102,8 +103,8 @@ static void rd_winner_class()
         return;
     }
 
-    rd_FlagGroup(w_ptr->sf_winner, rd_byte);
-    rd_FlagGroup(w_ptr->sf_retired, rd_byte);
+    rd_FlagGroup(AngbandWorld::get_instance().sf_winner, rd_byte);
+    rd_FlagGroup(AngbandWorld::get_instance().sf_retired, rd_byte);
 }
 
 static void load_player_world(PlayerType *player_ptr)
@@ -190,6 +191,11 @@ static errr verify_encoded_checksum()
 static errr exe_reading_savefile(PlayerType *player_ptr)
 {
     rd_version_info();
+    if (!loading_savefile_version_is_older_than(SAVEFILE_VERSION + 1)) {
+        load_note(_("セーブデータのバージョンが新しすぎる", "Savefile version is too new"));
+        return -1;
+    }
+
     rd_dummy3();
     rd_system_info();
     load_lore();
@@ -208,13 +214,13 @@ static errr exe_reading_savefile(PlayerType *player_ptr)
         return load_hp_result;
     }
 
-    auto short_pclass = enum2i(player_ptr->pclass);
     sp_ptr = &sex_info[player_ptr->psex];
     rp_ptr = &race_info[enum2i(player_ptr->prace)];
-    cp_ptr = &class_info[short_pclass];
+    cp_ptr = &class_info.at(player_ptr->pclass);
     ap_ptr = &personality_info[player_ptr->ppersonality];
 
     set_zangband_class(player_ptr);
+    auto short_pclass = enum2i(player_ptr->pclass);
     mp_ptr = &class_magics_info[short_pclass];
 
     load_spells(player_ptr);
@@ -237,7 +243,8 @@ static errr exe_reading_savefile(PlayerType *player_ptr)
 
     if (!h_older_than(1, 0, 9)) {
         std::vector<char> buf(SCREEN_BUF_MAX_SIZE);
-        rd_string(buf.data(), SCREEN_BUF_MAX_SIZE);
+        const auto dump_str = rd_string();
+        dump_str.copy(buf.data(), SCREEN_BUF_MAX_SIZE - 1);
         if (buf[0]) {
             screen_dump = string_make(buf.data());
         }
@@ -299,7 +306,7 @@ static bool reset_save_data(PlayerType *player_ptr, bool *new_game)
 {
     *new_game = true;
     player_ptr->is_dead = false;
-    w_ptr->sf_lives++;
+    AngbandWorld::get_instance().sf_lives++;
     return true;
 }
 
@@ -344,7 +351,7 @@ static bool can_takeover_savefile(PlayerType *player_ptr)
 bool load_savedata(PlayerType *player_ptr, bool *new_game)
 {
     auto what = "generic";
-    w_ptr->game_turn = 0;
+    AngbandWorld::get_instance().game_turn = 0;
     player_ptr->is_dead = false;
     if (savefile.empty()) {
         return true;
@@ -392,21 +399,22 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
         // v0.0.X～v3.0.0 Alpha51までは、セーブデータの第1バイトがFAKE_MAJOR_VERというZangbandと互換性を取ったバージョン番号フィールドだった.
         // v3.0.0 Alpha52以降は、バリアント名の長さフィールドとして再定義した.
         // 10～13はその名残。変愚蛮怒から更にバリアントを切ったらこの評価は不要.
+        auto &system = AngbandSystem::get_instance();
         auto tmp_major = tmp_ver[0];
         auto is_old_ver = (10 <= tmp_major) && (tmp_major <= 13);
         if (tmp_major == variant_length) {
             if (std::string_view(&tmp_ver[1], variant_length) != VARIANT_NAME) {
-                throw(_("セーブデータのバリアントは変愚蛮怒以外です", "The variant of save data is other than Hengband!"));
+                THROW_EXCEPTION(std::runtime_error, _("セーブデータのバリアントは変愚蛮怒以外です", "The variant of save data is other than Hengband!"));
             }
 
-            w_ptr->sf_extra = tmp_ver[version_length - 1];
+            system.savefile_key = tmp_ver[version_length - 1];
             (void)fd_close(fd);
         } else if (is_old_ver) {
-            w_ptr->sf_extra = tmp_ver[3];
+            system.savefile_key = tmp_ver[3];
             (void)fd_close(fd);
         } else {
             (void)fd_close(fd);
-            throw("Invalid version is detected!");
+            THROW_EXCEPTION(std::runtime_error, _("異常なバージョンが検出されました！", "Invalid version is detected!"));
         }
     }
 
@@ -430,8 +438,9 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
         }
     }
 
+    auto &world = AngbandWorld::get_instance();
     if (!err) {
-        if (!w_ptr->game_turn) {
+        if (!world.game_turn) {
             err = true;
         }
 
@@ -441,8 +450,9 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
     }
 
     if (err) {
-        msg_format(_("エラー(%s)がバージョン %d.%d.%d.%d 用セーブファイル読み込み中に発生。", "Error (%s) reading %d.%d.%d.%d savefile."), what,
-            w_ptr->h_ver_major, w_ptr->h_ver_minor, w_ptr->h_ver_patch, w_ptr->h_ver_extra);
+        auto &system = AngbandSystem::get_instance();
+        constexpr auto fmt = _("エラー(%s)がバージョン %s 用セーブファイル読み込み中に発生。", "Error (%s) reading %s savefile.");
+        msg_format(fmt, what, system.build_version_expression(VersionExpression::WITH_EXTRA).data());
         msg_print(nullptr);
         return false;
     }
@@ -455,16 +465,17 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
         return reset_save_data(player_ptr, new_game);
     }
 
-    w_ptr->character_loaded = true;
+    world.character_loaded = true;
     auto tmp = counts_read(player_ptr, 2);
     if (tmp > player_ptr->count) {
         player_ptr->count = tmp;
     }
 
-    if (counts_read(player_ptr, 0) > w_ptr->play_time || counts_read(player_ptr, 1) == w_ptr->play_time) {
+    const auto play_time = world.play_time;
+    if (counts_read(player_ptr, 0) > play_time || counts_read(player_ptr, 1) == play_time) {
         counts_write(player_ptr, 2, ++player_ptr->count);
     }
 
-    counts_write(player_ptr, 1, w_ptr->play_time);
+    counts_write(player_ptr, 1, play_time);
     return true;
 }

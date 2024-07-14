@@ -25,6 +25,7 @@
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
+#include "view/display-symbol.h"
 #include "world/world.h"
 
 #define OPT_NUM 15
@@ -153,7 +154,7 @@ static void do_cmd_options_autosave(PlayerType *player_ptr, concptr info)
         }
 
         case '?': {
-            (void)show_file(player_ptr, true, _("joption.txt#Autosave", "option.txt#Autosave"), 0, 0);
+            FileDisplayer(player_ptr->name).display(true, _("joption.txt#Autosave", "option.txt#Autosave"), 0, 0);
             term_clear();
             break;
         }
@@ -264,7 +265,7 @@ static void do_cmd_options_win(PlayerType *player_ptr)
                     c = 'X';
                 }
 
-                term_putch(35 + j * 5, i + 5, a, c);
+                term_putch(35 + j * 5, i + 5, { a, c });
             }
         }
 
@@ -294,7 +295,7 @@ static void do_cmd_options_win(PlayerType *player_ptr)
             set_window_flag(x, y);
             break;
         case '?':
-            (void)show_file(player_ptr, true, _("joption.txt#Window", "option.txt#Window"), 0, 0);
+            FileDisplayer(player_ptr->name).display(true, _("joption.txt#Window", "option.txt#Window"), 0, 0);
             term_clear();
             break;
         default:
@@ -330,13 +331,13 @@ static void do_cmd_options_win(PlayerType *player_ptr)
  * Interact with some options for cheating
  * @param info 表示メッセージ
  */
-static void do_cmd_options_cheat(PlayerType *player_ptr, concptr info)
+static void do_cmd_options_cheat(const FloorType &floor, std::string_view player_name, std::string_view info)
 {
     term_clear();
     auto k = 0U;
     const auto n = cheat_info.size();
     while (true) {
-        prt(format(_("%s ( リターンで次へ, y/n でセット, ESC で決定 )", "%s (RET to advance, y/n to set, ESC to accept) "), info), 0, 0);
+        prt(format(_("%s ( リターンで次へ, y/n でセット, ESC で決定 )", "%s (RET to advance, y/n to set, ESC to accept) "), info.data()), 0, 0);
 
 #ifdef JP
         /* 詐欺オプションをうっかりいじってしまう人がいるようなので注意 */
@@ -377,16 +378,18 @@ static void do_cmd_options_cheat(PlayerType *player_ptr, concptr info)
             break;
         case 'y':
         case 'Y':
-        case '6':
-            if (!w_ptr->noscore) {
-                exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0,
+        case '6': {
+            auto &world = AngbandWorld::get_instance();
+            if (!world.noscore) {
+                exe_write_diary(floor, DiaryKind::DESCRIPTION, 0,
                     _("詐欺オプションをONにして、スコアを残せなくなった。", "gave up sending score to use cheating options."));
             }
 
-            w_ptr->noscore |= cheat_info[k].o_set * 256 + cheat_info[k].o_bit;
+            world.noscore |= cheat_info[k].o_set * 256 + cheat_info[k].o_bit;
             *cheat_info[k].o_var = true;
             k = (k + 1) % n;
             break;
+        }
         case 'n':
         case 'N':
         case '4':
@@ -394,7 +397,7 @@ static void do_cmd_options_cheat(PlayerType *player_ptr, concptr info)
             k = (k + 1) % n;
             break;
         case '?':
-            (void)show_file(player_ptr, true, std::string(_("joption.txt#", "option.txt#")).append(cheat_info[k].o_text), 0, 0);
+            FileDisplayer(player_name).display(true, std::string(_("joption.txt#", "option.txt#")).append(cheat_info[k].o_text), 0, 0);
             term_clear();
             break;
         default:
@@ -439,9 +442,10 @@ void do_cmd_options(PlayerType *player_ptr)
     int d, skey;
     TERM_LEN i, y = 0;
     screen_save();
+    const auto &world = AngbandWorld::get_instance();
     while (true) {
         int n = OPT_NUM;
-        if (!w_ptr->noscore && !allow_debug_opts) {
+        if (!world.noscore && !allow_debug_opts) {
             n--;
         }
 
@@ -537,18 +541,18 @@ void do_cmd_options(PlayerType *player_ptr)
         case 'B':
         case 'b': {
             do_cmd_options_aux(player_ptr, OPT_PAGE_BIRTH,
-                (!w_ptr->wizard || !allow_debug_opts) ? _("初期オプション(参照のみ)", "Birth Options(browse only)")
-                                                      : _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
+                (!world.wizard || !allow_debug_opts) ? _("初期オプション(参照のみ)", "Birth Options(browse only)")
+                                                     : _("初期オプション((*)はスコアに影響)", "Birth Options ((*)) affect score"));
             break;
         }
         case 'C':
         case 'c': {
-            if (!w_ptr->noscore && !allow_debug_opts) {
+            if (!world.noscore && !allow_debug_opts) {
                 bell();
                 break;
             }
 
-            do_cmd_options_cheat(player_ptr, _("詐欺師は決して勝利できない！", "Cheaters never win"));
+            do_cmd_options_cheat(*player_ptr->current_floor_ptr, player_ptr->name, _("詐欺師は決して勝利できない！", "Cheaters never win"));
             break;
         }
         case 'a':
@@ -591,7 +595,7 @@ void do_cmd_options(PlayerType *player_ptr)
                 if (k == ESCAPE) {
                     break;
                 } else if (k == '?') {
-                    (void)show_file(player_ptr, true, _("joption.txt#Hitpoint", "option.txt#Hitpoint"), 0, 0);
+                    FileDisplayer(player_ptr->name).display(true, _("joption.txt#Hitpoint", "option.txt#Hitpoint"), 0, 0);
                     term_clear();
                 } else if (isdigit(k)) {
                     hitpoint_warn = D2I(k);
@@ -613,7 +617,7 @@ void do_cmd_options(PlayerType *player_ptr)
                 if (k == ESCAPE) {
                     break;
                 } else if (k == '?') {
-                    (void)show_file(player_ptr, true, _("joption.txt#Manapoint", "option.txt#Manapoint"), 0, 0);
+                    FileDisplayer(player_ptr->name).display(true, _("joption.txt#Manapoint", "option.txt#Manapoint"), 0, 0);
                     term_clear();
                 } else if (isdigit(k)) {
                     mana_warn = D2I(k);
@@ -625,7 +629,7 @@ void do_cmd_options(PlayerType *player_ptr)
             break;
         }
         case '?':
-            (void)show_file(player_ptr, true, _("joption.txt", "option.txt"), 0, 0);
+            FileDisplayer(player_ptr->name).display(true, _("joption.txt", "option.txt"), 0, 0);
             term_clear();
             break;
         default: {
@@ -652,8 +656,8 @@ void do_cmd_options_aux(PlayerType *player_ptr, game_option_types page, concptr 
     char ch;
     int i, k = 0, n = 0, l;
     int opt[MAIN_TERM_MIN_ROWS]{};
-    bool browse_only = (page == OPT_PAGE_BIRTH) && w_ptr->character_generated && (!w_ptr->wizard || !allow_debug_opts);
-
+    const auto &world = AngbandWorld::get_instance();
+    const auto browse_only = (page == OPT_PAGE_BIRTH) && world.character_generated && (!world.wizard || !allow_debug_opts);
     for (i = 0; i < MAIN_TERM_MIN_ROWS; i++) {
         opt[i] = 0;
     }
@@ -746,7 +750,7 @@ void do_cmd_options_aux(PlayerType *player_ptr, game_option_types page, concptr 
             break;
         }
         case '?': {
-            (void)show_file(player_ptr, true, std::string(_("joption.txt#", "option.txt#")).append(option_info[opt[k]].o_text), 0, 0);
+            FileDisplayer(player_ptr->name).display(true, std::string(_("joption.txt#", "option.txt#")).append(option_info[opt[k]].o_text), 0, 0);
             term_clear();
             break;
         }

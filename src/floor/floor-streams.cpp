@@ -26,7 +26,6 @@
 #include "game-option/cheat-types.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-info.h"
 #include "room/lake-types.h"
 #include "spell-kind/spells-floor.h"
@@ -149,7 +148,7 @@ static void recursive_river(FloorType *floor_ptr, POSITION x1, POSITION y1, POSI
                         g_ptr->mimic = 0;
 
                         /* Lava terrain glows */
-                        if (terrains[feat1].flags.has(TerrainCharacteristics::LAVA)) {
+                        if (terrains.get_terrain(feat1).flags.has(TerrainCharacteristics::LAVA)) {
                             if (floor_ptr->get_dungeon_definition().flags.has_not(DungeonFeatureType::DARKNESS)) {
                                 g_ptr->info |= CAVE_GLOW;
                             }
@@ -214,7 +213,7 @@ void add_river(FloorType *floor_ptr, dun_data_type *dd_ptr)
     }
 
     if (feat1) {
-        const auto &terrain = TerrainList::get_instance()[feat1];
+        const auto &terrain = TerrainList::get_instance().get_terrain(feat1);
         auto is_lava = dd_ptr->laketype == LAKE_T_LAVA;
         is_lava &= terrain.flags.has(TerrainCharacteristics::LAVA);
         auto is_water = dd_ptr->laketype == LAKE_T_WATER;
@@ -287,7 +286,7 @@ void add_river(FloorType *floor_ptr, dun_data_type *dd_ptr)
  */
 void build_streamer(PlayerType *player_ptr, FEAT_IDX feat, int chance)
 {
-    const auto &streamer = TerrainList::get_instance()[feat];
+    const auto &streamer = TerrainList::get_instance().get_terrain(feat);
     bool streamer_is_wall = streamer.flags.has(TerrainCharacteristics::WALL) && streamer.flags.has_not(TerrainCharacteristics::PERMANENT);
     bool streamer_may_have_gold = streamer.flags.has(TerrainCharacteristics::MAY_HAVE_GOLD);
 
@@ -342,8 +341,8 @@ void build_streamer(PlayerType *player_ptr, FEAT_IDX feat, int chance)
                 }
             }
 
-            auto *r_ptr = &monraces_info[floor.m_list[grid.m_idx].r_idx];
-            if (grid.m_idx && !(streamer.flags.has(TerrainCharacteristics::PLACE) && monster_can_cross_terrain(player_ptr, feat, r_ptr, 0))) {
+            const auto &monrace = floor.m_list[grid.m_idx].get_monrace();
+            if (grid.has_monster() && !(streamer.flags.has(TerrainCharacteristics::PLACE) && monster_can_cross_terrain(player_ptr, feat, &monrace, 0))) {
                 /* Delete the monster (if any) */
                 delete_monster(player_ptr, pos.y, pos.x);
             }
@@ -395,8 +394,8 @@ void build_streamer(PlayerType *player_ptr, FEAT_IDX feat, int chance)
         }
 
         /* Advance the streamer */
-        y += ddy[cdd[dir]];
-        x += ddx[cdd[dir]];
+        y += CCW_DD[dir].y;
+        x += CCW_DD[dir].x;
 
         if (one_in_(10)) {
             if (one_in_(2)) {

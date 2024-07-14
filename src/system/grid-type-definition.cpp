@@ -1,5 +1,6 @@
 #include "system/grid-type-definition.h"
-#include "monster-race/race-flags7.h"
+#include "monster/monster-util.h"
+#include "room/door-definition.h"
 #include "system/angband-system.h"
 #include "system/monster-race-info.h"
 #include "system/terrain-type-definition.h"
@@ -73,7 +74,7 @@ bool Grid::is_mark() const
 
 bool Grid::is_mirror() const
 {
-    return this->is_object() && TerrainList::get_instance()[this->mimic].flags.has(TerrainCharacteristics::MIRROR);
+    return this->is_object() && TerrainList::get_instance().get_terrain(this->mimic).flags.has(TerrainCharacteristics::MIRROR);
 }
 
 /*
@@ -81,7 +82,7 @@ bool Grid::is_mirror() const
  */
 bool Grid::is_rune_protection() const
 {
-    return this->is_object() && TerrainList::get_instance()[this->mimic].flags.has(TerrainCharacteristics::RUNE_PROTECTION);
+    return this->is_object() && TerrainList::get_instance().get_terrain(this->mimic).flags.has(TerrainCharacteristics::RUNE_PROTECTION);
 }
 
 /*
@@ -89,7 +90,12 @@ bool Grid::is_rune_protection() const
  */
 bool Grid::is_rune_explosion() const
 {
-    return this->is_object() && TerrainList::get_instance()[this->mimic].flags.has(TerrainCharacteristics::RUNE_EXPLOSION);
+    return this->is_object() && TerrainList::get_instance().get_terrain(this->mimic).flags.has(TerrainCharacteristics::RUNE_EXPLOSION);
+}
+
+bool Grid::has_monster() const
+{
+    return is_monster(this->m_idx);
 }
 
 byte Grid::get_cost(const MonsterRaceInfo *r_ptr) const
@@ -114,7 +120,7 @@ flow_type Grid::get_grid_flow_type(const MonsterRaceInfo *r_ptr) const
  */
 FEAT_IDX Grid::get_feat_mimic() const
 {
-    return TerrainList::get_instance()[this->mimic ? this->mimic : this->feat].mimic;
+    return TerrainList::get_instance().get_terrain(this->mimic ? this->mimic : this->feat).mimic;
 }
 
 bool Grid::cave_has_flag(TerrainCharacteristics feature_flags) const
@@ -129,7 +135,7 @@ bool Grid::cave_has_flag(TerrainCharacteristics feature_flags) const
  */
 bool Grid::is_symbol(const int ch) const
 {
-    return this->get_terrain().x_char[0] == ch;
+    return this->get_terrain().symbol_configs.at(F_LIT_STANDARD).character == ch;
 }
 
 void Grid::reset_costs()
@@ -153,30 +159,46 @@ bool Grid::has_los() const
 
 TerrainType &Grid::get_terrain()
 {
-    return TerrainList::get_instance()[this->feat];
+    return TerrainList::get_instance().get_terrain(this->feat);
 }
 
 const TerrainType &Grid::get_terrain() const
 {
-    return TerrainList::get_instance()[this->feat];
+    return TerrainList::get_instance().get_terrain(this->feat);
 }
 
 TerrainType &Grid::get_terrain_mimic()
 {
-    return TerrainList::get_instance()[this->get_feat_mimic()];
+    return TerrainList::get_instance().get_terrain(this->get_feat_mimic());
 }
 
 const TerrainType &Grid::get_terrain_mimic() const
 {
-    return TerrainList::get_instance()[this->get_feat_mimic()];
+    return TerrainList::get_instance().get_terrain(this->get_feat_mimic());
 }
 
 TerrainType &Grid::get_terrain_mimic_raw()
 {
-    return TerrainList::get_instance()[this->mimic];
+    return TerrainList::get_instance().get_terrain(this->mimic);
 }
 
 const TerrainType &Grid::get_terrain_mimic_raw() const
 {
-    return TerrainList::get_instance()[this->mimic];
+    return TerrainList::get_instance().get_terrain(this->mimic);
+}
+
+void Grid::place_closed_curtain()
+{
+    this->feat = feat_door[DOOR_CURTAIN].closed;
+    this->info &= ~(CAVE_MASK);
+}
+
+/*!
+ * @brief グリッドに状態フラグを付与する
+ * @param grid_info フラグ群
+ * @todo intをenumに変更する
+ */
+void Grid::add_info(int grid_info)
+{
+    this->info |= grid_info;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "locale/localized-string.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
 #include "monster-race/monster-aura-types.h"
@@ -10,16 +11,21 @@
 #include "monster-race/race-feature-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
+#include "monster-race/race-misc-flags.h"
 #include "monster-race/race-population-flags.h"
 #include "monster-race/race-sex-const.h"
 #include "monster-race/race-speak-flags.h"
+#include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "monster-race/race-wilderness-flags.h"
 #include "system/angband.h"
+#include "util/dice.h"
 #include "util/flag-group.h"
+#include "view/display-symbol.h"
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -33,8 +39,7 @@ class MonsterBlow {
 public:
     RaceBlowMethodType method{};
     RaceBlowEffectType effect{};
-    DICE_NUMBER d_dice{};
-    DICE_SID d_side{};
+    Dice damage_dice;
 };
 
 /*!
@@ -60,16 +65,12 @@ public:
  */
 class MonsterRaceInfo {
 public:
-    MonsterRaceInfo() = default;
+    MonsterRaceInfo();
 
     MonsterRaceId idx{};
-    std::string name; //!< 名前データのオフセット(日本語) /  Name offset(Japanese)
-#ifdef JP
-    std::string E_name; //!< 名前データのオフセット(英語) /  Name offset(English)
-#endif
-    std::string text; //!< 思い出テキストのオフセット / Lore text offset
-    DICE_NUMBER hdice{}; //!< HPのダイス数 / Creatures hit dice count
-    DICE_SID hside{}; //!< HPのダイス面数 / Creatures hit dice sides
+    LocalizedString name{}; //!< モンスターの名称
+    std::string text = ""; //!< 思い出テキストのオフセット / Lore text offset
+    Dice hit_dice; //!< HPのダイス / Creatures hit dice
     ARMOUR_CLASS ac{}; //!< アーマークラス / Armour Class
     SLEEP_DEGREE sleep{}; //!< 睡眠値 / Inactive counter (base)
     POSITION aaf{}; //!< 感知範囲(1-100スクエア) / Area affect radius (1-100)
@@ -77,11 +78,6 @@ public:
     EXP mexp{}; //!< 殺害時基本経験値 / Exp value for kill
     RARITY freq_spell{}; //!< 魔法＆特殊能力仕様頻度(1/n) /  Spell frequency
     MonsterSex sex{}; //!< 性別 / Sex
-    BIT_FLAGS flags1{}; //!< Flags 1 (general)
-    BIT_FLAGS flags2{}; //!< Flags 2 (abilities)
-    BIT_FLAGS flags3{}; //!< Flags 3 (race/resist)
-    BIT_FLAGS flags7{}; //!< Flags 7 (movement related abilities)
-    BIT_FLAGS flags8{}; //!< Flags 8 (wilderness info)
     EnumClassFlagGroup<MonsterAbilityType> ability_flags; //!< 能力フラグ(魔法/ブレス) / Ability Flags
     EnumClassFlagGroup<MonsterAuraType> aura_flags; //!< オーラフラグ / Aura Flags
     EnumClassFlagGroup<MonsterBehaviorType> behavior_flags; //!< 能力フラグ（習性）
@@ -94,10 +90,13 @@ public:
     EnumClassFlagGroup<MonsterPopulationType> population_flags; //!< 能力フラグ（出現数関連） / Population Flags
     EnumClassFlagGroup<MonsterSpeakType> speak_flags; //!< 能力フラグ（セリフ） / Speaking Flags
     EnumClassFlagGroup<MonsterBrightnessType> brightness_flags; //!< 能力フラグ（明暗） / Speaking Lite or Dark
+    EnumClassFlagGroup<MonsterSpecialType> special_flags; //!< 能力フラグ(特殊) / Special Flags
+    EnumClassFlagGroup<MonsterMiscType> misc_flags; //!< 能力フラグ（その他） / Speaking Other
     MonsterBlow blows[MAX_NUM_BLOWS]{}; //!< 打撃能力定義 / Up to four blows per round
+    Dice shoot_damage_dice; //!< 射撃ダメージダイス / shoot damage dice
 
-    //! 指定護衛リスト <モンスター種族ID,護衛数ダイス数,護衛数ダイス面>
-    std::vector<std::tuple<MonsterRaceId, DICE_NUMBER, DICE_SID>> reinforces;
+    //! 指定護衛リスト <モンスター種族ID,護衛数ダイス>
+    std::vector<std::tuple<MonsterRaceId, Dice>> reinforces;
 
     //! 特定アーティファクトドロップリスト <アーティファクトID,ドロップ率>
     std::vector<std::tuple<FixedArtifactId, PERCENTAGE>> drop_artifacts;
@@ -107,10 +106,8 @@ public:
     EXP next_exp{}; //!< 進化に必要な経験値
     DEPTH level{}; //!< レベル / Level of creature
     RARITY rarity{}; //!< レアリティ / Rarity of creature
-    TERM_COLOR d_attr{}; //!< デフォルトの表示色 / Default monster attribute
-    char d_char{}; //!< デフォルトの表示文字 / Default monster character
-    TERM_COLOR x_attr{}; //!< 設定した表示色(またはタイル位置Y) / Desired monster attribute
-    char x_char{}; //!< 設定した表示文字(またはタイル位置X) / Desired monster character
+    DisplaySymbol symbol_definition{}; //!< 定義上のシンボル (色/文字).
+    DisplaySymbol symbol_config{}; //!< 設定したシンボル (色/文字).
     MONSTER_NUMBER max_num{}; //!< 階に最大存在できる数 / Maximum population allowed per level
     MONSTER_NUMBER cur_num{}; //!< 階に現在いる数 / Monster population on current level
     FLOOR_IDX floor_id{}; //!< 存在している保存階ID /  Location of unique monster
@@ -126,9 +123,6 @@ public:
     ITEM_NUMBER r_drop_item{}; //!< これまでに撃破時に落としたアイテムの数 / Max number of item dropped at once
     byte r_cast_spell{}; //!< 使った魔法/ブレスの種類数 /  Max unique number of spells seen
     byte r_blows[MAX_NUM_BLOWS]{}; //!< 受けた打撃 /  Number of times each blow type was seen
-    uint32_t r_flags1{}; //!< Observed racial flags
-    uint32_t r_flags2{}; //!< Observed racial flags
-    uint32_t r_flags3{}; //!< Observed racial flags
     EnumClassFlagGroup<MonsterAbilityType> r_ability_flags; //!< 見た能力フラグ(魔法/ブレス) / Observed racial ability flags
     EnumClassFlagGroup<MonsterAuraType> r_aura_flags; //!< 見た能力フラグ(オーラ) / Observed aura flags
     EnumClassFlagGroup<MonsterBehaviorType> r_behavior_flags; //!< 見た能力フラグ（習性） / Observed racial attr flags
@@ -136,16 +130,35 @@ public:
     EnumClassFlagGroup<MonsterResistanceType> r_resistance_flags; //!< 見た耐性フラグ / Observed racial resistances flags
     EnumClassFlagGroup<MonsterDropType> r_drop_flags; //!< 見た能力フラグ（ドロップ） / Observed drop flags
     EnumClassFlagGroup<MonsterFeatureType> r_feature_flags; //!< 見た能力フラグ(地形関連) / Observed feature flags
+    EnumClassFlagGroup<MonsterSpecialType> r_special_flags; //!< 見た能力フラグ(特殊) / Observed special flags
+    EnumClassFlagGroup<MonsterMiscType> r_misc_flags; //!< 見た能力フラグ(その他) / Observed feature flags
     PLAYER_LEVEL defeat_level{}; //!< 倒したレベル(ユニーク用) / player level at which defeated this race
     REAL_TIME defeat_time{}; //!< 倒した時間(ユニーク用) / time at which defeated this race
     PERCENTAGE cur_hp_per{}; //!< 生成時現在HP率(%)
 
-    const std::string &decide_horror_message() const;
+    bool is_valid() const;
     bool has_living_flag() const;
     bool is_explodable() const;
+    bool symbol_char_is_any_of(std::string_view symbol_characters) const;
     std::string get_died_message() const;
+    std::optional<bool> order_pet(const MonsterRaceInfo &other) const;
     void kill_unique();
+    std::string get_pronoun_of_summoned_kin() const;
+    const MonsterRaceInfo &get_next() const;
+    bool is_bounty(bool unachieved_only) const;
+    int calc_power() const;
+    int calc_figurine_value() const;
+    int calc_capture_value() const;
+    std::string build_eldritch_horror_message(std::string_view description) const;
+
+    std::optional<std::string> probe_lore();
+    void make_lore_treasure(int num_item, int num_drop);
+
+private:
+    const std::string &decide_horror_message() const;
 };
+
+extern std::map<MonsterRaceId, MonsterRaceInfo> monraces_info;
 
 class MonraceList {
 public:
@@ -153,11 +166,23 @@ public:
     MonraceList(const MonraceList &) = delete;
     MonraceList &operator=(const MonraceList &) = delete;
     MonraceList &operator=(MonraceList &&) = delete;
-    MonsterRaceInfo &operator[](const MonsterRaceId r_idx);
-    const MonsterRaceInfo &operator[](const MonsterRaceId r_idx) const;
 
+    static bool is_valid(MonsterRaceId monrace_id);
     static const std::map<MonsterRaceId, std::set<MonsterRaceId>> &get_unified_uniques();
     static MonraceList &get_instance();
+    static MonsterRaceId empty_id();
+    std::map<MonsterRaceId, MonsterRaceInfo>::iterator begin();
+    std::map<MonsterRaceId, MonsterRaceInfo>::const_iterator begin() const;
+    std::map<MonsterRaceId, MonsterRaceInfo>::iterator end();
+    std::map<MonsterRaceId, MonsterRaceInfo>::const_iterator end() const;
+    std::map<MonsterRaceId, MonsterRaceInfo>::reverse_iterator rbegin();
+    std::map<MonsterRaceId, MonsterRaceInfo>::const_reverse_iterator rbegin() const;
+    std::map<MonsterRaceId, MonsterRaceInfo>::reverse_iterator rend();
+    std::map<MonsterRaceId, MonsterRaceInfo>::const_reverse_iterator rend() const;
+    size_t size() const;
+    MonsterRaceInfo &get_monrace(MonsterRaceId monrace_id);
+    const MonsterRaceInfo &get_monrace(MonsterRaceId monrace_id) const;
+    const std::vector<MonsterRaceId> &get_valid_monrace_ids() const;
     bool can_unify_separate(const MonsterRaceId r_idx) const;
     void kill_unified_unique(const MonsterRaceId r_idx);
     bool is_selectable(const MonsterRaceId r_idx) const;
@@ -165,9 +190,14 @@ public:
     bool is_unified(const MonsterRaceId r_idx) const;
     bool exists_separates(const MonsterRaceId r_idx) const;
     bool is_separated(const MonsterRaceId r_idx) const;
-    bool can_select_separate(const MonsterRaceId r_idx, const int hp, const int maxhp) const;
-    int calc_figurine_value(const MonsterRaceId r_idx) const;
-    int calc_capture_value(const MonsterRaceId r_idx) const;
+    bool can_select_separate(const MonsterRaceId morace_id, const int hp, const int maxhp) const;
+    bool order(MonsterRaceId id1, MonsterRaceId id2, bool is_detailed = false) const;
+    bool order_level(MonsterRaceId id1, MonsterRaceId id2) const;
+    MonsterRaceId pick_id_at_random() const;
+    const MonsterRaceInfo &pick_monrace_at_random() const;
+
+    void reset_all_visuals();
+    std::optional<std::string> probe_lore(MonsterRaceId monrace_id);
 
 private:
     MonraceList() = default;

@@ -28,17 +28,16 @@
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-paralysis.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/health-bar-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world-object.h"
 
 void process_eat_gold(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
-    auto is_paralyzed = player_ptr->effects()->paralysis()->is_paralyzed();
-    if (!is_paralyzed && (randint0(100) < (adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev))) {
+    const auto is_paralyzed = player_ptr->effects()->paralysis().is_paralyzed();
+    if (!is_paralyzed && evaluate_percent((adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev))) {
         msg_print(_("しかし素早く財布を守った！", "You quickly protect your money pouch!"));
         if (randint0(3)) {
             monap_ptr->blinked = true;
@@ -95,8 +94,8 @@ bool check_eat_item(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         return false;
     }
 
-    auto is_paralyzed = player_ptr->effects()->paralysis()->is_paralyzed();
-    if (!is_paralyzed && (randint0(100) < (adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev))) {
+    const auto is_paralyzed = player_ptr->effects()->paralysis().is_paralyzed();
+    if (!is_paralyzed && evaluate_percent((adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev))) {
         msg_print(_("しかしあわててザックを取り返した！", "You grab hold of your backpack!"));
         monap_ptr->blinked = true;
         monap_ptr->obvious = true;
@@ -177,7 +176,7 @@ void process_eat_food(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         }
 
         const auto tval = monap_ptr->o_ptr->bi_key.tval();
-        if ((tval != ItemKindType::FOOD) && !((tval == ItemKindType::CORPSE) && (monap_ptr->o_ptr->bi_key.sval() != 0))) {
+        if ((tval != ItemKindType::FOOD) && !((tval == ItemKindType::MONSTER_REMAINS) && (monap_ptr->o_ptr->bi_key.sval() != 0))) {
             continue;
         }
 
@@ -205,7 +204,7 @@ void process_eat_lite(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         monap_ptr->o_ptr->fuel = 1;
     }
 
-    if (!player_ptr->effects()->blindness()->is_blind()) {
+    if (!player_ptr->effects()->blindness().is_blind()) {
         msg_print(_("明かりが暗くなってしまった。", "Your light dims."));
         monap_ptr->obvious = true;
     }
@@ -252,13 +251,9 @@ bool process_un_power(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
     recovery = std::min(recovery, monap_ptr->m_ptr->maxhp - monap_ptr->m_ptr->hp);
     monap_ptr->m_ptr->hp += recovery;
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (player_ptr->health_who == monap_ptr->m_idx) {
-        rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
-    }
-
+    HealthBarTracker::get_instance().set_flag_if_tracking(monap_ptr->m_idx);
     if (player_ptr->riding == monap_ptr->m_idx) {
-        rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
     monap_ptr->o_ptr->pval = !is_magic_mastery || (monap_ptr->o_ptr->pval == 1) ? 0 : monap_ptr->o_ptr->pval - drain;
@@ -266,6 +261,7 @@ bool process_un_power(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
         StatusRecalculatingFlag::COMBINATION,
         StatusRecalculatingFlag::REORDER,
     };
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flags(flags);
     rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
     return true;
@@ -299,18 +295,14 @@ void process_drain_life(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr, 
     }
 
     bool did_heal = monap_ptr->m_ptr->hp < monap_ptr->m_ptr->maxhp;
-    monap_ptr->m_ptr->hp += damroll(4, monap_ptr->damage / 6);
+    monap_ptr->m_ptr->hp += Dice::roll(4, monap_ptr->damage / 6);
     if (monap_ptr->m_ptr->hp > monap_ptr->m_ptr->maxhp) {
         monap_ptr->m_ptr->hp = monap_ptr->m_ptr->maxhp;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (player_ptr->health_who == monap_ptr->m_idx) {
-        rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
-    }
-
+    HealthBarTracker::get_instance().set_flag_if_tracking(monap_ptr->m_idx);
     if (player_ptr->riding == monap_ptr->m_idx) {
-        rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
+        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
     if (monap_ptr->m_ptr->ml && did_heal) {

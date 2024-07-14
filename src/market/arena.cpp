@@ -1,5 +1,4 @@
 #include "market/arena.h"
-#include "cmd-building/cmd-building.h"
 #include "core/asking-player.h"
 #include "core/show-file.h"
 #include "core/stuff-handler.h"
@@ -7,15 +6,12 @@
 #include "floor/floor-mode-changer.h"
 #include "io/input-key-acceptor.h"
 #include "main/sound-of-music.h"
-#include "market/arena-info-table.h"
+#include "market/arena-entry.h"
 #include "market/building-actions-table.h"
 #include "market/building-util.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
 #include "player-base/player-class.h"
@@ -30,29 +26,24 @@
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
+#include "tracking/lore-tracker.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <algorithm>
 #include <numeric>
-
-namespace {
-enum class ArenaRecord {
-    FENGFUANG,
-    POWER_WYRM,
-    METAL_BABBLE,
-};
-}
+#include <optional>
 
 /*!
  * @brief 優勝時のメッセージを表示し、賞金を与える
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return まだ優勝していないか、挑戦者モンスターとの戦いではFALSE
  */
-static bool process_ostensible_arena_victory(PlayerType *player_ptr)
+static std::optional<int> process_ostensible_arena_victory()
 {
-    if (player_ptr->arena_number != MAX_ARENA_MONS) {
-        return false;
+    auto &entries = ArenaEntryList::get_instance();
+    if (!entries.is_player_victor()) {
+        return std::nullopt;
     }
 
     clear_bldg(5, 19);
@@ -62,49 +53,27 @@ static bool process_ostensible_arena_victory(PlayerType *player_ptr)
 
     prt("", 10, 0);
     prt("", 11, 0);
-    player_ptr->au += 1000000L;
     msg_print(_("スペースキーで続行", "Press the space bar to continue"));
     msg_print(nullptr);
-    player_ptr->arena_number++;
-    return true;
-}
-
-/*!
- * @brief 対戦相手の確認
- * @param player_ptr プレイヤーへの参照ポインタ
- * @return 最後に倒した対戦相手 (鳳凰以下は一律で鳳凰)
- */
-static ArenaRecord check_arena_record(PlayerType *player_ptr)
-{
-    if (player_ptr->arena_number <= MAX_ARENA_MONS) {
-        return ArenaRecord::FENGFUANG;
-    }
-
-    if (player_ptr->arena_number < MAX_ARENA_MONS + 2) {
-        return ArenaRecord::POWER_WYRM;
-    }
-
-    return ArenaRecord::METAL_BABBLE;
+    entries.increment_entry();
+    return 1000000;
 }
 
 static bool check_battle_metal_babble(PlayerType *player_ptr)
 {
-    msg_print(_("君のために最強の挑戦者を用意しておいた。", "The strongest challenger is waiting for you."));
+    msg_print(_("最強の挑戦者が君に決闘を申し込んできた。", "The strongest challenger throws down the gauntlet to your feet."));
     msg_print(nullptr);
-    if (!input_check(_("挑戦するかね？", "Do you fight? "))) {
-        msg_print(_("残念だ。", "We are disappointed."));
+    if (!input_check(_("受けて立つかね？", "Do you take up the gauntlet? "))) {
+        msg_print(_("失望したよ。", "We are disappointed."));
         return false;
     }
 
-    msg_print(_("死ぬがよい。", "Die, maggots."));
+    msg_print(_("挑戦者「死ぬがよい。」", "The challenger says, 'Die, maggots.'"));
     msg_print(nullptr);
 
-    w_ptr->set_arena(false);
+    AngbandWorld::get_instance().set_arena(false);
     reset_tim_flags(player_ptr);
-
-    /* Save the surface floor as saved floor */
-    prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS);
-
+    FloorChangeModesStore::get_instace()->set(FloorChangeMode::SAVE_FLOORS);
     player_ptr->current_floor_ptr->inside_arena = true;
     player_ptr->leaving = true;
     return true;
@@ -117,11 +86,13 @@ static bool check_battle_metal_babble(PlayerType *player_ptr)
  */
 static bool go_to_arena(PlayerType *player_ptr)
 {
-    if (process_ostensible_arena_victory(player_ptr)) {
+    const auto prize_money = process_ostensible_arena_victory();
+    if (prize_money) {
+        player_ptr->au += *prize_money;
         return false;
     }
 
-    const auto arena_record = check_arena_record(player_ptr);
+    const auto arena_record = ArenaEntryList::get_instance().check_arena_record();
     if (arena_record == ArenaRecord::METAL_BABBLE) {
         msg_print(_("あなたはアリーナに入り、しばらくの間栄光にひたった。", "You enter the arena briefly and bask in your glory."));
         msg_print(nullptr);
@@ -138,32 +109,12 @@ static bool go_to_arena(PlayerType *player_ptr)
         return false;
     }
 
-    w_ptr->set_arena(false);
+    AngbandWorld::get_instance().set_arena(false);
     reset_tim_flags(player_ptr);
-    prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS);
-
+    FloorChangeModesStore::get_instace()->set(FloorChangeMode::SAVE_FLOORS);
     player_ptr->current_floor_ptr->inside_arena = true;
     player_ptr->leaving = true;
     return true;
-}
-
-static void see_arena_poster(PlayerType *player_ptr)
-{
-    if (player_ptr->arena_number == MAX_ARENA_MONS) {
-        msg_print(_("あなたは勝利者だ。 アリーナでのセレモニーに参加しなさい。", "You are victorious. Enter the arena for the ceremony."));
-        return;
-    }
-
-    if (player_ptr->arena_number > MAX_ARENA_MONS) {
-        msg_print(_("あなたはすべての敵に勝利した。", "You have won against all foes."));
-        return;
-    }
-
-    auto *r_ptr = &monraces_info[arena_info[player_ptr->arena_number].r_idx];
-    msg_format(_("%s に挑戦するものはいないか？", "Do I hear any challenges against: %s"), r_ptr->name.data());
-    player_ptr->monster_race_idx = arena_info[player_ptr->arena_number].r_idx;
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
-    handle_stuff(player_ptr);
 }
 
 /*!
@@ -176,12 +127,21 @@ bool arena_comm(PlayerType *player_ptr, int cmd)
     switch (cmd) {
     case BACT_ARENA:
         return go_to_arena(player_ptr);
-    case BACT_POSTER:
-        see_arena_poster(player_ptr);
+    case BACT_POSTER: {
+        const auto &entries = ArenaEntryList::get_instance();
+        msg_print(entries.get_poster_message());
+        if (entries.is_player_victor() || entries.is_player_true_victor()) {
+            return false;
+        }
+
+        const auto &monrace = entries.get_monrace();
+        LoreTracker::get_instance().set_trackee(monrace.idx);
+        handle_stuff(player_ptr);
         return false;
+    }
     case BACT_ARENA_RULES:
         screen_save();
-        (void)show_file(player_ptr, true, _("arena_j.txt", "arena.txt"), 0, 0);
+        FileDisplayer(player_ptr->name).display(true, _("arena_j.txt", "arena.txt"), 0, 0);
         screen_load();
         return false;
     default:
@@ -208,37 +168,39 @@ void update_gambling_monsters(PlayerType *player_ptr)
     }
 
     mon_level = randint1(std::min(max_dl, 122)) + 5;
-    if (randint0(100) < 60) {
+    if (evaluate_percent(60)) {
         i = randint1(std::min(max_dl, 122)) + 5;
         mon_level = std::max(i, mon_level);
     }
 
-    if (randint0(100) < 30) {
+    if (evaluate_percent(30)) {
         i = randint1(std::min(max_dl, 122)) + 5;
         mon_level = std::max(i, mon_level);
     }
 
+    const auto &monraces = MonraceList::get_instance();
     while (true) {
         total = 0;
         tekitou = false;
         for (i = 0; i < 4; i++) {
-            MonsterRaceId r_idx;
+            MonsterRaceId monrace_id;
             int j;
             while (true) {
                 get_mon_num_prep(player_ptr, monster_can_entry_arena, nullptr);
-                r_idx = get_mon_num(player_ptr, 0, mon_level, PM_ARENA);
-                if (!MonsterRace(r_idx).is_valid()) {
+                monrace_id = get_mon_num(player_ptr, 0, mon_level, PM_ARENA);
+                if (!MonraceList::is_valid(monrace_id)) {
                     continue;
                 }
 
-                if (monraces_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE) || monraces_info[r_idx].population_flags.has(MonsterPopulationType::ONLY_ONE)) {
-                    if ((monraces_info[r_idx].level + 10) > mon_level) {
+                const auto &monrace = monraces.get_monrace(monrace_id);
+                if (monrace.kind_flags.has(MonsterKindType::UNIQUE) || monrace.population_flags.has(MonsterPopulationType::ONLY_ONE)) {
+                    if ((monrace.level + 10) > mon_level) {
                         continue;
                     }
                 }
 
                 for (j = 0; j < i; j++) {
-                    if (r_idx == battle_mon_list[j]) {
+                    if (monrace_id == battle_mon_list[j]) {
                         break;
                     }
                 }
@@ -248,14 +210,15 @@ void update_gambling_monsters(PlayerType *player_ptr)
 
                 break;
             }
-            battle_mon_list[i] = r_idx;
-            if (monraces_info[r_idx].level < 45) {
+
+            battle_mon_list[i] = monrace_id;
+            if (monraces.get_monrace(monrace_id).level < 45) {
                 tekitou = true;
             }
         }
 
         std::transform(std::begin(battle_mon_list), std::end(battle_mon_list), std::begin(power),
-            [](MonsterRace r_idx) { return MonsterRace(r_idx).calc_power(); });
+            [&monraces](auto monrace_id) { return monraces.get_monrace(monrace_id).calc_power(); });
         total += std::reduce(std::begin(power), std::end(power));
 
         for (i = 0; i < 4; i++) {
@@ -288,9 +251,10 @@ void update_gambling_monsters(PlayerType *player_ptr)
  */
 bool monster_arena_comm(PlayerType *player_ptr)
 {
-    if ((w_ptr->game_turn - w_ptr->arena_start_turn) > TURNS_PER_TICK * 250) {
+    auto &world = AngbandWorld::get_instance();
+    if ((world.game_turn - world.arena_start_turn) > TURNS_PER_TICK * 250) {
         update_gambling_monsters(player_ptr);
-        w_ptr->arena_start_turn = w_ptr->game_turn;
+        world.arena_start_turn = world.game_turn;
     }
 
     screen_save();
@@ -331,8 +295,8 @@ bool monster_arena_comm(PlayerType *player_ptr)
         }
 
         if (i >= '1' && i <= '4') {
-            sel_monster = i - '1';
-            battle_odds = mon_odds[sel_monster];
+            bet_number = i - '1';
+            battle_odds = mon_odds[bet_number];
             break;
         }
 
@@ -343,7 +307,7 @@ bool monster_arena_comm(PlayerType *player_ptr)
 
     clear_bldg(4, 4);
     for (int i = 0; i < 4; i++) {
-        if (i != sel_monster) {
+        if (i != bet_number) {
             clear_bldg(i + 5, i + 5);
         }
     }
@@ -366,11 +330,11 @@ bool monster_arena_comm(PlayerType *player_ptr)
 
     msg_print(nullptr);
     battle_odds = std::max(*wager + 1, *wager * battle_odds / 100);
-    kakekin = *wager;
+    wager_melee = *wager;
     player_ptr->au -= *wager;
     reset_tim_flags(player_ptr);
 
-    prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS);
+    FloorChangeModesStore::get_instace()->set(FloorChangeMode::SAVE_FLOORS);
     AngbandSystem::get_instance().set_phase_out(true);
     player_ptr->leaving = true;
     screen_load();

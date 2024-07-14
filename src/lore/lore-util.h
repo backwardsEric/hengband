@@ -9,6 +9,8 @@
 #include "monster-race/race-feature-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
+#include "monster-race/race-misc-flags.h"
+#include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
@@ -32,6 +34,12 @@ enum monster_lore_mode {
 };
 
 class MonsterRaceInfo;
+struct lore_msg {
+    lore_msg(std::string_view msg, byte color);
+    std::string msg;
+    byte color;
+};
+
 struct lore_type {
     lore_type(MonsterRaceId r_idx, monster_lore_mode mode);
 
@@ -45,10 +53,7 @@ struct lore_type {
     int count = 0;
     bool shoot = false;
     bool rocket = false;
-    int vn = 0;
-    byte color[96]{};
-    concptr vp[96]{};
-    char tmp_msg[96][96]{};
+    std::vector<lore_msg> lore_msgs;
     bool breath = false;
     bool magic = false;
     int drop_quantity = 0;
@@ -68,10 +73,6 @@ struct lore_type {
     byte speed;
     ITEM_NUMBER drop_gold;
     ITEM_NUMBER drop_item;
-    BIT_FLAGS flags1;
-    BIT_FLAGS flags2;
-    BIT_FLAGS flags3;
-    BIT_FLAGS flags7;
     EnumClassFlagGroup<MonsterAbilityType> ability_flags;
     EnumClassFlagGroup<MonsterAuraType> aura_flags;
     EnumClassFlagGroup<MonsterBehaviorType> behavior_flags;
@@ -81,6 +82,8 @@ struct lore_type {
     EnumClassFlagGroup<MonsterDropType> drop_flags;
     EnumClassFlagGroup<MonsterFeatureType> feature_flags;
     EnumClassFlagGroup<MonsterBrightnessType> brightness_flags;
+    EnumClassFlagGroup<MonsterSpecialType> special_flags;
+    EnumClassFlagGroup<MonsterMiscType> misc_flags;
 };
 
 using hook_c_roff_pf = void (*)(TERM_COLOR attr, std::string_view str);

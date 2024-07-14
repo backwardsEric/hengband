@@ -11,9 +11,7 @@
 /* Purpose: a simple random number generator -BEN- */
 
 #include "term/z-rand.h"
-#include "util/rng-xoshiro.h"
-#include "world/world.h"
-
+#include "system/angband-system.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -61,21 +59,21 @@ void Rand_state_init(void)
     std::random_device rd;
     std::uniform_int_distribution<element_type> dist(a, b);
 
-    Xoshiro128StarStar::state_type Rand_state{};
+    Xoshiro128StarStar::state_type state{};
     do {
-        std::generate(Rand_state.begin(), Rand_state.end(), [&dist, &rd] { return dist(rd); });
-    } while (std::all_of(Rand_state.begin(), Rand_state.end(), [](auto s) { return s == 0; }));
+        std::generate(state.begin(), state.end(), [&dist, &rd] { return dist(rd); });
+    } while (std::all_of(state.begin(), state.end(), [](auto s) { return s == 0; }));
 
-    w_ptr->rng.set_state(Rand_state);
+    AngbandSystem::get_instance().get_rng().set_state(state);
 }
 
 int rand_range(int a, int b)
 {
-    if (a > b) {
+    if (a >= b) {
         return a;
     }
     std::uniform_int_distribution<> d(a, b);
-    return d(w_ptr->rng);
+    return d(AngbandSystem::get_instance().get_rng());
 }
 
 /*
@@ -87,28 +85,8 @@ int16_t randnor(int mean, int stand)
         return static_cast<int16_t>(mean);
     }
     std::normal_distribution<> d(mean, stand);
-    auto result = std::round(d(w_ptr->rng));
+    auto result = std::round(d(AngbandSystem::get_instance().get_rng()));
     return static_cast<int16_t>(result);
-}
-
-/*
- * Generates damage for "2d6" style dice rolls
- */
-int16_t damroll(DICE_NUMBER num, DICE_SID sides)
-{
-    int i, sum = 0;
-    for (i = 0; i < num; i++) {
-        sum += randint1(sides);
-    }
-    return (int16_t)(sum);
-}
-
-/*
- * Same as above, but always maximal
- */
-int16_t maxroll(DICE_NUMBER num, DICE_SID sides)
-{
-    return num * sides;
 }
 
 /*

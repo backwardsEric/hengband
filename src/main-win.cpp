@@ -1472,7 +1472,7 @@ static void setup_menus(void)
 {
     HMENU hm = GetMenu(data[0].w);
 
-    if (w_ptr->character_generated) {
+    if (AngbandWorld::get_instance().character_generated) {
         EnableMenuItem(hm, IDM_FILE_NEW, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
         EnableMenuItem(hm, IDM_FILE_OPEN, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
         EnableMenuItem(hm, IDM_FILE_SAVE, MF_BYCOMMAND | MF_ENABLED);
@@ -1615,7 +1615,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         break;
     }
     case IDM_FILE_SAVE: {
-        if (game_in_progress && w_ptr->character_generated) {
+        if (game_in_progress && AngbandWorld::get_instance().character_generated) {
             if (!can_save) {
                 plog(_("今はセーブすることは出来ません。", "You may not do that right now."));
                 break;
@@ -1630,7 +1630,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         break;
     }
     case IDM_FILE_EXIT: {
-        if (game_in_progress && w_ptr->character_generated) {
+        if (game_in_progress && AngbandWorld::get_instance().character_generated) {
             if (!can_save) {
                 plog(_("今は終了できません。", "You may not do that right now."));
                 break;
@@ -1649,7 +1649,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         break;
     }
     case IDM_FILE_SCORE: {
-        const auto &path = path_build(ANGBAND_DIR_APEX, "scores.raw");
+        const auto path = path_build(ANGBAND_DIR_APEX, "scores.raw");
         highscore_fd = fd_open(path, O_RDONLY);
         if (highscore_fd < 0) {
             msg_print("Score file unavailable.");
@@ -1912,7 +1912,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         break;
     }
     case IDM_OPTIONS_OPEN_MUSIC_DIR: {
-        const auto &path = path_build(ANGBAND_DIR_XTRA_MUSIC, "music.cfg");
+        const auto path = path_build(ANGBAND_DIR_XTRA_MUSIC, "music.cfg");
         open_dir_in_explorer(path.string());
         break;
     }
@@ -1935,7 +1935,7 @@ static void process_menus(PlayerType *player_ptr, WORD wCmd)
         break;
     }
     case IDM_OPTIONS_OPEN_SOUND_DIR: {
-        const auto &path = path_build(ANGBAND_DIR_XTRA_SOUND, "sound.cfg");
+        const auto path = path_build(ANGBAND_DIR_XTRA_SOUND, "sound.cfg");
         open_dir_in_explorer(path.string());
         break;
     }
@@ -2301,8 +2301,8 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         if (macro_running()) {
             return 0;
         }
-        mousex = std::min(LOWORD(lParam) / td->tile_wid, td->cols - 1);
-        mousey = std::min(HIWORD(lParam) / td->tile_hgt, td->rows - 1);
+        mousex = std::min<int>(LOWORD(lParam) / td->tile_wid, td->cols - 1);
+        mousey = std::min<int>(HIWORD(lParam) / td->tile_hgt, td->rows - 1);
         mouse_down = true;
         oldx = mousex;
         oldy = mousey;
@@ -2390,8 +2390,8 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         }
 
         int dx, dy;
-        int cx = std::min(LOWORD(lParam) / td->tile_wid, td->cols - 1);
-        int cy = std::min(HIWORD(lParam) / td->tile_hgt, td->rows - 1);
+        auto cx = std::min<int>(LOWORD(lParam) / td->tile_wid, td->cols - 1);
+        auto cy = std::min<int>(HIWORD(lParam) / td->tile_hgt, td->rows - 1);
         int ox, oy;
 
         if (paint_rect) {
@@ -2419,7 +2419,7 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         return 0;
     }
     case WM_CLOSE: {
-        if (!game_in_progress || !w_ptr->character_generated) {
+        if (!game_in_progress || !AngbandWorld::get_instance().character_generated) {
             quit(nullptr);
             return 0;
         }
@@ -2437,7 +2437,7 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         return 0;
     }
     case WM_QUERYENDSESSION: {
-        if (!game_in_progress || !w_ptr->character_generated) {
+        if (!game_in_progress || !AngbandWorld::get_instance().character_generated) {
             quit(nullptr);
             return 0;
         }
@@ -2446,7 +2446,7 @@ LRESULT PASCAL angband_window_procedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
         if (p_ptr->chp < 0) {
             p_ptr->is_dead = false;
         }
-        exe_write_diary(p_ptr, DiaryKind::GAMESTART, 0, _("----ゲーム中断----", "---- Save and Exit Game ----"));
+        exe_write_diary(*p_ptr->current_floor_ptr, DiaryKind::GAMESTART, 0, _("----ゲーム中断----", "---- Save and Exit Game ----"));
 
         p_ptr->panic_save = 1;
         signals_ignore_tstp();
@@ -2656,10 +2656,9 @@ static void init_stuff()
     validate_dir(ANGBAND_DIR_INFO, false);
     validate_dir(ANGBAND_DIR_PREF, true);
     validate_dir(ANGBAND_DIR_SAVE, false);
-    validate_dir(ANGBAND_DIR_DEBUG_SAVE, false);
     validate_dir(ANGBAND_DIR_USER, true);
     validate_dir(ANGBAND_DIR_XTRA, true);
-    const auto &path_news = path_build(ANGBAND_DIR_FILE, _("news_j.txt", "news.txt"));
+    const auto path_news = path_build(ANGBAND_DIR_FILE, _("news_j.txt", "news.txt"));
     validate_file(path_news);
 
     ANGBAND_DIR_XTRA_GRAF = path_build(ANGBAND_DIR_XTRA, "graf");

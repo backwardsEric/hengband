@@ -1,3 +1,7 @@
 [submodule "lib/xtra"]
 	path = lib/xtra
 	url = https://github.com/backwardsEric/hengband.xtra
+	ignore = dirty
+[submodule "VisualStudio/Hengband/libcurl"]
+	path = VisualStudio/Hengband/libcurl
+	url = https://github.com/hengband/libcurl.git

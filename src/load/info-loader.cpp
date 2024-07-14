@@ -3,8 +3,11 @@
 #include "load/angband-version-comparer.h"
 #include "load/load-util.h"
 #include "load/option-loader.h"
+#include "locale/character-encoding.h"
+#include "system/angband-system.h"
 #include "system/angband-version.h"
 #include "system/angband.h"
+#include "util/enum-converter.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 
@@ -19,50 +22,54 @@ void rd_version_info(void)
     auto tmp_major = rd_byte();
     auto is_old_ver = (10 <= tmp_major) && (tmp_major <= 13);
     constexpr auto variant_length = VARIANT_NAME.length();
+    auto &system = AngbandSystem::get_instance();
     if (tmp_major == variant_length) {
         strip_bytes(variant_length);
         load_xor_byte = 0;
-        w_ptr->h_ver_major = rd_byte();
-        w_ptr->h_ver_minor = rd_byte();
-        w_ptr->h_ver_patch = rd_byte();
-        w_ptr->h_ver_extra = rd_byte();
+        const auto major = rd_byte();
+        const auto minor = rd_byte();
+        const auto patch = rd_byte();
+        const auto extra = rd_byte();
+        system.set_version({ major, minor, patch, extra });
         strip_bytes(1);
     } else if (is_old_ver) {
         strip_bytes(3);
     } else {
-        throw("Invalid version is detected!");
+        THROW_EXCEPTION(std::runtime_error, _("異常なバージョンが検出されました！", "Invalid version is detected!"));
     }
 
-    load_xor_byte = w_ptr->sf_extra;
+    load_xor_byte = system.savefile_key;
     v_check = 0L;
     x_check = 0L;
 
     if (is_old_ver) {
         /* Old savefile will be version 0.0.0.3 */
-        w_ptr->h_ver_extra = rd_byte();
-        w_ptr->h_ver_patch = rd_byte();
-        w_ptr->h_ver_minor = rd_byte();
-        w_ptr->h_ver_major = rd_byte();
+        const auto major = rd_byte();
+        const auto minor = rd_byte();
+        const auto patch = rd_byte();
+        const auto extra = rd_byte();
+        system.set_version({ major, minor, patch, extra });
     }
 
-    w_ptr->sf_system = rd_u32b();
-    w_ptr->sf_when = rd_u32b();
-    w_ptr->sf_lives = rd_u16b();
-    w_ptr->sf_saves = rd_u16b();
+    auto &world = AngbandWorld::get_instance();
+    world.sf_system = rd_u32b();
+    world.sf_when = rd_u32b();
+    world.sf_lives = rd_u16b();
+    world.sf_saves = rd_u16b();
 
     loading_savefile_version = rd_u32b();
 
     /* h_ver_majorがfake_ver_majorと同じだったころへの対策 */
     if (loading_savefile_version_is_older_than(10)) {
         constexpr auto fake_ver_plus = 10;
-        if (tmp_major - w_ptr->h_ver_major < fake_ver_plus) {
-            w_ptr->h_ver_major -= fake_ver_plus;
+        auto &version = system.get_version();
+        if (tmp_major - version.major < fake_ver_plus) {
+            version.major -= fake_ver_plus;
         }
     }
 
-    load_note(format(_("バージョン %d.%d.%d のセーブデータ(SAVE%u形式)をロード中...", "Loading a version %d.%d.%d savefile (SAVE%u format)..."),
-        w_ptr->h_ver_major, w_ptr->h_ver_minor, w_ptr->h_ver_patch,
-        loading_savefile_version));
+    constexpr auto fmt = _("バージョン %s のセーブデータ(SAVE%u形式)をロード中...", "Loading a version %s savefile (SAVE%u format)...");
+    load_note(format(fmt, system.build_version_expression(VersionExpression::WITHOUT_EXTRA).data(), loading_savefile_version));
 }
 
 /*!
@@ -71,13 +78,14 @@ void rd_version_info(void)
 void rd_randomizer(void)
 {
     strip_bytes(4);
-
-    Xoshiro128StarStar::state_type state;
+    Xoshiro128StarStar::state_type state{};
     for (auto &s : state) {
         s = rd_u32b();
     }
-    w_ptr->rng.set_state(state);
 
+    Xoshiro128StarStar game_rng;
+    game_rng.set_state(state);
+    AngbandSystem::get_instance().set_rng(game_rng);
     strip_bytes(4 * (RAND_DEG - state.size()));
 }
 
@@ -86,30 +94,20 @@ void rd_randomizer(void)
  */
 void rd_messages(void)
 {
-    if (h_older_than(2, 2, 0, 75)) {
-        auto num = rd_u16b();
-        int message_max;
-        message_max = (int)num;
-
-        for (int i = 0; i < message_max; i++) {
-            char buf[128];
-            rd_string(buf, sizeof(buf));
-            message_add(buf);
-        }
+    if (!loading_savefile_version_is_older_than(22)) {
+        rd_message_history();
+        return;
     }
 
-    auto num = rd_u32b();
-    int message_max = (int)num;
+    const auto message_max = static_cast<int>(h_older_than(2, 2, 0, 75) ? rd_u16b() : rd_u32b());
     for (int i = 0; i < message_max; i++) {
-        char buf[128];
-        rd_string(buf, sizeof(buf));
-        message_add(buf);
+        message_add(rd_string());
     }
 }
 
 void rd_system_info(void)
 {
-    kanji_code = rd_byte();
+    loading_character_encoding = i2enum<CharacterEncoding>(rd_byte());
     rd_randomizer();
     load_note(_("乱数情報をロードしました", "Loaded Randomizer Info"));
     rd_options();

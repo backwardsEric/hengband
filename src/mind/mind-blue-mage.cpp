@@ -20,7 +20,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
@@ -41,7 +40,7 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
     }
 
     const auto &spell = monster_powers.at(*selected_spell);
-    const auto need_mana = mod_need_mana(player_ptr, spell.smana, 0, REALM_NONE);
+    const auto need_mana = mod_need_mana(player_ptr, spell.smana, 0, RealmType::NONE);
     if (need_mana > player_ptr->csp) {
         msg_print(_("ＭＰが足りません。", "You do not have enough mana to use this power."));
         if (!over_exert) {
@@ -55,7 +54,7 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
 
     const auto chance = calculate_blue_magic_failure_probability(player_ptr, spell, need_mana);
 
-    if (randint0(100) < chance) {
+    if (evaluate_percent(chance)) {
         if (flush_failure) {
             flush();
         }
@@ -79,10 +78,10 @@ bool do_cmd_cast_learned(PlayerType *player_ptr)
         player_ptr->csp = 0;
         player_ptr->csp_frac = 0;
         msg_print(_("精神を集中しすぎて気を失ってしまった！", "You faint from the effort!"));
-        (void)BadStatusSetter(player_ptr).mod_paralysis(randint1(5 * oops + 1));
+        (void)BadStatusSetter(player_ptr).mod_paralysis(randnum1<short>(5 * oops + 1));
         chg_virtue(player_ptr, Virtue::KNOWLEDGE, -10);
-        if (randint0(100) < 50) {
-            bool perm = (randint0(100) < 25);
+        if (one_in_(2)) {
+            const auto perm = one_in_(4);
             msg_print(_("体を悪くしてしまった！", "You have damaged your health!"));
             (void)dec_stat(player_ptr, A_CON, 15 + randint1(10), perm);
         }

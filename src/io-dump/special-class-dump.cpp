@@ -10,7 +10,6 @@
 #include "mind/mind-blue-mage.h"
 #include "monster-race/race-ability-flags.h"
 #include "mspell/monster-power-table.h"
-#include "object/object-kind-hook.h"
 #include "player-base/player-class.h"
 #include "player-info/bluemage-data-type.h"
 #include "player-info/magic-eater-data-type.h"
@@ -19,7 +18,6 @@
 #include "system/player-type-definition.h"
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
-
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -42,7 +40,7 @@ static void dump_magic_eater(PlayerType *player_ptr, FILE *fff)
     }
 
     fprintf(fff, _("\n\n  [取り込んだ魔法道具]\n", "\n\n  [Magic devices eaten]\n"));
-
+    const auto &baseitems = BaseitemList::get_instance();
     for (auto tval : { ItemKindType::STAFF, ItemKindType::WAND, ItemKindType::ROD }) {
         switch (tval) {
         case ItemKindType::STAFF:
@@ -66,13 +64,8 @@ static void dump_magic_eater(PlayerType *player_ptr, FILE *fff)
                 continue;
             }
 
-            auto bi_id = lookup_baseitem_id({ tval, i });
-            if (!bi_id) {
-                continue;
-            }
-
-            char buf[128];
-            snprintf(buf, sizeof(buf), "%23s (%2d)", baseitems_info[bi_id].name.data(), item.count);
+            const auto &baseitem = baseitems.lookup_baseitem({ tval, i });
+            const auto buf = format("%23s (%2d)", baseitem.name.data(), item.count);
             desc_list.emplace_back(buf);
         }
 
@@ -107,7 +100,7 @@ static void dump_smith(PlayerType *player_ptr, FILE *fff)
     fprintf(fff, _("\n\n  [手に入れたエッセンス]\n\n", "\n\n  [Get Essence]\n\n"));
     fprintf(fff, _("エッセンス   個数     エッセンス   個数     エッセンス   個数", "Essence      Num      Essence      Num      Essence      Num "));
 
-    auto essences = Smith::get_essence_list();
+    const auto &essences = Smith::get_essence_list();
     auto n = essences.size();
     std::vector<int> amounts;
     std::transform(essences.begin(), essences.end(), std::back_inserter(amounts),
@@ -174,12 +167,8 @@ static void dump_blue_mage(PlayerType *player_ptr, FILE *fff)
         return;
     }
 
-    char p[60][80];
-    for (int i = 0; i < 60; i++) {
-        p[i][0] = '\0';
-    }
-
-    int col = 0;
+    char p[60][80]{};
+    auto col = 0;
     strcat(p[col], _("\n\n  [学習済みの青魔法]\n", "\n\n  [Learned Blue Magic]\n"));
 
     for (auto SpellProcessType : BLUE_MAGIC_TYPE_LIST) {
@@ -192,13 +181,13 @@ static void dump_blue_mage(PlayerType *player_ptr, FILE *fff)
         EnumClassFlagGroup<MonsterAbilityType>::get_flags(learnt_magic.ability_flags, std::back_inserter(learnt_spells));
 
         col++;
-        bool pcol = false;
+        auto pcol = false;
         strcat(p[col], "       ");
 
         for (auto spell : learnt_spells) {
             pcol = true;
-            int l1 = strlen(p[col]);
-            int l2 = strlen(monster_powers_short.at(spell));
+            auto l1 = strlen(p[col]);
+            auto l2 = strlen(monster_powers_short.at(spell));
             if ((l1 + l2) >= 75) {
                 strcat(p[col], "\n");
                 col++;

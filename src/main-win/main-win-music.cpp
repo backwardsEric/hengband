@@ -14,7 +14,6 @@
 #include "main-win/main-win-utils.h"
 #include "main/scene-table.h"
 #include "main/sound-of-music.h"
-#include "monster-race/monster-race.h"
 #include "system/dungeon-info.h"
 #include "system/monster-race-info.h"
 #include "term/z-term.h"
@@ -83,8 +82,8 @@ static concptr dungeon_key_at(int index, char *buf)
  */
 static concptr quest_key_at(int index, char *buf)
 {
-    const auto &quest_list = QuestList::get_instance();
-    if (index > enum2i(quest_list.rbegin()->first)) {
+    const auto &quests = QuestList::get_instance();
+    if (index > enum2i(quests.rbegin()->first)) {
         return nullptr;
     }
 

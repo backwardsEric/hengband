@@ -9,21 +9,22 @@
 #include "inventory/inventory-util.h"
 #include "locale/japanese.h"
 #include "main/sound-of-music.h"
+#include "mind/mind-elementalist.h"
 #include "mind/mind-explanations-table.h"
 #include "mind/mind-info.h"
 #include "mind/mind-sniper.h"
 #include "mind/mind-types.h"
-#include "monster-race/monster-race.h"
+#include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "object/item-tester-hooker.h"
 #include "object/object-info.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
+#include "player/player-realm.h"
 #include "player/player-status-flags.h"
 #include "player/player-status-table.h"
 #include "player/player-status.h"
-#include "realm/realm-names-table.h"
 #include "spell/spells-execution.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -34,10 +35,11 @@
 #include "target/target-preparation.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/lore-tracker.h"
+#include "util/buffer-shaper.h"
 #include "util/int-char-converter.h"
+#include "util/object-sort.h"
 #include "view/display-lore.h"
 #include "view/display-map.h"
 #include "view/display-messages.h"
@@ -51,7 +53,6 @@
 #include <mutex>
 #include <sstream>
 #include <string>
-#include <util/object-sort.h>
 
 /*! サブウィンドウ表示用の ItemTester オブジェクト */
 static std::unique_ptr<ItemTester> fix_item_tester = std::make_unique<AllMatchItemTester>();
@@ -127,34 +128,33 @@ void fix_inventory(PlayerType *player_ptr)
  */
 static void print_monster_line(TERM_LEN x, TERM_LEN y, MonsterEntity *m_ptr, int n_same, int n_awake)
 {
-    std::string buf;
-    MonsterRaceId r_idx = m_ptr->ap_r_idx;
-    auto *r_ptr = &monraces_info[r_idx];
-
     term_erase(0, y);
     term_gotoxy(x, y);
-    if (!r_ptr) {
+    const auto monrace_id = m_ptr->ap_r_idx;
+    if (monrace_id == MonsterRaceId::PLAYER) {
         return;
     }
-    if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-        buf = format(_("%3s(覚%2d)", "%3s(%2d)"), MonsterRace(r_idx).is_bounty(true) ? "  W" : "  U", n_awake);
+
+    std::string buf;
+    const auto &monrace = monraces_info[monrace_id];
+    if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
+        buf = format(_("%3s(覚%2d)", "%3s(%2d)"), monrace.is_bounty(true) ? "  W" : "  U", n_awake);
     } else {
         buf = format(_("%3d(覚%2d)", "%3d(%2d)"), n_same, n_awake);
     }
+
     term_addstr(-1, TERM_WHITE, buf);
-
     term_addstr(-1, TERM_WHITE, " ");
-    term_add_bigch(r_ptr->x_attr, r_ptr->x_char);
+    term_add_bigch(monrace.symbol_config);
 
-    if (r_ptr->r_tkills && m_ptr->mflag2.has_not(MonsterConstantFlagType::KAGE)) {
-        buf = format(" %2d", (int)r_ptr->level);
+    if (monrace.r_tkills && m_ptr->mflag2.has_not(MonsterConstantFlagType::KAGE)) {
+        buf = format(" %2d", monrace.level);
     } else {
         buf = " ??";
     }
 
     term_addstr(-1, TERM_WHITE, buf);
-
-    term_addstr(-1, TERM_WHITE, format(" %s ", r_ptr->name.data()));
+    term_addstr(-1, TERM_WHITE, format(" %s ", monrace.name.data()));
 }
 
 /*!
@@ -182,7 +182,7 @@ void print_monster_list(FloorType *floor_ptr, const std::vector<MONSTER_IDX> &mo
         if (m_ptr->is_pet()) {
             continue;
         } // pet
-        if (!MonsterRace(m_ptr->r_idx).is_valid()) {
+        if (!m_ptr->is_valid()) {
             continue;
         } // dead?
 
@@ -222,7 +222,7 @@ static void print_pet_list_oneline(PlayerType *player_ptr, const MonsterEntity &
     const auto &monrace = monster.get_appearance_monrace();
     const auto name = monster_desc(player_ptr, &monster, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE | MD_NO_OWNER);
     const auto &[bar_color, bar_len] = monster.get_hp_bar_data();
-    const auto is_visible = monster.ml && !player_ptr->effects()->hallucination()->is_hallucinated();
+    const auto is_visible = monster.ml && !player_ptr->effects()->hallucination().is_hallucinated();
 
     term_erase(0, y);
     if (is_visible) {
@@ -231,7 +231,7 @@ static void print_pet_list_oneline(PlayerType *player_ptr, const MonsterEntity &
     }
 
     term_gotoxy(x + 13, y);
-    term_add_bigch(monrace.x_attr, monrace.x_char);
+    term_add_bigch(monrace.symbol_config);
     term_addstr(-1, TERM_WHITE, " ");
     term_addstr(-1, TERM_WHITE, name);
 
@@ -344,9 +344,7 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
         }
 
         if (show_item_graph) {
-            const auto a = o_ptr->get_color();
-            const auto c = o_ptr->get_symbol();
-            term_queue_bigchar(cur_col, cur_row, a, c, 0, 0);
+            term_queue_bigchar(cur_col, cur_row, { o_ptr->get_symbol(), {} });
             if (use_bigtile) {
                 cur_col++;
             }
@@ -392,7 +390,7 @@ void fix_equip(PlayerType *player_ptr)
  */
 void fix_player(PlayerType *player_ptr)
 {
-    w_ptr->update_playtime();
+    AngbandWorld::get_instance().update_playtime();
     display_sub_windows(SubWindowRedrawingFlag::PLAYER,
         [player_ptr] {
             display_player(player_ptr, 0);
@@ -409,11 +407,28 @@ void fix_message(void)
     display_sub_windows(SubWindowRedrawingFlag::MESSAGE,
         [] {
             const auto &[wid, hgt] = term_get_size();
-            for (short i = 0; i < hgt; i++) {
-                term_putstr(0, (hgt - 1) - i, -1, (byte)((i < now_message) ? TERM_WHITE : TERM_SLATE), *message_str(i));
-                TERM_LEN x, y;
-                term_locate(&x, &y);
-                term_erase(x, y);
+
+            for (auto y = 0; y < hgt; ++y) {
+                term_erase(0, y);
+            }
+
+            auto displayed_lines = 0;
+            for (auto i = 0; i < message_num() && displayed_lines < hgt; ++i) {
+                const auto color = (i < now_message) ? TERM_WHITE : TERM_SLATE;
+
+                const auto msg = message_str(i);
+                auto lines = shape_buffer(*msg, wid);
+                std::reverse(lines.begin(), lines.end());
+
+                for (const auto &line : lines) {
+                    const auto y = hgt - 1 - displayed_lines;
+                    if (y < 0) {
+                        break;
+                    }
+
+                    term_putstr(0, y, -1, color, line);
+                    displayed_lines++;
+                }
             }
         });
 }
@@ -444,34 +459,21 @@ void fix_overhead(PlayerType *player_ptr)
  */
 static void display_dungeon(PlayerType *player_ptr)
 {
-    TERM_COLOR ta = 0;
-    auto tc = '\0';
-
-    for (TERM_LEN x = player_ptr->x - game_term->wid / 2 + 1; x <= player_ptr->x + game_term->wid / 2; x++) {
-        for (TERM_LEN y = player_ptr->y - game_term->hgt / 2 + 1; y <= player_ptr->y + game_term->hgt / 2; y++) {
-            TERM_COLOR a;
-            char c;
+    for (auto x = player_ptr->x - game_term->wid / 2 + 1; x <= player_ptr->x + game_term->wid / 2; x++) {
+        for (auto y = player_ptr->y - game_term->hgt / 2 + 1; y <= player_ptr->y + game_term->hgt / 2; y++) {
+            const auto pos_y = y - player_ptr->y + game_term->hgt / 2 - 1;
+            const auto pos_x = x - player_ptr->x + game_term->wid / 2 - 1;
             if (!in_bounds2(player_ptr->current_floor_ptr, y, x)) {
-                const auto &terrain = TerrainList::get_instance()[feat_none];
-                a = terrain.x_attr[F_LIT_STANDARD];
-                c = terrain.x_char[F_LIT_STANDARD];
-                term_queue_char(x - player_ptr->x + game_term->wid / 2 - 1, y - player_ptr->y + game_term->hgt / 2 - 1, a, c, ta, tc);
+                const auto &terrain = TerrainList::get_instance().get_terrain(feat_none);
+                const auto &symbol_foreground = terrain.symbol_configs.at(F_LIT_STANDARD);
+                term_queue_char(pos_x, pos_y, { symbol_foreground, {} });
                 continue;
             }
 
-            map_info(player_ptr, y, x, &a, &c, &ta, &tc);
+            auto symbol_pair = map_info(player_ptr, { y, x });
+            symbol_pair.symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_pair.symbol_foreground.color);
 
-            if (!use_graphics) {
-                if (w_ptr->timewalk_m_idx) {
-                    a = TERM_DARK;
-                } else if (is_invuln(player_ptr) || player_ptr->timewalk) {
-                    a = TERM_WHITE;
-                } else if (player_ptr->wraith_form) {
-                    a = TERM_L_DARK;
-                }
-            }
-
-            term_queue_char(x - player_ptr->x + game_term->wid / 2 - 1, y - player_ptr->y + game_term->hgt / 2 - 1, a, c, ta, tc);
+            term_queue_char(pos_x, pos_y, symbol_pair);
         }
     }
 }
@@ -489,15 +491,15 @@ void fix_dungeon(PlayerType *player_ptr)
 }
 
 /*!
- * @brief モンスターの思い出をサブウィンドウに表示する /
- * Hack -- display dungeon view in sub-windows
+ * @brief モンスターの思い出をサブウィンドウに表示する
  * @param player_ptr プレイヤーへの参照ポインタ
  */
 void fix_monster(PlayerType *player_ptr)
 {
-    if (!MonsterRace(player_ptr->monster_race_idx).is_valid()) {
+    if (!LoreTracker::get_instance().is_tracking()) {
         return;
     }
+
     display_sub_windows(SubWindowRedrawingFlag::MONSTER_LORE,
         [player_ptr] {
             display_roff(player_ptr);
@@ -527,7 +529,7 @@ void fix_object(PlayerType *player_ptr)
  */
 static const MonsterEntity *monster_on_floor_items(FloorType *floor_ptr, const Grid *g_ptr)
 {
-    if (g_ptr->m_idx == 0) {
+    if (!g_ptr->has_monster()) {
         return nullptr;
     }
 
@@ -560,7 +562,7 @@ static void display_floor_item_list(PlayerType *player_ptr, const Pos2D &pos)
     std::string line;
 
     // 先頭行を書く。
-    auto is_hallucinated = player_ptr->effects()->hallucination()->is_hallucinated();
+    const auto is_hallucinated = player_ptr->effects()->hallucination().is_hallucinated();
     if (player_ptr->is_located_at(pos)) {
         line = format(_("(X:%03d Y:%03d) あなたの足元のアイテム一覧", "Items at (%03d,%03d) under you"), pos.x, pos.y);
     } else if (const auto *m_ptr = monster_on_floor_items(&floor, &grid); m_ptr != nullptr) {
@@ -678,10 +680,9 @@ static void display_found_item_list(PlayerType *player_ptr)
         term_gotoxy(0, term_y);
 
         // アイテムシンボル表示
-        const auto symbol_code = item->get_symbol();
-        const auto symbol = format(" %c ", symbol_code);
-        const auto color_code_for_symbol = item->get_color();
-        term_addstr(-1, color_code_for_symbol, symbol);
+        const auto symbol = item->get_symbol();
+        const auto symbol_str = format(" %c ", symbol.character);
+        term_addstr(-1, symbol.color, symbol_str);
 
         const auto item_name = describe_flavor(player_ptr, item, 0);
         const auto color_code_for_item = tval_to_attr[enum2i(item->bi_key.tval()) % 128];
@@ -717,8 +718,6 @@ static void display_spell_list(PlayerType *player_ptr)
 {
     TERM_LEN y, x;
     int m[9]{};
-    const magic_type *s_ptr;
-    GAME_TEXT name[MAX_NLEN];
 
     clear_from(0);
 
@@ -732,11 +731,15 @@ static void display_spell_list(PlayerType *player_ptr)
         return;
     }
 
+    if (pc.equals(PlayerClassType::ELEMENTALIST)) {
+        display_element_spell_list(player_ptr);
+        return;
+    }
+
     if (pc.has_listed_magics()) {
         PERCENTAGE minfail = 0;
         PLAYER_LEVEL plev = player_ptr->lev;
         PERCENTAGE chance = 0;
-        mind_type spell;
         MindKindType use_mind;
         bool use_hp = false;
 
@@ -765,17 +768,15 @@ static void display_spell_list(PlayerType *player_ptr)
             use_mind = MindKindType::NINJUTSU;
             use_hp = true;
             break;
-        case PlayerClassType::ELEMENTALIST:
-            use_mind = MindKindType::ELEMENTAL;
-            break;
         default:
             use_mind = MindKindType::MINDCRAFTER;
             break;
         }
 
-        for (int i = 0; i < MAX_MIND_POWERS; i++) {
+        const auto &mind_power = mind_powers[enum2i(use_mind)];
+        for (int i = 0; i < std::ssize(mind_power.info); i++) {
             byte a = TERM_WHITE;
-            spell = mind_powers[static_cast<int>(use_mind)].info[i];
+            const auto &spell = mind_power.info[i];
             if (spell.min_lev > plev) {
                 break;
             }
@@ -800,8 +801,7 @@ static void display_spell_list(PlayerType *player_ptr)
                 chance = minfail;
             }
 
-            auto player_stun = player_ptr->effects()->stun();
-            chance += player_stun->get_magic_chance_penalty();
+            chance += player_ptr->effects()->stun().get_magic_chance_penalty();
             if (chance > 95) {
                 chance = 95;
             }
@@ -814,11 +814,12 @@ static void display_spell_list(PlayerType *player_ptr)
         return;
     }
 
-    if (REALM_NONE == player_ptr->realm1) {
+    PlayerRealm pr(player_ptr);
+    if (!pr.realm1().is_available()) {
         return;
     }
 
-    for (int j = 0; j < ((player_ptr->realm2 > REALM_NONE) ? 2 : 1); j++) {
+    for (int j = 0; j < (pr.realm2().is_available() ? 2 : 1); j++) {
         m[j] = 0;
         y = (j < 3) ? 0 : (m[j - 3] + 2);
         x = 27 * (j % 3);
@@ -826,18 +827,13 @@ static void display_spell_list(PlayerType *player_ptr)
         for (int i = 0; i < 32; i++) {
             byte a = TERM_WHITE;
 
-            if (!is_magic((j < 1) ? player_ptr->realm1 : player_ptr->realm2)) {
-                s_ptr = &technic_info[((j < 1) ? player_ptr->realm1 : player_ptr->realm2) - MIN_TECHNIC][i % 32];
-            } else {
-                s_ptr = &mp_ptr->info[((j < 1) ? player_ptr->realm1 : player_ptr->realm2) - 1][i % 32];
-            }
+            const auto &realm = (j < 1) ? pr.realm1() : pr.realm2();
+            const auto &spell = realm.get_spell_info(i);
+            const auto &spell_name = realm.get_spell_name(i % 32);
+            auto name = spell_name.data();
 
-            const auto realm = (j < 1) ? player_ptr->realm1 : player_ptr->realm2;
-            const auto spell_name = exe_spell(player_ptr, realm, i % 32, SpellProcessType::NAME);
-            strcpy(name, spell_name->data());
-
-            if (s_ptr->slevel >= 99) {
-                strcpy(name, _("(判読不能)", "(illegible)"));
+            if (spell.slevel >= 99) {
+                name = _("(判読不能)", "(illegible)");
                 a = TERM_L_DARK;
             } else if ((j < 1) ? ((player_ptr->spell_forgotten1 & (1UL << i))) : ((player_ptr->spell_forgotten2 & (1UL << (i % 32))))) {
                 a = TERM_ORANGE;

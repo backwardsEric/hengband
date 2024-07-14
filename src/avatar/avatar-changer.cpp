@@ -7,11 +7,7 @@
 #include "avatar/avatar-changer.h"
 #include "avatar/avatar.h"
 #include "monster-race/monster-kind-mask.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "system/dungeon-info.h"
@@ -48,7 +44,7 @@ void AvatarChanger::change_virtue()
     }
 
     this->change_virtue_revenge();
-    if (any_bits(r_ref.flags2, RF2_MULTIPLY) && (r_ref.r_akills > 1000) && one_in_(10)) {
+    if (r_ref.misc_flags.has(MonsterMiscType::MULTIPLY) && (r_ref.r_akills > 1000) && one_in_(10)) {
         chg_virtue(this->player_ptr, Virtue::VALOUR, -1);
     }
 
@@ -61,25 +57,25 @@ void AvatarChanger::change_virtue()
  */
 void AvatarChanger::change_virtue_non_beginner()
 {
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    auto *r_ptr = &m_ptr->get_monrace();
-    if (floor_ptr->get_dungeon_definition().flags.has(DungeonFeatureType::BEGINNER)) {
+    const auto &floor = *this->player_ptr->current_floor_ptr;
+    const auto &monrace = this->m_ptr->get_monrace();
+    if (floor.get_dungeon_definition().flags.has(DungeonFeatureType::BEGINNER)) {
         return;
     }
 
-    if ((floor_ptr->dun_level == 0) && !this->player_ptr->ambush_flag && !floor_ptr->inside_arena) {
+    if (!floor.is_in_underground() && !this->player_ptr->ambush_flag && !floor.inside_arena) {
         chg_virtue(this->player_ptr, Virtue::VALOUR, -1);
-    } else if (r_ptr->level > floor_ptr->dun_level) {
-        if (randint1(10) <= (r_ptr->level - floor_ptr->dun_level)) {
+    } else if (monrace.level > floor.dun_level) {
+        if (randint1(10) <= (monrace.level - floor.dun_level)) {
             chg_virtue(this->player_ptr, Virtue::VALOUR, 1);
         }
     }
 
-    if (r_ptr->level > 60) {
+    if (monrace.level > 60) {
         chg_virtue(this->player_ptr, Virtue::VALOUR, 1);
     }
 
-    if (r_ptr->level >= 2 * (this->player_ptr->lev + 1)) {
+    if (monrace.level >= 2 * (this->player_ptr->lev + 1)) {
         chg_virtue(this->player_ptr, Virtue::VALOUR, 2);
     }
 }
@@ -171,7 +167,7 @@ void AvatarChanger::change_virtue_wild_thief()
     auto innocent = true;
     auto thief = false;
     for (const auto &blow : r_ptr->blows) {
-        if (blow.d_dice != 0) {
+        if (blow.damage_dice.num != 0) {
             innocent = false;
         }
 

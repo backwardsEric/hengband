@@ -5,10 +5,8 @@
 #include "game-option/cheat-options.h"
 #include "info-reader/fixed-map-parser.h"
 #include "inventory/inventory-slot-types.h"
+#include "market/arena-entry.h"
 #include "market/arena.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags7.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
@@ -19,6 +17,7 @@
 #include "system/baseitem-info.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
@@ -27,19 +26,6 @@
 #include "world/world.h"
 #include <algorithm>
 #include <string>
-
-/*!
- * @brief ベースアイテム構造体の鑑定済みフラグをリセットする。
- * @details
- * 不具合対策で0からリセットする(セーブは0から)
- */
-static void reset_baseitem_idenditication_flags()
-{
-    for (auto &baseitem : baseitems_info) {
-        baseitem.tried = false;
-        baseitem.aware = false;
-    }
-}
 
 /*!
  * @brief プレイヤー構造体の内容を初期値で消去する(名前を除く) / Clear all the global "character" data (without name)
@@ -56,17 +42,17 @@ void player_wipe_without_name(PlayerType *player_ptr)
     //! @todo std::make_shared の配列対応版は C++20 から
     player_ptr->inventory_list = std::shared_ptr<ItemEntity[]>{ new ItemEntity[INVEN_TOTAL] };
     for (int i = 0; i < 4; i++) {
-        strcpy(player_ptr->history[i], "");
+        player_ptr->history[i][0] = '\0';
     }
 
-    auto &quest_list = QuestList::get_instance();
-    for (auto &[q_idx, quest] : quest_list) {
+    auto &quests = QuestList::get_instance();
+    for (auto &[quest_id, quest] : quests) {
         quest.status = QuestStatusType::UNTAKEN;
         quest.cur_num = 0;
         quest.max_num = 0;
         quest.type = QuestKindType::NONE;
         quest.level = 0;
-        quest.r_idx = MonsterRace::empty_id();
+        quest.r_idx = MonraceList::empty_id();
         quest.complev = 0;
         quest.comptime = 0;
     }
@@ -77,25 +63,22 @@ void player_wipe_without_name(PlayerType *player_ptr)
         (&player_ptr->inventory_list[i])->wipe();
     }
 
-    for (auto &[a_idx, artifact] : artifacts_info) {
-        artifact.is_generated = false;
-    }
-
-    reset_baseitem_idenditication_flags();
-    for (auto &[r_idx, r_ref] : monraces_info) {
-        if (!MonsterRace(r_ref.idx).is_valid()) {
+    ArtifactList::get_instance().reset_generated_flags();
+    BaseitemList::get_instance().reset_identification_flags();
+    for (auto &[_, monrace] : monraces_info) {
+        if (!monrace.is_valid()) {
             continue;
         }
-        r_ref.cur_num = 0;
-        r_ref.max_num = MAX_MONSTER_NUM;
-        if (r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
-            r_ref.max_num = MAX_UNIQUE_NUM;
-        } else if (r_ref.population_flags.has(MonsterPopulationType::NAZGUL)) {
-            r_ref.max_num = MAX_NAZGUL_NUM;
+        monrace.cur_num = 0;
+        monrace.max_num = MAX_MONSTER_NUM;
+        if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
+            monrace.max_num = MAX_UNIQUE_NUM;
+        } else if (monrace.population_flags.has(MonsterPopulationType::NAZGUL)) {
+            monrace.max_num = MAX_NAZGUL_NUM;
         }
 
-        r_ref.r_pkills = 0;
-        r_ref.r_akills = 0;
+        monrace.r_pkills = 0;
+        monrace.r_akills = 0;
     }
 
     player_ptr->food = PY_FOOD_FULL - 1;
@@ -128,12 +111,13 @@ void player_wipe_without_name(PlayerType *player_ptr)
     cheat_turn = false;
     cheat_immortal = false;
 
-    w_ptr->total_winner = false;
+    auto &world = AngbandWorld::get_instance();
+    world.total_winner = false;
     player_ptr->timewalk = false;
     player_ptr->panic_save = 0;
 
-    w_ptr->noscore = 0;
-    w_ptr->wizard = false;
+    world.noscore = 0;
+    world.wizard = false;
     player_ptr->wait_report_score = false;
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
@@ -143,12 +127,12 @@ void player_wipe_without_name(PlayerType *player_ptr)
     }
 
     player_ptr->visit = 1;
-    player_ptr->wild_mode = false;
+    world.set_wild_mode(false);
 
     player_ptr->max_plv = player_ptr->lev = 1;
-    player_ptr->arena_number = 0;
-    w_ptr->set_arena(true);
-    player_ptr->knows_daily_bounty = false;
+    ArenaEntryList::get_instance().reset_entry();
+    world.set_arena(true);
+    world.knows_daily_bounty = false;
     update_gambling_monsters(player_ptr);
     player_ptr->muta.clear();
 
@@ -172,30 +156,29 @@ void player_wipe_without_name(PlayerType *player_ptr)
 void init_dungeon_quests(PlayerType *player_ptr)
 {
     init_flags = INIT_ASSIGN;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    auto &quest_list = QuestList::get_instance();
-    floor_ptr->quest_number = QuestId::RANDOM_QUEST1;
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto &quests = QuestList::get_instance();
+    floor.quest_number = QuestId::RANDOM_QUEST1;
     parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
-    floor_ptr->quest_number = QuestId::NONE;
-    for (auto q_idx : EnumRange(QuestId::RANDOM_QUEST1, QuestId::RANDOM_QUEST10)) {
-        auto *q_ptr = &quest_list[q_idx];
-        MonsterRaceInfo *quest_r_ptr;
-        q_ptr->status = QuestStatusType::TAKEN;
-        determine_random_questor(player_ptr, q_ptr);
-        quest_r_ptr = &monraces_info[q_ptr->r_idx];
-        quest_r_ptr->flags1 |= RF1_QUESTOR;
-        q_ptr->max_num = 1;
+    floor.quest_number = QuestId::NONE;
+    for (auto quest_id : RANDOM_QUEST_ID_RANGE) {
+        auto &quest = quests.get_quest(quest_id);
+        quest.status = QuestStatusType::TAKEN;
+        determine_random_questor(player_ptr, quest);
+        auto &monrace = quest.get_bounty();
+        monrace.misc_flags.set(MonsterMiscType::QUESTOR);
+        quest.max_num = 1;
     }
 
     init_flags = INIT_ASSIGN;
-    floor_ptr->quest_number = QuestId::OBERON;
+    floor.quest_number = QuestId::OBERON;
     parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
-    quest_list[QuestId::OBERON].status = QuestStatusType::TAKEN;
+    quests.get_quest(QuestId::OBERON).status = QuestStatusType::TAKEN;
 
-    floor_ptr->quest_number = QuestId::SERPENT;
+    floor.quest_number = QuestId::SERPENT;
     parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
-    quest_list[QuestId::SERPENT].status = QuestStatusType::TAKEN;
-    floor_ptr->quest_number = QuestId::NONE;
+    quests.get_quest(QuestId::SERPENT).status = QuestStatusType::TAKEN;
+    floor.quest_number = QuestId::NONE;
 }
 
 /*!
@@ -206,14 +189,14 @@ void init_dungeon_quests(PlayerType *player_ptr)
  */
 void init_turn(PlayerType *player_ptr)
 {
+    auto &world = AngbandWorld::get_instance();
     if (PlayerRace(player_ptr).life() == PlayerRaceLifeType::UNDEAD) {
-        w_ptr->game_turn = (TURNS_PER_TICK * 3 * TOWN_DAWN) / 4 + 1;
-        w_ptr->game_turn_limit = TURNS_PER_TICK * TOWN_DAWN * MAX_DAYS + TURNS_PER_TICK * TOWN_DAWN * 3 / 4;
+        world.game_turn = (TURNS_PER_TICK * 3 * TOWN_DAWN) / 4 + 1;
     } else {
-        w_ptr->game_turn = 1;
-        w_ptr->game_turn_limit = TURNS_PER_TICK * TOWN_DAWN * (MAX_DAYS - 1) + TURNS_PER_TICK * TOWN_DAWN * 3 / 4;
+        world.game_turn = 1;
     }
 
-    w_ptr->dungeon_turn = 1;
-    w_ptr->dungeon_turn_limit = TURNS_PER_TICK * TOWN_DAWN * (MAX_DAYS - 1) + TURNS_PER_TICK * TOWN_DAWN * 3 / 4;
+    InnerGameData::get_instance().init_turn_limit();
+    world.dungeon_turn = 1;
+    world.dungeon_turn_limit = TURNS_PER_TICK * TOWN_DAWN * (MAX_DAYS - 1) + TURNS_PER_TICK * TOWN_DAWN * 3 / 4;
 }

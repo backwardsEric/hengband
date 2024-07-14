@@ -1,7 +1,6 @@
 #include "io-dump/character-dump.h"
 #include "artifact/fixed-art-types.h"
 #include "avatar/avatar.h"
-#include "cmd-building/cmd-building.h"
 #include "dungeon/quest.h"
 #include "flavor/flavor-describer.h"
 #include "floor/floor-town.h"
@@ -14,9 +13,7 @@
 #include "io/write-diary.h"
 #include "knowledge/knowledge-quests.h"
 #include "main/angband-headers.h"
-#include "market/arena-info-table.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
+#include "market/arena-entry.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-info.h"
@@ -25,25 +22,26 @@
 #include "object/object-info.h"
 #include "pet/pet-util.h"
 #include "player-info/alignment.h"
+#include "player/player-realm.h"
 #include "player/player-status-flags.h"
 #include "player/player-status-table.h"
 #include "player/race-info-table.h"
-#include "realm/realm-names-table.h"
 #include "store/store-util.h"
 #include "store/store.h"
-#include "system/angband-version.h"
+#include "system/angband-system.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/z-form.h"
+#include "util/buffer-shaper.h"
 #include "util/enum-converter.h"
 #include "util/int-char-converter.h"
-#include "util/sort.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -117,18 +115,12 @@ static void dump_aux_quest(PlayerType *player_ptr, FILE *fff)
 {
     fprintf(fff, _("\n\n  [クエスト情報]\n", "\n\n  [Quest Information]\n"));
 
-    const auto &quest_list = QuestList::get_instance();
-    std::vector<QuestId> quest_numbers;
-    for (const auto &[q_idx, quest] : quest_list) {
-        quest_numbers.push_back(q_idx);
-    }
-    int dummy;
-    ang_sort(player_ptr, quest_numbers.data(), &dummy, quest_numbers.size(), ang_sort_comp_quest_num, ang_sort_swap_quest_num);
-
+    const auto &quests = QuestList::get_instance();
+    const auto quest_ids = quests.get_sorted_quest_ids();
     fputc('\n', fff);
-    do_cmd_knowledge_quests_completed(player_ptr, fff, quest_numbers);
+    do_cmd_knowledge_quests_completed(player_ptr, fff, quest_ids);
     fputc('\n', fff);
-    do_cmd_knowledge_quests_failed(player_ptr, fff, quest_numbers);
+    do_cmd_knowledge_quests_failed(player_ptr, fff, quest_ids);
     fputc('\n', fff);
 }
 
@@ -143,10 +135,25 @@ static void dump_aux_last_message(PlayerType *player_ptr, FILE *fff)
         return;
     }
 
-    if (!w_ptr->total_winner) {
+    if (!AngbandWorld::get_instance().total_winner) {
         fprintf(fff, _("\n  [死ぬ直前のメッセージ]\n\n", "\n  [Last Messages]\n\n"));
-        for (int i = std::min(message_num(), 30); i >= 0; i--) {
-            fprintf(fff, "> %s\n", message_str(i)->data());
+
+        constexpr auto msg_line_max = 30;
+        constexpr auto msg_width = 80;
+        std::vector<std::string> msg_lines;
+
+        for (auto i = 0; i < message_num() && std::size(msg_lines) < msg_line_max; ++i) {
+            const auto msg = message_str(i);
+            auto lines = shape_buffer(*msg, msg_width);
+
+            msg_lines.insert(msg_lines.end(),
+                std::make_move_iterator(lines.rbegin()), std::make_move_iterator(lines.rend()));
+        }
+
+        std::reverse(msg_lines.begin(), msg_lines.end());
+
+        for (const auto &line : msg_lines) {
+            fprintf(fff, "> %s\n", line.data());
         }
 
         fputc('\n', fff);
@@ -169,24 +176,25 @@ static void dump_aux_last_message(PlayerType *player_ptr, FILE *fff)
 static void dump_aux_recall(FILE *fff)
 {
     fprintf(fff, _("\n  [帰還場所]\n\n", "\n  [Recall Depth]\n\n"));
-    for (const auto &d_ref : dungeons_info) {
-        bool seiha = false;
+    for (const auto &dungeon : dungeons_info) {
+        auto is_conquered = false;
+        if (!dungeon.is_dungeon() || !dungeon.maxdepth) {
+            continue;
+        }
 
-        if (d_ref.idx == 0 || !d_ref.maxdepth) {
+        if (!max_dlv[dungeon.idx]) {
             continue;
         }
-        if (!max_dlv[d_ref.idx]) {
-            continue;
-        }
-        if (MonsterRace(d_ref.final_guardian).is_valid()) {
-            if (!monraces_info[d_ref.final_guardian].max_num) {
-                seiha = true;
+
+        if (dungeon.has_guardian()) {
+            if (dungeon.get_guardian().max_num == 0) {
+                is_conquered = true;
             }
-        } else if (max_dlv[d_ref.idx] == d_ref.maxdepth) {
-            seiha = true;
+        } else if (max_dlv[dungeon.idx] == dungeon.maxdepth) {
+            is_conquered = true;
         }
 
-        fprintf(fff, _("   %c%-12s: %3d 階\n", "   %c%-16s: level %3d\n"), seiha ? '!' : ' ', d_ref.name.data(), (int)max_dlv[d_ref.idx]);
+        fprintf(fff, _("   %c%-12s: %3d 階\n", "   %c%-16s: level %3d\n"), is_conquered ? '!' : ' ', dungeon.name.data(), (int)max_dlv[dungeon.idx]);
     }
 }
 
@@ -245,7 +253,7 @@ static void dump_aux_options(FILE *fff)
 
     fputc('\n', fff);
 
-    if (w_ptr->noscore) {
+    if (AngbandWorld::get_instance().noscore) {
         fprintf(fff, _("\n 何か不正なことをしてしまっています。\n", "\n You have done something illegal.\n"));
     }
 
@@ -256,49 +264,43 @@ static void dump_aux_options(FILE *fff)
  * @brief 闘技場の情報をファイルにダンプする
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param fff ファイルポインタ
+ * @details 旧バージョン (v1.5.0.1より前)では何回戦で敗北したか記録していないので、便宜的に1回戦で敗北したことにする.
  */
-static void dump_aux_arena(PlayerType *player_ptr, FILE *fff)
+static void dump_aux_arena(FILE *fff)
 {
     if (lite_town || vanilla_town) {
         return;
     }
 
-    const auto arena_number = player_ptr->arena_number;
-    if (arena_number < 0) {
-        if (arena_number <= ARENA_DEFEATED_OLD_VER) {
-            fprintf(fff, _("\n 闘技場: 敗北\n", "\n Arena: Defeated\n"));
-        } else {
-            constexpr auto mes = _("\n 闘技場: %d回戦で%sの前に敗北\n", "\n Arena: Defeated by %s in the %d%s fight\n");
-            const auto &arena = arena_info[-1 - arena_number];
-            const auto &arena_monrace = monraces_info[arena.r_idx];
-#ifdef JP
-            fprintf(fff, mes, -arena_number, arena_monrace.name.data());
-#else
-            fprintf(fff, mes, arena_monrace.name.data(), -arena_number, get_ordinal_number_suffix(-arena_number).data());
-#endif
-        }
-
+    const auto &entries = ArenaEntryList::get_instance();
+    if (entries.get_defeated_entry() && !entries.is_player_true_victor()) {
+        constexpr auto fmt = _("\n 闘技場: %sで%sの前に敗北\n", "\n Arena: Defeated by %s in %s\n");
+        const auto &monrace = entries.get_monrace();
+        const auto fight_number = entries.get_fight_number(false);
+        fprintf(fff, fmt, _(fight_number.data(), monrace.name.data()), _(monrace.name.data(), fight_number.data()));
         fprintf(fff, "\n");
         return;
     }
 
-    if (arena_number > MAX_ARENA_MONS + 2) {
+    const auto current_entry = entries.get_current_entry();
+    if (current_entry > entries.get_true_max_entries()) {
         fprintf(fff, _("\n 闘技場: 真のチャンピオン\n", "\n Arena: True Champion\n"));
         fprintf(fff, "\n");
         return;
     }
 
-    if (arena_number > MAX_ARENA_MONS - 1) {
+    const auto max_entries = entries.get_max_entries();
+    if (current_entry >= max_entries) {
         fprintf(fff, _("\n 闘技場: チャンピオン\n", "\n Arena: Champion\n"));
         fprintf(fff, "\n");
         return;
     }
 
-    const auto victory_count = arena_number > MAX_ARENA_MONS ? MAX_ARENA_MONS : arena_number;
+    const auto victory_count = current_entry > max_entries ? max_entries : current_entry;
 #ifdef JP
     fprintf(fff, "\n 闘技場: %2d勝\n", victory_count);
 #else
-    fprintf(fff, "\n Arena: %2d %s\n", victory_count, (arena_number > 1) ? "Victories" : "Victory");
+    fprintf(fff, "\n Arena: %2d %s\n", victory_count, (current_entry > 1) ? "Victories" : "Victory");
 #endif
     fprintf(fff, "\n");
 }
@@ -307,19 +309,15 @@ static void dump_aux_arena(PlayerType *player_ptr, FILE *fff)
  * @brief 撃破モンスターの情報をファイルにダンプする
  * @param fff ファイルポインタ
  */
-static void dump_aux_monsters(PlayerType *player_ptr, FILE *fff)
+static void dump_aux_monsters(FILE *fff)
 {
     fprintf(fff, _("\n  [倒したモンスター]\n\n", "\n  [Defeated Monsters]\n\n"));
-
-    /* Allocate the "who" array */
-    uint16_t why = 2;
-    std::vector<MonsterRaceId> who;
-
-    /* Count monster kills */
+    std::vector<MonsterRaceId> monrace_ids;
+    const auto &monraces = MonraceList::get_instance();
     auto norm_total = 0;
-    for (const auto &[monrace_id, monrace] : monraces_info) {
+    for (const auto &[monrace_id, monrace] : monraces) {
         /* Ignore unused index */
-        if (!MonsterRace(monrace_id).is_valid()) {
+        if (!monrace.is_valid()) {
             continue;
         }
 
@@ -329,7 +327,7 @@ static void dump_aux_monsters(PlayerType *player_ptr, FILE *fff)
                 norm_total++;
 
                 /* Add a unique monster to the list */
-                who.push_back(monrace.idx);
+                monrace_ids.push_back(monrace.idx);
             }
 
             continue;
@@ -346,7 +344,7 @@ static void dump_aux_monsters(PlayerType *player_ptr, FILE *fff)
         return;
     }
 
-    auto uniq_total = static_cast<int>(who.size());
+    const int uniq_total = std::ssize(monrace_ids);
     /* Defeated more than one normal monsters */
     if (uniq_total == 0) {
 #ifdef JP
@@ -365,22 +363,20 @@ static void dump_aux_monsters(PlayerType *player_ptr, FILE *fff)
         (uniq_total == 1 ? "" : "s"));
 #endif
 
-    /* Sort the array by dungeon depth of monsters */
-    ang_sort(player_ptr, who.data(), &why, uniq_total, ang_sort_comp_hook, ang_sort_swap_hook);
+    std::stable_sort(monrace_ids.begin(), monrace_ids.end(), [&monraces](auto x, auto y) { return monraces.order(x, y); });
     fprintf(fff, _("\n《上位%d体のユニーク・モンスター》\n", "\n< Unique monsters top %d >\n"), std::min(uniq_total, 10));
-
-    char buf[80];
-    for (auto it = who.rbegin(); it != who.rend() && std::distance(who.rbegin(), it) < 10; it++) {
-        auto *r_ptr = &monraces_info[*it];
-        if (r_ptr->defeat_level && r_ptr->defeat_time) {
-            strnfmt(buf, sizeof(buf), _(" - レベル%2d - %d:%02d:%02d", " - level %2d - %d:%02d:%02d"), r_ptr->defeat_level, r_ptr->defeat_time / (60 * 60),
-                (r_ptr->defeat_time / 60) % 60, r_ptr->defeat_time % 60);
-        } else {
-            buf[0] = '\0';
+    for (auto it = monrace_ids.rbegin(); it != monrace_ids.rend() && std::distance(monrace_ids.rbegin(), it) < 10; it++) {
+        const auto &monrace = monraces.get_monrace(*it);
+        const auto defeat_level = monrace.defeat_level;
+        const auto defeat_time = monrace.defeat_time;
+        std::string defeat_info;
+        if ((defeat_level > 0) && (defeat_time > 0)) {
+            constexpr auto fmt = _(" - レベル%2d - %d:%02d:%02d", " - level %2d - %d:%02d:%02d");
+            defeat_info = format(fmt, defeat_level, defeat_time / (60 * 60), (defeat_time / 60) % 60, defeat_time % 60);
         }
 
-        auto name = str_separate(r_ptr->name, 40);
-        fprintf(fff, _("  %-40s (レベル%3d)%s\n", "  %-40s (level %3d)%s\n"), name.front().data(), (int)r_ptr->level, buf);
+        const auto name = str_separate(monrace.name, 40);
+        fprintf(fff, _("  %-40s (レベル%3d)%s\n", "  %-40s (level %3d)%s\n"), name.front().data(), monrace.level, defeat_info.data());
         for (auto i = 1U; i < name.size(); ++i) {
             fprintf(fff, "  %s\n", name[i].data());
         }
@@ -398,9 +394,10 @@ static void dump_aux_race_history(PlayerType *player_ptr, FILE *fff)
         return;
     }
 
-    fprintf(fff, _("\n\n あなたは%sとして生まれた。", "\n\n You were born as %s."), race_info[enum2i(player_ptr->start_race)].title);
+    const auto start_race = InnerGameData::get_instance().get_start_race();
+    fprintf(fff, _("\n\n あなたは%sとして生まれた。", "\n\n You were born as %s."), race_info[enum2i(start_race)].title.data());
     for (int i = 0; i < MAX_RACES; i++) {
-        if (enum2i(player_ptr->start_race) == i) {
+        if (enum2i(start_race) == i) {
             continue;
         }
         if (i < 32) {
@@ -413,7 +410,7 @@ static void dump_aux_race_history(PlayerType *player_ptr, FILE *fff)
             }
         }
 
-        fprintf(fff, _("\n あなたはかつて%sだった。", "\n You were a %s before."), race_info[i].title);
+        fprintf(fff, _("\n あなたはかつて%sだった。", "\n You were a %s before."), race_info[i].title.data());
     }
 
     fputc('\n', fff);
@@ -431,11 +428,11 @@ static void dump_aux_realm_history(PlayerType *player_ptr, FILE *fff)
     }
 
     fputc('\n', fff);
-    for (int i = 0; i < MAX_MAGIC; i++) {
-        if (!(player_ptr->old_realm & 1UL << i)) {
+    for (auto realm : MAGIC_REALM_RANGE) {
+        if (!(player_ptr->old_realm & (1UL << (enum2i(realm) - 1)))) {
             continue;
         }
-        fprintf(fff, _("\n あなたはかつて%s魔法を使えた。", "\n You were able to use %s magic before."), realm_names[i + 1]);
+        fprintf(fff, _("\n あなたはかつて%s魔法を使えた。", "\n You were able to use %s magic before."), PlayerRealm::get_name(realm).data());
     }
 
     fputc('\n', fff);
@@ -450,18 +447,16 @@ static void dump_aux_virtues(PlayerType *player_ptr, FILE *fff)
 {
     fprintf(fff, _("\n\n  [自分に関する情報]\n\n", "\n\n  [HP-rate & Max stat & Virtues]\n\n"));
 
-    int percent = (int)(((long)player_ptr->player_hp[PY_MAX_LEVEL - 1] * 200L) / (2 * player_ptr->hitdie + ((PY_MAX_LEVEL - 1 + 3) * (player_ptr->hitdie + 1))));
-
 #ifdef JP
     if (player_ptr->knowledge & KNOW_HPRATE) {
-        fprintf(fff, "現在の体力ランク : %d/100\n\n", percent);
+        fprintf(fff, "現在の体力ランク : %d/100\n\n", player_ptr->calc_life_rating());
     } else {
         fprintf(fff, "現在の体力ランク : ???\n\n");
     }
     fprintf(fff, "能力の最大値\n");
 #else
     if (player_ptr->knowledge & KNOW_HPRATE) {
-        fprintf(fff, "Your current Life Rating is %d/100.\n\n", percent);
+        fprintf(fff, "Your current Life Rating is %d/100.\n\n", player_ptr->calc_life_rating());
     } else {
         fprintf(fff, "Your current Life Rating is ???.\n\n");
     }
@@ -611,15 +606,16 @@ void make_character_dump(PlayerType *player_ptr, FILE *fff)
 {
     TermCenteredOffsetSetter tos(MAIN_TERM_MIN_COLS, std::nullopt);
 
-    fprintf(fff, _("  [%s キャラクタ情報]\n\n", "  [%s Character Dump]\n\n"), get_version().data());
+    constexpr auto fmt = _("  [%s キャラクタ情報]\n\n", "  [%s Character Dump]\n\n");
+    fprintf(fff, fmt, AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data());
 
     dump_aux_player_status(player_ptr, fff);
     dump_aux_last_message(player_ptr, fff);
     dump_aux_options(fff);
     dump_aux_recall(fff);
     dump_aux_quest(player_ptr, fff);
-    dump_aux_arena(player_ptr, fff);
-    dump_aux_monsters(player_ptr, fff);
+    dump_aux_arena(fff);
+    dump_aux_monsters(fff);
     dump_aux_virtues(player_ptr, fff);
     dump_aux_race_history(player_ptr, fff);
     dump_aux_realm_history(player_ptr, fff);
@@ -631,6 +627,6 @@ void make_character_dump(PlayerType *player_ptr, FILE *fff)
     dump_aux_home_museum(player_ptr, fff);
 
     // ダンプの幅をはみ出さないように48文字目以降を切り捨てる
-    const auto checksum = get_check_sum().erase(48);
+    const std::string checksum = get_check_sum().erase(48);
     fprintf(fff, _("  [チェックサム: \"%s\"]\n\n", "  [Check Sum: \"%s\"]\n\n"), checksum.data());
 }

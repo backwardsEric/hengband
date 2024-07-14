@@ -3,15 +3,10 @@
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
-#include "monster-race/race-flags8.h"
 #include "monster-race/race-indice-types.h"
+#include "monster-race/race-misc-flags.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
 #include "player/player-status.h"
@@ -52,7 +47,7 @@ void vault_prep_symbol(PlayerType *player_ptr)
     get_mon_num_prep(player_ptr, vault_aux_simple, nullptr);
     MonsterRaceId r_idx = get_mon_num(player_ptr, 0, player_ptr->current_floor_ptr->dun_level + 10, PM_NONE);
     get_mon_num_prep(player_ptr, nullptr, nullptr);
-    vault_aux_char = monraces_info[r_idx].d_char;
+    vault_aux_char = monraces_info[r_idx].symbol_definition.character;
 }
 
 /*!
@@ -102,7 +97,7 @@ bool mon_hook_quest(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (any_bits(r_ptr->flags2, RF2_MULTIPLY)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::MULTIPLY)) {
         return false;
     }
 
@@ -129,7 +124,7 @@ bool mon_hook_quest(PlayerType *player_ptr, MonsterRaceId r_idx)
 bool mon_hook_dungeon(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
-    if (!floor.is_in_dungeon() && !floor.is_in_quest()) {
+    if (!floor.is_in_underground() && !floor.is_in_quest()) {
         return true;
     }
 
@@ -388,24 +383,20 @@ bool vault_aux_simple(PlayerType *player_ptr, MonsterRaceId r_idx)
  */
 bool vault_aux_jelly(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    auto *r_ptr = &monraces_info[r_idx];
+    const auto &monrace = monraces_info[r_idx];
     if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
     }
 
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::KILL_BODY) && r_ptr->behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
+    if (monrace.behavior_flags.has(MonsterBehaviorType::KILL_BODY) && monrace.behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
         return false;
     }
 
-    if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
+    if (monrace.kind_flags.has(MonsterKindType::EVIL)) {
         return false;
     }
 
-    if (!angband_strchr("ijm,", r_ptr->d_char)) {
-        return false;
-    }
-
-    return true;
+    return monrace.symbol_char_is_any_of("ijm,");
 }
 
 /*!
@@ -472,12 +463,12 @@ bool vault_aux_chapel_g(PlayerType *player_ptr, MonsterRaceId r_idx)
         MonsterRaceId::TOPAZ_MONK,
     };
 
-    auto *r_ptr = &monraces_info[r_idx];
+    const auto &monrace = monraces_info[r_idx];
     if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
     }
 
-    if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
+    if (monrace.kind_flags.has(MonsterKindType::EVIL)) {
         return false;
     }
 
@@ -485,7 +476,7 @@ bool vault_aux_chapel_g(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (r_ptr->d_char == 'A') {
+    if (monrace.symbol_char_is_any_of("A")) {
         return true;
     }
 
@@ -505,11 +496,7 @@ bool vault_aux_kennel(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (!angband_strchr("CZ", r_ptr->d_char)) {
-        return false;
-    }
-
-    return true;
+    return r_ptr->symbol_char_is_any_of("CZ");
 }
 
 /*!
@@ -525,11 +512,7 @@ bool vault_aux_mimic(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (!angband_strchr("!$&(/=?[\\|][`~>+", r_ptr->d_char)) {
-        return false;
-    }
-
-    return true;
+    return r_ptr->symbol_char_is_any_of("!$&(/=?[\\|][`~>+");
 }
 
 /*!
@@ -555,20 +538,20 @@ bool vault_aux_clone(PlayerType *player_ptr, MonsterRaceId r_idx)
  */
 bool vault_aux_symbol_e(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    auto *r_ptr = &monraces_info[r_idx];
+    const auto &monrace = monraces_info[r_idx];
     if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
     }
 
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::KILL_BODY) && r_ptr->behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
+    if (monrace.behavior_flags.has(MonsterBehaviorType::KILL_BODY) && monrace.behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
         return false;
     }
 
-    if (r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
+    if (monrace.kind_flags.has(MonsterKindType::GOOD)) {
         return false;
     }
 
-    if (r_ptr->d_char != vault_aux_char) {
+    if (monrace.symbol_definition.character != vault_aux_char) {
         return false;
     }
 
@@ -583,20 +566,20 @@ bool vault_aux_symbol_e(PlayerType *player_ptr, MonsterRaceId r_idx)
  */
 bool vault_aux_symbol_g(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
-    auto *r_ptr = &monraces_info[r_idx];
+    const auto &monrace = monraces_info[r_idx];
     if (!vault_monster_okay(player_ptr, r_idx)) {
         return false;
     }
 
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::KILL_BODY) && r_ptr->behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
+    if (monrace.behavior_flags.has(MonsterBehaviorType::KILL_BODY) && monrace.behavior_flags.has_not(MonsterBehaviorType::NEVER_BLOW)) {
         return false;
     }
 
-    if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
+    if (monrace.kind_flags.has(MonsterKindType::EVIL)) {
         return false;
     }
 
-    if (r_ptr->d_char != vault_aux_char) {
+    if (monrace.symbol_definition.character != vault_aux_char) {
         return false;
     }
 
@@ -751,7 +734,7 @@ bool vault_aux_cthulhu(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (!(r_ptr->flags2 & (RF2_ELDRITCH_HORROR))) {
+    if (r_ptr->misc_flags.has_not(MonsterMiscType::ELDRITCH_HORROR)) {
         return false;
     }
 
@@ -796,16 +779,12 @@ bool monster_hook_human(PlayerType *player_ptr, MonsterRaceId r_idx)
     /* Unused */
     (void)player_ptr;
 
-    auto *r_ptr = &monraces_info[r_idx];
-    if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
+    const auto &monrace = monraces_info[r_idx];
+    if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
         return false;
     }
 
-    if (angband_strchr("pht", r_ptr->d_char)) {
-        return true;
-    }
-
-    return false;
+    return monrace.symbol_char_is_any_of("pht");
 }
 
 /*!
@@ -816,7 +795,7 @@ bool monster_hook_human(PlayerType *player_ptr, MonsterRaceId r_idx)
 bool get_nightmare(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     auto *r_ptr = &monraces_info[r_idx];
-    if (none_bits(r_ptr->flags2, RF2_ELDRITCH_HORROR)) {
+    if (r_ptr->misc_flags.has_not(MonsterMiscType::ELDRITCH_HORROR)) {
         return false;
     }
 
@@ -837,18 +816,17 @@ bool monster_is_fishing_target(PlayerType *player_ptr, MonsterRaceId r_idx)
     /* Unused */
     (void)player_ptr;
 
-    auto *r_ptr = &monraces_info[r_idx];
-    if (r_ptr->feature_flags.has(MonsterFeatureType::AQUATIC) && r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && angband_strchr("Jjlw", r_ptr->d_char)) {
-        return true;
-    } else {
-        return false;
-    }
+    const auto &monrace = monraces_info[r_idx];
+    auto can_fish = monrace.feature_flags.has(MonsterFeatureType::AQUATIC);
+    can_fish &= monrace.kind_flags.has_not(MonsterKindType::UNIQUE);
+    can_fish &= angband_strchr("Jjlw", monrace.symbol_definition.character) != nullptr;
+    return can_fish;
 }
 
 /*!
  * @brief モンスター闘技場に参加できるモンスターの判定
  * @param r_idx モンスターＩＤ
- * @details 基準はNEVER_MOVE MULTIPLY QUANTUM AQUATIC RF7_CHAMELEONのいずれも持たず、
+ * @details 基準はNEVER_MOVE MULTIPLY QUANTUM AQUATIC CHAMELEONのいずれも持たず、
  * 自爆以外のなんらかのHP攻撃手段を持っていること。
  * @return 参加できるか否か
  */
@@ -860,10 +838,10 @@ bool monster_can_entry_arena(PlayerType *player_ptr, MonsterRaceId r_idx)
     int dam = 0;
     const auto &monrace = monraces_info[r_idx];
     bool unselectable = monrace.behavior_flags.has(MonsterBehaviorType::NEVER_MOVE);
-    unselectable |= any_bits(monrace.flags2, RF2_MULTIPLY);
+    unselectable |= monrace.misc_flags.has(MonsterMiscType::MULTIPLY);
     unselectable |= monrace.kind_flags.has(MonsterKindType::QUANTUM) && monrace.kind_flags.has_not(MonsterKindType::UNIQUE);
     unselectable |= monrace.feature_flags.has(MonsterFeatureType::AQUATIC);
-    unselectable |= any_bits(monrace.flags7, RF7_CHAMELEON);
+    unselectable |= monrace.misc_flags.has(MonsterMiscType::CHAMELEON);
     unselectable |= monrace.is_explodable();
     if (unselectable) {
         return false;
@@ -871,7 +849,7 @@ bool monster_can_entry_arena(PlayerType *player_ptr, MonsterRaceId r_idx)
 
     for (const auto &blow : monrace.blows) {
         if (blow.effect != RaceBlowEffectType::DR_MANA) {
-            dam += blow.d_dice;
+            dam += blow.damage_dice.num;
         }
     }
 
@@ -897,7 +875,7 @@ bool item_monster_okay(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (any_bits(r_ptr->flags7, RF7_KAGE)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::KAGE)) {
         return false;
     }
 
@@ -909,7 +887,7 @@ bool item_monster_okay(PlayerType *player_ptr, MonsterRaceId r_idx)
         return false;
     }
 
-    if (any_bits(r_ptr->flags1, RF1_FORCE_DEPTH)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::FORCE_DEPTH)) {
         return false;
     }
 

@@ -4,7 +4,6 @@
 #include "lore/lore-calculator.h"
 #include "lore/lore-util.h"
 #include "monster-attack/monster-attack-table.h"
-#include "monster-race/race-flags1.h"
 #include "system/monster-race-info.h"
 #include "term/term-color-types.h"
 
@@ -13,18 +12,17 @@
  * @brief [日本語]モンスター打撃の1回分を出力する
  * @param lore_ptr 思い出情報へのポインタ
  * @param attack_numbers 打撃の最大回数
- * @param d1 ダメージダイス数
- * @param d2 ダメージダイス面
+ * @param damage_dice ダメージダイス
  * @param m 打撃の何番目か
  */
-static void display_monster_blow_jp(lore_type *lore_ptr, int attack_numbers, int d1, int d2, int m)
+static void display_monster_blow_jp(lore_type *lore_ptr, int attack_numbers, const Dice &damage_dice, int m)
 {
     if (attack_numbers == 0) {
         hooked_roff(format("%s^は", Who::who(lore_ptr->msex)));
     }
 
-    if (d1 && d2 && (lore_ptr->know_everything || know_damage(lore_ptr->r_idx, m))) {
-        hook_c_roff(TERM_L_WHITE, format(" %dd%d ", d1, d2));
+    if (damage_dice.is_valid() && (lore_ptr->know_everything || know_blow_damage(lore_ptr->r_idx, m))) {
+        hook_c_roff(TERM_L_WHITE, format(" %s ", damage_dice.to_string().data()));
         hooked_roff("のダメージで");
     }
 
@@ -62,11 +60,10 @@ static void display_monster_blow_jp(lore_type *lore_ptr, int attack_numbers, int
  * @brief [英語]モンスター打撃の1回分を出力する
  * @param lore_ptr 思い出情報へのポインタ
  * @param attack_numbers 打撃の最大回数
- * @param d1 ダメージダイス数
- * @param d2 ダメージダイス面
+ * @param damage_dice ダメージダイス
  * @param m 打撃の何番目か
  */
-static void display_monster_blow_en(lore_type *lore_ptr, int attack_numbers, int d1, int d2, int m)
+static void display_monster_blow_en(lore_type *lore_ptr, int attack_numbers, const Dice &damage_dice, int m)
 {
     if (attack_numbers == 0) {
         hooked_roff(format("%s^ can ", Who::who(lore_ptr->msex)));
@@ -85,9 +82,9 @@ static void display_monster_blow_en(lore_type *lore_ptr, int attack_numbers, int
     if (lore_ptr->q != nullptr) {
         hooked_roff(" to ");
         hook_c_roff(lore_ptr->qc, lore_ptr->q);
-        if (d1 && d2 && (lore_ptr->know_everything || know_damage(lore_ptr->r_idx, m))) {
+        if (damage_dice.is_valid() && (lore_ptr->know_everything || know_blow_damage(lore_ptr->r_idx, m))) {
             hooked_roff(" with damage");
-            hook_c_roff(TERM_L_WHITE, format(" %dd%d", d1, d2));
+            hook_c_roff(TERM_L_WHITE, format(" %s", damage_dice.to_string().data()));
         }
     }
 }
@@ -101,10 +98,8 @@ static void display_monster_blow_en(lore_type *lore_ptr, int attack_numbers, int
  */
 void display_monster_blow(lore_type *lore_ptr, int m, int attack_numbers)
 {
-    int d1 = lore_ptr->r_ptr->blows[m].d_dice;
-    int d2 = lore_ptr->r_ptr->blows[m].d_side;
-    void (*display_monster_blows_pf)(lore_type *, int, int, int, int) = _(display_monster_blow_jp, display_monster_blow_en);
-    (*display_monster_blows_pf)(lore_ptr, attack_numbers, d1, d2, m);
+    auto display_monster_blows_pf = _(display_monster_blow_jp, display_monster_blow_en);
+    display_monster_blows_pf(lore_ptr, attack_numbers, lore_ptr->r_ptr->blows[m].damage_dice, m);
 }
 
 /*!
@@ -115,7 +110,7 @@ void display_monster_blows(lore_type *lore_ptr)
 {
     const int max_attack_numbers = 4;
     for (int m = 0; m < max_attack_numbers; m++) {
-        if (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::NONE || (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::SHOOT)) {
+        if (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::NONE) {
             continue;
         }
 
@@ -126,7 +121,7 @@ void display_monster_blows(lore_type *lore_ptr)
 
     int attack_numbers = 0;
     for (int m = 0; m < max_attack_numbers; m++) {
-        if (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::NONE || (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::SHOOT) || (((lore_ptr->r_ptr->r_blows[m] == 0) && !lore_ptr->know_everything))) {
+        if (lore_ptr->r_ptr->blows[m].method == RaceBlowMethodType::NONE || (((lore_ptr->r_ptr->r_blows[m] == 0) && !lore_ptr->know_everything))) {
             continue;
         }
 

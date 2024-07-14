@@ -24,14 +24,12 @@
 #include "game-option/play-record-options.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
-#include "info-reader/feature-reader.h"
 #include "info-reader/fixed-map-parser.h"
 #include "io/write-diary.h"
-#include "market/arena-info-table.h"
+#include "market/arena-entry.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
@@ -109,43 +107,46 @@ static void build_arena(PlayerType *player_ptr, POSITION *start_y, POSITION *sta
 
     *start_y = y_height + 5;
     *start_x = xval;
-    floor_ptr->grid_array[*start_y][*start_x].feat = f_tag_to_index("ARENA_GATE");
+    floor_ptr->grid_array[*start_y][*start_x].feat = TerrainList::get_instance().get_terrain_id_by_tag("ARENA_GATE");
     floor_ptr->grid_array[*start_y][*start_x].info |= CAVE_GLOW | CAVE_MARK;
 }
 
 /*!
- * @brief 挑戦時闘技場への入場処理 / Town logic flow for generation of on_defeat_arena_monster -KMW-
+ * @brief 挑戦時闘技場への入場処理
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @details 互換性のため、『森トロル』など地上と闘技場の両方に出現するユニークを撃破した際の不戦勝処理を残している
+ * @todo v3.0正式版リリース以降に上記を削除する
  */
 static void generate_challenge_arena(PlayerType *player_ptr)
 {
-    POSITION qy = 0;
-    POSITION qx = 0;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->height = SCREEN_HGT;
-    floor_ptr->width = SCREEN_WID;
-
-    POSITION y, x;
-    for (y = 0; y < MAX_HGT; y++) {
-        for (x = 0; x < MAX_WID; x++) {
+    auto &floor = *player_ptr->current_floor_ptr;
+    floor.height = SCREEN_HGT;
+    floor.width = SCREEN_WID;
+    for (auto y = 0; y < MAX_HGT; y++) {
+        for (auto x = 0; x < MAX_WID; x++) {
             place_bold(player_ptr, y, x, GB_SOLID_PERM);
-            floor_ptr->grid_array[y][x].info |= (CAVE_GLOW | CAVE_MARK);
+            floor.get_grid({ y, x }).add_info(CAVE_GLOW | CAVE_MARK);
         }
     }
 
-    for (y = qy + 1; y < qy + SCREEN_HGT - 1; y++) {
-        for (x = qx + 1; x < qx + SCREEN_WID - 1; x++) {
-            floor_ptr->grid_array[y][x].feat = feat_floor;
+    int y;
+    int x;
+    for (y = 1; y < SCREEN_HGT - 1; y++) {
+        for (x = 1; x < SCREEN_WID - 1; x++) {
+            floor.get_grid({ y, x }).feat = feat_floor;
         }
     }
 
     build_arena(player_ptr, &y, &x);
     player_place(player_ptr, y, x);
-    if (place_specific_monster(player_ptr, 0, player_ptr->y + 5, player_ptr->x, arena_info[player_ptr->arena_number].r_idx, PM_NO_KAGE | PM_NO_PET)) {
+    auto &entries = ArenaEntryList::get_instance();
+    const auto &monrace = entries.get_monrace();
+    if (place_specific_monster(player_ptr, 0, player_ptr->y + 5, player_ptr->x, monrace.idx, PM_NO_KAGE | PM_NO_PET)) {
         return;
     }
 
-    w_ptr->set_arena(true);
-    player_ptr->arena_number++;
+    AngbandWorld::get_instance().set_arena(true);
+    entries.increment_entry();
     msg_print(_("相手は欠場した。あなたの不戦勝だ。", "The enemy is unable to appear. You won by default."));
 }
 
@@ -208,7 +209,7 @@ static void build_battle(PlayerType *player_ptr, POSITION *y, POSITION *x)
 
     POSITION last_y = y_height + 1;
     POSITION last_x = xval;
-    floor_ptr->grid_array[last_y][last_x].feat = f_tag_to_index("BUILDING_3");
+    floor_ptr->grid_array[last_y][last_x].feat = TerrainList::get_instance().get_terrain_id_by_tag("BUILDING_3");
     floor_ptr->grid_array[last_y][last_x].info |= CAVE_GLOW | CAVE_MARK;
     *y = last_y;
     *x = last_x;
@@ -239,8 +240,10 @@ static void generate_gambling_arena(PlayerType *player_ptr)
     build_battle(player_ptr, &y, &x);
     player_place(player_ptr, y, x);
     for (MONSTER_IDX i = 0; i < 4; i++) {
-        place_specific_monster(player_ptr, 0, player_ptr->y + 8 + (i / 2) * 4, player_ptr->x - 2 + (i % 2) * 4, battle_mon_list[i], (PM_NO_KAGE | PM_NO_PET));
-        set_friendly(&floor_ptr->m_list[floor_ptr->grid_array[player_ptr->y + 8 + (i / 2) * 4][player_ptr->x - 2 + (i % 2) * 4].m_idx]);
+        const auto m_idx = place_specific_monster(player_ptr, 0, player_ptr->y + 8 + (i / 2) * 4, player_ptr->x - 2 + (i % 2) * 4, battle_mon_list[i], (PM_NO_KAGE | PM_NO_PET));
+        if (m_idx) {
+            set_friendly(&floor_ptr->m_list[*m_idx]);
+        }
     }
 
     for (MONSTER_IDX i = 1; i < floor_ptr->m_max; i++) {
@@ -260,20 +263,20 @@ static void generate_gambling_arena(PlayerType *player_ptr)
  */
 static void generate_fixed_floor(PlayerType *player_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    for (POSITION y = 0; y < floor_ptr->height; y++) {
-        for (POSITION x = 0; x < floor_ptr->width; x++) {
+    auto &floor = *player_ptr->current_floor_ptr;
+    for (auto y = 0; y < floor.height; y++) {
+        for (auto x = 0; x < floor.width; x++) {
             place_bold(player_ptr, y, x, GB_SOLID_PERM);
         }
     }
 
-    const auto &quest_list = QuestList::get_instance();
-    floor_ptr->base_level = quest_list[floor_ptr->quest_number].level;
-    floor_ptr->dun_level = floor_ptr->base_level;
-    floor_ptr->object_level = floor_ptr->base_level;
-    floor_ptr->monster_level = floor_ptr->base_level;
+    const auto &quests = QuestList::get_instance();
+    floor.base_level = quests.get_quest(floor.quest_number).level;
+    floor.dun_level = floor.base_level;
+    floor.object_level = floor.base_level;
+    floor.monster_level = floor.base_level;
     if (record_stair) {
-        exe_write_diary_quest(player_ptr, DiaryKind::TO_QUEST, floor_ptr->quest_number);
+        exe_write_diary_quest(player_ptr, DiaryKind::TO_QUEST, floor.quest_number);
     }
     get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), nullptr);
     init_flags = INIT_CREATE_DUNGEON;
@@ -340,16 +343,16 @@ static bool level_gen(PlayerType *player_ptr, concptr *why)
  */
 void wipe_generate_random_floor_flags(FloorType *floor_ptr)
 {
-    for (POSITION y = 0; y < floor_ptr->height; y++) {
-        for (POSITION x = 0; x < floor_ptr->width; x++) {
-            floor_ptr->grid_array[y][x].info &= ~(CAVE_MASK);
+    for (auto y = 0; y < floor_ptr->height; y++) {
+        for (auto x = 0; x < floor_ptr->width; x++) {
+            floor_ptr->get_grid({ y, x }).info &= ~(CAVE_MASK);
         }
     }
 
-    if (floor_ptr->dun_level > 0) {
-        for (POSITION y = 1; y < floor_ptr->height - 1; y++) {
-            for (POSITION x = 1; x < floor_ptr->width - 1; x++) {
-                floor_ptr->grid_array[y][x].info |= CAVE_UNSAFE;
+    if (floor_ptr->is_in_underground()) {
+        for (auto y = 1; y < floor_ptr->height - 1; y++) {
+            for (auto x = 1; x < floor_ptr->width - 1; x++) {
+                floor_ptr->get_grid({ y, x }).info |= CAVE_UNSAFE;
             }
         }
     }
@@ -377,7 +380,7 @@ void clear_cave(PlayerType *player_ptr)
         floor_ptr->mproc_max[i] = 0;
     }
 
-    precalc_cur_num_of_pet(player_ptr);
+    precalc_cur_num_of_pet();
     for (POSITION y = 0; y < MAX_HGT; y++) {
         for (POSITION x = 0; x < MAX_WID; x++) {
             auto *g_ptr = &floor_ptr->grid_array[y][x];
@@ -493,21 +496,22 @@ static bool floor_is_connected(const FloorType *const floor_ptr, const IsWallFun
  */
 void generate_floor(PlayerType *player_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    set_floor_and_wall(floor_ptr->dungeon_idx);
+    auto &floor = *player_ptr->current_floor_ptr;
+    set_floor_and_wall(floor.dungeon_idx);
+    const auto is_wild_mode = AngbandWorld::get_instance().is_wild_mode();
     for (int num = 0; true; num++) {
         bool okay = true;
         concptr why = nullptr;
         clear_cave(player_ptr);
         player_ptr->x = player_ptr->y = 0;
-        if (floor_ptr->inside_arena) {
+        if (floor.inside_arena) {
             generate_challenge_arena(player_ptr);
         } else if (AngbandSystem::get_instance().is_phase_out()) {
             generate_gambling_arena(player_ptr);
-        } else if (floor_ptr->is_in_quest()) {
+        } else if (floor.is_in_quest()) {
             generate_fixed_floor(player_ptr);
-        } else if (!floor_ptr->dun_level) {
-            if (player_ptr->wild_mode) {
+        } else if (!floor.is_in_underground()) {
+            if (is_wild_mode) {
                 wilderness_gen_small(player_ptr);
             } else {
                 wilderness_gen(player_ptr);
@@ -516,10 +520,10 @@ void generate_floor(PlayerType *player_ptr)
             okay = level_gen(player_ptr, &why);
         }
 
-        if (floor_ptr->o_max >= w_ptr->max_o_idx) {
+        if (floor.o_max >= MAX_FLOOR_ITEMS) {
             why = _("アイテムが多すぎる", "too many objects");
             okay = false;
-        } else if (floor_ptr->m_max >= w_ptr->max_m_idx) {
+        } else if (floor.m_max >= MAX_FLOOR_MONSTERS) {
             why = _("モンスターが多すぎる", "too many monsters");
             okay = false;
         }
@@ -528,8 +532,8 @@ void generate_floor(PlayerType *player_ptr)
         // 狂戦士でのプレイに支障をきたしうるので再生成する。
         // 地上、荒野マップ、クエストでは連結性判定は行わない。
         // TODO: 本来はダンジョン生成アルゴリズム自身で連結性を保証するのが理想ではある。
-        const bool check_conn = okay && floor_ptr->dun_level > 0 && !floor_ptr->is_in_quest();
-        if (check_conn && !floor_is_connected(floor_ptr, is_permanent_blocker)) {
+        const bool check_conn = okay && floor.is_in_underground() && !floor.is_in_quest();
+        if (check_conn && !floor_is_connected(&floor, is_permanent_blocker)) {
             // 一定回数試しても連結にならないなら諦める。
             if (num >= 1000) {
                 plog("cannot generate connected floor. giving up...");
@@ -547,11 +551,11 @@ void generate_floor(PlayerType *player_ptr)
             msg_format(_("生成やり直し(%s)", "Generation restarted (%s)"), why);
         }
 
-        wipe_o_list(floor_ptr);
+        wipe_o_list(&floor);
         wipe_monsters_list(player_ptr);
     }
 
     glow_deep_lava_and_bldg(player_ptr);
     player_ptr->enter_dungeon = false;
-    wipe_generate_random_floor_flags(floor_ptr);
+    wipe_generate_random_floor_flags(&floor);
 }

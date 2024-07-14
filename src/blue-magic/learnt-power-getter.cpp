@@ -25,7 +25,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
@@ -270,8 +269,7 @@ int calculate_blue_magic_failure_probability(PlayerType *player_ptr, const monst
         chance = minfail;
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    chance += player_stun->get_magic_chance_penalty();
+    chance += player_ptr->effects()->stun().get_magic_chance_penalty();
     if (chance > 95) {
         chance = 95;
     }
@@ -327,7 +325,7 @@ static void describe_blue_magic_name(PlayerType *player_ptr, int menu_line, cons
         }
 
         const auto &mp = monster_powers.at(spell);
-        auto need_mana = mod_need_mana(player_ptr, mp.smana, 0, REALM_NONE);
+        auto need_mana = mod_need_mana(player_ptr, mp.smana, 0, RealmType::NONE);
         auto chance = calculate_blue_magic_failure_probability(player_ptr, mp, need_mana);
         char header[80];
         close_blue_magic_name(header, sizeof(header), i, menu_line);
@@ -347,9 +345,8 @@ static void describe_blue_magic_name(PlayerType *player_ptr, int menu_line, cons
  */
 static bool confirm_cast_blue_magic(MonsterAbilityType spell)
 {
-    char tmp_val[160];
-    (void)strnfmt(tmp_val, 78, _("%sの魔法を唱えますか？", "Use %s? "), monster_powers.at(spell).name);
-    return input_check(tmp_val);
+    const auto prompt = format(_("%sの魔法を唱えますか？", "Use %s? "), monster_powers.at(spell).name);
+    return input_check(prompt);
 }
 
 /*!

@@ -30,32 +30,32 @@ static void display_diary(PlayerType *player_ptr)
     const auto choice = Rand_external(subtitle_candidates.size());
     const auto &subtitle = subtitle_candidates[choice];
 #ifdef JP
-    const auto diary_title = format("「%s%s%sの伝説 -%s-」", ap_ptr->title, ap_ptr->no ? "の" : "", player_ptr->name, subtitle.data());
+    const auto diary_title = format("「%s%s%sの伝説 -%s-」", ap_ptr->title.data(), ap_ptr->no ? "の" : "", player_ptr->name, subtitle.data());
 #else
-    const auto diary_title = format("Legend of %s %s '%s'", ap_ptr->title, player_ptr->name, subtitle.data());
+    const auto diary_title = format("Legend of %s %s '%s'", ap_ptr->title.data(), player_ptr->name, subtitle.data());
 #endif
 
     std::stringstream ss;
-    ss << _("playrecord-", "playrec-") << savefile_base << ".txt";
-    const auto &path = path_build(ANGBAND_DIR_USER, ss.str());
-    (void)show_file(player_ptr, false, path.string(), -1, 0, diary_title);
+    ss << _("playrecord-", "playrec-") << savefile_base.string() << ".txt";
+    const auto path = path_build(ANGBAND_DIR_USER, ss.str());
+    FileDisplayer(player_ptr->name).display(false, path.string(), -1, 0, diary_title);
 }
 
 /*!
  * @brief 日記に任意の内容を表記するコマンドのメインルーチン /
  */
-static void add_diary_note(PlayerType *player_ptr)
+static void add_diary_note(const FloorType &floor)
 {
     const auto input_str = input_string(_("内容: ", "diary note: "), 1000);
     if (input_str) {
-        exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, *input_str);
+        exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, *input_str);
     }
 }
 
 /*!
  * @brief 最後に取得したアイテムの情報を日記に追加するメインルーチン /
  */
-static void do_cmd_last_get(PlayerType *player_ptr)
+static void do_cmd_last_get(const FloorType &floor)
 {
     if (record_o_name[0] == '\0') {
         return;
@@ -66,11 +66,12 @@ static void do_cmd_last_get(PlayerType *player_ptr)
         return;
     }
 
-    GAME_TURN turn_tmp = w_ptr->game_turn;
-    w_ptr->game_turn = record_turn;
+    auto &world = AngbandWorld::get_instance();
+    const auto turn_tmp = world.game_turn;
+    world.game_turn = record_turn;
     const auto mes = format(_("%sを手に入れた。", "discover %s."), record_o_name);
-    exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, mes);
-    w_ptr->game_turn = turn_tmp;
+    exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, mes);
+    world.game_turn = turn_tmp;
 }
 
 /*!
@@ -83,8 +84,8 @@ static void do_cmd_erase_diary()
     }
 
     std::stringstream ss;
-    ss << _("playrecord-", "playrec-") << savefile_base << ".txt";
-    const auto &path = path_build(ANGBAND_DIR_USER, ss.str());
+    ss << _("playrecord-", "playrec-") << savefile_base.string() << ".txt";
+    const auto path = path_build(ANGBAND_DIR_USER, ss.str());
     fd_kill(path);
 
     auto *fff = angband_fopen(path, FileOpenMode::WRITE);
@@ -107,7 +108,7 @@ void do_cmd_diary(PlayerType *player_ptr)
 {
     screen_save();
     TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
-
+    const auto &floor = *player_ptr->current_floor_ptr;
     while (true) {
         term_clear();
         prt(_("[ 記録の設定 ]", "[ Play Record ]"), 2, 0);
@@ -127,10 +128,10 @@ void do_cmd_diary(PlayerType *player_ptr)
             display_diary(player_ptr);
             break;
         case '2':
-            add_diary_note(player_ptr);
+            add_diary_note(floor);
             break;
         case '3':
-            do_cmd_last_get(player_ptr);
+            do_cmd_last_get(floor);
             break;
         case '4':
             do_cmd_erase_diary();

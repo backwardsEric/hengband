@@ -10,19 +10,19 @@
 
 #pragma once
 
+#include "system/angband-exceptions.h"
 #include "system/h-basic.h"
 #include <initializer_list>
 #include <iterator>
 #include <type_traits>
 #include <utility>
 
-/**** Available constants ****/
-
-/*
- * Random Number Generator -- Degree of "complex" RNG -- see "misc.c"
+/*!
+ * @brief Random Number Generator -- Degree of "complex" RNG.
+ *
  * This value is hard-coded at 63 for a wide variety of reasons.
  */
-#define RAND_DEG 63
+constexpr auto RAND_DEG = 63;
 
 /*
  * Generates a random long integer X where A<=X<=B
@@ -31,45 +31,89 @@
  */
 int rand_range(int a, int b);
 
-/*
- * Generates a random long integer X where O<=X<M.
- * The integer X falls along a uniform distribution.
- * For example, if M is 100, you get "percentile dice"
+/*!
+ * @brief 0以上/以下の一様乱数を返す
+ * @param 最大値 (負ならば最小値)
+ * @return 乱数出力
+ * @details max > 0 ならば0以上max未満、max < 0 ならばmaxを超え0以下、0ならば0
  */
-#define randint0(M) (rand_range(0, (M)-1))
+template <typename T, typename U>
+T randnum0(U initial_max)
+    requires(std::is_integral_v<T> || std::is_enum_v<T>) && (std::is_integral_v<U> || std::is_enum_v<U>)
+{
+    const auto max = static_cast<int>(initial_max);
+    return max > 0 ? static_cast<T>(rand_range(0, max - 1)) : -static_cast<T>(rand_range(0, -max - 1));
+}
 
-/*
- * Generate a random long integer X where A-D<=X<=A+D
- * The integer X falls along a uniform distribution.
- * Note: rand_spread(A,D) == rand_range(A-D,A+D)
+template <typename T>
+int randint0(T max)
+    requires std::is_integral_v<T> || std::is_enum_v<T>
+{
+    return randnum0<int>(static_cast<int>(max));
+}
+
+/*!
+ * @brief 平均値±振れ幅 の一様乱数を返す
+ * @param average 平均値
+ * @param width 振れ幅
+ * @return 乱数値
  */
-#define rand_spread(A, D) ((A) + (randint0(1 + (D) + (D))) - (D))
+template <typename T>
+int rand_spread(T average, T width)
+{
+    const auto abs_width = static_cast<int>(width);
+    return static_cast<int>(average) + randint0(1 + 2 * std::abs(abs_width)) - std::abs(abs_width);
+}
 
-/*
- * Generate a random long integer X where 1<=X<=M
- * Also, "correctly" handle the case of M<=1
+/*!
+ * @brief 1以上/-1以下の一様乱数を返す
+ * @return 最大値 (負ならば最小値)
+ * @return 乱数出力
+ * @details max > 1 ならば1以上max以下、max < -1 ならばmax以上-1以下、-1は入力値、0～+1は1
  */
-#define randint1(M) (randint0(M) + 1)
+template <typename T, typename U>
+T randnum1(U initial_max)
+    requires(std::is_integral_v<T> || std::is_enum_v<T>) && (std::is_integral_v<U> || std::is_enum_v<U>)
+{
+    const auto max = static_cast<int>(initial_max);
+    if (max == 0) {
+        return static_cast<T>(1);
+    }
 
-/*
- * Evaluate to TRUE "P" percent of the time
+    return max > 0 ? static_cast<T>(rand_range(1, max)) : static_cast<T>(-rand_range(1, -max));
+}
+
+template <typename T>
+int randint1(T max)
+    requires std::is_integral_v<T> || std::is_enum_v<T>
+{
+    return randnum1<int>(static_cast<int>(max));
+}
+
+/*!
+ * @brief 指定されたパーセンテージで事象が生起するかを返す
+ * @param p 確率
+ * @return 生起するか否か
  */
-#define magik(P) (randint0(100) < (P))
+template <typename T>
+bool evaluate_percent(T p)
+{
+    return randint0(100) < static_cast<int>(p);
+}
 
-/*
- * Evaluate to TRUE with probability 1/x
+/*!
+ * @brief 1/nの確率で事象が生起するかを返す
+ * @param n 母数
+ * @return 生起するか否か
  */
-#define one_in_(X) (randint0(X) == 0)
+template <typename T>
+bool one_in_(T n)
+{
+    return randint0(static_cast<int>(n)) == 0;
+}
 
-/*
- * Evaluate to TRUE "S" percent of the time
- */
-#define saving_throw(S) (randint0(100) < (S))
-
-void Rand_state_init(void);
+void Rand_state_init();
 int16_t randnor(int mean, int stand);
-int16_t damroll(DICE_NUMBER num, DICE_SID sides);
-int16_t maxroll(DICE_NUMBER num, DICE_SID sides);
 int32_t div_round(int32_t n, int32_t d);
 int32_t Rand_external(int32_t m);
 

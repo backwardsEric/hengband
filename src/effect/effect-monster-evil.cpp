@@ -1,10 +1,7 @@
 #include "effect/effect-monster-evil.h"
 #include "effect/effect-monster-util.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-info.h"
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
@@ -114,7 +111,7 @@ ProcessResult effect_monster_turn_undead(PlayerType *player_ptr, EffectMonster *
         em_ptr->r_ptr->r_kind_flags.set(MonsterKindType::UNDEAD);
     }
 
-    em_ptr->do_fear = damroll(3, (em_ptr->dam / 2)) + 1;
+    em_ptr->do_fear = Dice::roll(3, (em_ptr->dam / 2)) + 1;
     if (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10) {
         em_ptr->note = _("には効果がなかった。", " is unaffected.");
         em_ptr->obvious = false;
@@ -141,7 +138,7 @@ ProcessResult effect_monster_turn_evil(PlayerType *player_ptr, EffectMonster *em
         em_ptr->r_ptr->r_kind_flags.set(MonsterKindType::EVIL);
     }
 
-    em_ptr->do_fear = damroll(3, (em_ptr->dam / 2)) + 1;
+    em_ptr->do_fear = Dice::roll(3, (em_ptr->dam / 2)) + 1;
     if (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10) {
         em_ptr->note = _("には効果がなかった。", " is unaffected.");
         em_ptr->obvious = false;
@@ -158,7 +155,7 @@ ProcessResult effect_monster_turn_all(EffectMonster *em_ptr)
         em_ptr->obvious = true;
     }
 
-    em_ptr->do_fear = damroll(3, (em_ptr->dam / 2)) + 1;
+    em_ptr->do_fear = Dice::roll(3, (em_ptr->dam / 2)) + 1;
     if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE) ||
         em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_FEAR) ||
         (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10)) {

@@ -9,10 +9,7 @@
 #include "flavor/flavor-describer.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
@@ -194,7 +191,7 @@ void update_object_by_monster_movement(PlayerType *player_ptr, turn_flags *turn_
 
         if (turn_flags_ptr->do_take) {
             const auto tval = o_ptr->bi_key.tval();
-            if (tval == ItemKindType::GOLD || (tval == ItemKindType::CORPSE) || (tval == ItemKindType::STATUE)) {
+            if (tval == ItemKindType::GOLD || (tval == ItemKindType::MONSTER_REMAINS) || (tval == ItemKindType::STATUE)) {
                 continue;
             }
         }

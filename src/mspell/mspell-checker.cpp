@@ -21,17 +21,14 @@
 #include "floor/geometry.h"
 #include "floor/line-of-sight.h"
 #include "monster-floor/monster-move.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
+#include "monster/monster-util.h"
 #include "mspell/assign-monster-spell.h"
 #include "mspell/improper-mspell-remover.h"
 #include "mspell/mspell-judgement.h"
@@ -120,9 +117,9 @@ bool raise_possible(PlayerType *player_ptr, MonsterEntity *m_ptr)
             g_ptr = &floor_ptr->grid_array[yy][xx];
             for (const auto this_o_idx : g_ptr->o_idx_list) {
                 const auto &item = floor_ptr->o_list[this_o_idx];
-                if (item.bi_key.tval() == ItemKindType::CORPSE) {
-                    auto corpse_r_idx = i2enum<MonsterRaceId>(item.pval);
-                    if (!monster_has_hostile_align(player_ptr, m_ptr, 0, 0, &monraces_info[corpse_r_idx])) {
+                if (item.bi_key.tval() == ItemKindType::MONSTER_REMAINS) {
+                    const auto &monrace = item.get_monrace();
+                    if (!monster_has_hostile_align(player_ptr, m_ptr, 0, 0, &monrace)) {
                         return true;
                     }
                 }
@@ -156,7 +153,7 @@ bool raise_possible(PlayerType *player_ptr, MonsterEntity *m_ptr)
 bool clean_shot(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, POSITION x2, bool is_friend)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    projection_path grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), y1, x1, y2, x2, 0);
+    ProjectionPath grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { y1, x1 }, { y2, x2 }, 0);
     if (grid_g.path_num() == 0) {
         return false;
     }
@@ -169,7 +166,7 @@ bool clean_shot(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, P
     for (const auto &[y, x] : grid_g) {
         const Pos2D pos(y, x);
         const auto &grid = floor_ptr->get_grid(pos);
-        if ((grid.m_idx > 0) && (y != y2 || x != x2)) {
+        if (grid.has_monster() && (y != y2 || x != x2)) {
             auto *m_ptr = &floor_ptr->m_list[grid.m_idx];
             if (is_friend == m_ptr->is_pet()) {
                 return false;
@@ -274,7 +271,7 @@ ProjectResult breath(PlayerType *player_ptr, POSITION y, POSITION x, MONSTER_IDX
     }
 
     if (rad < 1) {
-        rad = (r_ptr->flags2 & (RF2_POWERFUL)) ? 3 : 2;
+        rad = r_ptr->misc_flags.has(MonsterMiscType::POWERFUL) ? 3 : 2;
     }
 
     return project(player_ptr, m_idx, rad, y, x, dam_hp, typ, flg);

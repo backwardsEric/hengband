@@ -52,13 +52,13 @@
 #include "player-status/player-hand-types.h"
 #include "player/attack-defense-types.h"
 #include "player/player-damage.h"
+#include "player/player-realm.h"
 #include "player/player-status.h"
 #include "racial/racial-android.h"
 #include "racial/racial-balrog.h"
 #include "racial/racial-draconian.h"
 #include "racial/racial-kutar.h"
 #include "racial/racial-vampire.h"
-#include "realm/realm-names-table.h"
 #include "spell-class/spells-mirror-master.h"
 #include "spell-kind/spells-beam.h"
 #include "spell-kind/spells-detection.h"
@@ -79,7 +79,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-paralysis.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
@@ -92,7 +91,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
     case PlayerClassType::WARRIOR:
         return sword_dancing(player_ptr);
     case PlayerClassType::HIGH_MAGE:
-        if (player_ptr->realm1 == REALM_HEX) {
+        if (PlayerRealm(player_ptr).is_realm_hex()) {
             const auto retval = SpellHex(player_ptr).stop_spells_with_selection();
             if (retval) {
                 PlayerEnergy(player_ptr).set_player_turn_energy(10);
@@ -106,7 +105,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
     case PlayerClassType::SORCERER:
         return eat_magic(player_ptr, player_ptr->lev * 2);
     case PlayerClassType::PRIEST:
-        if (!is_good_realm(player_ptr->realm1)) {
+        if (!PlayerRealm(player_ptr).realm1().is_good_attribute()) {
             (void)dispel_monsters(player_ptr, player_ptr->lev * 4);
             turn_monsters(player_ptr, player_ptr->lev * 4);
             banish_monsters(player_ptr, player_ptr->lev * 4);
@@ -126,7 +125,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
             return false;
         }
 
-        fire_beam(player_ptr, is_good_realm(player_ptr->realm1) ? AttributeType::HOLY_FIRE : AttributeType::HELL_FIRE, dir, player_ptr->lev * 3);
+        fire_beam(player_ptr, PlayerRealm(player_ptr).realm1().is_good_attribute() ? AttributeType::HOLY_FIRE : AttributeType::HELL_FIRE, dir, player_ptr->lev * 3);
         return true;
     case PlayerClassType::WARRIOR_MAGE:
         if (command == -3) {
@@ -222,7 +221,7 @@ bool switch_class_racial_execution(PlayerType *player_ptr, const int32_t command
             return false;
         }
 
-        if (!player_ptr->effects()->paralysis()->is_paralyzed() && !cmd_limit_cast(player_ptr)) {
+        if (!player_ptr->effects()->paralysis().is_paralyzed() && !cmd_limit_cast(player_ptr)) {
             handle_stuff(player_ptr);
             command_dir = 0;
             (void)do_cmd_cast(player_ptr);
@@ -416,7 +415,7 @@ bool switch_race_racial_execution(PlayerType *player_ptr, const int32_t command)
         }
 
         msg_print(_("マジック・ミサイルを放った。", "You cast a magic missile."));
-        (void)fire_bolt_or_beam(player_ptr, 10, AttributeType::MISSILE, dir, damroll(3 + ((player_ptr->lev - 1) / 5), 4));
+        (void)fire_bolt_or_beam(player_ptr, 10, AttributeType::MISSILE, dir, Dice::roll(3 + ((player_ptr->lev - 1) / 5), 4));
         return true;
     case PlayerRaceType::DRACONIAN:
         return draconian_breath(player_ptr);

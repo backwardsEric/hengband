@@ -9,8 +9,6 @@
 #include "game-option/map-screen-options.h"
 #include "grid/grid.h"
 #include "mind/mind-ninja.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags2.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
@@ -26,7 +24,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain-type-definition.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/point-2d.h"
@@ -34,7 +31,7 @@
 #include "world/world.h"
 #include <vector>
 
-using PassBoldFunc = bool (*)(FloorType *, POSITION, POSITION);
+using PassBoldFunc = bool (*)(const FloorType *, POSITION, POSITION);
 
 /*!
  * @brief 指定した座標全てを照らす。
@@ -63,7 +60,7 @@ static void cave_temp_room_lite(PlayerType *player_ptr, const std::vector<Pos2D>
         auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
         g_ptr->info &= ~(CAVE_TEMP);
         g_ptr->info |= (CAVE_GLOW);
-        if (g_ptr->m_idx) {
+        if (g_ptr->has_monster()) {
             PERCENTAGE chance = 25;
             auto *m_ptr = &player_ptr->current_floor_ptr->m_list[g_ptr->m_idx];
             auto *r_ptr = &m_ptr->get_monrace();
@@ -75,7 +72,7 @@ static void cave_temp_room_lite(PlayerType *player_ptr, const std::vector<Pos2D>
                 chance = 100;
             }
 
-            if (m_ptr->is_asleep() && (randint0(100) < chance)) {
+            if (m_ptr->is_asleep() && evaluate_percent(chance)) {
                 (void)set_monster_csleep(player_ptr, g_ptr->m_idx, 0);
                 if (m_ptr->ml) {
                     const auto m_name = monster_desc(player_ptr, m_ptr, 0);
@@ -98,6 +95,7 @@ static void cave_temp_room_lite(PlayerType *player_ptr, const std::vector<Pos2D>
 static void cave_temp_room_unlite(PlayerType *player_ptr, const std::vector<Pos2D> &points)
 {
     auto &floor = *player_ptr->current_floor_ptr;
+    const auto &world = AngbandWorld::get_instance();
     for (const auto &point : points) {
         auto &grid = floor.get_grid(point);
         auto do_dark = !grid.is_mirror();
@@ -106,7 +104,7 @@ static void cave_temp_room_unlite(PlayerType *player_ptr, const std::vector<Pos2
             continue;
         }
 
-        if (floor.dun_level || !w_ptr->is_daytime()) {
+        if (floor.dun_level || !world.is_daytime()) {
             for (int j = 0; j < 9; j++) {
                 const Pos2D pos_neighbor(point.y + ddy_ddd[j], point.x + ddx_ddd[j]);
                 if (!in_bounds2(&floor, pos_neighbor.y, pos_neighbor.x)) {
@@ -133,7 +131,7 @@ static void cave_temp_room_unlite(PlayerType *player_ptr, const std::vector<Pos2
             note_spot(player_ptr, point.y, point.x);
         }
 
-        if (grid.m_idx) {
+        if (grid.has_monster()) {
             update_monster(player_ptr, grid.m_idx, false);
         }
 
@@ -154,10 +152,10 @@ static int next_to_open(FloorType *floor_ptr, const POSITION cy, const POSITION 
 {
     int len = 0;
     int blen = 0;
+    const Pos2D pos_center(cy, cx);
     for (int i = 0; i < 16; i++) {
-        POSITION y = cy + ddy_cdd[i % 8];
-        POSITION x = cx + ddx_cdd[i % 8];
-        if (!pass_bold(floor_ptr, y, x)) {
+        const auto pos = pos_center + CCW_DD[i % 8];
+        if (!pass_bold(floor_ptr, pos.y, pos.x)) {
             if (len > blen) {
                 blen = len;
             }
@@ -264,7 +262,7 @@ static void cave_temp_lite_room_aux(PlayerType *player_ptr, std::vector<Pos2D> &
  * @param x 指定X座標
  * @return 射線を通すならばtrueを返す。
  */
-static bool cave_pass_dark_bold(FloorType *floor_ptr, POSITION y, POSITION x)
+static bool cave_pass_dark_bold(const FloorType *floor_ptr, POSITION y, POSITION x)
 {
     return cave_has_flag_bold(floor_ptr, y, x, TerrainCharacteristics::PROJECT);
 }
@@ -375,11 +373,11 @@ void unlite_room(PlayerType *player_ptr, const POSITION y1, const POSITION x1)
  */
 bool starlight(PlayerType *player_ptr, bool magic)
 {
-    if (!player_ptr->effects()->blindness()->is_blind() && !magic) {
+    if (!player_ptr->effects()->blindness().is_blind() && !magic) {
         msg_print(_("杖の先が明るく輝いた...", "The end of the staff glows brightly..."));
     }
 
-    int num = damroll(5, 3);
+    int num = Dice::roll(5, 3);
     auto y = 0;
     auto x = 0;
     for (int k = 0; k < num; k++) {
@@ -397,7 +395,7 @@ bool starlight(PlayerType *player_ptr, bool magic)
         }
 
         constexpr uint flags = PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL | PROJECT_LOS;
-        project(player_ptr, 0, 0, y, x, damroll(6 + player_ptr->lev / 8, 10), AttributeType::LITE_WEAK, flags);
+        project(player_ptr, 0, 0, y, x, Dice::roll(6 + player_ptr->lev / 8, 10), AttributeType::LITE_WEAK, flags);
     }
 
     return true;
@@ -417,7 +415,7 @@ bool lite_area(PlayerType *player_ptr, int dam, POSITION rad)
         return false;
     }
 
-    if (!player_ptr->effects()->blindness()->is_blind()) {
+    if (!player_ptr->effects()->blindness().is_blind()) {
         msg_print(_("白い光が辺りを覆った。", "You are surrounded by a white light."));
     }
 
@@ -438,7 +436,7 @@ bool lite_area(PlayerType *player_ptr, int dam, POSITION rad)
  */
 bool unlite_area(PlayerType *player_ptr, int dam, POSITION rad)
 {
-    if (!player_ptr->effects()->blindness()->is_blind()) {
+    if (!player_ptr->effects()->blindness().is_blind()) {
         msg_print(_("暗闇が辺りを覆った。", "Darkness surrounds you."));
     }
 

@@ -12,6 +12,7 @@
 #include "monster-race/race-feature-flags.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
+#include "monster-race/race-special-flags.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
 
@@ -37,19 +38,18 @@ struct turn_flags {
 };
 
 // @details ダミーIDが渡されるとオブジェクトが生焼けになるので、ヘッダ側で全て初期化しておく.
-struct old_race_flags {
-    old_race_flags(MonsterRaceId monrace_id);
+class MonsterRaceInfo;
+class OldRaceFlags {
+public:
+    OldRaceFlags(MonsterRaceId monrace_id);
 
-    BIT_FLAGS old_r_flags1 = 0;
-    BIT_FLAGS old_r_flags2 = 0;
-    BIT_FLAGS old_r_flags3 = 0;
-    BIT_FLAGS old_r_flagsr = 0;
     EnumClassFlagGroup<MonsterAbilityType> old_r_ability_flags{};
     EnumClassFlagGroup<MonsterBehaviorType> old_r_behavior_flags{};
     EnumClassFlagGroup<MonsterKindType> old_r_kind_flags{};
     EnumClassFlagGroup<MonsterResistanceType> old_r_resistance_flags{};
     EnumClassFlagGroup<MonsterDropType> old_r_drop_flags{};
     EnumClassFlagGroup<MonsterFeatureType> old_r_feature_flags{};
+    EnumClassFlagGroup<MonsterSpecialType> old_r_special_flags{};
 
     byte old_r_blows0 = 0;
     byte old_r_blows1 = 0;
@@ -57,17 +57,18 @@ struct old_race_flags {
     byte old_r_blows3 = 0;
 
     byte old_r_cast_spell = 0;
+
+    void update_lore_window_flag(const MonsterRaceInfo &monrace) const;
 };
 
 struct coordinate_candidate {
-    POSITION gy;
-    POSITION gx;
-    POSITION gdis;
+    POSITION gy = 0;
+    POSITION gx = 0;
+    int gdis = 0;
 };
 
 class MonsterEntity;
 turn_flags *init_turn_flags(MONSTER_IDX riding_idx, MONSTER_IDX m_idx, turn_flags *turn_flags_ptr);
-coordinate_candidate init_coordinate_candidate(void);
 
 void store_enemy_approch_direction(int *mm, POSITION y, POSITION x);
 void store_moves_val(int *mm, int y, int x);

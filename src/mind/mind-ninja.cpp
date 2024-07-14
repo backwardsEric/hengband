@@ -17,14 +17,12 @@
 #include "mind/mind-mirror-master.h"
 #include "mind/mind-numbers.h"
 #include "mind/mind-warrior.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
 #include "object-enchant/trc-types.h"
-#include "object/object-kind-hook.h"
 #include "player-attack/player-attack.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
@@ -46,7 +44,6 @@
 #include "status/body-improvement.h"
 #include "status/element-resistance.h"
 #include "status/temporary-resistance.h"
-#include "system/baseitem-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
@@ -58,11 +55,6 @@
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -80,22 +72,20 @@ bool kawarimi(PlayerType *player_ptr, bool success)
         return false;
     }
 
-    ItemEntity forge;
-    auto *q_ptr = &forge;
     if (player_ptr->is_dead) {
         return false;
     }
 
     const auto effects = player_ptr->effects();
-    const auto is_confused = effects->confusion()->is_confused();
-    const auto is_blind = effects->blindness()->is_blind();
-    const auto is_hallucinated = effects->hallucination()->is_hallucinated();
-    const auto is_paralyzed = effects->paralysis()->is_paralyzed();
+    const auto is_confused = effects->confusion().is_confused();
+    const auto is_blind = effects->blindness().is_blind();
+    const auto is_hallucinated = effects->hallucination().is_hallucinated();
+    const auto is_paralyzed = effects->paralysis().is_paralyzed();
     if (is_confused || is_blind || is_paralyzed || is_hallucinated) {
         return false;
     }
 
-    if (effects->stun()->current() > randint0(200)) {
+    if (effects->stun().current() > randint0(200)) {
         return false;
     }
 
@@ -111,12 +101,10 @@ bool kawarimi(PlayerType *player_ptr, bool success)
     POSITION x = player_ptr->x;
 
     teleport_player(player_ptr, 10 + randint1(90), TELEPORT_SPONTANEOUS);
-    q_ptr->wipe();
-    const int sv_wooden_statue = 0;
-    q_ptr->prep(lookup_baseitem_id({ ItemKindType::STATUE, sv_wooden_statue }));
-
-    q_ptr->pval = enum2i(MonsterRaceId::NINJA);
-    (void)drop_near(player_ptr, q_ptr, -1, y, x);
+    constexpr int sv_wooden_statue = 0;
+    ItemEntity item({ ItemKindType::STATUE, sv_wooden_statue });
+    item.pval = enum2i(MonsterRaceId::NINJA);
+    (void)drop_near(player_ptr, &item, -1, y, x);
 
     if (success) {
         msg_print(_("攻撃を受ける前に素早く身をひるがえした。", "You have turned around just before the attack hit you."));
@@ -161,7 +149,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
         tm_idx = floor_ptr->grid_array[ty][tx].m_idx;
     }
 
-    projection_path path_g(player_ptr, project_length, player_ptr->y, player_ptr->x, ty, tx, PROJECT_STOP | PROJECT_KILL);
+    ProjectionPath path_g(player_ptr, project_length, player_ptr->get_position(), { ty, tx }, PROJECT_STOP | PROJECT_KILL);
     project_length = 0;
     if (path_g.path_num() == 0) {
         return true;
@@ -179,7 +167,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
             continue;
         }
 
-        if (!grid_new.m_idx) {
+        if (!grid_new.has_monster()) {
             if (tm_idx) {
                 msg_print(_("失敗！", "Failed!"));
             } else {
@@ -502,7 +490,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
         teleport_player(player_ptr, 30, TELEPORT_SPONTANEOUS);
         break;
     case MindNinjaType::PURGATORY_FLAME: {
-        int num = damroll(3, 9);
+        int num = Dice::roll(3, 9);
         for (int k = 0; k < num; k++) {
             AttributeType typ = one_in_(2) ? AttributeType::FIRE : one_in_(3) ? AttributeType::NETHER
                                                                               : AttributeType::PLASMA;
@@ -514,7 +502,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
                 }
             }
 
-            project(player_ptr, 0, 0, y, x, damroll(6 + plev / 8, 10), typ, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL));
+            project(player_ptr, 0, 0, y, x, Dice::roll(6 + plev / 8, 10), typ, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL));
         }
 
         break;

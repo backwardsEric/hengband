@@ -3,9 +3,6 @@
 #include "floor/line-of-sight.h"
 #include "monster-floor/monster-death.h"
 #include "monster-floor/monster-remover.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-info.h"
@@ -97,7 +94,7 @@ bool process_quantum_effect(PlayerType *player_ptr, MONSTER_IDX m_idx, bool see_
     }
 
     bool can_disappear = r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE);
-    can_disappear &= (r_ptr->flags1 & RF1_QUESTOR) == 0;
+    can_disappear &= r_ptr->misc_flags.has_not(MonsterMiscType::QUESTOR);
     if (can_disappear) {
         vanish_nonunique(player_ptr, m_idx, see_m);
         return true;

@@ -90,12 +90,12 @@ void stair_creation(PlayerType *player_ptr)
     saved_floor_type *sf_ptr;
     sf_ptr = get_sf_ptr(player_ptr->floor_id);
     if (!sf_ptr) {
-        player_ptr->floor_id = get_new_floor_id(player_ptr);
+        player_ptr->floor_id = get_unused_floor_id(player_ptr);
         sf_ptr = get_sf_ptr(player_ptr->floor_id);
     }
 
     if (up && down) {
-        if (randint0(100) < 50) {
+        if (one_in_(2)) {
             up = false;
         } else {
             down = false;
@@ -133,7 +133,7 @@ void stair_creation(PlayerType *player_ptr)
             }
         }
     } else {
-        dest_floor_id = get_new_floor_id(player_ptr);
+        dest_floor_id = get_unused_floor_id(player_ptr);
         if (up) {
             sf_ptr->upper_floor_id = dest_floor_id;
         } else {

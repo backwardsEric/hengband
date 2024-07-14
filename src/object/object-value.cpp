@@ -1,5 +1,4 @@
 #include "object/object-value.h"
-#include "monster-race/monster-race.h"
 #include "object/object-value-calc.h"
 #include "object/tval-types.h"
 #include "system/artifact-type-definition.h"
@@ -191,8 +190,9 @@ PRICE object_value_real(const ItemEntity *o_ptr)
         }
 
         value += ((o_ptr->to_h + o_ptr->to_d + o_ptr->to_a) * 100L);
-        value += (o_ptr->dd - baseitem.dd) * o_ptr->ds * 250L;
-        value += (o_ptr->ds - baseitem.ds) * o_ptr->dd * 250L;
+        const auto &dice = o_ptr->damage_dice;
+        value += (dice.num - baseitem.damage_dice.num) * dice.sides * 250L;
+        value += (dice.sides - baseitem.damage_dice.sides) * dice.num * 250L;
         break;
     }
     case ItemKindType::SHOT:
@@ -203,13 +203,13 @@ PRICE object_value_real(const ItemEntity *o_ptr)
         }
 
         value += ((o_ptr->to_h + o_ptr->to_d) * 5L);
-        value += (o_ptr->dd - baseitem.dd) * o_ptr->ds * 5L;
-        value += (o_ptr->ds - baseitem.ds) * o_ptr->dd * 5L;
+        const auto &dice = o_ptr->damage_dice;
+        value += (dice.num - baseitem.damage_dice.num) * dice.sides * 5L;
+        value += (dice.sides - baseitem.damage_dice.sides) * dice.num * 5L;
         break;
     }
     case ItemKindType::FIGURINE: {
-        auto figure_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        DEPTH level = monraces_info[figure_r_idx].level;
+        const auto level = o_ptr->get_monrace().level;
         if (level < 20) {
             value = level * 50L;
         } else if (level < 30) {
@@ -224,11 +224,11 @@ PRICE object_value_real(const ItemEntity *o_ptr)
         break;
     }
     case ItemKindType::CAPTURE: {
-        auto capture_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        if (!MonsterRace(capture_r_idx).is_valid()) {
+        const auto &monrace = o_ptr->get_monrace();
+        if (!monrace.is_valid()) {
             value = 1000L;
         } else {
-            value = ((monraces_info[capture_r_idx].level) * 50L + 1000);
+            value = monrace.level * 50 + 1000;
         }
         break;
     }

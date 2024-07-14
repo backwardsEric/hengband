@@ -108,15 +108,15 @@ bool sleep_monsters_touch(PlayerType *player_ptr)
 /*!
  * @brief 死者復活処理(起点より周囲5マス)
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param who 術者モンスターID(0ならばプレイヤー)
+ * @param src_idx 術者モンスターID(0ならばプレイヤー)
  * @param y 起点Y座標
  * @param x 起点X座標
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool animate_dead(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x)
+bool animate_dead(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION y, POSITION x)
 {
     BIT_FLAGS flg = PROJECT_ITEM | PROJECT_HIDE;
-    return project(player_ptr, who, 5, y, x, 0, AttributeType::ANIM_DEAD, flg).notice;
+    return project(player_ptr, src_idx, 5, y, x, 0, AttributeType::ANIM_DEAD, flg).notice;
 }
 
 /*!
@@ -151,7 +151,7 @@ void wall_breaker(PlayerType *player_ptr)
         return;
     }
 
-    int num = damroll(5, 3);
+    int num = Dice::roll(5, 3);
     for (int i = 0; i < num; i++) {
         while (true) {
             scatter(player_ptr, &y, &x, player_ptr->y, player_ptr->x, 10, PROJECT_NONE);

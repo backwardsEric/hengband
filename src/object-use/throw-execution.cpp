@@ -35,7 +35,6 @@
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
-#include "monster/monster-pain-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "object-enchant/tr-types.h"
@@ -62,9 +61,8 @@
 #include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/lore-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -263,7 +261,7 @@ void ObjectThrowEntity::display_potion_throw()
 
     auto *floor_ptr = this->player_ptr->current_floor_ptr;
     auto *angry_m_ptr = &floor_ptr->m_list[floor_ptr->grid_array[this->y][this->x].m_idx];
-    if ((floor_ptr->grid_array[this->y][this->x].m_idx == 0) || !angry_m_ptr->is_friendly() || angry_m_ptr->is_invulnerable()) {
+    if (!floor_ptr->grid_array[this->y][this->x].has_monster() || !angry_m_ptr->is_friendly() || angry_m_ptr->is_invulnerable()) {
         this->do_drop = false;
         return;
     }
@@ -413,9 +411,8 @@ void ObjectThrowEntity::check_racial_target_seen()
         return;
     }
 
-    const auto c = this->q_ptr->get_symbol();
-    const auto a = this->q_ptr->get_color();
-    print_rel(this->player_ptr, c, a, this->ny[this->cur_dis], this->nx[this->cur_dis]);
+    const auto symbol = this->q_ptr->get_symbol();
+    print_rel(this->player_ptr, symbol, this->ny[this->cur_dis], this->nx[this->cur_dis]);
     move_cursor_relative(this->ny[this->cur_dis], this->nx[this->cur_dis]);
     term_fresh();
     term_xtra(TERM_XTRA_DELAY, this->msec);
@@ -455,10 +452,9 @@ void ObjectThrowEntity::attack_racial_power()
     if (mdp.mon_take_hit(this->m_ptr->get_died_message())) {
         return;
     }
-
-    if (const auto pain_message = MonsterPainDescriber(player_ptr, this->g_ptr->m_idx).describe(this->tdam);
-        !pain_message.empty()) {
-        msg_print(pain_message);
+    const auto pain_message = this->m_ptr->get_pain_message(this->m_name, this->tdam);
+    if (pain_message) {
+        msg_print(*pain_message);
     }
 
     if ((this->tdam > 0) && !this->q_ptr->is_potion()) {
@@ -483,8 +479,8 @@ void ObjectThrowEntity::display_attack_racial_power()
         return;
     }
 
-    if (!this->player_ptr->effects()->hallucination()->is_hallucinated()) {
-        monster_race_track(this->player_ptr, this->m_ptr->ap_r_idx);
+    if (!this->player_ptr->effects()->hallucination().is_hallucinated()) {
+        LoreTracker::get_instance().set_trackee(this->m_ptr->ap_r_idx);
     }
 
     health_track(this->player_ptr, this->g_ptr->m_idx);
@@ -492,10 +488,8 @@ void ObjectThrowEntity::display_attack_racial_power()
 
 void ObjectThrowEntity::calc_racial_power_damage()
 {
-    auto dd = this->q_ptr->dd;
-    auto ds = this->q_ptr->ds;
-    torch_dice(this->q_ptr, &dd, &ds);
-    this->tdam = damroll(dd, ds);
+    const auto damage_dice = is_active_torch(this->o_ptr) ? Dice(1, 6) : this->q_ptr->damage_dice;
+    this->tdam = damage_dice.roll();
     this->tdam = calc_attack_damage_with_slay(this->player_ptr, this->q_ptr, this->tdam, this->m_ptr, HISSATSU_NONE, true);
     this->tdam = critical_shot(this->player_ptr, this->q_ptr->weight, this->q_ptr->to_h, 0, this->tdam);
     this->tdam += (this->q_ptr->to_d > 0 ? 1 : -1) * this->q_ptr->to_d;
@@ -533,13 +527,12 @@ void ObjectThrowEntity::process_boomerang_throw()
             continue;
         }
 
-        const auto c = this->q_ptr->get_symbol();
-        const auto a = this->q_ptr->get_color();
         if (this->msec <= 0) {
             continue;
         }
 
-        print_rel(this->player_ptr, c, a, this->ny[i], this->nx[i]);
+        const auto symbol = this->q_ptr->get_symbol();
+        print_rel(this->player_ptr, symbol, this->ny[i], this->nx[i]);
         move_cursor_relative(this->ny[i], this->nx[i]);
         term_fresh();
         term_xtra(TERM_XTRA_DELAY, this->msec);
@@ -552,7 +545,7 @@ void ObjectThrowEntity::process_boomerang_throw()
 
 void ObjectThrowEntity::display_boomerang_throw()
 {
-    const auto is_blind = this->player_ptr->effects()->blindness()->is_blind();
+    const auto is_blind = this->player_ptr->effects()->blindness().is_blind();
     if ((this->back_chance > 37) && !is_blind && (this->i_idx >= 0)) {
         msg_format(_("%sが手元に返ってきた。", "%s comes back to you."), this->o2_name.data());
         this->come_back = true;

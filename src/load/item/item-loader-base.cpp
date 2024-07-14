@@ -10,15 +10,16 @@
 /*!
  * @brief アイテムオブジェクトの鑑定情報をロードする.
  */
-void ItemLoaderBase::load_item(void)
+void ItemLoaderBase::load_item()
 {
     auto loading_max_k_idx = rd_u16b();
     BaseitemInfo dummy;
-    for (auto i = 0U; i < loading_max_k_idx; i++) {
-        auto *bii_ptr = i < baseitems_info.size() ? &baseitems_info[i] : &dummy;
-        auto tmp8u = rd_byte();
-        bii_ptr->aware = any_bits(tmp8u, 0x01);
-        bii_ptr->tried = any_bits(tmp8u, 0x02);
+    auto &baseitems = BaseitemList::get_instance();
+    for (uint16_t i = 0; i < loading_max_k_idx; i++) {
+        auto &baseitem = i < baseitems.size() ? baseitems.get_baseitem(i) : dummy;
+        const auto tmp8u = rd_byte();
+        baseitem.aware = any_bits(tmp8u, 0x01);
+        baseitem.tried = any_bits(tmp8u, 0x02);
     }
 
     load_note(_("アイテムの記録をロードしました", "Loaded Object Memory"));
@@ -32,7 +33,7 @@ void ItemLoaderBase::load_artifact()
     auto loading_max_a_idx = rd_u16b();
     for (auto i = 0U; i < loading_max_a_idx; i++) {
         const auto a_idx = i2enum<FixedArtifactId>(i);
-        auto &artifact = ArtifactsInfo::get_instance().get_artifact(a_idx);
+        auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
         artifact.is_generated = rd_bool();
         if (h_older_than(1, 5, 0, 0)) {
             artifact.floor_id = 0;

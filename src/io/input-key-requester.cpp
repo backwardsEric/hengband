@@ -76,10 +76,6 @@ void InputKeyRequestor::request_command()
 void InputKeyRequestor::process_input_command()
 {
     while (true) {
-        if (!this->shopping && !macro_running() && !command_new && auto_debug_save && (!inkey_next || *inkey_next == '\0')) {
-            save_player(this->player_ptr, SaveType::DEBUG);
-        }
-
         if (fresh_once && macro_running()) {
             stop_term_fresh();
         }
@@ -94,7 +90,7 @@ void InputKeyRequestor::process_input_command()
         this->process_control_command(cmd);
         auto act = keymap_act[this->mode][(byte)(cmd)];
         if (act && !inkey_next) {
-            (void)strnfmt(request_command_buffer, sizeof(request_command_buffer), "%s", act);
+            angband_strcpy(request_command_buffer, act, sizeof(request_command_buffer));
             inkey_next = request_command_buffer;
             continue;
         }
@@ -264,7 +260,7 @@ void InputKeyRequestor::process_control_command(short &cmd)
     }
 }
 
-void InputKeyRequestor::change_shopping_command()
+void InputKeyRequestor::change_shopping_command() const
 {
     if (!this->shopping) {
         return;
@@ -283,7 +279,7 @@ void InputKeyRequestor::change_shopping_command()
     }
 }
 
-int InputKeyRequestor::get_caret_command()
+int InputKeyRequestor::get_caret_command() const
 {
 #ifdef JP
     auto caret_command = 0;
@@ -347,7 +343,7 @@ void InputKeyRequestor::confirm_command(const std::optional<std::string> &inscri
     }
 }
 
-void InputKeyRequestor::make_commands_frame()
+void InputKeyRequestor::make_commands_frame() const
 {
     auto line = 0;
     put_str("+----------------------------------------------------+", this->base_y + line++, this->base_x);
@@ -359,7 +355,7 @@ void InputKeyRequestor::make_commands_frame()
     put_str("+----------------------------------------------------+", this->base_y + line++, this->base_x);
 }
 
-std::string InputKeyRequestor::switch_special_menu_condition(const SpecialMenuContent &special_menu)
+std::string InputKeyRequestor::switch_special_menu_condition(const SpecialMenuContent &special_menu) const
 {
     switch (special_menu.menu_condition) {
     case SpecialMenuType::NONE:
@@ -371,19 +367,19 @@ std::string InputKeyRequestor::switch_special_menu_condition(const SpecialMenuCo
 
         return "";
     case SpecialMenuType::WILD: {
-        auto floor_ptr = this->player_ptr->current_floor_ptr;
-        if ((floor_ptr->dun_level > 0) || floor_ptr->inside_arena || floor_ptr->is_in_quest()) {
+        const auto &floor = *this->player_ptr->current_floor_ptr;
+        if (floor.is_in_underground() || floor.inside_arena) {
             return "";
         }
 
-        if (this->player_ptr->wild_mode == special_menu.wild_mode) {
+        if (special_menu.matches_current_wild_mode()) {
             return std::string(special_menu.name);
         }
 
         return "";
     }
     default:
-        throw("Invalid SpecialMenuType is specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid SpecialMenuType is specified!");
     }
 }
 

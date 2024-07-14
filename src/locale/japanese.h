@@ -7,6 +7,8 @@
 
 #ifdef JP
 
+enum class CharacterEncoding : uint8_t;
+
 enum class JVerbConjugationType {
     AND = 0,
     TO = 1,
@@ -18,10 +20,11 @@ std::string sindarin_to_kana(std::string_view sindarin);
 bool is_kinsoku(std::string_view ch);
 void sjis2euc(char *str);
 void euc2sjis(char *str);
-byte codeconv(char *str);
+CharacterEncoding codeconv(char *str);
 bool iskanji2(concptr s, int x);
 std::optional<std::string> sys_to_utf8(std::string_view str);
-void guess_convert_to_system_encoding(char *strbuf, int buflen);
+std::optional<std::string> utf8_to_sys(std::string_view utf8_str);
+size_t guess_convert_to_system_encoding(char *strbuf, int buflen);
 
 int lb_to_kg_integer(int x);
 int lb_to_kg_fraction(int x);

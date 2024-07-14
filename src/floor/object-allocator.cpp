@@ -10,8 +10,6 @@
 #include "grid/grid.h"
 #include "grid/object-placer.h"
 #include "grid/trap.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -63,7 +61,7 @@ static bool alloc_stairs_aux(PlayerType *player_ptr, POSITION y, POSITION x, int
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *g_ptr = &floor_ptr->grid_array[y][x];
-    if (!g_ptr->is_floor() || pattern_tile(floor_ptr, y, x) || !g_ptr->o_idx_list.empty() || (g_ptr->m_idx != 0) || next_to_walls(floor_ptr, y, x) < walls) {
+    if (!g_ptr->is_floor() || pattern_tile(floor_ptr, y, x) || !g_ptr->o_idx_list.empty() || g_ptr->has_monster() || next_to_walls(floor_ptr, y, x) < walls) {
         return false;
     }
 
@@ -81,7 +79,7 @@ static bool alloc_stairs_aux(PlayerType *player_ptr, POSITION y, POSITION x, int
 bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
 {
     int shaft_num = 0;
-    const auto &terrain = TerrainList::get_instance()[feat];
+    const auto &terrain = TerrainList::get_instance().get_terrain(feat);
     auto &floor = *player_ptr->current_floor_ptr;
     const auto &dungeon = floor.get_dungeon_definition();
     if (terrain.flags.has(TerrainCharacteristics::LESS)) {
@@ -93,11 +91,11 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
             shaft_num = (randint1(num + 1)) / 2;
         }
     } else if (terrain.flags.has(TerrainCharacteristics::MORE)) {
-        auto q_idx = floor.get_quest_id();
-        const auto &quest_list = QuestList::get_instance();
-        if (floor.dun_level > 1 && inside_quest(q_idx)) {
-            auto *r_ptr = &monraces_info[quest_list[q_idx].r_idx];
-            if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) || 0 < r_ptr->max_num) {
+        auto quest_id = floor.get_quest_id();
+        const auto &quests = QuestList::get_instance();
+        if (floor.dun_level > 1 && inside_quest(quest_id)) {
+            const auto &monrace = quests.get_quest(quest_id).get_bounty();
+            if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE) || (monrace.max_num > 0)) {
                 return true;
             }
         }
@@ -195,7 +193,7 @@ void alloc_object(PlayerType *player_ptr, dap_type set, dungeon_allocation_type 
             x = randint0(floor_ptr->width);
             const Pos2D pos(y, x);
             const auto &grid = floor_ptr->get_grid(pos);
-            if (!grid.is_floor() || !grid.o_idx_list.empty() || grid.m_idx) {
+            if (!grid.is_floor() || !grid.o_idx_list.empty() || grid.has_monster()) {
                 continue;
             }
 

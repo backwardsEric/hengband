@@ -3,7 +3,6 @@
 #include "grid/feature-flag-types.h"
 #include "grid/feature.h"
 #include "inventory/inventory-slot-types.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-status.h"
 #include "mutation/mutation-flag-types.h"
 #include "object-enchant/tr-types.h"
@@ -14,6 +13,7 @@
 #include "player-info/race-info.h"
 #include "player/attack-defense-types.h"
 #include "player/digestion-processor.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "player/player-status-flags.h"
 #include "player/player-status.h"
@@ -27,7 +27,6 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-deceleration.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 
@@ -193,11 +192,11 @@ int16_t PlayerSpeed::time_effect_bonus()
         bonus += 10;
     }
 
-    if (this->player_ptr->effects()->deceleration()->is_slow()) {
+    if (this->player_ptr->effects()->deceleration().is_slow()) {
         bonus -= 10;
     }
 
-    if (this->player_ptr->realm1 == REALM_HEX) {
+    if (PlayerRealm(this->player_ptr).is_realm_hex()) {
         if (SpellHex(this->player_ptr).is_spelling_specific(HEX_SHOCK_CLOAK)) {
             bonus += 3;
         }

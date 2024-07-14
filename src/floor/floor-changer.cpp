@@ -20,10 +20,6 @@
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/monster-summon.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
@@ -42,20 +38,19 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/terrain-type-definition.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "window/main-window-util.h"
 #include "world/world.h"
-
 #include <algorithm>
 
 /*!
  * @brief 階段移動先のフロアが生成できない時に簡単な行き止まりマップを作成する / Builds the dead end
  */
-static void build_dead_end(PlayerType *player_ptr)
+static void build_dead_end(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
+    msg_print(_("階段は行き止まりだった。", "The staircases come to a dead end..."));
     clear_cave(player_ptr);
     player_ptr->x = player_ptr->y = 0;
     set_floor_and_wall(0);
@@ -71,6 +66,12 @@ static void build_dead_end(PlayerType *player_ptr)
     player_ptr->x = player_ptr->current_floor_ptr->width / 2;
     place_bold(player_ptr, player_ptr->y, player_ptr->x, GB_FLOOR);
     wipe_generate_random_floor_flags(player_ptr->current_floor_ptr);
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    if (fcms->has(FloorChangeMode::UP)) {
+        sf_ptr->upper_floor_id = 0;
+    } else if (fcms->has(FloorChangeMode::DOWN)) {
+        sf_ptr->lower_floor_id = 0;
+    }
 }
 
 static MONSTER_IDX decide_pet_index(PlayerType *player_ptr, const int current_monster, POSITION *cy, POSITION *cx)
@@ -92,7 +93,7 @@ static MONSTER_IDX decide_pet_index(PlayerType *player_ptr, const int current_mo
         int j;
         for (j = 1000; j > 0; j--) {
             scatter(player_ptr, cy, cx, player_ptr->y, player_ptr->x, d, PROJECT_NONE);
-            if (monster_can_enter(player_ptr, *cy, *cx, &monraces_info[party_mon[current_monster].r_idx], 0)) {
+            if (monster_can_enter(player_ptr, *cy, *cx, &party_mon[current_monster].get_monrace(), 0)) {
                 break;
             }
         }
@@ -119,7 +120,7 @@ static MonsterRaceInfo &set_pet_params(PlayerType *player_ptr, const int current
     m_ptr->hold_o_idx_list.clear();
     m_ptr->target_y = 0;
     auto &r_ref = m_ptr->get_real_monrace();
-    if (r_ref.behavior_flags.has(MonsterBehaviorType::PREVENT_SUDDEN_MAGIC) && !ironman_nightmare) {
+    if (!ironman_nightmare) {
         m_ptr->mflag.set(MonsterTemporaryFlagType::PREVENT_MAGIC);
     }
 
@@ -132,11 +133,12 @@ static MonsterRaceInfo &set_pet_params(PlayerType *player_ptr, const int current
  */
 static void place_pet(PlayerType *player_ptr)
 {
-    int max_num = player_ptr->wild_mode ? 1 : MAX_PARTY_MON;
+    const auto max_num = AngbandWorld::get_instance().is_wild_mode() ? 1 : MAX_PARTY_MON;
+    auto &floor = *player_ptr->current_floor_ptr;
     for (int current_monster = 0; current_monster < max_num; current_monster++) {
         POSITION cy = 0;
         POSITION cx = 0;
-        if (!MonsterRace(party_mon[current_monster].r_idx).is_valid()) {
+        if (!MonraceList::is_valid(party_mon[current_monster].r_idx)) {
             continue;
         }
 
@@ -145,19 +147,19 @@ static void place_pet(PlayerType *player_ptr)
             auto &r_ref = set_pet_params(player_ptr, current_monster, m_idx, cy, cx);
             update_monster(player_ptr, m_idx, true);
             lite_spot(player_ptr, cy, cx);
-            if (any_bits(r_ref.flags2, RF2_MULTIPLY)) {
-                player_ptr->current_floor_ptr->num_repro++;
+            if (r_ref.misc_flags.has(MonsterMiscType::MULTIPLY)) {
+                floor.num_repro++;
             }
         } else {
-            auto *m_ptr = &party_mon[current_monster];
-            auto &r_ref = m_ptr->get_real_monrace();
-            msg_format(_("%sとはぐれてしまった。", "You have lost sight of %s."), monster_desc(player_ptr, m_ptr, 0).data());
-            if (record_named_pet && m_ptr->is_named()) {
-                exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_LOST_SIGHT, monster_desc(player_ptr, m_ptr, MD_INDEF_VISIBLE));
+            const auto &monster = party_mon[current_monster];
+            auto &monrace = monster.get_real_monrace();
+            msg_format(_("%sとはぐれてしまった。", "You have lost sight of %s."), monster_desc(player_ptr, &monster, 0).data());
+            if (record_named_pet && monster.is_named()) {
+                exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_LOST_SIGHT, monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE));
             }
 
-            if (r_ref.cur_num) {
-                r_ref.cur_num--;
+            if (monrace.cur_num) {
+                monrace.cur_num--;
             }
         }
     }
@@ -200,35 +202,44 @@ static void update_unique_artifact(FloorType *floor_ptr, int16_t cur_floor_id)
     }
 }
 
-static void check_visited_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr, bool *loaded)
+static bool is_visited_floor(saved_floor_type *sf_ptr)
 {
-    if ((sf_ptr->last_visit == 0) || !load_floor(player_ptr, sf_ptr, 0)) {
+    return sf_ptr->last_visit != 0;
+}
+
+/*!
+ * @brief フロア読込時にプレイヤー足元の地形に必要な情報を設定する
+ * @param floor フロアへの参照
+ * @param p_pos プレイヤーの現在位置
+ */
+static void set_player_grid(FloorType &floor, const Pos2D &p_pos)
+{
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    if (fcms->has_not(FloorChangeMode::NO_RETURN)) {
         return;
     }
 
-    *loaded = true;
-    if ((player_ptr->change_floor_mode & CFM_NO_RETURN) == 0) {
+    auto &grid = floor.get_grid(p_pos);
+    if (feat_uses_special(grid.feat)) {
         return;
     }
 
-    auto *g_ptr = &player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x];
-    if (feat_uses_special(g_ptr->feat)) {
-        return;
+    if (fcms->has_any_of({ FloorChangeMode::DOWN, FloorChangeMode::UP })) {
+        grid.feat = rand_choice(feat_ground_type);
     }
 
-    if (player_ptr->change_floor_mode & (CFM_DOWN | CFM_UP)) {
-        g_ptr->feat = rand_choice(feat_ground_type);
-    }
-
-    g_ptr->special = 0;
+    grid.special = 0;
 }
 
 static void update_floor_id(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
-    if (player_ptr->floor_id == 0) {
-        if (player_ptr->change_floor_mode & CFM_UP) {
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    const auto is_up = fcms->has(FloorChangeMode::UP);
+    const auto is_down = fcms->has(FloorChangeMode::DOWN);
+    if (!player_ptr->in_saved_floor()) {
+        if (is_up) {
             sf_ptr->lower_floor_id = 0;
-        } else if (player_ptr->change_floor_mode & CFM_DOWN) {
+        } else if (is_down) {
             sf_ptr->upper_floor_id = 0;
         }
 
@@ -236,7 +247,7 @@ static void update_floor_id(PlayerType *player_ptr, saved_floor_type *sf_ptr)
     }
 
     saved_floor_type *cur_sf_ptr = get_sf_ptr(player_ptr->floor_id);
-    if (player_ptr->change_floor_mode & CFM_UP) {
+    if (is_up) {
         if (cur_sf_ptr->upper_floor_id == new_floor_id) {
             sf_ptr->lower_floor_id = player_ptr->floor_id;
         }
@@ -244,7 +255,7 @@ static void update_floor_id(PlayerType *player_ptr, saved_floor_type *sf_ptr)
         return;
     }
 
-    if (((player_ptr->change_floor_mode & CFM_DOWN) != 0) && (cur_sf_ptr->lower_floor_id == new_floor_id)) {
+    if (is_down && (cur_sf_ptr->lower_floor_id == new_floor_id)) {
         sf_ptr->upper_floor_id = player_ptr->floor_id;
     }
 }
@@ -279,16 +290,17 @@ static void reset_unique_by_floor_change(PlayerType *player_ptr)
     }
 }
 
-static void new_floor_allocation(PlayerType *player_ptr, saved_floor_type *sf_ptr)
+static void allocate_loaded_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
     GAME_TURN tmp_last_visit = sf_ptr->last_visit;
     const auto &floor = *player_ptr->current_floor_ptr;
     auto alloc_chance = floor.get_dungeon_definition().max_m_alloc_chance;
-    while (tmp_last_visit > w_ptr->game_turn) {
+    const auto &world = AngbandWorld::get_instance();
+    while (tmp_last_visit > world.game_turn) {
         tmp_last_visit -= TURNS_PER_TICK * TOWN_DAWN;
     }
 
-    GAME_TURN absence_ticks = (w_ptr->game_turn - tmp_last_visit) / TURNS_PER_TICK;
+    GAME_TURN absence_ticks = (world.game_turn - tmp_last_visit) / TURNS_PER_TICK;
     reset_unique_by_floor_change(player_ptr);
     for (MONSTER_IDX i = 1; i < floor.o_max; i++) {
         const auto *o_ptr = &floor.o_list[i];
@@ -315,60 +327,61 @@ static void new_floor_allocation(PlayerType *player_ptr, saved_floor_type *sf_pt
     }
 }
 
-static void check_dead_end(PlayerType *player_ptr, saved_floor_type *sf_ptr)
+/*!
+ * @brief プレイヤー足元に階段を設置する
+ * @param player_ptr プレイヤーへの参照ポインタ
+ */
+static void set_stairs(PlayerType *player_ptr)
 {
-    if (sf_ptr->last_visit == 0) {
-        generate_floor(player_ptr);
-        return;
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto &grid = floor.grid_array[player_ptr->y][player_ptr->x];
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    if (fcms->has(FloorChangeMode::UP) && !inside_quest(floor.get_quest_id())) {
+        grid.feat = fcms->has(FloorChangeMode::SHAFT) ? feat_state(&floor, feat_down_stair, TerrainCharacteristics::SHAFT) : feat_down_stair;
+    } else if (fcms->has(FloorChangeMode::DOWN) && !ironman_downward) {
+        grid.feat = fcms->has(FloorChangeMode::SHAFT) ? feat_state(&floor, feat_up_stair, TerrainCharacteristics::SHAFT) : feat_up_stair;
     }
 
-    msg_print(_("階段は行き止まりだった。", "The staircases come to a dead end..."));
-    build_dead_end(player_ptr);
-    if (player_ptr->change_floor_mode & CFM_UP) {
-        sf_ptr->upper_floor_id = 0;
-    } else if (player_ptr->change_floor_mode & CFM_DOWN) {
-        sf_ptr->lower_floor_id = 0;
-    }
+    grid.mimic = 0;
+    grid.special = player_ptr->floor_id;
 }
 
-static void update_new_floor_feature(PlayerType *player_ptr, saved_floor_type *sf_ptr, const bool loaded)
+/*!
+ * @brief 保存済フロア読込不可時の新規フロア生成を行う。
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @params sf_ptr 保存済フロアへの参照ポインタ
+ */
+static void generate_new_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
-    if (loaded) {
-        new_floor_allocation(player_ptr, sf_ptr);
-        return;
+    if (!is_visited_floor(sf_ptr)) {
+        generate_floor(player_ptr);
+    } else {
+        build_dead_end(player_ptr, sf_ptr);
     }
 
-    check_dead_end(player_ptr, sf_ptr);
-    sf_ptr->last_visit = w_ptr->game_turn;
+    sf_ptr->last_visit = AngbandWorld::get_instance().game_turn;
     auto &floor = *player_ptr->current_floor_ptr;
     sf_ptr->dun_level = floor.dun_level;
-    if ((player_ptr->change_floor_mode & CFM_NO_RETURN) != 0) {
+    if (FloorChangeModesStore::get_instace()->has(FloorChangeMode::NO_RETURN)) {
         return;
     }
 
-    auto *g_ptr = &floor.grid_array[player_ptr->y][player_ptr->x];
-    if ((player_ptr->change_floor_mode & CFM_UP) && !inside_quest(floor.get_quest_id())) {
-        g_ptr->feat = (player_ptr->change_floor_mode & CFM_SHAFT) ? feat_state(&floor, feat_down_stair, TerrainCharacteristics::SHAFT) : feat_down_stair;
-    } else if ((player_ptr->change_floor_mode & CFM_DOWN) && !ironman_downward) {
-        g_ptr->feat = (player_ptr->change_floor_mode & CFM_SHAFT) ? feat_state(&floor, feat_up_stair, TerrainCharacteristics::SHAFT) : feat_up_stair;
-    }
-
-    g_ptr->mimic = 0;
-    g_ptr->special = player_ptr->floor_id;
+    set_stairs(player_ptr);
 }
 
 static void cut_off_the_upstair(PlayerType *player_ptr)
 {
-    if (player_ptr->change_floor_mode & CFM_RAND_PLACE) {
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    if (fcms->has(FloorChangeMode::RANDOM_PLACE)) {
         (void)new_player_spot(player_ptr);
         return;
     }
 
-    if (((player_ptr->change_floor_mode & CFM_NO_RETURN) == 0) || ((player_ptr->change_floor_mode & (CFM_DOWN | CFM_UP)) == 0)) {
+    if (fcms->has_not(FloorChangeMode::NO_RETURN) || fcms->has_none_of({ FloorChangeMode::DOWN, FloorChangeMode::UP })) {
         return;
     }
 
-    if (!player_ptr->effects()->blindness()->is_blind()) {
+    if (!player_ptr->effects()->blindness().is_blind()) {
         msg_print(_("突然階段が塞がれてしまった。", "Suddenly the stairs is blocked!"));
     } else {
         msg_print(_("ゴトゴトと何か音がした。", "You hear some noises."));
@@ -377,22 +390,29 @@ static void cut_off_the_upstair(PlayerType *player_ptr)
 
 static void update_floor(PlayerType *player_ptr)
 {
-    if (!(player_ptr->change_floor_mode & CFM_SAVE_FLOORS) && !(player_ptr->change_floor_mode & CFM_FIRST_FLOOR)) {
+    const auto &fcms = FloorChangeModesStore::get_instace();
+    if (fcms->has_none_of({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::FIRST_FLOOR })) {
         generate_floor(player_ptr);
         new_floor_id = 0;
         return;
     }
 
     if (new_floor_id == 0) {
-        new_floor_id = get_new_floor_id(player_ptr);
+        new_floor_id = get_unused_floor_id(player_ptr);
     }
 
     saved_floor_type *sf_ptr;
-    bool loaded = false;
     sf_ptr = get_sf_ptr(new_floor_id);
-    check_visited_floor(player_ptr, sf_ptr, &loaded);
+    const bool loaded = is_visited_floor(sf_ptr) && load_floor(player_ptr, sf_ptr, 0);
+    set_player_grid(*player_ptr->current_floor_ptr, player_ptr->get_position());
     update_floor_id(player_ptr, sf_ptr);
-    update_new_floor_feature(player_ptr, sf_ptr, loaded);
+
+    if (loaded) {
+        allocate_loaded_floor(player_ptr, sf_ptr);
+    } else {
+        generate_new_floor(player_ptr, sf_ptr);
+    }
+
     cut_off_the_upstair(player_ptr);
     sf_ptr->visit_mark = latest_visit_mark++;
 }
@@ -407,7 +427,8 @@ static void update_floor(PlayerType *player_ptr)
  */
 void change_floor(PlayerType *player_ptr)
 {
-    w_ptr->character_dungeon = false;
+    auto &world = AngbandWorld::get_instance();
+    world.character_dungeon = false;
     player_ptr->dtrap = false;
     panel_row_min = 0;
     panel_row_max = 0;
@@ -419,15 +440,16 @@ void change_floor(PlayerType *player_ptr)
     forget_travel_flow(player_ptr->current_floor_ptr);
     update_unique_artifact(player_ptr->current_floor_ptr, new_floor_id);
     player_ptr->floor_id = new_floor_id;
-    w_ptr->character_dungeon = true;
+    world.character_dungeon = true;
     if (player_ptr->ppersonality == PERSONALITY_MUNCHKIN) {
         wiz_lite(player_ptr, PlayerClass(player_ptr).equals(PlayerClassType::NINJA));
     }
 
-    player_ptr->current_floor_ptr->generated_turn = w_ptr->game_turn;
+    player_ptr->current_floor_ptr->generated_turn = world.game_turn;
     player_ptr->feeling_turn = player_ptr->current_floor_ptr->generated_turn;
     player_ptr->feeling = 0;
-    player_ptr->change_floor_mode = 0L;
+    auto &fcms = FloorChangeModesStore::get_instace();
+    fcms->clear();
     select_floor_music(player_ptr);
-    player_ptr->change_floor_mode = 0;
+    fcms->clear();
 }

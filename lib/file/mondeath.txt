@@ -89,5 +89,11 @@ says, 'Why... my plasma power loses... even though I remodeled my whole body...'
 N:1345:GREAT THING, the Huge Battle Ship
 is destroyed.  FINAL ZONE IS OVER.
 
+N:1356:Laffey II
+says, 'My battle... isn't over yet... Nope.'
+
+N:1362:Mika Misono, a witch of the Tea Party
+sobs and says, 'I... I haven't wreaked my revenge on her yet... no...' Her halo breaks, and then she falls down.
+
 N:*:Default
 shouts, 'AAAARRRGGGHHH!!!'

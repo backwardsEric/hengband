@@ -2,20 +2,21 @@
 #include "artifact/fixed-art-types.h"
 #include "dungeon/quest.h"
 #include "grid/feature.h"
-#include "info-reader/feature-reader.h"
 #include "info-reader/info-reader-util.h"
 #include "info-reader/parse-error-types.h"
 #include "info-reader/random-grid-effect-types.h"
 #include "io/tokenizer.h"
 #include "main/angband-headers.h"
 #include "object-enchant/trg-types.h"
-#include "object/object-kind-hook.h"
+#include "player-info/class-types.h"
+#include "player-info/race-types.h"
 #include "realm/realm-types.h"
 #include "system/artifact-type-definition.h"
 #include "system/baseitem-info.h"
 #include "system/building-type-definition.h"
 #include "system/floor-type-definition.h"
 #include "system/system-variables.h"
+#include "system/terrain-type-definition.h"
 #include "util/angband-files.h"
 #include "util/string-processor.h"
 #include <string>
@@ -38,8 +39,15 @@ std::tuple<errr, int> init_info_txt(FILE *fp, char *buf, angband_header *head, P
 
     util::SHA256 sha256;
 
-    while (angband_fgets(fp, buf, 1024) == 0) {
+    while (true) {
+        // init_info_txtの呼び出し側のbufは1024バイト
+        const auto line_str = angband_fgets(fp, 1024);
+        if (!line_str) {
+            break;
+        }
         error_line++;
+        const auto len = line_str->copy(buf, 1024 - 1);
+        buf[len] = '\0';
         const std::string_view line = buf;
         if (line.empty() || line.starts_with('#')) {
             continue;
@@ -99,6 +107,8 @@ parse_error_type parse_line_feature(FloorType *floor_ptr, char *buf)
     letter[index].special = 0;
     letter[index].random = RANDOM_NONE;
 
+    const auto &terrains = TerrainList::get_instance();
+
     switch (num) {
     case 9:
         letter[index].special = (int16_t)atoi(zz[8]);
@@ -107,8 +117,9 @@ parse_error_type parse_line_feature(FloorType *floor_ptr, char *buf)
         if ((zz[7][0] == '*') && !zz[7][1]) {
             letter[index].random |= RANDOM_TRAP;
         } else {
-            letter[index].trap = f_tag_to_index(zz[7]);
-            if (letter[index].trap < 0) {
+            try {
+                letter[index].trap = terrains.get_terrain_id_by_tag(zz[7]);
+            } catch (const std::exception &) {
                 return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
             }
         }
@@ -121,8 +132,8 @@ parse_error_type parse_line_feature(FloorType *floor_ptr, char *buf)
             }
         } else if (zz[6][0] == '!') {
             if (floor_ptr->is_in_quest()) {
-                const auto &quest_list = QuestList::get_instance();
-                letter[index].artifact = quest_list[floor_ptr->quest_number].reward_artifact_idx;
+                const auto &quests = QuestList::get_instance();
+                letter[index].artifact = quests.get_quest(floor_ptr->quest_number).reward_fa_id;
             }
         } else {
             letter[index].artifact = i2enum<FixedArtifactId>(atoi(zz[6]));
@@ -146,11 +157,12 @@ parse_error_type parse_line_feature(FloorType *floor_ptr, char *buf)
             }
         } else if (zz[4][0] == '!') {
             if (floor_ptr->is_in_quest()) {
-                const auto &quest = QuestList::get_instance()[floor_ptr->quest_number];
+                const auto &quests = QuestList::get_instance();
+                const auto &quest = quests.get_quest(floor_ptr->quest_number);
                 if (quest.has_reward()) {
                     const auto &artifact = quest.get_reward();
                     if (artifact.gen_flags.has_not(ItemGenerationTraitType::INSTA_ART)) {
-                        letter[index].object = lookup_baseitem_id(artifact.bi_key);
+                        letter[index].object = BaseitemList::get_instance().lookup_baseitem_id(artifact.bi_key);
                     }
                 }
             }
@@ -180,8 +192,9 @@ parse_error_type parse_line_feature(FloorType *floor_ptr, char *buf)
         if ((zz[1][0] == '*') && !zz[1][1]) {
             letter[index].random |= RANDOM_FEATURE;
         } else {
-            letter[index].feature = f_tag_to_index(zz[1]);
-            if (letter[index].feature < 0) {
+            try {
+                letter[index].feature = terrains.get_terrain_id_by_tag(zz[1]);
+            } catch (const std::exception &) {
                 return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
             }
         }

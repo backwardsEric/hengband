@@ -4,6 +4,7 @@
 #include "object-enchant/trg-types.h"
 #include "system/angband.h"
 #include "system/baseitem-info.h"
+#include "util/dice.h"
 #include "util/flag-group.h"
 #include <map>
 #include <string>
@@ -27,8 +28,7 @@ public:
     int to_d{}; /*!< ダメージボーナス値 / Bonus to damage */
     ARMOUR_CLASS to_a{}; /*!< ACボーナス値 / Bonus to armor */
     ARMOUR_CLASS ac{}; /*!< 上書きベースAC値 / Base armor */
-    DICE_NUMBER dd{};
-    DICE_SID ds{}; /*!< ダイス値 / Damage when hits */
+    Dice damage_dice; /*!< ダイス値 / Damage when hits */
     WEIGHT weight{}; /*!< 重量 / Weight */
     PRICE cost{}; /*!< 基本価格 / Artifact "cost" */
     TrFlags flags{}; /*! アイテムフラグ / Artifact Flags */
@@ -38,23 +38,38 @@ public:
     bool is_generated{}; /*! 生成済か否か (生成済でも、「保存モードON」かつ「帰還等で鑑定前に消滅」したら未生成状態に戻る) */
     FLOOR_IDX floor_id{}; /*! アイテムを落としたフロアのID / Leaved on this location last time */
     RandomArtActType act_idx{}; /*! 発動能力ID / Activative ability index */
+
+    bool can_generate(const BaseitemKey &bi_key) const;
 };
 
-extern std::map<FixedArtifactId, ArtifactType> artifacts_info;
-
-class ArtifactsInfo {
+class ArtifactList {
 public:
-    ArtifactsInfo(const ArtifactsInfo &) = delete;
-    ArtifactsInfo(ArtifactsInfo &&) = delete;
-    ArtifactsInfo &operator=(const ArtifactsInfo &) = delete;
-    ArtifactsInfo &operator=(ArtifactsInfo &&) = delete;
-    ~ArtifactsInfo() = default;
+    ArtifactList(const ArtifactList &) = delete;
+    ArtifactList(ArtifactList &&) = delete;
+    ArtifactList &operator=(const ArtifactList &) = delete;
+    ArtifactList &operator=(ArtifactList &&) = delete;
+    ~ArtifactList() = default;
 
-    static ArtifactsInfo &get_instance();
-    ArtifactType &get_artifact(const FixedArtifactId id) const;
+    static ArtifactList &get_instance();
+    std::map<FixedArtifactId, ArtifactType>::iterator begin();
+    std::map<FixedArtifactId, ArtifactType>::iterator end();
+    std::map<FixedArtifactId, ArtifactType>::const_iterator begin() const;
+    std::map<FixedArtifactId, ArtifactType>::const_iterator end() const;
+    std::map<FixedArtifactId, ArtifactType>::reverse_iterator rbegin();
+    std::map<FixedArtifactId, ArtifactType>::reverse_iterator rend();
+    std::map<FixedArtifactId, ArtifactType>::const_reverse_iterator rbegin() const;
+    std::map<FixedArtifactId, ArtifactType>::const_reverse_iterator rend() const;
+    const ArtifactType &get_artifact(const FixedArtifactId fa_id) const;
+    ArtifactType &get_artifact(const FixedArtifactId fa_id);
+
+    bool order(const FixedArtifactId id1, const FixedArtifactId id2) const;
+    void emplace(const FixedArtifactId fa_id, const ArtifactType &artifact);
+    void reset_generated_flags();
 
 private:
-    ArtifactsInfo() = default;
-    static ArtifactsInfo instance;
+    ArtifactList() = default;
+    static ArtifactList instance;
     static ArtifactType dummy;
+
+    std::map<FixedArtifactId, ArtifactType> artifacts{};
 };

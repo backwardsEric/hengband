@@ -6,7 +6,6 @@
 #include "game-option/map-screen-options.h"
 #include "game-option/special-options.h"
 #include "grid/grid.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-indice-types.h"
 #include "player/player-status.h"
 #include "system/floor-type-definition.h"
@@ -16,9 +15,9 @@
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-map.h"
+#include "view/display-symbol.h"
 #include "world/world.h"
 #include <string>
 #include <string_view>
@@ -56,7 +55,7 @@ static const std::vector<std::pair<std::string_view, std::string_view>> simplify
  * @param row 描画列
  * @param col 描画行
  */
-void print_field(concptr info, TERM_LEN row, TERM_LEN col)
+void print_field(std::string_view info, TERM_LEN row, TERM_LEN col)
 {
     c_put_str(TERM_WHITE, "             ", row, col);
     c_put_str(TERM_L_BLUE, info, row, col);
@@ -86,32 +85,20 @@ void print_map(PlayerType *player_ptr)
     POSITION ymin = (0 < panel_row_min) ? panel_row_min : 0;
     POSITION ymax = (floor_ptr->height - 1 > panel_row_max) ? panel_row_max : floor_ptr->height - 1;
 
-    for (POSITION y = 1; y <= ymin - panel_row_prt; y++) {
+    for (auto y = 1; y <= ymin - panel_row_prt; y++) {
         term_erase(COL_MAP, y, wid);
     }
 
-    for (POSITION y = ymax - panel_row_prt; y <= hgt; y++) {
+    for (auto y = ymax - panel_row_prt; y <= hgt; y++) {
         term_erase(COL_MAP, y, wid);
     }
 
-    for (POSITION y = ymin; y <= ymax; y++) {
-        for (POSITION x = xmin; x <= xmax; x++) {
-            TERM_COLOR a;
-            char c;
-            TERM_COLOR ta;
-            char tc;
-            map_info(player_ptr, y, x, &a, &c, &ta, &tc);
-            if (!use_graphics) {
-                if (w_ptr->timewalk_m_idx) {
-                    a = TERM_DARK;
-                } else if (is_invuln(player_ptr) || player_ptr->timewalk) {
-                    a = TERM_WHITE;
-                } else if (player_ptr->wraith_form) {
-                    a = TERM_L_DARK;
-                }
-            }
+    for (auto y = ymin; y <= ymax; y++) {
+        for (auto x = xmin; x <= xmax; x++) {
+            auto symbol_pair = map_info(player_ptr, { y, x });
+            symbol_pair.symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_pair.symbol_foreground.color);
 
-            term_queue_bigchar(panel_col_of(x), y - panel_row_prt, a, c, ta, tc);
+            term_queue_bigchar(panel_col_of(x), y - panel_row_prt, symbol_pair);
         }
     }
 
@@ -129,7 +116,7 @@ static void display_shortened_item_name(PlayerType *player_ptr, ItemEntity *o_pt
 {
     auto item_name = describe_flavor(player_ptr, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NAME_ONLY));
     auto attr = tval_to_attr[enum2i(o_ptr->bi_key.tval()) % 128];
-    if (player_ptr->effects()->hallucination()->is_hallucinated()) {
+    if (player_ptr->effects()->hallucination().is_hallucinated()) {
         attr = TERM_WHITE;
         item_name = _("何か奇妙な物", "something strange");
     }
@@ -170,9 +157,6 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
 {
     int i, j, x, y;
 
-    TERM_COLOR ta;
-    char tc;
-
     byte tp;
 
     bool old_view_special_lite = view_special_lite;
@@ -211,7 +195,7 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
             match_autopick = -1;
             autopick_obj = nullptr;
             feat_priority = -1;
-            map_info(player_ptr, j, i, &ta, &tc, &ta, &tc);
+            const auto symbol_pair = map_info(player_ptr, { j, i });
             tp = (byte)feat_priority;
             if (match_autopick != -1 && (match_autopick_yx[y][x] == -1 || match_autopick_yx[y][x] > match_autopick)) {
                 match_autopick_yx[y][x] = match_autopick;
@@ -219,8 +203,8 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
                 tp = 0x7f;
             }
 
-            bigmc[j + 1][i + 1] = tc;
-            bigma[j + 1][i + 1] = ta;
+            bigma[j + 1][i + 1] = symbol_pair.symbol_foreground.color;
+            bigmc[j + 1][i + 1] = symbol_pair.symbol_foreground.character;
             bigmp[j + 1][i + 1] = tp;
         }
     }
@@ -230,15 +214,13 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
             x = i / xrat + 1;
             y = j / yrat + 1;
 
-            tc = bigmc[j + 1][i + 1];
-            ta = bigma[j + 1][i + 1];
+            DisplaySymbol symbol_foreground(bigma[j + 1][i + 1], bigmc[j + 1][i + 1]);
             tp = bigmp[j + 1][i + 1];
             if (mp[y][x] == tp) {
-                int t;
                 int cnt = 0;
 
-                for (t = 0; t < 8; t++) {
-                    if (tc == bigmc[j + 1 + ddy_cdd[t]][i + 1 + ddx_cdd[t]] && ta == bigma[j + 1 + ddy_cdd[t]][i + 1 + ddx_cdd[t]]) {
+                for (const auto &dd : CCW_DD) {
+                    if ((symbol_foreground.character == bigmc[j + 1 + dd.y][i + 1 + dd.x]) && (symbol_foreground.color == bigma[j + 1 + dd.y][i + 1 + dd.x])) {
                         cnt++;
                     }
                 }
@@ -248,8 +230,8 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
             }
 
             if (mp[y][x] < tp) {
-                mc[y][x] = tc;
-                ma[y][x] = ta;
+                ma[y][x] = symbol_foreground.color;
+                mc[y][x] = symbol_foreground.character;
                 mp[y][x] = tp;
             }
         }
@@ -270,19 +252,10 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
     for (y = 0; y < hgt + 2; ++y) {
         term_gotoxy(COL_MAP, y);
         for (x = 0; x < wid + 2; ++x) {
-            ta = ma[y][x];
-            tc = mc[y][x];
-            if (!use_graphics) {
-                if (w_ptr->timewalk_m_idx) {
-                    ta = TERM_DARK;
-                } else if (is_invuln(player_ptr) || player_ptr->timewalk) {
-                    ta = TERM_WHITE;
-                } else if (player_ptr->wraith_form) {
-                    ta = TERM_L_DARK;
-                }
-            }
+            DisplaySymbol symbol_foreground(ma[y][x], mc[y][x]);
+            symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_foreground.color);
 
-            term_add_bigch(ta, tc);
+            term_add_bigch(symbol_foreground);
         }
     }
 
@@ -312,16 +285,15 @@ void display_map(PlayerType *player_ptr, int *cy, int *cx)
     view_granite_lite = old_view_granite_lite;
 }
 
-void set_term_color(PlayerType *player_ptr, POSITION y, POSITION x, TERM_COLOR *ap, char *cp)
+DisplaySymbol set_term_color(PlayerType *player_ptr, const Pos2D &pos, const DisplaySymbol &symbol_orig)
 {
-    if (!player_ptr->is_located_at({ y, x })) {
-        return;
+    if (!player_ptr->is_located_at(pos)) {
+        return symbol_orig;
     }
 
-    auto *r_ptr = &monraces_info[MonsterRaceId::PLAYER];
-    *ap = r_ptr->x_attr;
-    *cp = r_ptr->x_char;
     feat_priority = 31;
+    const auto &monrace = monraces_info[MonsterRaceId::PLAYER];
+    return monrace.symbol_config;
 }
 
 /*

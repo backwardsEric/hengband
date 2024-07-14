@@ -14,13 +14,11 @@
 #include "inventory/inventory-object.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "monster-race/monster-race.h"
 #include "object-enchant/special-object-flags.h"
 #include "object-hook/hook-expendable.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
-#include "object/object-kind-hook.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
@@ -43,11 +41,11 @@
 #include "status/experience.h"
 #include "sv-definition/sv-food-types.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/baseitem-info.h"
 #include "system/item-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
+#include "util/dice.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "view/object-describer.h"
@@ -79,27 +77,27 @@ static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &
     case SV_FOOD_PARALYSIS:
         return !player_ptr->free_act && bss.mod_paralysis(randint0(10) + 10);
     case SV_FOOD_WEAKNESS:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(6, 6), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(6, 6), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_STR);
         return true;
     case SV_FOOD_SICKNESS:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(6, 6), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(6, 6), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_CON);
         return true;
     case SV_FOOD_STUPIDITY:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(8, 8), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(8, 8), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_INT);
         return true;
     case SV_FOOD_NAIVETY:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(8, 8), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(8, 8), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_WIS);
         return true;
     case SV_FOOD_UNHEALTH:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(10, 10), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(10, 10), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_CON);
         return true;
     case SV_FOOD_DISEASE:
-        take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(10, 10), _("毒入り食料", "poisonous food"));
+        take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(10, 10), _("毒入り食料", "poisonous food"));
         (void)do_dec_stat(player_ptr, A_STR);
         return true;
     case SV_FOOD_CURE_POISON:
@@ -111,7 +109,7 @@ static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &
     case SV_FOOD_CURE_CONFUSION:
         return bss.set_confusion(0);
     case SV_FOOD_CURE_SERIOUS:
-        return cure_serious_wounds(player_ptr, 4, 8);
+        return cure_serious_wounds(player_ptr, Dice::roll(4, 8));
     case SV_FOOD_RESTORE_STR:
         return do_res_stat(player_ptr, A_STR);
     case SV_FOOD_RESTORE_CON:
@@ -133,7 +131,7 @@ static bool exe_eat_food_type_object(PlayerType *player_ptr, const BaseitemKey &
     case SV_FOOD_WAYBREAD:
         msg_print(_("これはひじょうに美味だ。", "That tastes very good."));
         (void)bss.set_poison(0);
-        (void)hp_player(player_ptr, damroll(4, 8));
+        (void)hp_player(player_ptr, Dice::roll(4, 8));
         return true;
     case SV_FOOD_PINT_OF_ALE:
     case SV_FOOD_PINT_OF_WINE:
@@ -183,9 +181,7 @@ static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o
 
     /* XXX Hack -- unstack if necessary */
     if (is_staff && (i_idx >= 0) && (o_ptr->number > 1)) {
-        auto item = *o_ptr;
-
-        /* Modify quantity */
+        ItemEntity item = *o_ptr;
         item.number = 1;
 
         /* Restore the charges */
@@ -286,29 +282,26 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX i_idx)
     auto food_type = PlayerRace(player_ptr).food();
 
     /* Balrogs change humanoid corpses to energy */
-    const auto corpse_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-    const auto search = angband_strchr("pht", monraces_info[corpse_r_idx].d_char);
-    if (food_type == PlayerRaceFoodType::CORPSE && o_ptr->is_corpse() && (search != nullptr)) {
-        const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-        msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%s^ is burnt to ashes.  You absorb its vitality!"), item_name.data());
-        (void)set_food(player_ptr, PY_FOOD_MAX - 1);
+    if (food_type == PlayerRaceFoodType::CORPSE) {
+        if (o_ptr->is_corpse() && o_ptr->get_monrace().symbol_char_is_any_of("pht")) {
+            const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+            msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%s^ is burnt to ashes.  You absorb its vitality!"), item_name.data());
+            (void)set_food(player_ptr, PY_FOOD_MAX - 1);
 
-        rfu.set_flags(flags_srf);
-        vary_item(player_ptr, i_idx, -1);
-        return;
+            rfu.set_flags(flags_srf);
+            vary_item(player_ptr, i_idx, -1);
+            return;
+        }
     }
 
     if (PlayerRace(player_ptr).equals(PlayerRaceType::SKELETON)) {
         const auto sval = bi_key.sval();
         if ((sval != SV_FOOD_WAYBREAD) && (sval >= SV_FOOD_BISCUIT)) {
-            ItemEntity forge;
-            auto *q_ptr = &forge;
-
+            ItemEntity item(bi_key);
             msg_print(_("食べ物がアゴを素通りして落ちた！", "The food falls through your jaws!"));
-            q_ptr->prep(lookup_baseitem_id(bi_key));
 
             /* Drop the object from heaven */
-            (void)drop_near(player_ptr, q_ptr, -1, player_ptr->y, player_ptr->x);
+            (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
         } else {
             msg_print(_("食べ物がアゴを素通りして落ち、消えた！", "The food falls through your jaws and vanishes!"));
         }

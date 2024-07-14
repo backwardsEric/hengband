@@ -9,7 +9,6 @@
 #include "dungeon/quest.h"
 #include "melee/melee-util.h"
 #include "monster-attack/monster-attack-effect.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
 #include "monster/monster-info.h"
@@ -173,7 +172,6 @@ void describe_melee_method(PlayerType *player_ptr, mam_type *mam_ptr)
     }
 
     case RaceBlowMethodType::NONE:
-    case RaceBlowMethodType::SHOOT:
     case RaceBlowMethodType::MAX:
         break;
     }
@@ -288,7 +286,7 @@ void decide_monster_attack_effect(PlayerType *player_ptr, mam_type *mam_ptr)
         }
         if (one_in_(250)) {
             const auto *floor_ptr = player_ptr->current_floor_ptr;
-            if (floor_ptr->is_in_dungeon() && (!floor_ptr->is_in_quest() || !QuestType::is_fixed(floor_ptr->quest_number))) {
+            if (floor_ptr->is_in_underground() && (!floor_ptr->is_in_quest() || !QuestType::is_fixed(floor_ptr->quest_number))) {
                 if (mam_ptr->damage > 23) {
                     msg_print(_("カオスの力でダンジョンが崩れ始める！", "The dungeon tumbles by the chaotic power!"));
                     earthquake(player_ptr, mam_ptr->m_ptr->fy, mam_ptr->m_ptr->fx, 8, mam_ptr->m_idx);

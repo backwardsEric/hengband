@@ -24,7 +24,6 @@
 #include "object-enchant/tr-types.h"
 #include "object-hook/hook-armor.h"
 #include "object-hook/hook-weapon.h"
-#include "object/object-kind-hook.h"
 #include "object/object-value-calc.h"
 #include "object/tval-types.h"
 #include "perception/identification.h"
@@ -50,18 +49,18 @@ static bool weakening_artifact(ItemEntity *o_ptr)
         return true;
     }
 
-    if (baseitem.dd < o_ptr->dd) {
-        o_ptr->dd--;
+    if (baseitem.damage_dice.num < o_ptr->damage_dice.num) {
+        o_ptr->damage_dice.num--;
         return true;
     }
 
-    if (baseitem.ds < o_ptr->ds) {
-        o_ptr->ds--;
+    if (baseitem.damage_dice.sides < o_ptr->damage_dice.sides) {
+        o_ptr->damage_dice.sides--;
         return true;
     }
 
     if (o_ptr->to_d > 10) {
-        o_ptr->to_d = o_ptr->to_d - damroll(1, 6);
+        o_ptr->to_d = o_ptr->to_d - Dice::roll(1, 6);
         if (o_ptr->to_d < 10) {
             o_ptr->to_d = 10;
         }
@@ -81,74 +80,74 @@ static void set_artifact_bias(PlayerType *player_ptr, ItemEntity *o_ptr, int *wa
     case PlayerClassType::SAMURAI:
     case PlayerClassType::CAVALRY:
     case PlayerClassType::SMITH:
-        o_ptr->artifact_bias = BIAS_WARRIOR;
+        o_ptr->artifact_bias = RandomArtifactBias::WARRIOR;
         break;
     case PlayerClassType::MAGE:
     case PlayerClassType::HIGH_MAGE:
     case PlayerClassType::SORCERER:
     case PlayerClassType::MAGIC_EATER:
     case PlayerClassType::BLUE_MAGE:
-        o_ptr->artifact_bias = BIAS_MAGE;
+        o_ptr->artifact_bias = RandomArtifactBias::MAGE;
         break;
     case PlayerClassType::PRIEST:
-        o_ptr->artifact_bias = BIAS_PRIESTLY;
+        o_ptr->artifact_bias = RandomArtifactBias::PRIESTLY;
         break;
     case PlayerClassType::ROGUE:
     case PlayerClassType::NINJA:
-        o_ptr->artifact_bias = BIAS_ROGUE;
+        o_ptr->artifact_bias = RandomArtifactBias::ROGUE;
         *warrior_artifact_bias = 25;
         break;
     case PlayerClassType::RANGER:
     case PlayerClassType::SNIPER:
-        o_ptr->artifact_bias = BIAS_RANGER;
+        o_ptr->artifact_bias = RandomArtifactBias::RANGER;
         *warrior_artifact_bias = 30;
         break;
     case PlayerClassType::PALADIN:
-        o_ptr->artifact_bias = BIAS_PRIESTLY;
+        o_ptr->artifact_bias = RandomArtifactBias::PRIESTLY;
         *warrior_artifact_bias = 40;
         break;
     case PlayerClassType::WARRIOR_MAGE:
     case PlayerClassType::RED_MAGE:
-        o_ptr->artifact_bias = BIAS_MAGE;
+        o_ptr->artifact_bias = RandomArtifactBias::MAGE;
         *warrior_artifact_bias = 40;
         break;
     case PlayerClassType::CHAOS_WARRIOR:
-        o_ptr->artifact_bias = BIAS_CHAOS;
+        o_ptr->artifact_bias = RandomArtifactBias::CHAOS;
         *warrior_artifact_bias = 40;
         break;
     case PlayerClassType::MONK:
     case PlayerClassType::FORCETRAINER:
-        o_ptr->artifact_bias = BIAS_PRIESTLY;
+        o_ptr->artifact_bias = RandomArtifactBias::PRIESTLY;
         break;
     case PlayerClassType::MINDCRAFTER:
     case PlayerClassType::BARD:
         if (randint1(5) > 2) {
-            o_ptr->artifact_bias = BIAS_PRIESTLY;
+            o_ptr->artifact_bias = RandomArtifactBias::PRIESTLY;
         }
         break;
     case PlayerClassType::TOURIST:
         if (randint1(5) > 2) {
-            o_ptr->artifact_bias = BIAS_WARRIOR;
+            o_ptr->artifact_bias = RandomArtifactBias::WARRIOR;
         }
         break;
     case PlayerClassType::IMITATOR:
         if (randint1(2) > 1) {
-            o_ptr->artifact_bias = BIAS_RANGER;
+            o_ptr->artifact_bias = RandomArtifactBias::RANGER;
         }
         break;
     case PlayerClassType::BEASTMASTER:
-        o_ptr->artifact_bias = BIAS_CHR;
+        o_ptr->artifact_bias = RandomArtifactBias::CHR;
         *warrior_artifact_bias = 50;
         break;
     case PlayerClassType::MIRROR_MASTER:
         if (randint1(4) > 1) {
-            o_ptr->artifact_bias = BIAS_MAGE;
+            o_ptr->artifact_bias = RandomArtifactBias::MAGE;
         } else {
-            o_ptr->artifact_bias = BIAS_ROGUE;
+            o_ptr->artifact_bias = RandomArtifactBias::ROGUE;
         }
         break;
     case PlayerClassType::ELEMENTALIST:
-        o_ptr->artifact_bias = one_in_(2) ? BIAS_MAGE : BIAS_INT;
+        o_ptr->artifact_bias = one_in_(2) ? RandomArtifactBias::MAGE : RandomArtifactBias::INT;
         break;
 
     case PlayerClassType::MAX:
@@ -164,7 +163,7 @@ static void decide_warrior_bias(PlayerType *player_ptr, ItemEntity *o_ptr, const
     }
 
     if (a_scroll && (randint1(100) <= warrior_artifact_bias)) {
-        o_ptr->artifact_bias = BIAS_WARRIOR;
+        o_ptr->artifact_bias = RandomArtifactBias::WARRIOR;
     }
 }
 
@@ -203,7 +202,8 @@ static int decide_random_art_power(const bool a_cursed)
 
 static void invest_powers(PlayerType *player_ptr, ItemEntity *o_ptr, int *powers, bool *has_pval, const bool a_cursed)
 {
-    int max_type = o_ptr->is_weapon_ammo() ? 7 : 5;
+    const auto &world = AngbandWorld::get_instance();
+    const auto max_type = o_ptr->is_weapon_ammo() ? 7 : 5;
     while ((*powers)--) {
         switch (randint1(max_type)) {
         case 1:
@@ -217,13 +217,14 @@ static void invest_powers(PlayerType *player_ptr, ItemEntity *o_ptr, int *powers
                 if (a_cursed && !one_in_(13)) {
                     break;
                 }
+                auto &dice = o_ptr->damage_dice;
                 if (one_in_(13)) {
-                    if (one_in_(o_ptr->ds + 4)) {
-                        o_ptr->ds++;
+                    if (one_in_(dice.sides + 4)) {
+                        dice.sides++;
                     }
                 } else {
-                    if (one_in_(o_ptr->dd + 1)) {
-                        o_ptr->dd++;
+                    if (one_in_(dice.num + 1)) {
+                        dice.num++;
                     }
                 }
             } else {
@@ -239,7 +240,7 @@ static void invest_powers(PlayerType *player_ptr, ItemEntity *o_ptr, int *powers
             random_slay(o_ptr);
             break;
         default:
-            if (w_ptr->wizard) {
+            if (world.wizard) {
                 msg_print("Switch error in become_random_artifact!");
             }
 
@@ -251,7 +252,7 @@ static void invest_powers(PlayerType *player_ptr, ItemEntity *o_ptr, int *powers
 static void strengthen_pval(ItemEntity *o_ptr)
 {
     if (o_ptr->art_flags.has(TR_BLOWS)) {
-        o_ptr->pval = randint1(2);
+        o_ptr->pval = randnum1<short>(2);
         if (o_ptr->bi_key == BaseitemKey(ItemKindType::SWORD, SV_HAYABUSA)) {
             o_ptr->pval++;
         }
@@ -274,7 +275,7 @@ static void strengthen_pval(ItemEntity *o_ptr)
 static void invest_positive_modified_value(ItemEntity *o_ptr)
 {
     if (o_ptr->is_protector()) {
-        o_ptr->to_a += randint1(o_ptr->to_a > 19 ? 1 : 20 - o_ptr->to_a);
+        o_ptr->to_a += randnum1<short>(o_ptr->to_a > 19 ? 1 : 20 - o_ptr->to_a);
         return;
     }
 
@@ -282,8 +283,8 @@ static void invest_positive_modified_value(ItemEntity *o_ptr)
         return;
     }
 
-    o_ptr->to_h += randint1(o_ptr->to_h > 19 ? 1 : 20 - o_ptr->to_h);
-    o_ptr->to_d += randint1(o_ptr->to_d > 19 ? 1 : 20 - o_ptr->to_d);
+    o_ptr->to_h += randnum1<short>(o_ptr->to_h > 19 ? 1 : 20 - o_ptr->to_h);
+    o_ptr->to_d += randnum1<short>(o_ptr->to_d > 19 ? 1 : 20 - o_ptr->to_d);
     if ((o_ptr->art_flags.has(TR_WIS)) && (o_ptr->pval > 0)) {
         o_ptr->art_flags.set(TR_BLESSED);
     }
@@ -416,7 +417,7 @@ static void generate_unnatural_random_artifact(
     o_ptr->randart_name = name_unnatural_random_artifact(player_ptr, o_ptr, a_scroll, power_level);
     msg_format_wizard(player_ptr, CHEAT_OBJECT,
         _("パワー %d で 価値 %d のランダムアーティファクト生成 バイアスは「%s」", "Random artifact generated - Power:%d Value:%d Bias:%s."), max_powers,
-        total_flags, artifact_bias_name[o_ptr->artifact_bias]);
+        total_flags, ARTIFACT_BIAS_NAMES.at(o_ptr->artifact_bias).data());
     static constexpr auto flags = {
         SubWindowRedrawingFlag::INVENTORY,
         SubWindowRedrawingFlag::EQUIPMENT,
@@ -436,8 +437,8 @@ static void generate_unnatural_random_artifact(
  */
 bool become_random_artifact(PlayerType *player_ptr, ItemEntity *o_ptr, bool a_scroll)
 {
-    o_ptr->artifact_bias = 0;
-    o_ptr->fixed_artifact_idx = FixedArtifactId::NONE;
+    o_ptr->artifact_bias = RandomArtifactBias::NONE;
+    o_ptr->fa_id = FixedArtifactId::NONE;
     o_ptr->ego_idx = EgoType::NONE;
     o_ptr->art_flags |= o_ptr->get_baseitem().flags;
 
@@ -470,7 +471,7 @@ bool become_random_artifact(PlayerType *player_ptr, ItemEntity *o_ptr, bool a_sc
     }
 
     invest_negative_modified_value(o_ptr);
-    if (((o_ptr->artifact_bias == BIAS_MAGE) || (o_ptr->artifact_bias == BIAS_INT)) && (o_ptr->bi_key.tval() == ItemKindType::GLOVES)) {
+    if (((o_ptr->artifact_bias == RandomArtifactBias::MAGE) || (o_ptr->artifact_bias == RandomArtifactBias::INT)) && (o_ptr->bi_key.tval() == ItemKindType::GLOVES)) {
         o_ptr->art_flags.set(TR_FREE_ACT);
     }
 

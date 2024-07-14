@@ -18,6 +18,7 @@
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 /*!
  * @brief 射撃処理のメインルーチン
@@ -26,7 +27,7 @@
  */
 void do_cmd_fire(PlayerType *player_ptr, SPELL_IDX snipe_type)
 {
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
@@ -77,6 +78,6 @@ void do_cmd_fire(PlayerType *player_ptr, SPELL_IDX snipe_type)
         msg_print(_("射撃の反動が体を襲った。", "The weapon's recoil stuns you. "));
         BadStatusSetter bss(player_ptr);
         (void)bss.mod_deceleration(randint0(7) + 7, false);
-        (void)bss.mod_stun(randint1(25));
+        (void)bss.mod_stun(randnum1<short>(25));
     }
 }

@@ -42,6 +42,7 @@
 #include "view/display-birth.h" // 暫定。後で消す予定。
 #include "view/display-player-misc-info.h"
 #include "view/display-player.h" // 暫定。後で消す.
+#include "view/display-symbol.h"
 #include "view/display-util.h"
 #include "world/world.h"
 #include <sstream>
@@ -127,8 +128,7 @@ static bool get_player_sex(PlayerType *player_ptr)
             break;
         }
 
-        char buf[80];
-        strnfmt(buf, sizeof(buf), _("性別を選んで下さい (%c-%c) ('='初期オプション設定): ", "Choose a sex (%c-%c) ('=' for options): "), I2A(0), I2A(1));
+        const auto buf = format(_("性別を選んで下さい (%c-%c) ('='初期オプション設定): ", "Choose a sex (%c-%c) ('=' for options): "), I2A(0), I2A(1));
         put_str(buf, 10, 10);
         char c = inkey();
         if (c == 'Q') {
@@ -272,34 +272,34 @@ static bool let_player_build_character(PlayerType *player_ptr)
 
 static void display_initial_options(PlayerType *player_ptr)
 {
-    uint16_t expfact = get_expfact(player_ptr) - 100;
+    const auto expfact_mod = static_cast<int>(get_expfact(player_ptr)) - 100;
     int16_t adj[A_MAX];
     for (int i = 0; i < A_MAX; i++) {
         adj[i] = rp_ptr->r_adj[i] + cp_ptr->c_adj[i] + ap_ptr->a_adj[i];
     }
 
-    char buf[80];
     put_str("                                   ", 3, 40);
     put_str(_("修正の合計値", "Your total modification"), 3, 40);
     put_str(_("腕力 知能 賢さ 器用 耐久 魅力 経験 ", "Str  Int  Wis  Dex  Con  Chr   EXP "), 4, 40);
-    strnfmt(buf, sizeof(buf), "%+3d  %+3d  %+3d  %+3d  %+3d  %+3d %+4d%% ", adj[0], adj[1], adj[2], adj[3], adj[4], adj[5], expfact);
-    c_put_str(TERM_L_BLUE, buf, 5, 40);
+    const auto stats = format("%+3d  %+3d  %+3d  %+3d  %+3d  %+3d %+4d%% ", adj[0], adj[1], adj[2], adj[3], adj[4], adj[5], expfact_mod);
+    c_put_str(TERM_L_BLUE, stats, 5, 40);
 
     put_str("HD ", 6, 40);
-    strnfmt(buf, sizeof(buf), "%2d", rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp);
-    c_put_str(TERM_L_BLUE, buf, 6, 43);
+    const auto hd = format("%2d", rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp);
+    c_put_str(TERM_L_BLUE, hd, 6, 43);
 
     put_str(_("隠密", "Stealth"), 6, 47);
+    std::string stealth;
     if (PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER)) {
-        angband_strcpy(buf, "xx", sizeof(buf));
+        stealth = "xx";
     } else {
-        strnfmt(buf, sizeof(buf), "%+2d", rp_ptr->r_stl + cp_ptr->c_stl + ap_ptr->a_stl);
+        stealth = format("%+2d", rp_ptr->r_stl + cp_ptr->c_stl + ap_ptr->a_stl);
     }
-    c_put_str(TERM_L_BLUE, buf, 6, _(52, 55));
+    c_put_str(TERM_L_BLUE, stealth, 6, _(52, 55));
 
     put_str(_("赤外線視力", "Infra"), 6, _(56, 59));
-    strnfmt(buf, sizeof(buf), _("%2dft", "%2dft"), 10 * rp_ptr->infra);
-    c_put_str(TERM_L_BLUE, buf, 6, _(67, 65));
+    const auto infra = format(_("%2dft", "%2dft"), 10 * rp_ptr->infra);
+    c_put_str(TERM_L_BLUE, infra, 6, _(67, 65));
 
     clear_from(10);
     screen_save();
@@ -316,16 +316,16 @@ static void display_auto_roller_success_rate(const int col)
     put_str(_("最小値", " Limit"), 2, col + 13);
     put_str(_("現在値", "  Roll"), 2, col + 24);
 
-    char buf[32];
+    std::string prob;
 
     if (autoroll_chance >= 1) {
-        strnfmt(buf, sizeof(buf), _("確率 :  1/%8d00", "Prob :  1/%8d00"), autoroll_chance);
+        prob = format(_("確率 :  1/%8d00", "Prob :  1/%8d00"), autoroll_chance);
     } else if (autoroll_chance == -999) {
-        angband_strcpy(buf, _("確率 :     不可能", "Prob :     Impossible"), sizeof(buf));
+        prob = _("確率 :     不可能", "Prob :     Impossible");
     } else {
-        angband_strcpy(buf, _("確率 :     1/10000以上", "Prob :     >1/10000"), sizeof(buf));
+        prob = _("確率 :     1/10000以上", "Prob :     >1/10000");
     }
-    put_str(buf, 11, col + 10);
+    put_str(prob, 11, col + 10);
 
     put_str(_("注意 : 体格等のオートローラを併用時は、上記確率より困難です。", "Note : Prob may be lower when you use the 'autochara' option."), 22, 5);
 
@@ -453,7 +453,7 @@ static bool display_auto_roller_result(PlayerType *player_ptr, bool prev, char *
         (void)display_player(player_ptr, mode);
         term_gotoxy(2, 23);
         const char b1 = '[';
-        term_addch(TERM_WHITE, b1);
+        term_addch({ TERM_WHITE, b1 });
         term_addstr(-1, TERM_WHITE, _("'r' 次の数値", "'r'eroll"));
         if (prev) {
             term_addstr(-1, TERM_WHITE, _(", 'p' 前の数値", ", 'p'revious"));
@@ -467,7 +467,7 @@ static bool display_auto_roller_result(PlayerType *player_ptr, bool prev, char *
 
         term_addstr(-1, TERM_WHITE, _(", Enter この数値に決定", ", or Enter to accept"));
         const char b2 = ']';
-        term_addch(TERM_WHITE, b2);
+        term_addch({ TERM_WHITE, b2 });
         *c = inkey();
         if (*c == 'Q') {
             birth_quit();
@@ -562,7 +562,7 @@ static void set_name_history(PlayerType *player_ptr)
 {
     clear_from(23);
     get_name(player_ptr);
-    process_player_name(player_ptr, w_ptr->creating_savefile);
+    process_player_name(player_ptr, AngbandWorld::get_instance().creating_savefile);
     edit_history(player_ptr);
     get_max_stats(player_ptr);
     initialize_virtues(player_ptr);

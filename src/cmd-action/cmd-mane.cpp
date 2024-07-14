@@ -26,11 +26,9 @@
 #include "mind/mind-mage.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-flags.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
 #include "monster/monster-processor.h"
@@ -66,7 +64,6 @@
 #include "target/target-types.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
 #include "util/int-char-converter.h"
@@ -221,8 +218,7 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
                         chance = minfail;
                     }
 
-                    auto player_stun = player_ptr->effects()->stun();
-                    chance += player_stun->get_magic_chance_penalty();
+                    chance += player_ptr->effects()->stun().get_magic_chance_penalty();
                     if (chance > 95) {
                         chance = 95;
                     }
@@ -961,7 +957,7 @@ static bool use_mane(PlayerType *player_ptr, MonsterAbilityType spell)
         const auto &floor = *player_ptr->current_floor_ptr;
         const Pos2D pos(target_row, target_col);
         const auto &grid_target = floor.get_grid(pos);
-        auto should_teleport = grid_target.m_idx == 0;
+        auto should_teleport = grid_target.has_monster();
         should_teleport &= grid_target.has_los();
         should_teleport &= projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col);
         if (!should_teleport) {
@@ -1307,14 +1303,13 @@ bool do_cmd_mane(PlayerType *player_ptr, bool baigaesi)
         chance = minfail;
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    chance += player_stun->get_magic_chance_penalty();
+    chance += player_ptr->effects()->stun().get_magic_chance_penalty();
     if (chance > 95) {
         chance = 95;
     }
 
     /* Failed spell */
-    if (randint0(100) < chance) {
+    if (evaluate_percent(chance)) {
         if (flush_failure) {
             flush();
         }

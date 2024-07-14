@@ -5,9 +5,7 @@
 #include "dungeon/quest.h"
 #include "floor/cave.h"
 #include "monster-floor/monster-move.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
-#include "monster-race/race-flags2.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-flag-types.h"
@@ -35,7 +33,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -59,7 +56,7 @@ static void check_mspell_stupid(PlayerType *player_ptr, msa_type *msa_ptr)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto is_in_no_magic_dungeon = floor_ptr->get_dungeon_definition().flags.has(DungeonFeatureType::NO_MAGIC);
-    is_in_no_magic_dungeon &= floor_ptr->is_in_dungeon();
+    is_in_no_magic_dungeon &= floor_ptr->is_in_underground();
     is_in_no_magic_dungeon &= !floor_ptr->is_in_quest() || QuestType::is_fixed(floor_ptr->quest_number);
     msa_ptr->in_no_magic_dungeon = is_in_no_magic_dungeon;
     if (!msa_ptr->in_no_magic_dungeon || (msa_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID))) {
@@ -75,7 +72,7 @@ static void check_mspell_smart(const FloorType &floor, msa_type *msa_ptr)
         return;
     }
 
-    if ((msa_ptr->m_ptr->hp < msa_ptr->m_ptr->maxhp / 10) && (randint0(100) < 50)) {
+    if ((msa_ptr->m_ptr->hp < msa_ptr->m_ptr->maxhp / 10) && one_in_(2)) {
         msa_ptr->ability_flags &= RF_ABILITY_INT_MASK;
     }
 
@@ -193,7 +190,7 @@ static bool check_mspell_unexploded(PlayerType *player_ptr, msa_type *msa_ptr)
         fail_rate = 0;
     }
 
-    if (!spell_is_inate(msa_ptr->thrown_spell) && (msa_ptr->in_no_magic_dungeon || (msa_ptr->m_ptr->get_remaining_stun() && one_in_(2)) || (randint0(100) < fail_rate))) {
+    if (!spell_is_inate(msa_ptr->thrown_spell) && (msa_ptr->in_no_magic_dungeon || (msa_ptr->m_ptr->get_remaining_stun() && one_in_(2)) || evaluate_percent(fail_rate))) {
         disturb(player_ptr, true, true);
         msg_format(_("%s^は呪文を唱えようとしたが失敗した。", "%s^ tries to cast a spell, but fails."), msa_ptr->m_name.data());
         return true;
@@ -267,10 +264,10 @@ static bool check_thrown_mspell(PlayerType *player_ptr, msa_type *msa_ptr)
 
 static void check_mspell_imitation(PlayerType *player_ptr, msa_type *msa_ptr)
 {
-    const auto seen = (!player_ptr->effects()->blindness()->is_blind() && msa_ptr->m_ptr->ml);
+    const auto seen = (!player_ptr->effects()->blindness().is_blind() && msa_ptr->m_ptr->ml);
     const auto can_imitate = player_ptr->current_floor_ptr->has_los({ msa_ptr->m_ptr->fy, msa_ptr->m_ptr->fx });
     PlayerClass pc(player_ptr);
-    if (!seen || !can_imitate || (w_ptr->timewalk_m_idx != 0) || !pc.equals(PlayerClassType::IMITATOR)) {
+    if (!seen || !can_imitate || (AngbandWorld::get_instance().timewalk_m_idx != 0) || !pc.equals(PlayerClassType::IMITATOR)) {
         return;
     }
 

@@ -4,8 +4,6 @@
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-list.h"
@@ -19,6 +17,7 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-checker.h"
+#include "tracking/health-bar-tracker.h"
 #include "util/bit-flags-calculator.h"
 
 /*!
@@ -33,20 +32,20 @@
 static MonsterRaceId poly_r_idx(PlayerType *player_ptr, MonsterRaceId r_idx)
 {
     auto *r_ptr = &monraces_info[r_idx];
-    if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || any_bits(r_ptr->flags1, RF1_QUESTOR)) {
+    if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || r_ptr->misc_flags.has(MonsterMiscType::QUESTOR)) {
         return r_idx;
     }
 
     DEPTH lev1 = r_ptr->level - ((randint1(20) / randint1(9)) + 1);
     DEPTH lev2 = r_ptr->level + ((randint1(20) / randint1(9)) + 1);
-    MonsterRaceId r;
+    MonsterRaceId monrace_id;
     for (int i = 0; i < 1000; i++) {
-        r = get_mon_num(player_ptr, 0, (player_ptr->current_floor_ptr->dun_level + r_ptr->level) / 2 + 5, PM_NONE);
-        if (!MonsterRace(r).is_valid()) {
+        monrace_id = get_mon_num(player_ptr, 0, (player_ptr->current_floor_ptr->dun_level + r_ptr->level) / 2 + 5, PM_NONE);
+        if (!MonraceList::is_valid(monrace_id)) {
             break;
         }
 
-        r_ptr = &monraces_info[r];
+        r_ptr = &monraces_info[monrace_id];
         if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
             continue;
         }
@@ -54,7 +53,7 @@ static MonsterRaceId poly_r_idx(PlayerType *player_ptr, MonsterRaceId r_idx)
             continue;
         }
 
-        r_idx = r;
+        r_idx = monrace_id;
         break;
     }
 
@@ -77,7 +76,7 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     MonsterRaceId new_r_idx;
     MonsterRaceId old_r_idx = m_ptr->r_idx;
     bool targeted = target_who == g_ptr->m_idx;
-    bool health_tracked = player_ptr->health_who == g_ptr->m_idx;
+    auto health_tracked = HealthBarTracker::get_instance().is_tracking(g_ptr->m_idx);
 
     if (floor_ptr->inside_arena || AngbandSystem::get_instance().is_phase_out()) {
         return false;
@@ -108,14 +107,17 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     m_ptr->hold_o_idx_list.clear();
     delete_monster_idx(player_ptr, g_ptr->m_idx);
     bool polymorphed = false;
-    if (place_specific_monster(player_ptr, 0, y, x, new_r_idx, mode)) {
-        floor_ptr->m_list[hack_m_idx_ii].nickname = back_m.nickname;
-        floor_ptr->m_list[hack_m_idx_ii].parent_m_idx = back_m.parent_m_idx;
-        floor_ptr->m_list[hack_m_idx_ii].hold_o_idx_list = back_m.hold_o_idx_list;
+    auto m_idx = place_specific_monster(player_ptr, 0, y, x, new_r_idx, mode);
+    if (m_idx) {
+        auto &monster = floor_ptr->m_list[*m_idx];
+        monster.nickname = back_m.nickname;
+        monster.parent_m_idx = back_m.parent_m_idx;
+        monster.hold_o_idx_list = back_m.hold_o_idx_list;
         polymorphed = true;
     } else {
-        if (place_specific_monster(player_ptr, 0, y, x, old_r_idx, (mode | PM_NO_KAGE | PM_IGNORE_TERRAIN))) {
-            floor_ptr->m_list[hack_m_idx_ii] = back_m;
+        m_idx = place_specific_monster(player_ptr, 0, y, x, old_r_idx, (mode | PM_NO_KAGE | PM_IGNORE_TERRAIN));
+        if (m_idx) {
+            floor_ptr->m_list[*m_idx] = back_m;
             mproc_init(floor_ptr);
         } else {
             preserve_hold_objects = false;
@@ -125,7 +127,7 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     if (preserve_hold_objects) {
         for (const auto this_o_idx : back_m.hold_o_idx_list) {
             auto *o_ptr = &floor_ptr->o_list[this_o_idx];
-            o_ptr->held_m_idx = hack_m_idx_ii;
+            o_ptr->held_m_idx = *m_idx;
         }
     } else {
         for (auto it = back_m.hold_o_idx_list.begin(); it != back_m.hold_o_idx_list.end();) {
@@ -135,10 +137,10 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     if (targeted) {
-        target_who = hack_m_idx_ii;
+        target_who = m_idx.value_or(0);
     }
     if (health_tracked) {
-        health_track(player_ptr, hack_m_idx_ii);
+        health_track(player_ptr, m_idx.value_or(0));
     }
     return polymorphed;
 }

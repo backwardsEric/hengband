@@ -9,6 +9,7 @@
 #include "save/save-util.h"
 #include "save/save.h"
 #include "store/store-util.h"
+#include "system/angband-system.h"
 #include "system/angband.h"
 #include "system/item-entity.h"
 #include "util/enum-converter.h"
@@ -28,7 +29,7 @@ void wr_store(store_type *store_ptr)
     wr_s16b(store_ptr->bad_buy);
     wr_s32b(store_ptr->last_visit);
     for (int j = 0; j < store_ptr->stock_num; j++) {
-        wr_item(&store_ptr->stock[j]);
+        wr_item(store_ptr->stock[j]);
     }
 }
 
@@ -40,7 +41,7 @@ void wr_randomizer(void)
 {
     wr_u16b(0);
     wr_u16b(0);
-    const auto &state = w_ptr->rng.get_state();
+    const auto &state = AngbandSystem::get_instance().get_rng().get_state();
     for (const auto s : state) {
         wr_u32b(s);
     }
@@ -52,7 +53,7 @@ void wr_randomizer(void)
 /*!
  * @brief ゲームオプション情報を書き込む / Write the "options"
  */
-void wr_options(SaveType type)
+void wr_options()
 {
     for (int i = 0; i < 4; i++) {
         wr_u32b(0L);
@@ -65,7 +66,7 @@ void wr_options(SaveType type)
 
     /*** Cheating options ***/
     uint16_t c = 0;
-    if (w_ptr->wizard) {
+    if (AngbandWorld::get_instance().wizard) {
         c |= 0x0002;
     }
 
@@ -111,10 +112,6 @@ void wr_options(SaveType type)
 
     if (cheat_immortal) {
         c |= 0x0020;
-    }
-
-    if (type == SaveType::DEBUG) {
-        c |= 0xFFFF;
     }
 
     wr_u16b(c);
@@ -206,7 +203,7 @@ void save_quick_start(void)
 
     /* UNUSED : Was number of random quests */
     wr_byte(0);
-    if (w_ptr->noscore) {
+    if (AngbandWorld::get_instance().noscore) {
         previous_char.quick_ok = false;
     }
 

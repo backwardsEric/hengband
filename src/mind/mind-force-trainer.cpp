@@ -12,9 +12,7 @@
 #include "mind/mind-numbers.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
@@ -39,6 +37,7 @@
 #include "target/target-setter.h"
 #include "target/target-types.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 /*!
  * @brief 練気術師が「練気」で溜めた気の量を返す
@@ -107,7 +106,7 @@ void set_lightspeed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         return;
     }
 
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         v = 0;
     }
 
@@ -207,55 +206,52 @@ bool shock_power(PlayerType *player_ptr)
         return false;
     }
 
-    POSITION y = player_ptr->y + ddy[dir];
-    POSITION x = player_ptr->x + ddx[dir];
+    auto pos = player_ptr->get_neighbor(dir);
     PLAYER_LEVEL plev = player_ptr->lev;
-    int dam = damroll(8 + ((plev - 5) / 4) + boost / 12, 8);
+    int dam = Dice::roll(8 + ((plev - 5) / 4) + boost / 12, 8);
     fire_beam(player_ptr, AttributeType::MISSILE, dir, dam);
-    if (!player_ptr->current_floor_ptr->grid_array[y][x].m_idx) {
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto &grid = floor.get_grid(pos);
+    if (!grid.has_monster()) {
         return true;
     }
 
-    POSITION ty = y, tx = x;
-    POSITION oy = y, ox = x;
-    MONSTER_IDX m_idx = player_ptr->current_floor_ptr->grid_array[y][x].m_idx;
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    auto *r_ptr = &m_ptr->get_monrace();
-    const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+    auto pos_target = pos;
+    const auto pos_origin = pos;
+    const auto m_idx = grid.m_idx;
+    auto &monster = floor.m_list[m_idx];
+    const auto &monrace = monster.get_monrace();
+    const auto m_name = monster_desc(player_ptr, &monster, 0);
 
-    if (randint1(r_ptr->level * 3 / 2) > randint0(dam / 2) + dam / 2) {
+    if (randint1(monrace.level * 3 / 2) > randint0(dam / 2) + dam / 2) {
         msg_format(_("%sは飛ばされなかった。", "%s^ was not blown away."), m_name.data());
         return true;
     }
 
     for (int i = 0; i < 5; i++) {
-        y += ddy[dir];
-        x += ddx[dir];
-        if (is_cave_empty_bold(player_ptr, y, x)) {
-            ty = y;
-            tx = x;
+        pos = Pos2D(pos.y + ddy[dir], pos.x + ddx[dir]);
+        if (is_cave_empty_bold(player_ptr, pos.y, pos.x)) {
+            pos_target = pos;
         } else {
             break;
         }
     }
 
-    bool is_shock_successful = ty != oy;
-    is_shock_successful |= tx != ox;
-    if (is_shock_successful) {
+    if (pos_target == pos_origin) {
         return true;
     }
 
     msg_format(_("%sを吹き飛ばした！", "You blow %s away!"), m_name.data());
-    player_ptr->current_floor_ptr->grid_array[oy][ox].m_idx = 0;
-    player_ptr->current_floor_ptr->grid_array[ty][tx].m_idx = m_idx;
-    m_ptr->fy = ty;
-    m_ptr->fx = tx;
+    floor.get_grid(pos_origin).m_idx = 0;
+    floor.get_grid(pos_target).m_idx = m_idx;
+    monster.fy = pos_target.y;
+    monster.fx = pos_target.x;
 
     update_monster(player_ptr, m_idx, true);
-    lite_spot(player_ptr, oy, ox);
-    lite_spot(player_ptr, ty, tx);
+    lite_spot(player_ptr, pos_origin.y, pos_origin.x);
+    lite_spot(player_ptr, pos_target.y, pos_target.x);
 
-    if (r_ptr->brightness_flags.has_any_of(ld_mask)) {
+    if (monrace.brightness_flags.has_any_of(ld_mask)) {
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);
     }
 
@@ -284,10 +280,10 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
             return false;
         }
 
-        fire_ball(player_ptr, AttributeType::MISSILE, dir, damroll(3 + ((plev - 1) / 5) + boost / 12, 4), 0);
+        fire_ball(player_ptr, AttributeType::MISSILE, dir, Dice::roll(3 + ((plev - 1) / 5) + boost / 12, 4), 0);
         break;
     case MindForceTrainerType::FLASH_LIGHT:
-        (void)lite_area(player_ptr, damroll(2, (plev / 2)), (plev / 10) + 1);
+        (void)lite_area(player_ptr, Dice::roll(2, (plev / 2)), (plev / 10) + 1);
         break;
     case MindForceTrainerType::FLYING_TECHNIQUE:
         set_tim_levitation(player_ptr, randint1(30) + 30 + boost / 5, false);
@@ -298,7 +294,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
             return false;
         }
 
-        fire_beam(player_ptr, AttributeType::MISSILE, dir, damroll(5 + ((plev - 1) / 5) + boost / 10, 5));
+        fire_beam(player_ptr, AttributeType::MISSILE, dir, Dice::roll(5 + ((plev - 1) / 5) + boost / 10, 5));
         break;
     case MindForceTrainerType::MAGIC_RESISTANCE:
         set_resist_magic(player_ptr, randint1(20) + 20 + boost / 5, false);
@@ -328,7 +324,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
             return false;
         }
 
-        fire_ball(player_ptr, AttributeType::MISSILE, dir, damroll(10, 6) + plev * 3 / 2 + boost * 3 / 5, (plev < 30) ? 2 : 3);
+        fire_ball(player_ptr, AttributeType::MISSILE, dir, Dice::roll(10, 6) + plev * 3 / 2 + boost * 3 / 5, (plev < 30) ? 2 : 3);
         break;
     case MindForceTrainerType::DISPEL_MAGIC: {
         if (!target_set(player_ptr, TARGET_KILL)) {
@@ -370,7 +366,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
             return false;
         }
 
-        fire_beam(player_ptr, AttributeType::MANA, dir, damroll(10 + (plev / 2) + boost * 3 / 10, 15));
+        fire_beam(player_ptr, AttributeType::MANA, dir, Dice::roll(10 + (plev / 2) + boost * 3 / 10, 15));
         break;
     case MindForceTrainerType::LIGHT_SPEED:
         set_lightspeed(player_ptr, randint1(16) + 16 + boost / 20, false);

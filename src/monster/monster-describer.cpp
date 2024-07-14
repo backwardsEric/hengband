@@ -1,8 +1,6 @@
 #include "monster/monster-describer.h"
 #include "io/files-util.h"
 #include "locale/english.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster-race/race-sex-const.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
@@ -12,7 +10,6 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
@@ -129,7 +126,7 @@ static std::string get_describing_monster_name(const MonsterEntity &monster, con
 {
     const auto &monrace = monster.get_appearance_monrace();
     if (!is_hallucinated || any_bits(mode, MD_IGNORE_HALLU)) {
-        return any_bits(mode, MD_TRUE_NAME) ? monster.get_real_monrace().name : monrace.name;
+        return any_bits(mode, MD_TRUE_NAME) ? monster.get_real_monrace().name.string() : monrace.name.string();
     }
 
     if (one_in_(2)) {
@@ -140,12 +137,12 @@ static std::string get_describing_monster_name(const MonsterEntity &monster, con
         }
     }
 
-    MonsterRaceInfo *hallu_race;
+    const MonsterRaceInfo *hallu_race = nullptr;
+    const auto &monraces = MonraceList::get_instance();
     do {
-        auto r_idx = MonsterRace::pick_one_at_random();
-        hallu_race = &monraces_info[r_idx];
+        hallu_race = &monraces.pick_monrace_at_random();
     } while (hallu_race->kind_flags.has(MonsterKindType::UNIQUE));
-    return hallu_race->name;
+    return hallu_race->name.string();
 }
 
 #ifdef JP
@@ -157,7 +154,7 @@ static std::string get_describing_monster_name(const MonsterEntity &monster, con
  */
 static std::string replace_monster_name_undefined(std::string_view name)
 {
-    if (name.starts_with("』")) {
+    if (name.ends_with("』")) {
         constexpr auto ja_char_length = 2;
         const auto name_without_brackets = name.substr(0, name.length() - ja_char_length);
         return format("%s？』", name_without_brackets.data());
@@ -170,7 +167,7 @@ static std::string replace_monster_name_undefined(std::string_view name)
 static std::optional<std::string> get_fake_monster_name(const PlayerType &player, const MonsterEntity &monster, const std::string &name, const BIT_FLAGS mode)
 {
     const auto &monrace = monster.get_appearance_monrace();
-    const auto is_hallucinated = player.effects()->hallucination()->is_hallucinated();
+    const auto is_hallucinated = player.effects()->hallucination().is_hallucinated();
     if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE) || (is_hallucinated && none_bits(mode, MD_IGNORE_HALLU))) {
         return std::nullopt;
     }
@@ -249,7 +246,7 @@ std::string monster_desc(PlayerType *player_ptr, const MonsterEntity *m_ptr, BIT
         return *pronoun_self;
     }
 
-    const auto is_hallucinated = player_ptr->effects()->hallucination()->is_hallucinated();
+    const auto is_hallucinated = player_ptr->effects()->hallucination().is_hallucinated();
     const auto name = get_describing_monster_name(*m_ptr, is_hallucinated, mode);
     std::stringstream ss;
     if (m_ptr->is_pet() && !m_ptr->is_original_ap()) {

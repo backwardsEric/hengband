@@ -12,9 +12,7 @@
 #include "inventory/inventory-slot-types.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-flags.h"
-#include "monster-race/race-flags1.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
@@ -34,7 +32,6 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -120,7 +117,7 @@ static void spell_damcalc(PlayerType *player_ptr, MonsterEntity *m_ptr, Attribut
         break;
 
     case AttributeType::MONSTER_SHOOT:
-        if (!player_ptr->effects()->blindness()->is_blind() && (has_invuln_arrow(player_ptr))) {
+        if (!player_ptr->effects()->blindness().is_blind() && (has_invuln_arrow(player_ptr))) {
             dam = 0;
             ignore_wraith_form = true;
         }
@@ -275,7 +272,7 @@ static void spell_damcalc_by_spellnum(PlayerType *player_ptr, MonsterAbilityType
  */
 static int blow_damcalc(MonsterEntity *m_ptr, PlayerType *player_ptr, const MonsterBlow &blow)
 {
-    int dam = blow.d_dice * blow.d_side;
+    int dam = blow.damage_dice.maxroll();
     int dummy_max = 0;
 
     if (blow.method == RaceBlowMethodType::EXPLODE) {
@@ -367,7 +364,7 @@ bool process_warning(PlayerType *player_ptr, POSITION xx, POSITION yy)
 
             const auto *g_ptr = &floor.grid_array[my][mx];
 
-            if (!g_ptr->m_idx) {
+            if (!g_ptr->has_monster()) {
                 continue;
             }
 
@@ -503,7 +500,7 @@ bool process_warning(PlayerType *player_ptr, POSITION xx, POSITION yy)
             int dam_melee = 0;
             for (const auto &blow : r_ptr->blows) {
                 /* Skip non-attacks */
-                if (blow.method == RaceBlowMethodType::NONE || (blow.method == RaceBlowMethodType::SHOOT)) {
+                if (blow.method == RaceBlowMethodType::NONE) {
                     continue;
                 }
 

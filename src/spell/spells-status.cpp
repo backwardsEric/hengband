@@ -25,7 +25,6 @@
 #include "main/sound-of-music.h"
 #include "mind/mind-force-trainer.h"
 #include "monster/monster-describer.h"
-#include "object/object-kind-hook.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
 #include "player-info/magic-eater-data-type.h"
@@ -50,8 +49,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-acceleration.h"
-#include "timed-effect/player-cut.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -232,21 +229,23 @@ bool time_walk(PlayerType *player_ptr)
  */
 void roll_hitdice(PlayerType *player_ptr, spell_operation options)
 {
-    int min_value = player_ptr->hitdie + ((PY_MAX_LEVEL + 2) * (player_ptr->hitdie + 1)) * 3 / 8;
-    int max_value = player_ptr->hitdie + ((PY_MAX_LEVEL + 2) * (player_ptr->hitdie + 1)) * 5 / 8;
+    constexpr auto roll_num = 3 + PY_MAX_LEVEL - 1;
+    const auto expected_hp = player_ptr->hit_dice.maxroll() + player_ptr->hit_dice.floored_expected_value_multiplied_by(roll_num);
+    const auto min_value = expected_hp * 3 / 4;
+    const auto max_value = expected_hp * 5 / 4;
 
     /* Rerate */
     while (true) {
         /* Pre-calculate level 1 hitdice */
-        player_ptr->player_hp[0] = (int)player_ptr->hitdie;
+        player_ptr->player_hp[0] = player_ptr->hit_dice.maxroll();
 
         for (int i = 1; i < 4; i++) {
-            player_ptr->player_hp[0] += randint1(player_ptr->hitdie);
+            player_ptr->player_hp[0] += player_ptr->hit_dice.roll();
         }
 
         /* Roll the hitpoint values */
         for (int i = 1; i < PY_MAX_LEVEL; i++) {
-            player_ptr->player_hp[i] = player_ptr->player_hp[i - 1] + randint1(player_ptr->hitdie);
+            player_ptr->player_hp[i] = player_ptr->player_hp[i - 1] + player_ptr->hit_dice.roll();
         }
 
         /* Require "valid" hitpoints at highest level */
@@ -257,7 +256,6 @@ void roll_hitdice(PlayerType *player_ptr, spell_operation options)
 
     player_ptr->knowledge &= ~(KNOW_HPRATE);
 
-    auto percent = (player_ptr->player_hp[PY_MAX_LEVEL - 1] * 200) / (2 * player_ptr->hitdie + ((PY_MAX_LEVEL - 1 + 3) * (player_ptr->hitdie + 1)));
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(StatusRecalculatingFlag::HP);
     rfu.set_flag(MainWindowRedrawingFlag::HP);
@@ -271,7 +269,7 @@ void roll_hitdice(PlayerType *player_ptr, spell_operation options)
     }
 
     if (options & SPOP_DEBUG) {
-        msg_format(_("現在の体力ランクは %d/100 です。", "Your life rate is %d/100 now."), percent);
+        msg_format(_("現在の体力ランクは %d/100 です。", "Your life rate is %d/100 now."), player_ptr->calc_life_rating());
         player_ptr->knowledge |= KNOW_HPRATE;
         return;
     }
@@ -343,10 +341,10 @@ bool berserk(PlayerType *player_ptr, int base)
     return ident;
 }
 
-bool cure_light_wounds(PlayerType *player_ptr, DICE_NUMBER dice, DICE_SID sides)
+bool cure_light_wounds(PlayerType *player_ptr, int pow)
 {
     auto ident = false;
-    if (hp_player(player_ptr, damroll(dice, sides))) {
+    if (hp_player(player_ptr, pow)) {
         ident = true;
     }
 
@@ -366,10 +364,10 @@ bool cure_light_wounds(PlayerType *player_ptr, DICE_NUMBER dice, DICE_SID sides)
     return ident;
 }
 
-bool cure_serious_wounds(PlayerType *player_ptr, DICE_NUMBER dice, DICE_SID sides)
+bool cure_serious_wounds(PlayerType *player_ptr, int pow)
 {
     auto ident = false;
-    if (hp_player(player_ptr, damroll(dice, sides))) {
+    if (hp_player(player_ptr, pow)) {
         ident = true;
     }
 
@@ -382,7 +380,7 @@ bool cure_serious_wounds(PlayerType *player_ptr, DICE_NUMBER dice, DICE_SID side
         ident = true;
     }
 
-    if (bss.set_cut((player_ptr->effects()->cut()->current() / 2) - 50)) {
+    if (bss.set_cut((player_ptr->effects()->cut().current() / 2) - 50)) {
         ident = true;
     }
 
@@ -479,9 +477,10 @@ bool restore_mana(PlayerType *player_ptr, bool magic_eater)
         }
 
         auto sval = 0;
+        const auto &baseitems = BaseitemList::get_instance();
         for (auto &item : magic_eater_data->get_item_group(ItemKindType::ROD)) {
-            const auto bi_id = lookup_baseitem_id({ ItemKindType::ROD, sval });
-            item.charge -= ((item.count < 10) ? EATER_ROD_CHARGE * 3 : item.count * EATER_ROD_CHARGE / 3) * baseitems_info[bi_id].pval;
+            const auto &baseitem = baseitems.lookup_baseitem({ ItemKindType::ROD, sval });
+            item.charge -= ((item.count < 10) ? EATER_ROD_CHARGE * 3 : item.count * EATER_ROD_CHARGE / 3) * baseitem.pval;
             item.charge = std::max(item.charge, 0);
             ++sval;
         }
@@ -533,21 +532,22 @@ bool restore_all_status(PlayerType *player_ptr)
 
 bool fishing(PlayerType *player_ptr)
 {
-    DIRECTION dir;
-    if (!get_direction(player_ptr, &dir)) {
+    const auto dir = get_direction(player_ptr);
+    if (!dir) {
         return false;
     }
-    POSITION y = player_ptr->y + ddy[dir];
-    POSITION x = player_ptr->x + ddx[dir];
-    player_ptr->fishing_dir = dir;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (!cave_has_flag_bold(floor_ptr, y, x, TerrainCharacteristics::WATER)) {
+
+    const auto pos = player_ptr->get_neighbor(*dir);
+    player_ptr->fishing_dir = *dir;
+    const auto &floor = *player_ptr->current_floor_ptr;
+    if (!cave_has_flag_bold(&floor, pos.y, pos.x, TerrainCharacteristics::WATER)) {
         msg_print(_("そこは水辺ではない。", "You can't fish here."));
         return false;
     }
 
-    if (floor_ptr->grid_array[y][x].m_idx) {
-        const auto m_name = monster_desc(player_ptr, &floor_ptr->m_list[floor_ptr->grid_array[y][x].m_idx], 0);
+    const auto &grid = floor.get_grid(pos);
+    if (grid.has_monster()) {
+        const auto m_name = monster_desc(player_ptr, &floor.m_list[grid.m_idx], 0);
         msg_format(_("%sが邪魔だ！", "%s^ is standing in your way."), m_name.data());
         PlayerEnergy(player_ptr).reset_player_turn();
         return false;
@@ -635,7 +635,7 @@ void apply_nexus(MonsterEntity *m_ptr, PlayerType *player_ptr)
     }
 
     case 6: {
-        if (randint0(100) < player_ptr->skill_sav) {
+        if (evaluate_percent(player_ptr->skill_sav)) {
             msg_print(_("しかし効力を跳ね返した！", "You resist the effects!"));
             break;
         }
@@ -645,7 +645,7 @@ void apply_nexus(MonsterEntity *m_ptr, PlayerType *player_ptr)
     }
 
     case 7: {
-        if (randint0(100) < player_ptr->skill_sav) {
+        if (evaluate_percent(player_ptr->skill_sav)) {
             msg_print(_("しかし効力を跳ね返した！", "You resist the effects!"));
             break;
         }

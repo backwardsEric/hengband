@@ -5,6 +5,7 @@
  */
 
 #include "locale/japanese.h"
+#include "locale/character-encoding.h"
 #include "locale/utf-8.h"
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
@@ -245,83 +246,64 @@ void euc2sjis(char *str)
 /*!
  * @brief strを環境に合った文字コードに変換し、変換前の文字コードを返す。strの長さに制限はない。
  * @param str 変換する文字列のポインタ
- * @return
- * 0: Unknown<br>
- * 1: ASCII (Never known to be ASCII in this function.)<br>
- * 2: EUC<br>
- * 3: SJIS<br>
+ * @return 変換前の文字コード
  */
-byte codeconv(char *str)
+CharacterEncoding codeconv(char *str)
 {
-    byte code = 0;
+    auto encoding = CharacterEncoding::UNKNOWN;
     for (auto i = 0; str[i]; i++) {
-        unsigned char c1;
-        unsigned char c2;
-
         /* First byte */
-        c1 = str[i];
+        const auto c1 = static_cast<unsigned char>(str[i]);
 
         /* ASCII? */
         if (!(c1 & 0x80)) {
+            encoding = CharacterEncoding::US_ASCII;
             continue;
         }
 
         /* Second byte */
         i++;
-        c2 = str[i];
+        const auto c2 = static_cast<unsigned char>(str[i]);
 
-        if (((0xa1 <= c1 && c1 <= 0xdf) || (0xfd <= c1 && c1 <= 0xfe)) && (0xa1 <= c2 && c2 <= 0xfe)) {
+        const auto is_euc_jp = ((0xa1 <= c1 && c1 <= 0xdf) || (0xfd <= c1 && c1 <= 0xfe)) && (0xa1 <= c2 && c2 <= 0xfe);
+        auto is_cp932 = (0x81 <= c1 && c1 <= 0x9f) && ((0x40 <= c2 && c2 <= 0x7e) || (0x80 <= c2 && c2 <= 0xfc));
+        is_cp932 |= (0xe0 <= c1 && c1 <= 0xfc) && (0x40 <= c2 && c2 <= 0x7e);
+
+        if (is_euc_jp) {
             /* Only EUC is allowed */
-            if (!code) {
-                /* EUC */
-                code = 2;
-            }
-
-            /* Broken string? */
-            else if (code != 2) {
-                /* No conversion */
-                return 0;
-            }
-        } else {
-            auto is_cp932 = (0x81 <= c1 && c1 <= 0x9f) && ((0x40 <= c2 && c2 <= 0x7e) || (0x80 <= c2 && c2 <= 0xfc));
-            is_cp932 |= (0xe0 <= c1 && c1 <= 0xfc) && (0x40 <= c2 && c2 <= 0x7e);
-            if (!is_cp932) {
+            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::US_ASCII || encoding == CharacterEncoding::EUC_JP) {
+                encoding = CharacterEncoding::EUC_JP;
                 continue;
             }
-
+        } else if (is_cp932) {
             /* Only SJIS is allowed */
-            if (!code) {
-                /* SJIS */
-                code = 3;
-            }
-
-            /* Broken string? */
-            else if (code != 3) {
-                /* No conversion */
-                return 0;
+            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::US_ASCII || encoding == CharacterEncoding::SHIFT_JIS) {
+                encoding = CharacterEncoding::SHIFT_JIS;
+                continue;
             }
         }
+
+        /* Broken string, no conversion */
+        return CharacterEncoding::UNKNOWN;
     }
 
-    switch (code) {
+    switch (encoding) {
 #ifdef EUC
-    case 3:
-        /* SJIS -> EUC */
+    case CharacterEncoding::SHIFT_JIS:
         sjis2euc(str);
         break;
 #endif
 
 #ifdef SJIS
-    case 2:
-        /* EUC -> SJIS */
+    case CharacterEncoding::EUC_JP:
         euc2sjis(str);
-
         break;
 #endif
+    default:
+        break;
     }
 
-    /* Return kanji code */
-    return code;
+    return encoding;
 }
 
 /*!
@@ -512,26 +494,28 @@ int euc_to_utf8(const char *euc_str, size_t euc_str_len, char *utf8_buf, size_t 
 
 /*!
  * @brief 文字コードがUTF-8の文字列をシステムの文字コードに変換する
- * @param utf8_str 変換するUTF-8の文字列へのポインタ
+ * @param str 変換するUTF-8の文字列
  * @param sys_str_buffer 変換したシステムの文字コードの文字列を格納するバッファへのポインタ
  * @param sys_str_buflen 変換したシステムの文字コードの文字列を格納するバッファの長さ
  * @return 変換に成功した場合TRUE、失敗した場合FALSEを返す
  */
-static bool utf8_to_sys(char *utf8_str, char *sys_str_buffer, size_t sys_str_buflen)
+static bool utf8_to_sys(std::string_view str, char *sys_str_buffer, size_t sys_str_buflen)
 {
+    std::string utf8_str(str);
+
 #if defined(EUC)
 
-    /* strlen + 1 を渡して文字列終端('\0')を含めて変換する */
-    return utf8_to_euc(utf8_str, strlen(utf8_str) + 1, sys_str_buffer, sys_str_buflen) >= 0;
+    /* length() + 1 を渡して文字列終端('\0')を含めて変換する */
+    return utf8_to_euc(utf8_str.data(), utf8_str.length() + 1, sys_str_buffer, sys_str_buflen) >= 0;
 
 #elif defined(SJIS) && defined(WINDOWS)
 
-    int input_len = strlen(utf8_str) + 1; /* include termination character */
+    int input_len = utf8_str.length() + 1; /* include termination character */
 
     std::vector<WCHAR> utf16buf(input_len);
 
     /* UTF-8 -> UTF-16 */
-    if (MultiByteToWideChar(CP_UTF8, 0, utf8_str, input_len, utf16buf.data(), input_len) == 0) {
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8_str.data(), input_len, utf16buf.data(), input_len) == 0) {
         return false;
     }
 
@@ -582,26 +566,52 @@ std::optional<std::string> sys_to_utf8(std::string_view str)
 }
 
 /*!
+ * @brief UTF-8からシステムの文字コードに変換する
+ *
+ * @param str UTF-8の文字列
+ * @return システムの文字コードに変換した文字列
+ *         変換に失敗した場合はstd::nullopt
+ */
+std::optional<std::string> utf8_to_sys(std::string_view str)
+{
+    // UTF-8 -> SJIS or EUC でバイト長が増えることはないので、終端文字分を含めて元の文字列と同じ長さを確保しておけばよい
+    std::vector<char> sys_str_buf(str.length() + 1);
+
+    if (!utf8_to_sys(str, sys_str_buf.data(), sys_str_buf.size())) {
+        return std::nullopt;
+    }
+
+    return std::make_optional<std::string>(sys_str_buf.data());
+}
+
+/*!
  * @brief 受け取った文字列の文字コードを推定し、システムの文字コードへ変換する
  * @param strbuf 変換する文字列を格納したバッファへのポインタ。
  *               バッファは変換した文字列で上書きされる。
  *               UTF-8からSJISもしくはEUCへの変換を想定しているのでバッファの長さが足りなくなることはない。
  * @param buflen バッファの長さ。
+ * @return 変換後の文字列の長さ（終端文字は含まない）
  */
-void guess_convert_to_system_encoding(char *strbuf, int buflen)
+size_t guess_convert_to_system_encoding(char *strbuf, int buflen)
 {
     if (is_ascii_str(strbuf)) {
-        return;
+        return std::string_view(strbuf).length();
     }
 
     if (is_utf8_str(strbuf)) {
-        std::vector<char> work(buflen);
-        angband_strcpy(work.data(), strbuf, buflen);
-        if (!utf8_to_sys(work.data(), strbuf, buflen)) {
+        const auto sys_str = utf8_to_sys(strbuf);
+        if (!sys_str || std::ssize(*sys_str) >= buflen) {
             msg_print("警告:文字コードの変換に失敗しました");
             msg_print(nullptr);
+            return std::string_view(strbuf).length();
         }
+
+        std::copy(sys_str->begin(), sys_str->end(), strbuf);
+        strbuf[sys_str->length()] = '\0';
+        return sys_str->length();
     }
+
+    return std::string_view(strbuf).length();
 }
 
 /*!

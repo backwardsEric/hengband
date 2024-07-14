@@ -1,13 +1,11 @@
 #include "load/load-zangband.h"
 #include "avatar/avatar.h"
-#include "cmd-building/cmd-building.h"
 #include "dungeon/quest.h"
 #include "game-option/option-flags.h"
 #include "info-reader/fixed-map-parser.h"
 #include "load/angband-version-comparer.h"
 #include "load/load-util.h"
 #include "market/bounty.h"
-#include "monster-race/monster-race.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
@@ -15,11 +13,14 @@
 #include "player/attack-defense-types.h"
 #include "player/patron.h"
 #include "player/player-personality.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "realm/realm-types.h"
 #include "spell/spells-status.h"
+#include "system/building-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
@@ -84,20 +85,14 @@ void load_zangband_options(void)
 
 void set_zangband_realm(PlayerType *player_ptr)
 {
-    if (player_ptr->realm1 == 9) {
-        player_ptr->realm1 = REALM_MUSIC;
+    PlayerRealm pr(player_ptr);
+    const auto realm1 = enum2i(pr.realm1().to_enum());
+    if (realm1 == 9) {
+        pr.set(RealmType::MUSIC);
     }
 
-    if (player_ptr->realm2 == 9) {
-        player_ptr->realm2 = REALM_MUSIC;
-    }
-
-    if (player_ptr->realm1 == 10) {
-        player_ptr->realm1 = REALM_HISSATSU;
-    }
-
-    if (player_ptr->realm2 == 10) {
-        player_ptr->realm2 = REALM_HISSATSU;
+    if (realm1 == 10) {
+        pr.set(RealmType::HISSATSU);
     }
 }
 
@@ -112,7 +107,7 @@ void set_zangband_skill(PlayerType *player_ptr)
 
 void set_zangband_race(PlayerType *player_ptr)
 {
-    player_ptr->start_race = player_ptr->prace;
+    InnerGameData::get_instance().set_start_race(player_ptr->prace);
     player_ptr->old_race1 = 0L;
     player_ptr->old_race2 = 0L;
     player_ptr->old_realm = 0;
@@ -121,9 +116,10 @@ void set_zangband_race(PlayerType *player_ptr)
 void set_zangband_bounty_uniques(PlayerType *player_ptr)
 {
     determine_bounty_uniques(player_ptr);
-    for (auto &[r_idx, is_achieved] : w_ptr->bounties) {
+    const auto &monraces = MonraceList::get_instance();
+    for (auto &[monrace_id, is_achieved] : AngbandWorld::get_instance().bounties) {
         /* Is this bounty unique already dead? */
-        if (monraces_info[r_idx].max_num == 0) {
+        if (monraces.get_monrace(monrace_id).max_num == 0) {
             is_achieved = true;
         }
     }
@@ -159,8 +155,9 @@ void set_zangband_game_turns(PlayerType *player_ptr)
 {
     player_ptr->current_floor_ptr->generated_turn /= 2;
     player_ptr->feeling_turn /= 2;
-    w_ptr->game_turn /= 2;
-    w_ptr->dungeon_turn /= 2;
+    auto &world = AngbandWorld::get_instance();
+    world.game_turn /= 2;
+    world.dungeon_turn /= 2;
 }
 
 void set_zangband_gambling_monsters(int i)
@@ -213,22 +210,22 @@ void set_zangband_class(PlayerType *player_ptr)
 {
     PlayerClass pc(player_ptr);
     if (h_older_than(0, 2, 2) && pc.equals(PlayerClassType::BEASTMASTER) && !player_ptr->is_dead) {
-        player_ptr->hitdie = rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp;
+        player_ptr->hit_dice = Dice(1, rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp);
         roll_hitdice(player_ptr, SPOP_NONE);
     }
 
     if (h_older_than(0, 3, 2) && pc.equals(PlayerClassType::ARCHER) && !player_ptr->is_dead) {
-        player_ptr->hitdie = rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp;
+        player_ptr->hit_dice = Dice(1, rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp);
         roll_hitdice(player_ptr, SPOP_NONE);
     }
 
     if (h_older_than(0, 2, 6) && pc.equals(PlayerClassType::SORCERER) && !player_ptr->is_dead) {
-        player_ptr->hitdie = rp_ptr->r_mhp / 2 + cp_ptr->c_mhp + ap_ptr->a_mhp;
+        player_ptr->hit_dice = Dice(1, rp_ptr->r_mhp / 2 + cp_ptr->c_mhp + ap_ptr->a_mhp);
         roll_hitdice(player_ptr, SPOP_NONE);
     }
 
     if (h_older_than(0, 4, 7) && pc.equals(PlayerClassType::BLUE_MAGE) && !player_ptr->is_dead) {
-        player_ptr->hitdie = rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp;
+        player_ptr->hit_dice = Dice(1, rp_ptr->r_mhp + cp_ptr->c_mhp + ap_ptr->a_mhp);
         roll_hitdice(player_ptr, SPOP_NONE);
     }
 }

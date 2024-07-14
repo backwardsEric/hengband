@@ -11,7 +11,6 @@
 #include "main/sound-of-music.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-status.h"
 #include "mutation/mutation-flag-types.h"
 #include "mutation/mutation-investor-remover.h"
@@ -52,11 +51,9 @@
 #include "target/target-setter.h"
 #include "target/target-types.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-acceleration.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-deceleration.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 static int get_hack_dir(PlayerType *player_ptr)
 {
@@ -110,7 +107,7 @@ static int get_hack_dir(PlayerType *player_ptr)
     }
 
     command_dir = dir;
-    if (player_ptr->effects()->confusion()->is_confused()) {
+    if (player_ptr->effects()->confusion().is_confused()) {
         dir = ddd[randint0(8)];
     }
 
@@ -127,7 +124,7 @@ static int get_hack_dir(PlayerType *player_ptr)
  */
 void process_world_aux_mutation(PlayerType *player_ptr)
 {
-    if (player_ptr->muta.none() || AngbandSystem::get_instance().is_phase_out() || player_ptr->wild_mode) {
+    if (player_ptr->muta.none() || AngbandSystem::get_instance().is_phase_out() || AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
@@ -235,14 +232,14 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         disturb(player_ptr, false, true);
         if (one_in_(2)) {
             msg_print(_("精力的でなくなった気がする。", "You feel less energetic."));
-            if (player_ptr->effects()->acceleration()->is_fast()) {
+            if (player_ptr->effects()->acceleration().is_fast()) {
                 set_acceleration(player_ptr, 0, true);
             } else {
                 (void)bss.set_deceleration(randint1(30) + 10, false);
             }
         } else {
             msg_print(_("精力的になった気がする。", "You feel more energetic."));
-            if (player_ptr->effects()->deceleration()->is_slow()) {
+            if (player_ptr->effects()->deceleration().is_slow()) {
                 (void)bss.set_deceleration(0, true);
             } else {
                 set_acceleration(player_ptr, randint1(30) + 10, false);
@@ -257,7 +254,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         msg_print(_("突然ほとんど孤独になった気がする。", "You suddenly feel almost lonely."));
 
         banish_monsters(player_ptr, 100);
-        if (!player_ptr->current_floor_ptr->is_in_dungeon() && player_ptr->town_num) {
+        if (!player_ptr->current_floor_ptr->is_in_underground() && player_ptr->town_num) {
             StoreSaleType sst;
             do {
                 sst = i2enum<StoreSaleType>(randint0(MAX_STORES));
@@ -507,7 +504,7 @@ bool drop_weapons(PlayerType *player_ptr)
     INVENTORY_IDX slot = 0;
     ItemEntity *o_ptr = nullptr;
 
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return false;
     }
 

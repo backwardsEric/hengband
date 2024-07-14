@@ -24,8 +24,6 @@
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-list.h"
@@ -56,13 +54,8 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/health-bar-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
@@ -79,15 +72,13 @@ static void process_fishing(PlayerType *player_ptr)
         get_mon_num_prep(player_ptr, monster_is_fishing_target, nullptr);
         auto *floor_ptr = player_ptr->current_floor_ptr;
         const auto wild_level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
-        const auto level = floor_ptr->is_in_dungeon() ? floor_ptr->dun_level : wild_level;
+        const auto level = floor_ptr->is_in_underground() ? floor_ptr->dun_level : wild_level;
         const auto r_idx = get_mon_num(player_ptr, 0, level, PM_NONE);
         msg_print(nullptr);
-        if (MonsterRace(r_idx).is_valid() && one_in_(2)) {
-            POSITION y, x;
-            y = player_ptr->y + ddy[player_ptr->fishing_dir];
-            x = player_ptr->x + ddx[player_ptr->fishing_dir];
-            if (place_specific_monster(player_ptr, 0, y, x, r_idx, PM_NO_KAGE)) {
-                const auto m_name = monster_desc(player_ptr, &floor_ptr->m_list[floor_ptr->grid_array[y][x].m_idx], 0);
+        if (MonraceList::is_valid(r_idx) && one_in_(2)) {
+            const auto pos = player_ptr->get_neighbor(player_ptr->fishing_dir);
+            if (auto m_idx = place_specific_monster(player_ptr, 0, pos.y, pos.x, r_idx, PM_NO_KAGE)) {
+                const auto m_name = monster_desc(player_ptr, &floor_ptr->m_list[*m_idx], 0);
                 msg_print(_(format("%sが釣れた！", m_name.data()), "You have a good catch!"));
                 success = true;
             }
@@ -183,7 +174,7 @@ void process_player(PlayerType *player_ptr)
     }
 
     const auto effects = player_ptr->effects();
-    if (player_ptr->riding && !effects->confusion()->is_confused() && !effects->blindness()->is_blind()) {
+    if (player_ptr->riding && !effects->confusion().is_confused() && !effects->blindness().is_blind()) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
         auto *r_ptr = &m_ptr->get_monrace();
         if (m_ptr->is_asleep()) {
@@ -279,8 +270,8 @@ void process_player(PlayerType *player_ptr)
 
         PlayerEnergy energy(player_ptr);
         energy.reset_player_turn();
-        auto is_knocked_out = effects->stun()->is_knocked_out();
-        auto is_paralyzed = effects->paralysis()->is_paralyzed();
+        const auto is_knocked_out = effects->stun().is_knocked_out();
+        const auto is_paralyzed = effects->paralysis().is_paralyzed();
         if (system.is_phase_out()) {
             move_cursor_relative(player_ptr->y, player_ptr->x);
             command_cmd = SPECIAL_KEY_BUILDING;
@@ -335,7 +326,7 @@ void process_player(PlayerType *player_ptr)
                 player_ptr->energy_need += (int16_t)((int32_t)player_ptr->energy_use * ENERGY_NEED() / 100L);
             }
 
-            if (effects->hallucination()->is_hallucinated()) {
+            if (effects->hallucination().is_hallucinated()) {
                 rfu.set_flag(MainWindowRedrawingFlag::MAP);
             }
 
@@ -373,10 +364,7 @@ void process_player(PlayerType *player_ptr)
                         m_ptr->mflag2.reset(MonsterConstantFlagType::MARK);
                         m_ptr->ml = false;
                         update_monster(player_ptr, m_idx, false);
-                        if (player_ptr->health_who == m_idx) {
-                            rfu.set_flag(MainWindowRedrawingFlag::HEALTH);
-                        }
-
+                        HealthBarTracker::get_instance().set_flag_if_tracking(m_idx);
                         if (player_ptr->riding == m_idx) {
                             rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
                         }

@@ -1,7 +1,6 @@
 #include "core/visuals-reseter.h"
 #include "game-option/special-options.h"
 #include "io/read-pref-file.h"
-#include "monster-race/monster-race.h"
 #include "system/baseitem-info.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
@@ -15,22 +14,15 @@ void reset_visuals(PlayerType *player_ptr)
 {
     for (auto &terrain : TerrainList::get_instance()) {
         for (int j = 0; j < F_LIT_MAX; j++) {
-            terrain.x_attr[j] = terrain.d_attr[j];
-            terrain.x_char[j] = terrain.d_char[j];
+            terrain.symbol_configs[j] = terrain.symbol_definitions[j];
         }
     }
 
-    for (auto &baseitem : baseitems_info) {
-        baseitem.x_attr = baseitem.d_attr;
-        baseitem.x_char = baseitem.d_char;
-    }
-
-    for (auto &[r_idx, r_ref] : monraces_info) {
-        r_ref.x_attr = r_ref.d_attr;
-        r_ref.x_char = r_ref.d_char;
-    }
-
-    concptr pref_file = use_graphics ? "graf.prf" : "font.prf";
+    BaseitemList::get_instance().reset_all_visuals();
+    MonraceList::get_instance().reset_all_visuals();
+    const auto pref_file = use_graphics ? "graf.prf" : "font.prf";
     process_pref_file(player_ptr, pref_file);
-    process_pref_file(player_ptr, std::string(use_graphics ? "graf-" : "font-").append(player_ptr->base_name).append(".prf"));
+    std::stringstream ss;
+    ss << (use_graphics ? "graf-" : "font-") << player_ptr->base_name << ".prf";
+    process_pref_file(player_ptr, ss.str());
 }

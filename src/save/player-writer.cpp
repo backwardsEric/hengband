@@ -1,7 +1,9 @@
 #include "save/player-writer.h"
-#include "cmd-building/cmd-building.h"
 #include "game-option/birth-options.h"
+#include "market/arena-entry.h"
+#include "object/tval-types.h"
 #include "player-base/player-class.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "save/info-writer.h"
 #include "save/player-class-specific-data-writer.h"
@@ -10,17 +12,8 @@
 #include "system/building-type-definition.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-acceleration.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-deceleration.h"
-#include "timed-effect/player-fear.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
-#include "timed-effect/player-poison.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "world/world.h"
 #include <variant>
@@ -31,12 +24,13 @@
  */
 static void wr_relams(PlayerType *player_ptr)
 {
+    PlayerRealm pr(player_ptr);
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
         wr_byte((byte)player_ptr->element);
     } else {
-        wr_byte((byte)player_ptr->realm1);
+        wr_byte((byte)pr.realm1().to_enum());
     }
-    wr_byte((byte)player_ptr->realm2);
+    wr_byte((byte)pr.realm2().to_enum());
 }
 
 /*!
@@ -61,7 +55,7 @@ void wr_player(PlayerType *player_ptr)
     wr_relams(player_ptr);
     wr_byte(0);
 
-    wr_byte((byte)player_ptr->hitdie);
+    wr_byte((byte)player_ptr->hit_dice.sides);
     wr_u16b(player_ptr->expfact);
 
     wr_s16b(player_ptr->age);
@@ -111,13 +105,14 @@ void wr_player(PlayerType *player_ptr)
 
     std::visit(PlayerClassSpecificDataWriter(), player_ptr->class_specific_data);
 
-    wr_byte((byte)player_ptr->start_race);
+    wr_byte(static_cast<uint8_t>(InnerGameData::get_instance().get_start_race()));
     wr_s32b(player_ptr->old_race1);
     wr_s32b(player_ptr->old_race2);
     wr_s16b(player_ptr->old_realm);
 
-    for (const auto &[r_idx, is_achieved] : w_ptr->bounties) {
-        wr_s16b(enum2i(r_idx));
+    const auto &world = AngbandWorld::get_instance();
+    for (const auto &[monrace_id, is_achieved] : world.bounties) {
+        wr_s16b(enum2i(monrace_id));
         wr_bool(is_achieved);
     }
 
@@ -127,12 +122,14 @@ void wr_player(PlayerType *player_ptr)
     }
 
     wr_s16b(player_ptr->town_num);
-
-    wr_s16b(player_ptr->arena_number);
+    const auto &entries = ArenaEntryList::get_instance();
+    wr_s16b(static_cast<int16_t>(entries.get_current_entry()));
+    const auto defeated_entry = entries.get_defeated_entry();
+    wr_s16b(static_cast<int16_t>(defeated_entry.value_or(-1)));
     wr_s16b(player_ptr->current_floor_ptr->inside_arena);
     wr_s16b(enum2i(player_ptr->current_floor_ptr->quest_number));
     wr_s16b(AngbandSystem::get_instance().is_phase_out());
-    wr_byte(w_ptr->get_arena());
+    wr_byte(world.get_arena());
     wr_byte(0); /* Unused */
 
     wr_s16b((int16_t)player_ptr->oldpx);
@@ -161,21 +158,21 @@ void wr_player(PlayerType *player_ptr)
 
     auto effects = player_ptr->effects();
     wr_s16b(0); /* old "rest" */
-    wr_s16b(effects->blindness()->current());
-    wr_s16b(effects->paralysis()->current());
-    wr_s16b(effects->confusion()->current());
+    wr_s16b(effects->blindness().current());
+    wr_s16b(effects->paralysis().current());
+    wr_s16b(effects->confusion().current());
     wr_s16b(player_ptr->food);
     wr_s16b(0); /* old "food_digested" */
     wr_s16b(0); /* old "protection" */
     wr_s16b(player_ptr->energy_need);
     wr_s16b(player_ptr->enchant_energy_need);
-    wr_s16b(effects->acceleration()->current());
-    wr_s16b(effects->deceleration()->current());
-    wr_s16b(effects->fear()->current());
-    wr_s16b(effects->cut()->current());
-    wr_s16b(effects->stun()->current());
-    wr_s16b(effects->poison()->current());
-    wr_s16b(effects->hallucination()->current());
+    wr_s16b(effects->acceleration().current());
+    wr_s16b(effects->deceleration().current());
+    wr_s16b(effects->fear().current());
+    wr_s16b(effects->cut().current());
+    wr_s16b(effects->stun().current());
+    wr_s16b(effects->poison().current());
+    wr_s16b(effects->hallucination().current());
     wr_s16b(player_ptr->protevil);
     wr_s16b(player_ptr->invuln);
     wr_s16b(player_ptr->ult_res);
@@ -250,26 +247,27 @@ void wr_player(PlayerType *player_ptr)
     wr_u32b(0L);
     wr_u32b(0L);
 
-    wr_u32b(w_ptr->seed_flavor);
-    wr_u32b(w_ptr->seed_town);
+    const auto &system = AngbandSystem::get_instance();
+    wr_u32b(system.get_seed_flavor());
+    wr_u32b(system.get_seed_town());
     wr_u16b(player_ptr->panic_save);
-    wr_u16b(w_ptr->total_winner);
-    wr_u16b(w_ptr->noscore);
+    wr_u16b(world.total_winner);
+    wr_u16b(world.noscore);
     wr_bool(player_ptr->is_dead);
     wr_byte(player_ptr->feeling);
     wr_s32b(player_ptr->current_floor_ptr->generated_turn);
     wr_s32b(player_ptr->feeling_turn);
-    wr_s32b(w_ptr->game_turn);
-    wr_s32b(w_ptr->dungeon_turn);
-    wr_s32b(w_ptr->arena_start_turn);
-    wr_s16b(enum2i(w_ptr->today_mon));
-    wr_s16b(player_ptr->knows_daily_bounty ? 1 : 0); // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
+    wr_s32b(world.game_turn);
+    wr_s32b(world.dungeon_turn);
+    wr_s32b(world.arena_start_turn);
+    wr_s16b(enum2i(world.today_mon));
+    wr_s16b(world.knows_daily_bounty ? 1 : 0); // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
     wr_s16b(player_ptr->riding);
     wr_s16b(player_ptr->floor_id);
 
     /* Save temporary preserved pets (obsolated) */
     wr_s16b(0);
-    wr_u32b(w_ptr->play_time);
+    wr_u32b(world.play_time);
     wr_s32b(player_ptr->visit);
     wr_u32b(player_ptr->count);
 }

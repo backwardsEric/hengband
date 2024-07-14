@@ -26,11 +26,8 @@
 #include "main/music-definitions-table.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "market/arena-info-table.h"
+#include "market/arena-entry.h"
 #include "mind/mind-mirror-master.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-info.h"
@@ -64,8 +61,6 @@
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
@@ -363,6 +358,8 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
         chg_virtue(player_ptr, Virtue::CHANCE, 2);
     }
 
+    const auto &floor = *player_ptr->current_floor_ptr;
+    auto &world = AngbandWorld::get_instance();
     if (player_ptr->chp < 0 && !cheat_immortal) {
         bool android = PlayerRace(player_ptr).equals(PlayerRaceType::ANDROID);
 
@@ -379,18 +376,19 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
             player_ptr->is_dead = true;
         }
 
-        const auto &floor = *player_ptr->current_floor_ptr;
         if (floor.inside_arena) {
-            const auto &m_name = monraces_info[arena_info[player_ptr->arena_number].r_idx].name;
+            auto &entries = ArenaEntryList::get_instance();
+            entries.set_defeated_entry();
+            const auto &m_name = entries.get_monrace().name;
             msg_format(_("あなたは%sの前に敗れ去った。", "You are beaten by %s."), m_name.data());
             msg_print(nullptr);
             if (record_arena) {
-                exe_write_diary(player_ptr, DiaryKind::ARENA, -1 - player_ptr->arena_number, m_name);
+                exe_write_diary(floor, DiaryKind::ARENA, 0, m_name);
             }
         } else {
             const auto q_idx = floor.get_quest_id();
             const auto seppuku = hit_from == "Seppuku";
-            const auto winning_seppuku = w_ptr->total_winner && seppuku;
+            const auto winning_seppuku = world.total_winner && seppuku;
 
             play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_GAMEOVER);
 
@@ -403,10 +401,10 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
                     player_ptr->died_from = _("切腹", "Seppuku");
                 }
             } else {
-                auto effects = player_ptr->effects();
-                auto is_hallucinated = effects->hallucination()->is_hallucinated();
+                const auto effects = player_ptr->effects();
+                const auto is_hallucinated = effects->hallucination().is_hallucinated();
                 auto paralysis_state = "";
-                if (effects->paralysis()->is_paralyzed()) {
+                if (effects->paralysis().is_paralyzed()) {
                     paralysis_state = player_ptr->free_act ? _("彫像状態で", " while being the statue") : _("麻痺状態で", " while paralyzed");
                 }
 
@@ -418,16 +416,16 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 #endif
             }
 
-            w_ptr->total_winner = false;
+            world.total_winner = false;
             if (winning_seppuku) {
-                w_ptr->add_retired_class(player_ptr->pclass);
-                exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("勝利の後切腹した。", "committed seppuku after the winning."));
+                world.add_retired_class(player_ptr->pclass);
+                exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, _("勝利の後切腹した。", "committed seppuku after the winning."));
             } else {
                 std::string place;
 
                 if (floor.inside_arena) {
                     place = _("アリーナ", "in the Arena");
-                } else if (!floor.is_in_dungeon()) {
+                } else if (!floor.is_in_underground()) {
                     place = _("地上", "on the surface");
                 } else if (inside_quest(q_idx) && (QuestType::is_fixed(q_idx) && !((q_idx == QuestId::OBERON) || (q_idx == QuestId::SERPENT)))) {
                     place = _("クエスト", "in a quest");
@@ -440,11 +438,11 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 #else
                 const auto note = format("killed by %s %s.", player_ptr->died_from.data(), place.data());
 #endif
-                exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, note);
+                exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, note);
             }
 
-            exe_write_diary(player_ptr, DiaryKind::GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
-            exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 1, "\n\n\n\n");
+            exe_write_diary(floor, DiaryKind::GAMESTART, 1, _("-------- ゲームオーバー --------", "--------   Game  Over   --------"));
+            exe_write_diary(floor, DiaryKind::DESCRIPTION, 1, "\n\n\n\n");
             flush();
             if (input_check_strict(player_ptr, _("画面を保存しますか？", "Dump the screen? "), UserCheck::NO_HISTORY)) {
                 do_cmd_save_screen(player_ptr);
@@ -562,7 +560,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 
         sound(SOUND_WARN);
         if (record_danger && (old_chp > warning)) {
-            if (player_ptr->effects()->hallucination()->is_hallucinated() && damage_type == DAMAGE_ATTACK) {
+            if (player_ptr->effects()->hallucination().is_hallucinated() && damage_type == DAMAGE_ATTACK) {
                 hit_from = _("何か", "something");
             }
 
@@ -570,7 +568,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
             ss << _(hit_from, "was in a critical situation because of ");
             ss << _("によってピンチに陥った。", hit_from);
             ss << _("", ".");
-            exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, ss.str());
+            exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, ss.str());
         }
 
         if (auto_more) {
@@ -582,7 +580,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
         flush();
     }
 
-    if (player_ptr->wild_mode && !player_ptr->leaving && (player_ptr->chp < std::max(warning, player_ptr->mhp / 5))) {
+    if (world.is_wild_mode() && !player_ptr->leaving && (player_ptr->chp < std::max(warning, player_ptr->mhp / 5))) {
         change_wild_mode(player_ptr, false);
     }
 
@@ -606,7 +604,7 @@ static void process_aura_damage(MonsterEntity *m_ptr, PlayerType *player_ptr, bo
         return;
     }
 
-    int aura_damage = damroll(1 + (r_ptr->level / 26), 1 + (r_ptr->level / 17));
+    int aura_damage = Dice::roll(1 + (r_ptr->level / 26), 1 + (r_ptr->level / 17));
     msg_print(message);
     (*dam_func)(player_ptr, aura_damage, monster_desc(player_ptr, m_ptr, MD_WRONGDOER_NAME).data(), true);
     if (is_original_ap_and_seen(player_ptr, m_ptr)) {

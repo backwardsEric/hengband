@@ -16,7 +16,7 @@ void object_aware(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
     const bool is_already_awared = o_ptr->is_aware();
     auto &baseitem = o_ptr->get_baseitem();
-    baseitem.aware = true;
+    baseitem.mark_as_aware();
 
     // 以下、playrecordに記録しない場合はreturnする
     if (!record_ident) {
@@ -43,5 +43,5 @@ void object_aware(PlayerType *player_ptr, const ItemEntity *o_ptr)
     q_ptr->copy_from(o_ptr);
     q_ptr->number = 1;
     const auto item_name = describe_flavor(player_ptr, q_ptr, OD_NAME_ONLY);
-    exe_write_diary(player_ptr, DiaryKind::FOUND, 0, item_name);
+    exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::FOUND, 0, item_name);
 }

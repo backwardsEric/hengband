@@ -1,19 +1,18 @@
 #include "view/display-lore-magics.h"
 #include "lore/lore-util.h"
-#include "monster-race/race-flags2.h"
 #include "system/monster-race-info.h"
 #include "term/term-color-types.h"
 
 void display_monster_breath(lore_type *lore_ptr)
 {
     lore_ptr->breath = false;
-    if (lore_ptr->vn <= 0) {
+    if (lore_ptr->lore_msgs.empty()) {
         return;
     }
 
     lore_ptr->breath = true;
     hooked_roff(format(_("%s^は", "%s^"), Who::who(lore_ptr->msex)));
-    for (int n = 0; n < lore_ptr->vn; n++) {
+    for (int n = 0; const auto &[msg, color] : lore_ptr->lore_msgs) {
 #ifdef JP
         if (n != 0) {
             hooked_roff("や");
@@ -21,13 +20,14 @@ void display_monster_breath(lore_type *lore_ptr)
 #else
         if (n == 0) {
             hooked_roff(" may breathe ");
-        } else if (n < lore_ptr->vn - 1) {
+        } else if (n < std::ssize(lore_ptr->lore_msgs) - 1) {
             hooked_roff(", ");
         } else {
             hooked_roff(" or ");
         }
 #endif
-        hook_c_roff(lore_ptr->color[n], lore_ptr->vp[n]);
+        hook_c_roff(color, msg);
+        n++;
     }
 
 #ifdef JP
@@ -38,7 +38,7 @@ void display_monster_breath(lore_type *lore_ptr)
 void display_monster_magic_types(lore_type *lore_ptr)
 {
     lore_ptr->magic = false;
-    if (lore_ptr->vn == 0) {
+    if (lore_ptr->lore_msgs.empty()) {
         return;
     }
 
@@ -62,7 +62,7 @@ void display_monster_magic_types(lore_type *lore_ptr)
     }
 #endif
 
-    for (int n = 0; n < lore_ptr->vn; n++) {
+    for (int n = 0; const auto &[msg, color] : lore_ptr->lore_msgs) {
 #ifdef JP
         if (n != 0) {
             hooked_roff("、");
@@ -70,13 +70,14 @@ void display_monster_magic_types(lore_type *lore_ptr)
 #else
         if (n == 0) {
             hooked_roff(" which ");
-        } else if (n < lore_ptr->vn - 1) {
+        } else if (n < std::ssize(lore_ptr->lore_msgs) - 1) {
             hooked_roff(", ");
         } else {
             hooked_roff(" or ");
         }
 #endif
-        hook_c_roff(lore_ptr->color[n], lore_ptr->vp[n]);
+        hook_c_roff(color, msg);
+        n++;
     }
 
 #ifdef JP

@@ -7,8 +7,6 @@
 #include "game-option/birth-options.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
@@ -24,7 +22,6 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -79,7 +76,7 @@ static MONSTER_NUMBER summon_Kin(PlayerType *player_ptr, POSITION y, POSITION x,
 {
     int count = 0;
     for (int k = 0; k < 4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_KIN, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_KIN, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
     return count;
@@ -105,17 +102,16 @@ static void decide_summon_kin_caster(
 
     summon_disturb(player_ptr, target_type, known, see_either);
 
-    if (player_ptr->effects()->blindness()->is_blind()) {
+    if (player_ptr->effects()->blindness().is_blind()) {
         if (mon_to_player) {
             msg_format(_("%s^が何かをつぶやいた。", "%s^ mumbles."), m_name);
         }
     } else if (mon_to_player || (mon_to_mon && known && see_either)) {
-        auto *r_ptr = &m_ptr->get_monrace();
 #ifdef JP
         (void)m_poss;
 #endif
-        _(msg_format("%sが魔法で%sを召喚した。", m_name, (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) ? "手下" : "仲間")),
-            msg_format("%s^ magically summons %s %s.", m_name, m_poss, (r_ptr->kind_flags.has(MonsterKindType::UNIQUE) ? "minions" : "kin")));
+        _(msg_format("%sが魔法で%sを召喚した。", m_name, m_ptr->get_pronoun_of_summoned_kin().data()),
+            msg_format("%s^ magically summons %s %s.", m_name, m_poss, m_ptr->get_pronoun_of_summoned_kin().data()));
     }
 
     if (mon_to_mon && known && !see_either) {
@@ -204,12 +200,15 @@ MonsterSpellResult spell_RF6_S_KIN(PlayerType *player_ptr, POSITION y, POSITION 
     case MonsterRaceId::OOTSUKI:
         count += summon_PLASMA(player_ptr, y, x, rlev, m_idx);
         break;
+    case MonsterRaceId::LAFFEY_II:
+        count += summon_LAFFEY_II(player_ptr, Pos2D(y, x), m_idx);
+        break;
     default:
         count += summon_Kin(player_ptr, y, x, rlev, m_idx);
         break;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && (target_type == MONSTER_TO_PLAYER)) {
+    if (player_ptr->effects()->blindness().is_blind() && count && (target_type == MONSTER_TO_PLAYER)) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -252,12 +251,12 @@ MonsterSpellResult spell_RF6_S_CYBER(PlayerType *player_ptr, POSITION y, POSITIO
 
     int count = 0;
     if (m_ptr->is_friendly() && mon_to_mon) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_CYBER, (PM_ALLOW_GROUP));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_CYBER, (PM_ALLOW_GROUP)) ? 1 : 0;
     } else {
         count += summon_cyber(player_ptr, m_idx, y, x);
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("重厚な足音が近くで聞こえる。", "You hear heavy steps nearby."));
     }
 
@@ -300,15 +299,15 @@ MonsterSpellResult spell_RF6_S_MONSTER(PlayerType *player_ptr, POSITION y, POSIT
     int count = 0;
     for (int k = 0; k < 1; k++) {
         if (mon_to_player) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
         }
 
         if (mon_to_mon) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (monster_u_mode(floor_ptr, m_idx)));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (monster_u_mode(floor_ptr, m_idx))) ? 1 : 0;
         }
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("何かが間近に現れた音がする。", "You hear something appear nearby."));
     }
 
@@ -351,15 +350,15 @@ MonsterSpellResult spell_RF6_S_MONSTERS(PlayerType *player_ptr, POSITION y, POSI
     int count = 0;
     for (auto k = 0; k < S_NUM_6; k++) {
         if (mon_to_player) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
         }
 
         if (mon_to_mon) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx)));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_NONE, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx))) ? 1 : 0;
         }
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -401,10 +400,10 @@ MonsterSpellResult spell_RF6_S_ANT(PlayerType *player_ptr, POSITION y, POSITION 
 
     int count = 0;
     for (auto k = 0; k < S_NUM_6; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANT, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANT, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -446,10 +445,10 @@ MonsterSpellResult spell_RF6_S_SPIDER(PlayerType *player_ptr, POSITION y, POSITI
 
     int count = 0;
     for (auto k = 0; k < S_NUM_6; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_SPIDER, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_SPIDER, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -491,10 +490,10 @@ MonsterSpellResult spell_RF6_S_HOUND(PlayerType *player_ptr, POSITION y, POSITIO
 
     int count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HOUND, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HOUND, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -536,10 +535,10 @@ MonsterSpellResult spell_RF6_S_HYDRA(PlayerType *player_ptr, POSITION y, POSITIO
 
     int count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HYDRA, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HYDRA, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くのものが間近に現れた音がする。", "You hear many things appear nearby."));
     }
 
@@ -587,10 +586,10 @@ MonsterSpellResult spell_RF6_S_ANGEL(PlayerType *player_ptr, POSITION y, POSITIO
 
     int count = 0;
     for (int k = 0; k < num; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANGEL, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_ANGEL, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    const auto is_blind = player_ptr->effects()->blindness()->is_blind();
+    const auto is_blind = player_ptr->effects()->blindness().is_blind();
     if (count < 2) {
         if (is_blind && count) {
             msg_print(_("何かが間近に現れた音がする。", "You hear something appear nearby."));
@@ -639,10 +638,10 @@ MonsterSpellResult spell_RF6_S_DEMON(PlayerType *player_ptr, POSITION y, POSITIO
 
     int count = 0;
     for (int k = 0; k < 1; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DEMON, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DEMON, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count) {
+    if (player_ptr->effects()->blindness().is_blind() && count) {
         msg_print(_("何かが間近に現れた音がする。", "You hear something appear nearby."));
     }
 
@@ -684,10 +683,10 @@ MonsterSpellResult spell_RF6_S_UNDEAD(PlayerType *player_ptr, POSITION y, POSITI
 
     int count = 0;
     for (int k = 0; k < 1; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_UNDEAD, PM_ALLOW_GROUP);
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_UNDEAD, PM_ALLOW_GROUP) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count) {
+    if (player_ptr->effects()->blindness().is_blind() && count) {
         msg_print(_("何かが間近に現れた音がする。", "You hear something appear nearby."));
     }
 
@@ -729,14 +728,14 @@ MonsterSpellResult spell_RF6_S_DRAGON(PlayerType *player_ptr, POSITION y, POSITI
 
     int count = 0;
     if (mon_to_player) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
     }
 
     if (mon_to_mon) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DRAGON, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx)));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DRAGON, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx))) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count) {
+    if (player_ptr->effects()->blindness().is_blind() && count) {
         msg_print(_("何かが間近に現れた音がする。", "You hear something appear nearby."));
     }
 
@@ -785,16 +784,16 @@ MonsterSpellResult spell_RF6_S_HI_UNDEAD(PlayerType *player_ptr, POSITION y, POS
 
         for (auto k = 0; k < S_NUM_6; k++) {
             if (mon_to_player) {
-                count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_UNDEAD, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+                count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_UNDEAD, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
             }
 
             if (mon_to_mon) {
-                count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_UNDEAD, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx)));
+                count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_UNDEAD, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx))) ? 1 : 0;
             }
         }
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("間近で何か多くのものが這い回る音が聞こえる。", "You hear many creepy things appear nearby."));
     }
 
@@ -838,15 +837,15 @@ MonsterSpellResult spell_RF6_S_HI_DRAGON(PlayerType *player_ptr, POSITION y, POS
     int count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
         if (mon_to_player) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
         }
 
         if (mon_to_mon) {
-            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_DRAGON, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx)));
+            count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_HI_DRAGON, (PM_ALLOW_GROUP | monster_u_mode(floor_ptr, m_idx))) ? 1 : 0;
         }
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("多くの力強いものが間近に現れた音が聞こえる。", "You hear many powerful things appear nearby."));
     }
 
@@ -889,10 +888,10 @@ MonsterSpellResult spell_RF6_S_AMBERITES(PlayerType *player_ptr, POSITION y, POS
 
     int count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_AMBERITES, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_AMBERITES, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_print(_("何者かが次元を超えて現れた気配がした。", "You feel shadow shifting by immortal beings."));
     }
 
@@ -937,7 +936,7 @@ MonsterSpellResult spell_RF6_S_UNIQUE(PlayerType *player_ptr, POSITION y, POSITI
     bool uniques_are_summoned = false;
     int count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_UNIQUE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_UNIQUE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
     }
 
     if (count) {
@@ -952,10 +951,10 @@ MonsterSpellResult spell_RF6_S_UNIQUE(PlayerType *player_ptr, POSITION y, POSITI
     }
 
     for (auto k = count; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, non_unique_type, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, non_unique_type, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE)) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_format(_("多くの%sが間近に現れた音が聞こえる。", "You hear many %s appear nearby."),
             uniques_are_summoned ? _("力強いもの", "powerful things") : _("もの", "things"));
     }
@@ -999,10 +998,10 @@ MonsterSpellResult spell_RF6_S_DEAD_UNIQUE(PlayerType *player_ptr, POSITION y, P
 
     auto count = 0;
     for (auto k = 0; k < S_NUM_4; k++) {
-        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DEAD_UNIQUE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_CLONE));
+        count += summon_specific(player_ptr, m_idx, y, x, rlev, SUMMON_DEAD_UNIQUE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_CLONE)) ? 1 : 0;
     }
 
-    if (player_ptr->effects()->blindness()->is_blind() && count && mon_to_player) {
+    if (player_ptr->effects()->blindness().is_blind() && count && mon_to_player) {
         msg_format(_("多くの力強いものが間近に蘇った音が聞こえる。", "You hear many powerful things animate nearby."));
     }
 

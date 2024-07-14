@@ -49,14 +49,14 @@ void do_cmd_tunnel(PlayerType *player_ptr)
     }
 
     auto more = false;
-    const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+    const auto pos = player_ptr->get_neighbor(dir);
     const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
     const auto &terrain_mimic = grid.get_terrain_mimic();
     if (terrain_mimic.flags.has(TerrainCharacteristics::DOOR)) {
         msg_print(_("ドアは掘れない。", "You cannot tunnel through doors."));
     } else if (terrain_mimic.flags.has_not(TerrainCharacteristics::TUNNEL)) {
         msg_print(_("そこは掘れない。", "You can't tunnel through that."));
-    } else if (grid.m_idx) {
+    } else if (grid.has_monster()) {
         PlayerEnergy(player_ptr).set_player_turn_energy(100);
         msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
         do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);

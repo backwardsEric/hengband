@@ -4,7 +4,6 @@
 #include "effect/effect-processor.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "spell-kind/earthquake.h"
 #include "spell-kind/spells-sight.h"
 #include "spell-kind/spells-teleport.h"
@@ -43,7 +42,7 @@ void blood_curse_to_enemy(PlayerType *player_ptr, MONSTER_IDX m_idx)
         case 5:
         case 6:
             if (!count) {
-                int extra_dam = damroll(10, 10);
+                int extra_dam = Dice::roll(10, 10);
                 msg_print(_("純粋な魔力の次元への扉が開いた！", "A portal opens to a plane of raw mana!"));
                 project(player_ptr, 0, 8, m_ptr->fy, m_ptr->fx, extra_dam, AttributeType::MANA, curse_flg);
                 if (!one_in_(6)) {
@@ -55,8 +54,8 @@ void blood_curse_to_enemy(PlayerType *player_ptr, MONSTER_IDX m_idx)
         case 8:
             if (!count) {
                 msg_print(_("空間が歪んだ！", "Space warps about you!"));
-                if (MonsterRace(m_ptr->r_idx).is_valid()) {
-                    teleport_away(player_ptr, g_ptr->m_idx, damroll(10, 10), TELEPORT_PASSIVE);
+                if (m_ptr->is_valid()) {
+                    teleport_away(player_ptr, g_ptr->m_idx, Dice::roll(10, 10), TELEPORT_PASSIVE);
                 }
                 if (one_in_(13)) {
                     count += activate_hi_summon(player_ptr, m_ptr->fy, m_ptr->fx, true);
@@ -105,8 +104,8 @@ void blood_curse_to_enemy(PlayerType *player_ptr, MONSTER_IDX m_idx)
                 mode |= (PM_NO_PET | PM_FORCE_FRIENDLY);
             }
 
-            count += summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x,
-                (pet ? player_ptr->lev * 2 / 3 + randint1(player_ptr->lev / 2) : player_ptr->current_floor_ptr->dun_level), SUMMON_NONE, mode);
+            const auto level = pet ? player_ptr->lev * 2 / 3 + randint1(player_ptr->lev / 2) : player_ptr->current_floor_ptr->dun_level;
+            count += summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x, level, SUMMON_NONE, mode) ? 1 : 0;
             if (!one_in_(6)) {
                 break;
             }
@@ -115,7 +114,7 @@ void blood_curse_to_enemy(PlayerType *player_ptr, MONSTER_IDX m_idx)
         case 23:
         case 24:
         case 25:
-            if (player_ptr->hold_exp && (randint0(100) < 75)) {
+            if (player_ptr->hold_exp && evaluate_percent(75)) {
                 break;
             }
 

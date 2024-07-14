@@ -31,12 +31,10 @@
 #include "main/sound-of-music.h"
 #include "mind/mind-explanations-table.h"
 #include "mind/mind-mindcrafter.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-describer.h"
+#include "monster/monster-util.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
 #include "player-status/player-energy.h"
@@ -68,7 +66,6 @@
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "term/z-form.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
@@ -333,10 +330,10 @@ AttributeType get_element_type(int realm_idx, int n)
  */
 static AttributeType get_element_spells_type(PlayerType *player_ptr, int n)
 {
-    auto realm = element_types.at(i2enum<ElementRealmType>(player_ptr->element));
-    auto t = realm.type.at(n);
+    const auto &realm = element_types.at(i2enum<ElementRealmType>(player_ptr->element));
+    const auto t = realm.type.at(n);
     if (realm.extra.find(t) != realm.extra.end()) {
-        if (randint0(100) < player_ptr->lev * 2) {
+        if (evaluate_percent(player_ptr->lev * 2)) {
             return realm.extra.at(t);
         }
     }
@@ -474,7 +471,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
-        dam = damroll(3 + ((plev - 1) / 5), 4);
+        dam = Dice::roll(3 + ((plev - 1) / 5), 4);
         typ = get_element_spells_type(player_ptr, power.elem);
         (void)fire_bolt(player_ptr, typ, dir, dam);
         break;
@@ -485,14 +482,14 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
     case ElementSpells::PERCEPT:
         return psychometry(player_ptr);
     case ElementSpells::CURE:
-        (void)hp_player(player_ptr, damroll(2, 8));
+        (void)hp_player(player_ptr, Dice::roll(2, 8));
         (void)BadStatusSetter(player_ptr).mod_cut(-10);
         break;
     case ElementSpells::BOLT_2ND:
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
-        dam = damroll(8 + ((plev - 5) / 4), 8);
+        dam = Dice::roll(8 + ((plev - 5) / 4), 8);
         typ = get_element_spells_type(player_ptr, power.elem);
         if (fire_bolt_or_beam(player_ptr, plev, typ, dir, dam)) {
             if (typ == AttributeType::HYPODYNAMIA) {
@@ -543,7 +540,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
-        dam = damroll(12 + ((plev - 5) / 4), 8);
+        dam = Dice::roll(12 + ((plev - 5) / 4), 8);
         typ = get_element_spells_type(player_ptr, power.elem);
         fire_bolt_or_beam(player_ptr, plev, typ, dir, dam);
         break;
@@ -567,7 +564,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
     case ElementSpells::BURST_1ST:
         y = player_ptr->y;
         x = player_ptr->x;
-        num = damroll(4, 3);
+        num = Dice::roll(4, 3);
         typ = get_element_spells_type(player_ptr, power.elem);
         for (int k = 0; k < num; k++) {
             int attempts = 1000;
@@ -580,7 +577,7 @@ static bool cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx)
                     break;
                 }
             }
-            project(player_ptr, 0, 0, y, x, damroll(6 + plev / 8, 7), typ, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL));
+            project(player_ptr, 0, 0, y, x, Dice::roll(6 + plev / 8, 7), typ, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL));
         }
         break;
     case ElementSpells::STORM_2ND:
@@ -637,8 +634,7 @@ static PERCENTAGE decide_element_chance(PlayerType *player_ptr, mind_type spell)
         chance = minfail;
     }
 
-    auto player_stun = player_ptr->effects()->stun();
-    chance += player_stun->get_magic_chance_penalty();
+    chance += player_ptr->effects()->stun().get_magic_chance_penalty();
     if (heavy_armor(player_ptr)) {
         chance += 5;
     }
@@ -718,8 +714,6 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         screen_save();
     }
 
-    int elem;
-    mind_type spell;
     auto choice = (always_show_list || use_menu) ? ESCAPE : 1;
     while (!flag) {
         if (choice == ESCAPE) {
@@ -773,39 +767,16 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
                     screen_save();
                 }
 
-                prt("", y, x);
-                put_str(_("名前", "Name"), y, x + 5);
-                put_str(_("Lv   MP   失率 効果", "Lv   MP Fail Info"), y, x + 35);
-                for (i = 0; i < spell_max; i++) {
-                    elem = get_elemental_elem(player_ptr, i);
-                    spell = get_elemental_info(player_ptr, i);
-
+                display_element_spell_list(player_ptr, y, x);
+                for (i = 0; i < spell_max && use_menu; i++) {
+                    const auto spell = get_elemental_info(player_ptr, i);
                     if (spell.min_lev > plev) {
                         break;
                     }
-
-                    PERCENTAGE chance = decide_element_chance(player_ptr, spell);
-                    int mana_cost = decide_element_mana_cost(player_ptr, spell);
-                    const auto comment = get_element_effect_info(player_ptr, i);
-
-                    std::string desc;
-                    if (use_menu) {
-                        if (i == (menu_line - 1)) {
-                            desc = _("  》 ", "  >  ");
-                        } else {
-                            desc = "     ";
-                        }
-                    } else {
-                        desc = format("  %c) ", I2A(i));
-                    }
-
-                    const auto s = get_element_name(player_ptr->element, elem);
-                    const auto name = format(spell.name, s);
-                    desc.append(format("%-30s%2d %4d %3d%%%s", name.data(), spell.min_lev, mana_cost, chance, comment.data()));
-                    prt(desc, y + i + 1, x);
+                    const auto cursor = (i == (menu_line - 1)) ? _("  》 ", "  >  ") : "     ";
+                    put_str(cursor, y + i + 1, x);
                 }
 
-                prt("", y + i + 1, x);
             } else if (!only_browse) {
                 redraw = false;
                 screen_load();
@@ -870,7 +841,7 @@ static bool check_element_mp_sufficiency(PlayerType *player_ptr, int mana_cost)
  */
 static bool try_cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx, PERCENTAGE chance)
 {
-    if (randint0(100) >= chance) {
+    if (!evaluate_percent(chance)) {
         sound(SOUND_ZAP);
         return cast_element_spell(player_ptr, spell_idx);
     }
@@ -934,10 +905,10 @@ void do_cmd_element(PlayerType *player_ptr)
         player_ptr->csp = 0;
         player_ptr->csp_frac = 0;
         msg_print(_("精神を集中しすぎて気を失ってしまった！", "You faint from the effort!"));
-        (void)BadStatusSetter(player_ptr).mod_paralysis(randint1(5 * oops + 1));
+        (void)BadStatusSetter(player_ptr).mod_paralysis(randnum1<short>(5 * oops + 1));
         chg_virtue(player_ptr, Virtue::KNOWLEDGE, -10);
-        if (randint0(100) < 50) {
-            bool perm = (randint0(100) < 25);
+        if (one_in_(2)) {
+            const auto perm = one_in_(4);
             msg_print(_("体を悪くしてしまった！", "You have damaged your health!"));
             (void)dec_stat(player_ptr, A_CON, 15 + randint1(10), perm);
         }
@@ -979,6 +950,38 @@ void do_cmd_element_browse(PlayerType *player_ptr)
         prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
         (void)inkey();
     }
+}
+
+/*!
+ * @brief 元素魔法の一覧を表示する
+ */
+void display_element_spell_list(PlayerType *player_ptr, int y, int x)
+{
+    prt("", y, x);
+    put_str(_("名前", "Name"), y, x + 5);
+    put_str(_("Lv   MP 失率 効果", "Lv Mana Fail Info"), y, x + 35);
+
+    constexpr auto spell_max = enum2i(ElementSpells::MAX);
+    int i;
+    for (i = 0; i < spell_max; i++) {
+        const auto spell = get_elemental_info(player_ptr, i);
+        if (spell.min_lev > player_ptr->lev) {
+            break;
+        }
+
+        const auto elem = get_elemental_elem(player_ptr, i);
+        const auto name = format(spell.name, get_element_name(player_ptr->element, elem));
+
+        const auto mana_cost = decide_element_mana_cost(player_ptr, spell);
+        const auto chance = decide_element_chance(player_ptr, spell);
+        const auto comment = get_element_effect_info(player_ptr, i);
+
+        constexpr auto fmt = "  %c) %-30s%2d %4d %3d%%%s";
+        const auto info_str = format(fmt, I2A(i), name.data(), spell.min_lev, mana_cost, chance, comment.data());
+        const auto color = mana_cost > player_ptr->csp ? TERM_ORANGE : TERM_WHITE;
+        c_prt(color, info_str, y + i + 1, x);
+    }
+    prt("", y + i + 1, x);
 }
 
 /*!
@@ -1065,7 +1068,7 @@ ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, EffectMo
         return ProcessResult::PROCESS_TRUE;
     }
 
-    if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, !em_ptr->who, (em_ptr->r_ptr->level + 1) / 2, _("モンスター消滅", "Genocide One"))) {
+    if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, is_player(em_ptr->src_idx), (em_ptr->r_ptr->level + 1) / 2, _("モンスター消滅", "Genocide One"))) {
         if (em_ptr->seen_msg) {
             msg_format(_("%sは消滅した！", "%s^ disappeared!"), em_ptr->m_name);
         }
@@ -1375,7 +1378,7 @@ bool switch_element_execution(PlayerType *player_ptr)
 
     switch (realm) {
     case ElementRealmType::FIRE:
-        (void)lite_area(player_ptr, damroll(2, plev / 2), plev / 10);
+        (void)lite_area(player_ptr, Dice::roll(2, plev / 2), plev / 10);
         break;
     case ElementRealmType::ICE:
         (void)project(player_ptr, 0, 5, player_ptr->y, player_ptr->x, 1, AttributeType::COLD, PROJECT_ITEM);
@@ -1442,17 +1445,17 @@ static bool is_target_grid_dark(FloorType *f_ptr, POSITION y, POSITION x)
             }
 
             POSITION d = distance(dy, dx, y, x);
-            auto *r_ptr = &monraces_info[f_ptr->m_list[m_idx].r_idx];
-            if (d <= 1 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_1, MonsterBrightnessType::SELF_LITE_1 })) {
+            const auto &monrace = f_ptr->m_list[m_idx].get_monrace();
+            if (d <= 1 && monrace.brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_1, MonsterBrightnessType::SELF_LITE_1 })) {
                 return false;
             }
-            if (d <= 2 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_2, MonsterBrightnessType::SELF_LITE_2 })) {
+            if (d <= 2 && monrace.brightness_flags.has_any_of({ MonsterBrightnessType::HAS_LITE_2, MonsterBrightnessType::SELF_LITE_2 })) {
                 return false;
             }
-            if (d <= 1 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_1, MonsterBrightnessType::SELF_DARK_1 })) {
+            if (d <= 1 && monrace.brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_1, MonsterBrightnessType::SELF_DARK_1 })) {
                 is_dark = true;
             }
-            if (d <= 2 && r_ptr->brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_2, MonsterBrightnessType::SELF_DARK_2 })) {
+            if (d <= 2 && monrace.brightness_flags.has_any_of({ MonsterBrightnessType::HAS_DARK_2, MonsterBrightnessType::SELF_DARK_2 })) {
                 is_dark = true;
             }
         }

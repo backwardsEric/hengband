@@ -63,7 +63,8 @@ static void handle_signal_suspend(int sig)
 static void handle_signal_simple(int sig)
 {
     (void)signal(sig, SIG_IGN);
-    if (!w_ptr->character_generated || w_ptr->character_saved) {
+    const auto &world = AngbandWorld::get_instance();
+    if (!world.character_generated || world.character_saved) {
         quit(nullptr);
     }
 
@@ -120,20 +121,22 @@ static void handle_signal_abort(int sig)
 {
     const auto &[wid, hgt] = term_get_size();
     (void)signal(sig, SIG_IGN);
-    if (!w_ptr->character_generated || w_ptr->character_saved) {
+    const auto &world = AngbandWorld::get_instance();
+    if (!world.character_generated || world.character_saved) {
         quit(nullptr);
     }
 
-    forget_lite(p_ptr->current_floor_ptr);
-    forget_view(p_ptr->current_floor_ptr);
-    clear_mon_lite(p_ptr->current_floor_ptr);
+    auto &floor = *p_ptr->current_floor_ptr;
+    forget_lite(&floor);
+    forget_view(&floor);
+    clear_mon_lite(&floor);
 
     term_erase(0, hgt - 1);
     term_putstr(0, hgt - 1, -1, TERM_RED, _("恐ろしいソフトのバグが飛びかかってきた！", "A gruesome software bug LEAPS out at you!"));
 
     term_putstr(45, hgt - 1, -1, TERM_RED, _("緊急セーブ...", "Panic save..."));
 
-    exe_write_diary(p_ptr, DiaryKind::GAMESTART, 0, _("----ゲーム異常終了----", "-- Tried Panic Save and Aborted Game --"));
+    exe_write_diary(floor, DiaryKind::GAMESTART, 0, _("----ゲーム異常終了----", "-- Tried Panic Save and Aborted Game --"));
     term_fresh();
 
     p_ptr->panic_save = 1;

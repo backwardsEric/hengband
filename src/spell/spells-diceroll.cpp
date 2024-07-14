@@ -1,10 +1,6 @@
 #include "spell/spells-diceroll.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "player-base/player-class.h"
@@ -45,7 +41,7 @@ bool common_saving_throw_charm(PlayerType *player_ptr, int pow, MonsterEntity *m
         return true;
     }
 
-    if (r_ptr->flags1 & RF1_QUESTOR || m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::QUESTOR) || m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
         return true;
     }
 
@@ -78,7 +74,7 @@ bool common_saving_throw_control(PlayerType *player_ptr, int pow, MonsterEntity 
         return true;
     }
 
-    if (r_ptr->flags1 & RF1_QUESTOR || m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::QUESTOR) || m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
         return true;
     }
 

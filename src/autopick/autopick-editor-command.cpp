@@ -65,7 +65,7 @@ ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, int 
         break;
     }
     case EC_HELP: {
-        (void)show_file(player_ptr, true, _("jeditor.txt", "editor.txt"), 0, 0);
+        FileDisplayer(player_ptr->name).display(true, _("jeditor.txt", "editor.txt"), 0, 0);
         tb->dirty_flags |= DIRTY_SCREEN;
         break;
     }
@@ -555,18 +555,13 @@ ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, int 
         if (!can_insert_line(tb, 2)) {
             break;
         }
-        char expression[80];
-        strnfmt(expression, sizeof(expression), "?:[AND [EQU $RACE %s] [EQU $CLASS %s] [GEQ $LEVEL %02d]]",
-#ifdef JP
-            rp_ptr->E_title, cp_ptr->E_title,
-#else
-            rp_ptr->title, cp_ptr->title,
-#endif
+        const auto expression = format("?:[AND [EQU $RACE %s] [EQU $CLASS %s] [GEQ $LEVEL %02d]]",
+            rp_ptr->title.en_string().data(), cp_ptr->title.en_string().data(),
             player_ptr->lev);
         tb->cx = 0;
         insert_return_code(tb);
         string_free(tb->lines_list[tb->cy]);
-        tb->lines_list[tb->cy] = string_make(expression);
+        tb->lines_list[tb->cy] = string_make(expression.data());
         tb->cy++;
         insert_return_code(tb);
         string_free(tb->lines_list[tb->cy]);

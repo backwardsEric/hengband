@@ -1,12 +1,7 @@
 #include "effect/effect-monster-resist-hurt.h"
 #include "effect/effect-monster-util.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status-setter.h"
@@ -579,7 +574,7 @@ static void effect_monster_gravity_slow(PlayerType *player_ptr, EffectMonster *e
 
 static void effect_monster_gravity_stun(EffectMonster *em_ptr)
 {
-    em_ptr->do_stun = damroll((em_ptr->caster_lev / 20) + 3, (em_ptr->dam)) + 1;
+    em_ptr->do_stun = Dice::roll((em_ptr->caster_lev / 20) + 3, (em_ptr->dam)) + 1;
     bool has_resistance = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
     has_resistance |= (em_ptr->r_ptr->level > randint1(std::max(1, em_ptr->dam - 10)) + 10);
     if (has_resistance) {
@@ -684,8 +679,8 @@ ProcessResult effect_monster_void(PlayerType *player_ptr, EffectMonster *em_ptr)
             em_ptr->r_ptr->r_kind_flags.set(MonsterKindType::QUANTUM);
         }
     } else if (em_ptr->r_ptr->feature_flags.has(MonsterFeatureType::PASS_WALL)) {
-        em_ptr->note = _("の存在が薄れていく。", "is fading out.");
-        em_ptr->note_dies = _("は消えてしまった。", "has disappeared.");
+        em_ptr->note = _("の存在が薄れていく。", " is fading out.");
+        em_ptr->note_dies = _("は消えてしまった。", " has disappeared.");
         em_ptr->dam *= 3;
         em_ptr->dam /= 2;
         if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
@@ -707,7 +702,7 @@ ProcessResult effect_monster_void(PlayerType *player_ptr, EffectMonster *em_ptr)
             }
         }
     } else {
-        em_ptr->note_dies = _("は消滅してしまった。", "has vanished.");
+        em_ptr->note_dies = _("は消滅してしまった。", " has vanished.");
     }
 
     return ProcessResult::PROCESS_CONTINUE;
@@ -758,7 +753,7 @@ ProcessResult effect_monster_abyss(PlayerType *player_ptr, EffectMonster *em_ptr
         }
     }
 
-    if (any_bits(em_ptr->r_ptr->flags2, RF2_ELDRITCH_HORROR) || any_bits(em_ptr->r_ptr->flags2, RF2_EMPTY_MIND)) {
+    if (em_ptr->r_ptr->misc_flags.has(MonsterMiscType::ELDRITCH_HORROR) || em_ptr->r_ptr->misc_flags.has(MonsterMiscType::EMPTY_MIND)) {
         return ProcessResult::PROCESS_CONTINUE;
     }
 

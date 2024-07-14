@@ -16,7 +16,7 @@
 #include "game-option/text-display-options.h"
 #include "player-info/class-info.h"
 #include "player-info/race-types.h"
-#include "realm/realm-names-table.h"
+#include "player/player-realm.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/enum-converter.h"
@@ -108,58 +108,58 @@ static void get_random_virtue(PlayerType *player_ptr, int which)
  * @param realm 魔法領域のID
  * @return 対応する徳のID
  */
-static enum Virtue get_realm_virtues(PlayerType *player_ptr, int16_t realm)
+static enum Virtue get_realm_virtues(PlayerType *player_ptr, RealmType realm)
 {
     switch (realm) {
-    case REALM_LIFE:
+    case RealmType::LIFE:
         if (virtue_number(player_ptr, Virtue::VITALITY)) {
             return Virtue::TEMPERANCE;
         } else {
             return Virtue::VITALITY;
         }
-    case REALM_SORCERY:
+    case RealmType::SORCERY:
         if (virtue_number(player_ptr, Virtue::KNOWLEDGE)) {
             return Virtue::ENCHANT;
         } else {
             return Virtue::KNOWLEDGE;
         }
-    case REALM_NATURE:
+    case RealmType::NATURE:
         if (virtue_number(player_ptr, Virtue::NATURE)) {
             return Virtue::HARMONY;
         } else {
             return Virtue::NATURE;
         }
-    case REALM_CHAOS:
+    case RealmType::CHAOS:
         if (virtue_number(player_ptr, Virtue::CHANCE)) {
             return Virtue::INDIVIDUALISM;
         } else {
             return Virtue::CHANCE;
         }
-    case REALM_DEATH:
+    case RealmType::DEATH:
         return Virtue::UNLIFE;
-    case REALM_TRUMP:
+    case RealmType::TRUMP:
         return Virtue::KNOWLEDGE;
-    case REALM_ARCANE:
+    case RealmType::ARCANE:
         return Virtue::NONE;
-    case REALM_CRAFT:
+    case RealmType::CRAFT:
         if (virtue_number(player_ptr, Virtue::ENCHANT)) {
             return Virtue::INDIVIDUALISM;
         } else {
             return Virtue::ENCHANT;
         }
-    case REALM_DAEMON:
+    case RealmType::DAEMON:
         if (virtue_number(player_ptr, Virtue::JUSTICE)) {
             return Virtue::FAITH;
         } else {
             return Virtue::JUSTICE;
         }
-    case REALM_CRUSADE:
+    case RealmType::CRUSADE:
         if (virtue_number(player_ptr, Virtue::JUSTICE)) {
             return Virtue::HONOUR;
         } else {
             return Virtue::JUSTICE;
         }
-    case REALM_HEX:
+    case RealmType::HEX:
         if (virtue_number(player_ptr, Virtue::COMPASSION)) {
             return Virtue::JUSTICE;
         } else {
@@ -374,15 +374,16 @@ void initialize_virtues(PlayerType *player_ptr)
     }
 
     /* Get a virtue_names for realms */
-    if (player_ptr->realm1) {
-        tmp_vir = get_realm_virtues(player_ptr, player_ptr->realm1);
+    PlayerRealm pr(player_ptr);
+    if (pr.realm1().is_available()) {
+        tmp_vir = get_realm_virtues(player_ptr, pr.realm1().to_enum());
         if (tmp_vir != Virtue::NONE) {
             player_ptr->vir_types[i++] = tmp_vir;
         }
     }
 
-    if (player_ptr->realm2) {
-        tmp_vir = get_realm_virtues(player_ptr, player_ptr->realm2);
+    if (pr.realm2().is_available()) {
+        tmp_vir = get_realm_virtues(player_ptr, pr.realm2().to_enum());
         if (tmp_vir != Virtue::NONE) {
             player_ptr->vir_types[i++] = tmp_vir;
         }
@@ -493,41 +494,40 @@ void dump_virtues(PlayerType *player_ptr, FILE *out_file)
     }
 
     for (int v_nr = 0; v_nr < 8; v_nr++) {
-        GAME_TEXT vir_name[20];
         int tester = player_ptr->virtues[v_nr];
-        strcpy(vir_name, virtue_names.at(player_ptr->vir_types[v_nr]).data());
+        const auto &vir_name = virtue_names.at(player_ptr->vir_types[v_nr]);
         const auto vir_val_str = format(" (%d)", tester);
         const auto vir_val = show_actual_value ? vir_val_str.data() : "";
         if ((player_ptr->vir_types[v_nr] == Virtue::NONE) || (player_ptr->vir_types[v_nr] >= Virtue::MAX)) {
-            fprintf(out_file, _("おっと。%sの情報なし。", "Oops. No info about %s."), vir_name);
+            fprintf(out_file, _("おっと。%sの情報なし。", "Oops. No info about %s."), vir_name.data());
         }
 
         else if (tester < -100) {
-            fprintf(out_file, _("[%s]の対極%s", "You are the polar opposite of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の対極%s", "You are the polar opposite of %s.%s"), vir_name.data(), vir_val);
         } else if (tester < -80) {
-            fprintf(out_file, _("[%s]の大敵%s", "You are an arch-enemy of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の大敵%s", "You are an arch-enemy of %s.%s"), vir_name.data(), vir_val);
         } else if (tester < -60) {
-            fprintf(out_file, _("[%s]の強敵%s", "You are a bitter enemy of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の強敵%s", "You are a bitter enemy of %s.%s"), vir_name.data(), vir_val);
         } else if (tester < -40) {
-            fprintf(out_file, _("[%s]の敵%s", "You are an enemy of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の敵%s", "You are an enemy of %s.%s"), vir_name.data(), vir_val);
         } else if (tester < -20) {
-            fprintf(out_file, _("[%s]の罪者%s", "You have sinned against %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の罪者%s", "You have sinned against %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 0) {
-            fprintf(out_file, _("[%s]の迷道者%s", "You have strayed from the path of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の迷道者%s", "You have strayed from the path of %s.%s"), vir_name.data(), vir_val);
         } else if (tester == 0) {
-            fprintf(out_file, _("[%s]の中立者%s", "You are neutral to %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の中立者%s", "You are neutral to %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 20) {
-            fprintf(out_file, _("[%s]の小徳者%s", "You are somewhat virtuous in %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の小徳者%s", "You are somewhat virtuous in %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 40) {
-            fprintf(out_file, _("[%s]の中徳者%s", "You are virtuous in %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の中徳者%s", "You are virtuous in %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 60) {
-            fprintf(out_file, _("[%s]の高徳者%s", "You are very virtuous in %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の高徳者%s", "You are very virtuous in %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 80) {
-            fprintf(out_file, _("[%s]の覇者%s", "You are a champion of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の覇者%s", "You are a champion of %s.%s"), vir_name.data(), vir_val);
         } else if (tester < 100) {
-            fprintf(out_file, _("[%s]の偉大な覇者%s", "You are a great champion of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の偉大な覇者%s", "You are a great champion of %s.%s"), vir_name.data(), vir_val);
         } else {
-            fprintf(out_file, _("[%s]の具現者%s", "You are the living embodiment of %s.%s"), vir_name, vir_val);
+            fprintf(out_file, _("[%s]の具現者%s", "You are the living embodiment of %s.%s"), vir_name.data(), vir_val);
         }
 
         fprintf(out_file, "\n");

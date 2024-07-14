@@ -28,12 +28,10 @@
 #include "system/terrain-type-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 /*!
  * @brief 箱を開ける実行処理 /
@@ -55,11 +53,11 @@ static bool exe_open_chest(PlayerType *player_ptr, const Pos2D &pos, OBJECT_IDX 
         flag = false;
         int i = player_ptr->skill_dis;
         const auto effects = player_ptr->effects();
-        if (effects->blindness()->is_blind() || no_lite(player_ptr)) {
+        if (effects->blindness().is_blind() || no_lite(player_ptr)) {
             i = i / 10;
         }
 
-        if (effects->confusion()->is_confused() || effects->hallucination()->is_hallucinated()) {
+        if (effects->confusion().is_confused() || effects->hallucination().is_hallucinated()) {
             i = i / 10;
         }
 
@@ -68,7 +66,7 @@ static bool exe_open_chest(PlayerType *player_ptr, const Pos2D &pos, OBJECT_IDX 
             j = 2;
         }
 
-        if (randint0(100) < j) {
+        if (evaluate_percent(j)) {
             msg_print(_("鍵をはずした。", "You have picked the lock."));
             gain_exp(player_ptr, 1);
             flag = true;
@@ -100,7 +98,7 @@ static bool exe_open_chest(PlayerType *player_ptr, const Pos2D &pos, OBJECT_IDX 
 void do_cmd_open(PlayerType *player_ptr)
 {
     auto more = false;
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
@@ -125,12 +123,12 @@ void do_cmd_open(PlayerType *player_ptr)
 
     int dir;
     if (get_rep_dir(player_ptr, &dir, true)) {
-        const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+        const auto pos = player_ptr->get_neighbor(dir);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
         const auto o_idx = chest_check(player_ptr->current_floor_ptr, pos, false);
         if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::OPEN) && !o_idx) {
             msg_print(_("そこには開けるものが見当たらない。", "You see nothing there to open."));
-        } else if (grid.m_idx && player_ptr->riding != grid.m_idx) {
+        } else if (grid.has_monster() && player_ptr->riding != grid.m_idx) {
             PlayerEnergy(player_ptr).set_player_turn_energy(100);
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
@@ -154,7 +152,7 @@ void do_cmd_open(PlayerType *player_ptr)
  */
 void do_cmd_close(PlayerType *player_ptr)
 {
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
@@ -175,11 +173,11 @@ void do_cmd_close(PlayerType *player_ptr)
     auto more = false;
     int dir;
     if (get_rep_dir(player_ptr, &dir)) {
-        const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+        const auto pos = player_ptr->get_neighbor(dir);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
         if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::CLOSE)) {
             msg_print(_("そこには閉じるものが見当たらない。", "You see nothing there to close."));
-        } else if (grid.m_idx) {
+        } else if (grid.has_monster()) {
             PlayerEnergy(player_ptr).set_player_turn_energy(100);
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
@@ -199,7 +197,7 @@ void do_cmd_close(PlayerType *player_ptr)
  */
 void do_cmd_disarm(PlayerType *player_ptr)
 {
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
@@ -225,13 +223,13 @@ void do_cmd_disarm(PlayerType *player_ptr)
     int dir;
     auto more = false;
     if (get_rep_dir(player_ptr, &dir, true)) {
-        const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+        const auto pos = player_ptr->get_neighbor(dir);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
         const auto feat = grid.get_feat_mimic();
         const auto o_idx = chest_check(player_ptr->current_floor_ptr, pos, true);
         if (!is_trap(player_ptr, feat) && !o_idx) {
             msg_print(_("そこには解除するものが見当たらない。", "You see nothing there to disarm."));
-        } else if (grid.m_idx && player_ptr->riding != grid.m_idx) {
+        } else if (grid.has_monster() && player_ptr->riding != grid.m_idx) {
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
         } else if (o_idx) {
@@ -265,13 +263,11 @@ void do_cmd_disarm(PlayerType *player_ptr)
  */
 void do_cmd_bash(PlayerType *player_ptr)
 {
-    auto more = false;
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
-
     if (command_arg) {
         command_rep = command_arg - 1;
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::ACTION);
@@ -279,12 +275,13 @@ void do_cmd_bash(PlayerType *player_ptr)
     }
 
     int dir;
+    auto more = false;
     if (get_rep_dir(player_ptr, &dir)) {
-        const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+        const auto pos = player_ptr->get_neighbor(dir);
         const Grid &grid = player_ptr->current_floor_ptr->get_grid(pos);
         if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::BASH)) {
             msg_print(_("そこには体当たりするものが見当たらない。", "You see nothing there to bash."));
-        } else if (grid.m_idx) {
+        } else if (grid.has_monster()) {
             PlayerEnergy(player_ptr).set_player_turn_energy(100);
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
@@ -336,18 +333,17 @@ static bool get_spike(PlayerType *player_ptr, INVENTORY_IDX *ip)
  */
 void do_cmd_spike(PlayerType *player_ptr)
 {
-    DIRECTION dir;
-    if (player_ptr->wild_mode) {
+    if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
 
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
-
+    DIRECTION dir;
     if (!get_rep_dir(player_ptr, &dir)) {
         return;
     }
 
-    const Pos2D pos(player_ptr->y + ddy[dir], player_ptr->x + ddx[dir]);
+    const auto pos = player_ptr->get_neighbor(dir);
     const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
     const auto &terrain_mimic = grid.get_terrain_mimic();
     INVENTORY_IDX i_idx;
@@ -355,7 +351,7 @@ void do_cmd_spike(PlayerType *player_ptr)
         msg_print(_("そこにはくさびを打てるものが見当たらない。", "You see nothing there to spike."));
     } else if (!get_spike(player_ptr, &i_idx)) {
         msg_print(_("くさびを持っていない！", "You have no spikes!"));
-    } else if (grid.m_idx) {
+    } else if (grid.has_monster()) {
         PlayerEnergy(player_ptr).set_player_turn_energy(100);
         msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
         do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);

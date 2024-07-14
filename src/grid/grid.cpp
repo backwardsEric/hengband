@@ -33,9 +33,6 @@
 #include "grid/trap.h"
 #include "io/screen-util.h"
 #include "monster-floor/monster-remover.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags7.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
@@ -56,16 +53,25 @@
 #include "system/terrain-type-definition.h"
 #include "term/gameterm.h"
 #include "term/term-color-types.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/point-2d.h"
 #include "view/display-map.h"
 #include "view/display-messages.h"
+#include "view/display-symbol.h"
 #include "window/main-window-util.h"
 #include "world/world.h"
 #include <queue>
+
+bool GridTemplate::matches(const Grid &grid) const
+{
+    auto is_matched = this->info == grid.info;
+    is_matched &= this->feat == grid.feat;
+    is_matched &= this->mimic == grid.mimic;
+    is_matched &= this->special == grid.special;
+    return is_matched;
+}
 
 /*!
  * @brief 新規フロアに入りたてのプレイヤーをランダムな場所に配置する / Returns random co-ordinates for player/monster/object
@@ -86,10 +92,10 @@ bool new_player_spot(PlayerType *player_ptr)
         const auto &grid = player_ptr->current_floor_ptr->get_grid({ y, x });
 
         /* Must be a "naked" floor grid */
-        if (grid.m_idx) {
+        if (grid.has_monster()) {
             continue;
         }
-        if (floor.is_in_dungeon()) {
+        if (floor.is_in_underground()) {
             const auto &terrain = grid.get_terrain();
 
             if (max_attempts > 5000) /* Rule 1 */
@@ -186,7 +192,7 @@ static void update_local_illumination_aux(PlayerType *player_ptr, int y, int x)
         return;
     }
 
-    if (grid.m_idx > 0) {
+    if (grid.has_monster()) {
         update_monster(player_ptr, grid.m_idx, false);
     }
 
@@ -239,10 +245,8 @@ void update_local_illumination(PlayerType *player_ptr, POSITION y, POSITION x)
         update_local_illumination_aux(player_ptr, y, xx);
     } else /* Player's grid */
     {
-        for (i = 0; i < 8; i++) {
-            yy = y + ddy_cdd[i];
-            xx = x + ddx_cdd[i];
-            update_local_illumination_aux(player_ptr, yy, xx);
+        for (const auto &dd : CCW_DD) {
+            update_local_illumination_aux(player_ptr, y + dd.y, x + dd.x);
         }
     }
 }
@@ -260,30 +264,19 @@ bool no_lite(PlayerType *player_ptr)
 /*
  * Place an attr/char pair at the given map coordinate, if legal.
  */
-void print_rel(PlayerType *player_ptr, char c, TERM_COLOR a, POSITION y, POSITION x)
+void print_rel(PlayerType *player_ptr, const DisplaySymbol &symbol, POSITION y, POSITION x)
 {
     /* Only do "legal" locations */
     if (panel_contains(y, x)) {
-        /* Hack -- fake monochrome */
-        if (!use_graphics) {
-            if (w_ptr->timewalk_m_idx) {
-                a = TERM_DARK;
-            } else if (is_invuln(player_ptr) || player_ptr->timewalk) {
-                a = TERM_WHITE;
-            } else if (player_ptr->wraith_form) {
-                a = TERM_L_DARK;
-            }
-        }
-
-        /* Draw the char using the attr */
-        term_queue_bigchar(panel_col_of(x), y - panel_row_prt, a, c, 0, 0);
+        const auto color = get_monochrome_display_color(player_ptr).value_or(symbol.color);
+        term_queue_bigchar(panel_col_of(x), y - panel_row_prt, { { color, symbol.character }, {} });
     }
 }
 
 void print_bolt_pict(PlayerType *player_ptr, POSITION y, POSITION x, POSITION ny, POSITION nx, AttributeType typ)
 {
-    const auto &[a, c] = bolt_pict(y, x, ny, nx, typ);
-    print_rel(player_ptr, c, a, ny, nx);
+    const auto symbol = bolt_pict(y, x, ny, nx, typ);
+    print_rel(player_ptr, symbol, ny, nx);
 }
 
 /*!
@@ -332,7 +325,7 @@ void note_spot(PlayerType *player_ptr, POSITION y, POSITION x)
     auto &grid = floor.get_grid(pos);
 
     /* Blind players see nothing */
-    if (player_ptr->effects()->blindness()->is_blind()) {
+    if (player_ptr->effects()->blindness().is_blind()) {
         return;
     }
 
@@ -410,23 +403,10 @@ void note_spot(PlayerType *player_ptr, POSITION y, POSITION x)
 void lite_spot(PlayerType *player_ptr, POSITION y, POSITION x)
 {
     if (panel_contains(y, x) && in_bounds2(player_ptr->current_floor_ptr, y, x)) {
-        TERM_COLOR a;
-        char c;
-        TERM_COLOR ta;
-        char tc;
+        auto symbol_pair = map_info(player_ptr, { y, x });
+        symbol_pair.symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_pair.symbol_foreground.color);
 
-        map_info(player_ptr, y, x, &a, &c, &ta, &tc);
-        if (!use_graphics) {
-            if (w_ptr->timewalk_m_idx) {
-                a = TERM_DARK;
-            } else if (is_invuln(player_ptr) || player_ptr->timewalk) {
-                a = TERM_WHITE;
-            } else if (player_ptr->wraith_form) {
-                a = TERM_L_DARK;
-            }
-        }
-
-        term_queue_bigchar(panel_col_of(x), y - panel_row_prt, a, c, ta, tc);
+        term_queue_bigchar(panel_col_of(x), y - panel_row_prt, symbol_pair);
         static constexpr auto flags = {
             SubWindowRedrawingFlag::OVERHEAD,
             SubWindowRedrawingFlag::DUNGEON,
@@ -760,7 +740,7 @@ void update_flow(PlayerType *player_ptr)
  */
 FEAT_IDX feat_state(const FloorType *floor_ptr, FEAT_IDX feat, TerrainCharacteristics action)
 {
-    const auto &terrain = TerrainList::get_instance()[feat];
+    const auto &terrain = TerrainList::get_instance().get_terrain(feat);
 
     /* Get the new feature */
     for (auto i = 0; i < MAX_FEAT_STATES; i++) {
@@ -797,9 +777,10 @@ void cave_alter_feat(PlayerType *player_ptr, POSITION y, POSITION x, TerrainChar
     /* Set the new feature */
     cave_set_feat(player_ptr, y, x, newfeat);
     const auto &terrains = TerrainList::get_instance();
+    const auto &world = AngbandWorld::get_instance();
     if (!(terrain_action_flags[enum2i(action)] & FAF_NO_DROP)) {
-        const auto &old_terrain = terrains[oldfeat];
-        const auto &new_terrain = terrains[newfeat];
+        const auto &old_terrain = terrains.get_terrain(oldfeat);
+        const auto &new_terrain = terrains.get_terrain(newfeat);
         bool found = false;
 
         /* Handle gold */
@@ -810,20 +791,20 @@ void cave_alter_feat(PlayerType *player_ptr, POSITION y, POSITION x, TerrainChar
         }
 
         /* Handle item */
-        if (old_terrain.flags.has(TerrainCharacteristics::HAS_ITEM) && new_terrain.flags.has_not(TerrainCharacteristics::HAS_ITEM) && (randint0(100) < (15 - floor_ptr->dun_level / 2))) {
+        if (old_terrain.flags.has(TerrainCharacteristics::HAS_ITEM) && new_terrain.flags.has_not(TerrainCharacteristics::HAS_ITEM) && evaluate_percent(15 - floor_ptr->dun_level / 2)) {
             /* Place object */
             place_object(player_ptr, y, x, 0L);
             found = true;
         }
 
-        if (found && w_ptr->character_dungeon && player_can_see_bold(player_ptr, y, x)) {
+        if (found && world.character_dungeon && player_can_see_bold(player_ptr, y, x)) {
             msg_print(_("何かを発見した！", "You have found something!"));
         }
     }
 
     if (terrain_action_flags[enum2i(action)] & FAF_CRASH_GLASS) {
-        const auto &old_terrain = terrains[oldfeat];
-        if (old_terrain.flags.has(TerrainCharacteristics::GLASS) && w_ptr->character_dungeon) {
+        const auto &old_terrain = terrains.get_terrain(oldfeat);
+        if (old_terrain.flags.has(TerrainCharacteristics::GLASS) && world.character_dungeon) {
             project(player_ptr, PROJECT_WHO_GLASS_SHARDS, 1, y, x, std::min(floor_ptr->dun_level, 100) / 4, AttributeType::SHARDS,
                 (PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_HIDE | PROJECT_JUMP | PROJECT_NO_HANGEKI));
         }
@@ -851,7 +832,7 @@ bool cave_monster_teleportable_bold(PlayerType *player_ptr, MONSTER_IDX m_idx, P
         return false;
     }
 
-    if (grid.m_idx && (grid.m_idx != m_idx)) {
+    if (grid.has_monster() && (grid.m_idx != m_idx)) {
         return false;
     }
     if (player_ptr->is_located_at(pos)) {
@@ -898,7 +879,7 @@ bool cave_player_teleportable_bold(PlayerType *player_ptr, POSITION y, POSITION 
         return false;
     }
 
-    if (grid.m_idx && (grid.m_idx != player_ptr->riding)) {
+    if (grid.has_monster() && (grid.m_idx != player_ptr->riding)) {
         return false;
     }
 
@@ -942,7 +923,7 @@ bool cave_player_teleportable_bold(PlayerType *player_ptr, POSITION y, POSITION 
  */
 bool is_open(PlayerType *player_ptr, FEAT_IDX feat)
 {
-    const auto &terrain = TerrainList::get_instance()[feat];
+    const auto &terrain = TerrainList::get_instance().get_terrain(feat);
     return terrain.flags.has(TerrainCharacteristics::CLOSE) && (feat != feat_state(player_ptr->current_floor_ptr, feat, TerrainCharacteristics::CLOSE));
 }
 
@@ -954,10 +935,10 @@ bool is_open(PlayerType *player_ptr, FEAT_IDX feat)
  */
 bool player_can_enter(PlayerType *player_ptr, FEAT_IDX feature, BIT_FLAGS16 mode)
 {
-    const auto &terrain = TerrainList::get_instance()[feature];
+    const auto &terrain = TerrainList::get_instance().get_terrain(feature);
     if (player_ptr->riding) {
         return monster_can_cross_terrain(
-            player_ptr, feature, &monraces_info[player_ptr->current_floor_ptr->m_list[player_ptr->riding].r_idx], mode | CEM_RIDING);
+            player_ptr, feature, &player_ptr->current_floor_ptr->m_list[player_ptr->riding].get_monrace(), mode | CEM_RIDING);
     }
 
     if (terrain.flags.has(TerrainCharacteristics::PATTERN)) {
@@ -1023,7 +1004,7 @@ void place_grid(PlayerType *player_ptr, Grid *g_ptr, grid_bold_type gb_type)
         break;
     }
     case GB_OUTER_NOPERM: {
-        const auto &terrain = TerrainList::get_instance()[feat_wall_outer];
+        const auto &terrain = TerrainList::get_instance().get_terrain(feat_wall_outer);
         if (terrain.is_permanent_wall()) {
             g_ptr->feat = (int16_t)feat_state(player_ptr->current_floor_ptr, feat_wall_outer, TerrainCharacteristics::UNPERM);
         } else {
@@ -1047,7 +1028,7 @@ void place_grid(PlayerType *player_ptr, Grid *g_ptr, grid_bold_type gb_type)
         break;
     }
     case GB_SOLID_NOPERM: {
-        const auto &terrain = TerrainList::get_instance()[feat_wall_solid];
+        const auto &terrain = TerrainList::get_instance().get_terrain(feat_wall_solid);
         if ((g_ptr->info & CAVE_VAULT) && terrain.is_permanent_wall()) {
             g_ptr->feat = (int16_t)feat_state(player_ptr->current_floor_ptr, feat_wall_solid, TerrainCharacteristics::UNPERM);
         } else {
@@ -1062,7 +1043,7 @@ void place_grid(PlayerType *player_ptr, Grid *g_ptr, grid_bold_type gb_type)
         return;
     }
 
-    if (g_ptr->m_idx > 0) {
+    if (g_ptr->has_monster()) {
         delete_monster_idx(player_ptr, g_ptr->m_idx);
     }
 }
@@ -1128,7 +1109,7 @@ std::pair<int, Pos2D> count_dt(PlayerType *player_ptr, bool (*test)(PlayerType *
  */
 bool feat_uses_special(FEAT_IDX f_idx)
 {
-    return TerrainList::get_instance()[(f_idx)].flags.has(TerrainCharacteristics::SPECIAL);
+    return TerrainList::get_instance().get_terrain(f_idx).flags.has(TerrainCharacteristics::SPECIAL);
 }
 
 /*

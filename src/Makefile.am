@@ -270,12 +270,14 @@ hengband_SOURCES = \
 	info-reader/fixed-map-parser.cpp info-reader/fixed-map-parser.h \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
 	info-reader/info-reader-util.cpp info-reader/info-reader-util.h \
+	info-reader/json-reader-util.cpp info-reader/json-reader-util.h \
 	info-reader/magic-reader.cpp info-reader/magic-reader.h \
 	info-reader/parse-error-types.h \
 	info-reader/race-info-tokens-table.cpp info-reader/race-info-tokens-table.h \
 	info-reader/race-reader.cpp info-reader/race-reader.h \
 	info-reader/random-grid-effect-types.h \
 	info-reader/skill-reader.cpp info-reader/skill-reader.h \
+	info-reader/spell-reader.cpp info-reader/spell-reader.h \
 	info-reader/vault-reader.cpp info-reader/vault-reader.h \
 	\
 	inventory/floor-item-getter.cpp inventory/floor-item-getter.h \
@@ -320,6 +322,7 @@ hengband_SOURCES = \
 	\
 	item-info/flavor-initializer.cpp item-info/flavor-initializer.h \
 	\
+	knowledge/item-group-table.cpp knowledge/item-group-table.h \
 	knowledge/knowledge-autopick.cpp knowledge/knowledge-autopick.h \
 	knowledge/knowledge-experiences.cpp knowledge/knowledge-experiences.h \
 	knowledge/knowledge-features.cpp knowledge/knowledge-features.h \
@@ -332,7 +335,6 @@ hengband_SOURCES = \
 	knowledge/knowledge-quests.cpp knowledge/knowledge-quests.h \
 	knowledge/lighting-level-table.cpp knowledge/lighting-level-table.h \
 	knowledge/monster-group-table.cpp knowledge/monster-group-table.h \
-	knowledge/object-group-table.cpp knowledge/object-group-table.h \
 	\
 	load/angband-version-comparer.cpp load/angband-version-comparer.h \
 	load/birth-loader.cpp load/birth-loader.h \
@@ -371,14 +373,15 @@ hengband_SOURCES = \
 	load/old/monster-flag-types-savefile50.h \
 	load/old/monster-loader-savefile50.cpp load/old/monster-loader-savefile50.h \
 	\
+	locale/character-encoding.h \
 	locale/english.cpp locale/english.h \
 	locale/japanese.cpp locale/japanese.h \
+	locale/localized-string.cpp locale/localized-string.h \
 	locale/utf-8.cpp locale/utf-8.h \
 	locale/language-switcher.h \
 	\
 	lore/combat-types-setter.cpp lore/combat-types-setter.h \
 	lore/lore-calculator.cpp lore/lore-calculator.h \
-	lore/lore-store.cpp lore/lore-store.h \
 	lore/lore-util.cpp lore/lore-util.h \
 	lore/magic-types-setter.cpp lore/magic-types-setter.h \
 	lore/monster-lore.cpp lore/monster-lore.h \
@@ -397,11 +400,12 @@ hengband_SOURCES = \
 	main/sound-definitions-table.cpp main/sound-definitions-table.h \
 	main/sound-of-music.cpp main/sound-of-music.h \
 	\
+	main-unix/stack-trace-unix.cpp \
 	main-unix/unix-user-ids.cpp main-unix/unix-user-ids.h \
 	main-unix/x11-gamma-builder.cpp main-unix/x11-gamma-builder.h \
 	main-unix/x11-type-string.cpp main-unix/x11-type-string.h \
 	\
-	market/arena-info-table.cpp market/arena-info-table.h \
+	market/arena-entry.cpp market/arena-entry.h \
 	market/building-initializer.cpp market/building-initializer.h \
 	market/building-util.cpp market/building-util.h \
 	market/play-gamble.cpp market/play-gamble.h \
@@ -509,7 +513,6 @@ hengband_SOURCES = \
 	\
 	monster-race/monster-aura-types.h \
 	monster-race/monster-kind-mask.cpp monster-race/monster-kind-mask.h \
-	monster-race/monster-race.cpp monster-race/monster-race.h \
 	monster-race/monster-race-hook.cpp monster-race/monster-race-hook.h \
 	monster-race/race-ability-flags.h \
 	monster-race/race-ability-mask.cpp monster-race/race-ability-mask.h \
@@ -518,17 +521,15 @@ hengband_SOURCES = \
 	monster-race/race-brightness-mask.h monster-race/race-brightness-mask.cpp \
 	monster-race/race-drop-flags.h \
 	monster-race/race-feature-flags.h \
-	monster-race/race-feature-mask.cpp monster-race/race-feature-mask.h \
 	monster-race/race-flags-resistance.h \
-	monster-race/race-flags1.h monster-race/race-flags2.h \
-	monster-race/race-flags3.h \
-	monster-race/race-flags7.h monster-race/race-flags8.h \
 	monster-race/race-indice-types.h \
 	monster-race/race-kind-flags.h \
+	monster-race/race-misc-flags.h \
 	monster-race/race-population-flags.h \
 	monster-race/race-resistance-mask.cpp monster-race/race-resistance-mask.h \
 	monster-race/race-sex-const.cpp monster-race/race-sex-const.h \
 	monster-race/race-speak-flags.h \
+	monster-race/race-special-flags.h \
 	monster-race/race-visual-flags.h \
 	monster-race/race-wilderness-flags.h \
 	\
@@ -647,7 +648,6 @@ hengband_SOURCES = \
 	object-hook/hook-expendable.cpp object-hook/hook-expendable.h \
 	object-hook/hook-magic.cpp object-hook/hook-magic.h \
 	object-hook/hook-perception.cpp object-hook/hook-perception.h \
-	object-hook/hook-quest.cpp object-hook/hook-quest.h \
 	object-hook/hook-weapon.cpp object-hook/hook-weapon.h \
 	\
 	object-use/item-use-checker.cpp object-use/item-use-checker.h \
@@ -771,7 +771,6 @@ hengband_SOURCES = \
 	realm/realm-hex-numbers.h \
 	realm/realm-hissatsu.cpp realm/realm-hissatsu.h \
 	realm/realm-life.cpp realm/realm-life.h \
-	realm/realm-names-table.cpp realm/realm-names-table.h \
 	realm/realm-nature.cpp realm/realm-nature.h \
 	realm/realm-song.cpp realm/realm-song.h \
 	realm/realm-song-numbers.h \
@@ -782,14 +781,16 @@ hengband_SOURCES = \
 	room/cave-filler.cpp room/cave-filler.h \
 	room/door-definition.cpp room/door-definition.h \
 	room/lake-types.h room/room-types.h \
+	room/pit-nest-util.cpp room/pit-nest-util.h \
 	room/room-generator.cpp room/room-generator.h \
 	room/room-info-table.cpp room/room-info-table.h \
 	room/rooms-builder.cpp room/rooms-builder.h \
 	room/rooms-city.cpp room/rooms-city.h \
 	room/rooms-fractal.cpp room/rooms-fractal.h \
 	room/rooms-maze-vault.cpp room/rooms-maze-vault.h \
+	room/rooms-nest.cpp room/rooms-nest.h \
 	room/rooms-normal.cpp room/rooms-normal.h \
-	room/rooms-pit-nest.cpp room/rooms-pit-nest.h \
+	room/rooms-pit.cpp room/rooms-pit.h\
 	room/rooms-special.cpp room/rooms-special.h \
 	room/rooms-trap.cpp room/rooms-trap.h \
 	room/rooms-vault.cpp room/rooms-vault.h \
@@ -927,11 +928,13 @@ hengband_SOURCES = \
 	system/game-option-types.h \
 	system/h-basic.h system/h-config.h \
 	system/h-system.h system/h-type.h \
+	system/inner-game-data.cpp system/inner-game-data.h \
 	system/item-entity.cpp system/item-entity.h \
 	system/monster-entity.cpp system/monster-entity.h \
 	system/monster-race-info.cpp system/monster-race-info.h \
 	system/player-type-definition.cpp system/player-type-definition.h \
 	system/redrawing-flags-updater.cpp system/redrawing-flags-updater.h \
+	system/spell-info-list.cpp system/spell-info-list.h \
 	system/system-variables.cpp system/system-variables.h \
 	system/terrain-type-definition.cpp system/terrain-type-definition.h \
 	system/gamevalue.h \
@@ -943,6 +946,7 @@ hengband_SOURCES = \
 	target/target-getter.cpp target/target-getter.h \
 	target/target-preparation.cpp target/target-preparation.h \
 	target/target-setter.cpp target/target-setter.h \
+	target/target-sorter.cpp target/target-sorter.h \
 	target/target-types.h \
 	\
 	term/gameterm.cpp term/gameterm.h \
@@ -964,6 +968,10 @@ hengband_SOURCES = \
 	timed-effect/player-stun.cpp timed-effect/player-stun.h \
 	timed-effect/timed-effects.cpp timed-effect/timed-effects.h \
 	\
+	tracking/baseitem-tracker.cpp tracking/baseitem-tracker.h \
+	tracking/health-bar-tracker.cpp tracking/health-bar-tracker.h \
+	tracking/lore-tracker.cpp tracking/lore-tracker.h \
+	\
 	util/angband-files.cpp util/angband-files.h \
 	util/buffer-shaper.cpp util/buffer-shaper.h \
 	util/bit-flags-calculator.h \
@@ -972,13 +980,14 @@ hengband_SOURCES = \
 	util/enum-range.h \
 	util/finalizer.h \
 	util/flag-group.h \
+	util/dice.cpp util/dice.h \
 	util/int-char-converter.h \
 	util/object-sort.cpp util/object-sort.h \
 	util/point-2d.h \
 	util/probability-table.h \
 	util/rng-xoshiro.cpp util/rng-xoshiro.h \
 	util/sha256.cpp util/sha256.h \
-	util/sort.cpp util/sort.h \
+	util/stack-trace.h \
 	util/string-processor.cpp util/string-processor.h \
 	\
 	view/display-birth.cpp view/display-birth.h \
@@ -1000,6 +1009,7 @@ hengband_SOURCES = \
 	view/display-scores.cpp view/display-scores.h \
 	view/display-self-info.cpp view/display-self-info.h \
 	view/display-store.cpp view/display-store.h \
+	view/display-symbol.h \
 	view/display-util.cpp view/display-util.h \
 	view/object-describer.cpp view/object-describer.h \
 	view/status-first-page.cpp view/status-first-page.h \
@@ -1051,6 +1061,7 @@ EXTRA_hengband_SOURCES = \
 	main-win/main-win-term.cpp main-win/main-win-term.h \
 	main-win/main-win-tokenizer.cpp main-win/main-win-tokenizer.h \
 	main-win/main-win-utils.cpp main-win/main-win-utils.h \
+	main-win/stack-trace-win.cpp \
 	main-win/wav-reader.cpp main-win/wav-reader.h \
 	main-cap.cpp \
 	test/test-sha256.cpp \

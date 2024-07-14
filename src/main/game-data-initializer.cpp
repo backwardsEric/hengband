@@ -9,7 +9,6 @@
 #include "floor/floor-util.h"
 #include "game-option/option-flags.h"
 #include "game-option/option-types-table.h"
-#include "monster-race/monster-race.h"
 #include "system/alloc-entries.h"
 #include "system/baseitem-info.h"
 #include "system/dungeon-info.h"
@@ -24,7 +23,6 @@
 #include "util/angband-files.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
-#include "world/world.h"
 #include <algorithm>
 
 /*!
@@ -49,10 +47,10 @@ void init_other(PlayerType *player_ptr)
 {
     player_ptr->current_floor_ptr = &floor_info; // TODO:本当はこんなところで初期化したくない
     auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->o_list.assign(w_ptr->max_o_idx, {});
-    floor_ptr->m_list.assign(w_ptr->max_m_idx, {});
+    floor_ptr->o_list.assign(MAX_FLOOR_ITEMS, {});
+    floor_ptr->m_list.assign(MAX_FLOOR_MONSTERS, {});
     for (auto &list : floor_ptr->mproc_list) {
-        list.assign(w_ptr->max_m_idx, {});
+        list.assign(MAX_FLOOR_MONSTERS, {});
     }
 
     max_dlv.assign(dungeons_info.size(), {});
@@ -97,9 +95,9 @@ void init_other(PlayerType *player_ptr)
 void init_monsters_alloc()
 {
     std::vector<const MonsterRaceInfo *> elements;
-    for (const auto &[r_idx, r_ref] : monraces_info) {
-        if (MonsterRace(r_ref.idx).is_valid()) {
-            elements.push_back(&r_ref);
+    for (const auto &[monrace_id, monrace] : monraces_info) {
+        if (monrace.is_valid()) {
+            elements.push_back(&monrace);
         }
     }
 
@@ -128,7 +126,8 @@ void init_items_alloc()
 {
     short num[MAX_DEPTH]{};
     auto alloc_kind_size = 0;
-    for (const auto &baseitem : baseitems_info) {
+    const auto &baseitems = BaseitemList::get_instance();
+    for (const auto &baseitem : baseitems) {
         for (const auto &[level, chance] : baseitem.alloc_tables) {
             if (chance != 0) {
                 alloc_kind_size++;
@@ -147,7 +146,7 @@ void init_items_alloc()
 
     alloc_kind_table.assign(alloc_kind_size, {});
     short aux[MAX_DEPTH]{};
-    for (const auto &baseitem : baseitems_info) {
+    for (const auto &baseitem : baseitems) {
         for (const auto &[level, chance] : baseitem.alloc_tables) {
             if (chance == 0) {
                 continue;

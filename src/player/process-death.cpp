@@ -111,7 +111,7 @@ static int show_killing_monster(PlayerType *player_ptr)
     if (const auto start_pos = lines[0].find("『");
         (start_pos != std::string::npos) && suffix(lines[1], "』")) {
         if (lines[0].length() + lines[1].length() - start_pos <= GRAVE_LINE_WIDTH) {
-            const auto &name = lines[0].substr(start_pos).append(lines[1]);
+            const auto name = lines[0].substr(start_pos) + lines[1];
             std::string_view title(lines[0].data(), start_pos);
             show_tomb_line(title, GRAVE_KILLER_NAME_ROW);
             show_tomb_line(name, GRAVE_KILLER_NAME_ROW + 1);
@@ -208,7 +208,7 @@ void print_tomb(PlayerType *player_ptr)
 {
     term_clear();
     read_dead_file();
-    concptr p = w_ptr->total_winner ? _("偉大なる者", "Magnificent") : player_titles[enum2i(player_ptr->pclass)][(player_ptr->lev - 1) / 5].data();
+    std::string p = AngbandWorld::get_instance().total_winner ? _("偉大なる者", "Magnificent") : player_titles.at(player_ptr->pclass)[(player_ptr->lev - 1) / 5];
 
     show_tomb_line(player_ptr->name, GRAVE_PLAYER_NAME_ROW);
 

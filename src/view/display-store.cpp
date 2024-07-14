@@ -50,10 +50,7 @@ void display_entry(PlayerType *player_ptr, int pos, StoreSaleType store_num)
 
     int cur_col = 3;
     if (show_item_graph) {
-        const auto a = o_ptr->get_color();
-        const auto c = o_ptr->get_symbol();
-
-        term_queue_bigchar(cur_col, i + 6, a, c, 0, 0);
+        term_queue_bigchar(cur_col, i + 6, { o_ptr->get_symbol(), {} });
         if (use_bigtile) {
             cur_col++;
         }
@@ -167,9 +164,9 @@ void display_store(PlayerType *player_ptr, StoreSaleType store_num)
         return;
     }
 
-    const auto &store_name = TerrainList::get_instance()[cur_store_feat].name;
+    const auto &store_name = TerrainList::get_instance().get_terrain(cur_store_feat).name;
     const auto owner_name = ot_ptr->owner_name;
-    const auto race_name = race_info[enum2i(ot_ptr->owner_race)].title;
+    const auto race_name = race_info[enum2i(ot_ptr->owner_race)].title.data();
     put_str(format("%s (%s)", owner_name, race_name), 3, 10);
 
     prt(format("%s (%d)", store_name.data(), ot_ptr->max_cost), 3, 50);

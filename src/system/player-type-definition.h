@@ -10,6 +10,7 @@
 #include "player/player-sex.h"
 #include "system/angband.h"
 #include "system/system-variables.h"
+#include "util/dice.h"
 #include "util/flag-group.h"
 #include "util/point-2d.h"
 #include <array>
@@ -22,6 +23,7 @@ enum class MimicKindType;
 enum class MonsterAbilityType;
 enum class MonsterRaceId : int16_t;
 enum class Virtue : short;
+enum class RealmType;
 
 class FloorType;
 class ItemEntity;
@@ -29,7 +31,6 @@ class TimedEffects;
 class PlayerType {
 public:
     PlayerType();
-    bool is_true_winner() const;
 
     FloorType *current_floor_ptr{};
     POSITION oldpy{}; /* Previous player location -KMW- */
@@ -39,11 +40,11 @@ public:
     PlayerRaceType prace{}; /* Race index */
     PlayerClassType pclass{}; /* Class index */
     player_personality_type ppersonality{}; /* Personality index */
-    int16_t realm1{}; /* First magic realm */
-    int16_t realm2{}; /* Second magic realm */
+    RealmType realm1{}; /* First magic realm */
+    RealmType realm2{}; /* Second magic realm */
     int16_t element{}; //!< 元素使い領域番号 / Elementalist system index
 
-    DICE_SID hitdie{}; /* Hit dice (sides) */
+    Dice hit_dice{}; /* Hit dice */
     uint16_t expfact{}; /* Experience factor
                          * Note: was byte, causing overflow for Amberite
                          * characters (such as Amberite Paladins)
@@ -64,11 +65,9 @@ public:
     PLAYER_LEVEL lev{}; /* Level */
 
     int16_t town_num{}; /* Current town number */
-    int16_t arena_number{}; /* monster number in on_defeat_arena_monster -KMW- */
 
     POSITION wilderness_x{}; /* Coordinates in the wilderness */
     POSITION wilderness_y{};
-    bool wild_mode{};
 
     int mhp{}; /* Max hit pts */
     int chp{}; /* Cur hit pts */
@@ -194,7 +193,6 @@ public:
     bool is_dead{}; /* Player is dead */
     bool now_damaged{};
     bool ambush_flag{};
-    BIT_FLAGS change_floor_mode{}; /*!<フロア移行処理に関するフラグ / Mode flags for changing floor */
 
     MONSTER_IDX riding{}; /* Riding on a monster of this index */
 
@@ -203,15 +201,12 @@ public:
     BIT_FLAGS8 knowledge{}; /* Knowledge about yourself */
     BIT_FLAGS visit{}; /* Visited towns */
 
-    PlayerRaceType start_race{}; /* Race at birth */
     BIT_FLAGS old_race1{}; /* Record of race changes */
     BIT_FLAGS old_race2{}; /* Record of race changes */
     int16_t old_realm{}; /* Record of realm changes */
 
     int16_t pet_follow_distance{}; /* Length of the imaginary "leash" for pets */
     BIT_FLAGS16 pet_extra_flags{}; /* Various flags for controling pets */
-
-    bool knows_daily_bounty{}; //!< 日替わり賞金首を知っているか否か
 
     bool dtrap{}; /* Whether you are on trap-safe grids */
     FLOOR_IDX floor_id{}; /* Current floor location */
@@ -237,12 +232,6 @@ public:
     bool leaving_dungeon{}; /* True if player is leaving the dungeon */
     bool teleport_town{};
     bool enter_dungeon{}; /* Just enter the dungeon */
-
-    IDX health_who{}; /* Health bar trackee */
-
-    MonsterRaceId monster_race_idx{}; /* Monster race trackee */
-
-    short tracking_bi_id{}; /* Object kind trackee */
 
     int16_t new_spells{}; /* Number of spells available */
     int16_t old_spells{};
@@ -341,8 +330,7 @@ public:
     BIT_FLAGS see_nocto{}; /* Noctovision */
     bool invoking_midnight_curse{};
 
-    DICE_NUMBER to_dd[2]{}; /* Extra dice/sides */
-    DICE_SID to_ds[2]{};
+    Dice damage_dice_bonus[2]{}; /* Extra damage dice num/sides */
 
     HIT_PROB dis_to_h[2]{}; /*!< 判明している現在の表記上の近接武器命中修正値 /  Known bonus to hit (wield) */
     HIT_PROB dis_to_h_b{}; /*!< 判明している現在の表記上の射撃武器命中修正値 / Known bonus to hit (bow) */
@@ -403,8 +391,12 @@ public:
     std::string decrease_ability_random();
     std::string decrease_ability_all();
     Pos2D get_position() const;
+    Pos2D get_neighbor(int dir) const;
     bool is_located_at_running_destination() const;
     bool is_located_at(const Pos2D &pos) const;
+    bool in_saved_floor() const;
+    int calc_life_rating() const;
+    bool try_resist_eldritch_horror() const;
 
 private:
     std::shared_ptr<TimedEffects> timed_effects;

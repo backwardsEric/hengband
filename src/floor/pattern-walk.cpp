@@ -25,10 +25,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain-type-definition.h"
 #include "term/z-form.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -44,13 +40,13 @@ void pattern_teleport(PlayerType *player_ptr)
 {
     auto min_level = 0;
     auto max_level = 99;
-    auto current_level = static_cast<short>(player_ptr->current_floor_ptr->dun_level);
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto current_level = static_cast<short>(floor.dun_level);
     if (input_check(_("他の階にテレポートしますか？", "Teleport level? "))) {
         if (ironman_downward) {
             min_level = current_level;
         }
 
-        const auto &floor = *player_ptr->current_floor_ptr;
         if (floor.dungeon_idx == DUNGEON_ANGBAND) {
             if (floor.dun_level > 100) {
                 max_level = MAX_DEPTH - 1;
@@ -82,10 +78,10 @@ void pattern_teleport(PlayerType *player_ptr)
         do_cmd_save_game(player_ptr, true);
     }
 
-    player_ptr->current_floor_ptr->dun_level = command_arg;
+    floor.dun_level = command_arg;
     leave_quest_check(player_ptr);
     if (record_stair) {
-        exe_write_diary(player_ptr, DiaryKind::PAT_TELE, 0);
+        exe_write_diary(floor, DiaryKind::PAT_TELE, 0);
     }
 
     player_ptr->current_floor_ptr->quest_number = QuestId::NONE;
@@ -95,7 +91,7 @@ void pattern_teleport(PlayerType *player_ptr)
      * Clear all saved floors
      * and create a first saved floor
      */
-    prepare_change_floor_mode(player_ptr, CFM_FIRST_FLOOR);
+    FloorChangeModesStore::get_instace()->set(FloorChangeMode::FIRST_FLOOR);
 
     check_random_quest_auto_failure(player_ptr);
 
@@ -114,7 +110,7 @@ bool pattern_effect(PlayerType *player_ptr)
         return false;
     }
 
-    auto is_cut = player_ptr->effects()->cut()->is_cut();
+    const auto is_cut = player_ptr->effects()->cut().is_cut();
     if ((PlayerRace(player_ptr).equals(PlayerRaceType::AMBERITE)) && is_cut && one_in_(10)) {
         wreck_the_pattern(player_ptr);
     }
@@ -156,7 +152,7 @@ bool pattern_effect(PlayerType *player_ptr)
         if (PlayerRace(player_ptr).equals(PlayerRaceType::AMBERITE) && !one_in_(2)) {
             return true;
         } else if (!is_invuln(player_ptr)) {
-            take_hit(player_ptr, DAMAGE_NOESCAPE, damroll(1, 3), _("「パターン」を歩いたダメージ", "walking the Pattern"));
+            take_hit(player_ptr, DAMAGE_NOESCAPE, Dice::roll(1, 3), _("「パターン」を歩いたダメージ", "walking the Pattern"));
         }
         break;
     }
@@ -187,9 +183,9 @@ bool pattern_seq(PlayerType *player_ptr, const Pos2D &pos)
     int pattern_type_new = is_pattern_tile_new ? terrain_new.subtype : NOT_PATTERN_TILE;
     if (pattern_type_new == PATTERN_TILE_START) {
         const auto effects = player_ptr->effects();
-        const auto is_stunned = effects->stun()->is_stunned();
-        const auto is_confused = effects->confusion()->is_confused();
-        const auto is_hallucinated = effects->hallucination()->is_hallucinated();
+        const auto is_stunned = effects->stun().is_stunned();
+        const auto is_confused = effects->confusion().is_confused();
+        const auto is_hallucinated = effects->hallucination().is_hallucinated();
         if (is_pattern_tile_cur || is_confused || is_stunned || is_hallucinated) {
             return true;
         }
@@ -249,7 +245,7 @@ bool pattern_seq(PlayerType *player_ptr, const Pos2D &pos)
         ok_move = PATTERN_TILE_1;
         break;
     default:
-        if (w_ptr->wizard) {
+        if (AngbandWorld::get_instance().wizard) {
             msg_format(_("おかしなパターン歩行、%d。", "Funny Pattern walking, %d."), pattern_type_cur);
         }
         return true;

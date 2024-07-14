@@ -11,7 +11,6 @@
 #include "game-option/special-options.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
-#include "info-reader/feature-reader.h"
 #include "io/files-util.h"
 #include "io/write-diary.h"
 #include "main/sound-definitions-table.h"
@@ -41,7 +40,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain-type-definition.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/player-cut.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
 #include "view/display-messages.h"
@@ -132,24 +130,30 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
  */
 void init_normal_traps(void)
 {
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_TRAPDOOR"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_PIT"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_SPIKED_PIT"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_POISON_PIT"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_TY_CURSE"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_TELEPORT"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_FIRE"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_ACID"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_SLOW"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_LOSE_STR"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_LOSE_DEX"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_LOSE_CON"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_BLIND"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_CONFUSE"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_POISON"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_SLEEP"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_TRAPS"));
-    normal_traps.push_back(f_tag_to_index_in_init("TRAP_ALARM"));
+    static constexpr auto normal_trap_tags = {
+        "TRAP_TRAPDOOR",
+        "TRAP_PIT",
+        "TRAP_SPIKED_PIT",
+        "TRAP_POISON_PIT",
+        "TRAP_TY_CURSE",
+        "TRAP_TELEPORT",
+        "TRAP_FIRE",
+        "TRAP_ACID",
+        "TRAP_SLOW",
+        "TRAP_LOSE_STR",
+        "TRAP_LOSE_DEX",
+        "TRAP_LOSE_CON",
+        "TRAP_BLIND",
+        "TRAP_CONFUSE",
+        "TRAP_POISON",
+        "TRAP_SLEEP",
+        "TRAP_TRAPS",
+        "TRAP_ALARM",
+    };
+
+    std::transform(normal_trap_tags.begin(), normal_trap_tags.end(), std::back_inserter(normal_traps), [](const auto &tag) {
+        return TerrainList::get_instance().get_terrain_id_by_tag(tag);
+    });
 }
 
 /*!
@@ -164,7 +168,7 @@ short choose_random_trap(FloorType *floor_ptr)
     const auto &terrains = TerrainList::get_instance();
     while (true) {
         const auto terrain_id = rand_choice(normal_traps);
-        if (terrains[terrain_id].flags.has_not(TerrainCharacteristics::MORE)) {
+        if (terrains.get_terrain(terrain_id).flags.has_not(TerrainCharacteristics::MORE)) {
             return terrain_id;
         }
 
@@ -309,7 +313,7 @@ static void hit_trap_pit(PlayerType *player_ptr, TrapType trap_feat_type)
     }
 
     msg_format(_("%sに落ちてしまった！", "You have fallen into %s!"), trap_name);
-    dam = damroll(2, 6);
+    dam = Dice::roll(2, 6);
     if (((trap_feat_type != TrapType::SPIKED_PIT) && (trap_feat_type != TrapType::POISON_PIT)) || one_in_(2)) {
         take_hit(player_ptr, DAMAGE_NOESCAPE, dam, trap_name);
         return;
@@ -318,7 +322,7 @@ static void hit_trap_pit(PlayerType *player_ptr, TrapType trap_feat_type)
     msg_format(_("%sが刺さった！", "You are impaled on %s!"), spike_name);
     dam = dam * 2;
     BadStatusSetter bss(player_ptr);
-    (void)bss.mod_cut(randint1(dam));
+    (void)bss.mod_cut(randnum1<short>(dam));
     if (trap_feat_type != TrapType::POISON_PIT) {
         take_hit(player_ptr, DAMAGE_NOESCAPE, dam, trap_name);
         return;
@@ -331,7 +335,7 @@ static void hit_trap_pit(PlayerType *player_ptr, TrapType trap_feat_type)
     }
 
     dam = dam * 2;
-    (void)bss.mod_poison(randint1(dam));
+    (void)bss.mod_poison(randnum1<short>(dam));
     take_hit(player_ptr, DAMAGE_NOESCAPE, dam, trap_name);
 }
 
@@ -345,7 +349,7 @@ static bool hit_trap_dart(PlayerType *player_ptr)
 
     if (check_hit_from_monster_to_player(player_ptr, 125)) {
         msg_print(_("小さなダーツが飛んできて刺さった！", "A small dart hits you!"));
-        take_hit(player_ptr, DAMAGE_ATTACK, damroll(1, 4), _("ダーツの罠", "a dart trap"));
+        take_hit(player_ptr, DAMAGE_ATTACK, Dice::roll(1, 4), _("ダーツの罠", "a dart trap"));
         if (!check_multishadow(player_ptr)) {
             hit = true;
         }
@@ -386,7 +390,8 @@ static void hit_trap_slow(PlayerType *player_ptr)
 void hit_trap(PlayerType *player_ptr, bool break_trap)
 {
     const Pos2D p_pos(player_ptr->y, player_ptr->x);
-    const auto &grid = player_ptr->current_floor_ptr->get_grid(p_pos);
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto &grid = floor.get_grid(p_pos);
     const auto &terrain = grid.get_terrain();
     TrapType trap_feat_type = terrain.flags.has(TerrainCharacteristics::TRAP) ? i2enum<TrapType>(terrain.subtype) : TrapType::NOT_TRAP;
 
@@ -408,7 +413,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
             }
 
             sound(SOUND_FALL);
-            const auto dam = damroll(2, 8);
+            const auto dam = Dice::roll(2, 8);
             constexpr auto name = _("落とし戸", "a trap door");
 
             take_hit(player_ptr, DAMAGE_NOESCAPE, dam, name);
@@ -418,8 +423,8 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
                 do_cmd_save_game(player_ptr, true);
             }
 
-            exe_write_diary(player_ptr, DiaryKind::DESCRIPTION, 0, _("落とし戸に落ちた", "fell through a trap door!"));
-            prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_DOWN | CFM_RAND_PLACE | CFM_RAND_CONNECT);
+            exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, _("落とし戸に落ちた", "fell through a trap door!"));
+            FloorChangeModesStore::get_instace()->set({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::DOWN, FloorChangeMode::RANDOM_PLACE, FloorChangeMode::RANDOM_CONNECT });
             player_ptr->leaving = true;
         }
         break;
@@ -459,14 +464,14 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
 
     case TrapType::FIRE: {
         msg_print(_("炎に包まれた！", "You are enveloped in flames!"));
-        const auto dam = damroll(4, 6);
+        const auto dam = Dice::roll(4, 6);
         (void)fire_dam(player_ptr, dam, _("炎のトラップ", "a fire trap"), false);
         break;
     }
 
     case TrapType::ACID: {
         msg_print(_("酸が吹きかけられた！", "You are splashed with acid!"));
-        const auto dam = damroll(4, 6);
+        const auto dam = Dice::roll(4, 6);
         (void)acid_dam(player_ptr, dam, _("酸のトラップ", "an acid trap"), false);
         break;
     }
@@ -581,12 +586,12 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
                     continue;
                 }
 
-                if (summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET))) {
-                    evil_idx = hack_m_idx_ii;
+                if (auto m_idx = summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET))) {
+                    evil_idx = *m_idx;
                 }
 
-                if (summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_GOOD, (PM_NO_PET))) {
-                    good_idx = hack_m_idx_ii;
+                if (auto m_idx = summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_GOOD, (PM_NO_PET))) {
+                    good_idx = *m_idx;
                 }
 
                 /* Let them fight each other */

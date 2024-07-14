@@ -4,8 +4,6 @@
 #include "flavor/object-flavor-types.h"
 #include "game-option/special-options.h"
 #include "io/input-key-acceptor.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags2.h"
 #include "monster-race/race-indice-types.h"
 #include "object-enchant/object-ego.h"
 #include "object-enchant/tr-types.h"
@@ -98,11 +96,10 @@ bool screen_object(PlayerType *player_ptr, ItemEntity *o_ptr, BIT_FLAGS mode)
     }
 
     if (bi_key.tval() == ItemKindType::STATUE) {
-        auto statue_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        auto *r_ptr = &monraces_info[statue_r_idx];
-        if (statue_r_idx == MonsterRaceId::BULLGATES) {
+        const auto &monrace = o_ptr->get_monrace();
+        if (monrace.idx == MonsterRaceId::BULLGATES) {
             info[i++] = _("それは部屋に飾ると恥ずかしい。", "It is shameful.");
-        } else if (r_ptr->flags2 & (RF2_ELDRITCH_HORROR)) {
+        } else if (monrace.misc_flags.has(MonsterMiscType::ELDRITCH_HORROR)) {
             info[i++] = _("それは部屋に飾ると恐い。", "It is fearful.");
         } else {
             info[i++] = _("それは部屋に飾ると楽しい。", "It is cheerful.");
@@ -149,7 +146,7 @@ bool screen_object(PlayerType *player_ptr, ItemEntity *o_ptr, BIT_FLAGS mode)
             desc.append(std::to_string((int)rad)).append(_(")を授ける。", ") forever."));
         }
         if (rad < 0) {
-            desc = _("それは明かりの半径を狭める(半径に-", "It decreases the radius of your light by");
+            desc = _("それは明かりの半径を狭める(半径に-", "It decreases the radius of your light by ");
             desc.append(std::to_string((int)-rad)).append(_(")。", "."));
         }
     }
@@ -799,12 +796,11 @@ bool screen_object(PlayerType *player_ptr, ItemEntity *o_ptr, BIT_FLAGS mode)
     }
 
     if (bi_key == BaseitemKey(ItemKindType::STATUE, SV_PHOTO)) {
-        auto statue_r_idx = i2enum<MonsterRaceId>(o_ptr->pval);
-        auto *r_ptr = &monraces_info[statue_r_idx];
-        int namelen = strlen(r_ptr->name.data());
-        prt(format("%s: '", r_ptr->name.data()), 1, 15);
-        term_queue_bigchar(18 + namelen, 1, r_ptr->x_attr, r_ptr->x_char, 0, 0);
-        prt("'", 1, (use_bigtile ? 20 : 19) + namelen);
+        const auto &monrace = o_ptr->get_monrace();
+        const auto name_length = monrace.name->length();
+        prt(format("%s: '", monrace.name.data()), 1, 15);
+        term_queue_bigchar(18 + name_length, 1, { monrace.symbol_config, {} });
+        prt("'", 1, (use_bigtile ? 20 : 19) + name_length);
     } else {
         prt(_("     アイテムの能力:", "     Item Attributes:"), 1, 15);
     }

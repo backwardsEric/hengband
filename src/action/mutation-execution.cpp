@@ -18,9 +18,6 @@
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
@@ -65,11 +62,11 @@
  */
 bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
 {
-    DIRECTION dir = 0;
     PLAYER_LEVEL lvl = player_ptr->lev;
     auto &floor = *player_ptr->current_floor_ptr;
     switch (power) {
-    case PlayerMutationType::SPIT_ACID:
+    case PlayerMutationType::SPIT_ACID: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
@@ -78,7 +75,9 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         msg_print(_("酸を吐きかけた...", "You spit acid..."));
         fire_ball(player_ptr, AttributeType::ACID, dir, lvl, 1 + (lvl / 30));
         return true;
-    case PlayerMutationType::BR_FIRE:
+    }
+    case PlayerMutationType::BR_FIRE: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
@@ -87,7 +86,9 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         msg_print(_("あなたは火炎のブレスを吐いた...", "You breathe fire..."));
         fire_breath(player_ptr, AttributeType::FIRE, dir, lvl * 2, 1 + (lvl / 20));
         return true;
-    case PlayerMutationType::HYPN_GAZE:
+    }
+    case PlayerMutationType::HYPN_GAZE: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
@@ -95,7 +96,9 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         msg_print(_("あなたの目は幻惑的になった...", "Your eyes look mesmerizing..."));
         (void)charm_monster(player_ptr, dir, lvl);
         return true;
-    case PlayerMutationType::TELEKINES:
+    }
+    case PlayerMutationType::TELEKINES: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
@@ -103,18 +106,21 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         msg_print(_("集中している...", "You concentrate..."));
         fetch_item(player_ptr, dir, lvl * 10, true);
         return true;
+    }
     case PlayerMutationType::VTELEPORT:
         msg_print(_("集中している...", "You concentrate..."));
         teleport_player(player_ptr, 10 + 4 * lvl, TELEPORT_SPONTANEOUS);
         return true;
-    case PlayerMutationType::MIND_BLST:
+    case PlayerMutationType::MIND_BLST: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
 
         msg_print(_("集中している...", "You concentrate..."));
-        fire_bolt(player_ptr, AttributeType::PSI, dir, damroll(3 + ((lvl - 1) / 5), 3));
+        fire_bolt(player_ptr, AttributeType::PSI, dir, Dice::roll(3 + ((lvl - 1) / 5), 3));
         return true;
+    }
     case PlayerMutationType::RADIATION:
         msg_print(_("体から放射能が発生した！", "Radiation flows from your body!"));
         fire_ball(player_ptr, AttributeType::NUKE, 0, (lvl * 2), 3 + (lvl / 20));
@@ -135,7 +141,8 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         return true;
     case PlayerMutationType::EAT_ROCK:
         return eat_rock(player_ptr);
-    case PlayerMutationType::SWAP_POS:
+    case PlayerMutationType::SWAP_POS: {
+        auto dir = 0;
         project_length = -1;
         if (!get_aim_dir(player_ptr, &dir)) {
             project_length = 0;
@@ -145,13 +152,14 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         (void)teleport_swap(player_ptr, dir);
         project_length = 0;
         return true;
+    }
     case PlayerMutationType::SHRIEK:
         stop_mouth(player_ptr);
         (void)fire_ball(player_ptr, AttributeType::SOUND, 0, 2 * lvl, 8);
         (void)aggravate_monsters(player_ptr, 0);
         return true;
     case PlayerMutationType::ILLUMINE:
-        (void)lite_area(player_ptr, damroll(2, (lvl / 2)), (lvl / 10) + 1);
+        (void)lite_area(player_ptr, Dice::roll(2, (lvl / 2)), (lvl / 10) + 1);
         return true;
     case PlayerMutationType::DET_CURSE:
         for (int i = 0; i < INVEN_TOTAL; i++) {
@@ -232,24 +240,26 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         confuse_monsters(player_ptr, lvl * 4);
         turn_monsters(player_ptr, lvl * 4);
         return true;
-    case PlayerMutationType::LASER_EYE:
+    case PlayerMutationType::LASER_EYE: {
+        auto dir = 0;
         if (!get_aim_dir(player_ptr, &dir)) {
             return false;
         }
 
         fire_beam(player_ptr, AttributeType::LITE, dir, 2 * lvl);
         return true;
+    }
     case PlayerMutationType::RECALL:
         return recall_player(player_ptr, randint0(21) + 15);
     case PlayerMutationType::BANISH: {
-        if (!get_direction(player_ptr, &dir)) {
+        const auto dir = get_direction(player_ptr);
+        if (!dir) {
             return false;
         }
 
-        const auto y = player_ptr->y + ddy[dir];
-        const auto x = player_ptr->x + ddx[dir];
-        const auto &grid = floor.grid_array[y][x];
-        if (!grid.m_idx) {
+        const auto pos = player_ptr->get_neighbor(*dir);
+        const auto &grid = floor.get_grid(pos);
+        if (!grid.has_monster()) {
             msg_print(_("邪悪な存在を感じとれません！", "You sense no evil there!"));
             return true;
         }
@@ -257,7 +267,7 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         auto &monster = floor.m_list[grid.m_idx];
         const auto &monrace = monster.get_monrace();
         auto can_banish = monrace.kind_flags.has(MonsterKindType::EVIL);
-        can_banish &= none_bits(monrace.flags1, RF1_QUESTOR);
+        can_banish &= monrace.misc_flags.has_not(MonsterMiscType::QUESTOR);
         can_banish &= monrace.kind_flags.has_not(MonsterKindType::UNIQUE);
         can_banish &= !floor.inside_arena;
         can_banish &= !floor.is_in_quest();
@@ -266,7 +276,7 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         if (can_banish) {
             if (record_named_pet && monster.is_named_pet()) {
                 const auto m_name = monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE);
-                exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name);
+                exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_GENOCIDE, m_name);
             }
 
             delete_monster_idx(player_ptr, grid.m_idx);
@@ -282,19 +292,19 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         return true;
     }
     case PlayerMutationType::COLD_TOUCH: {
-        if (!get_direction(player_ptr, &dir)) {
+        const auto dir = get_direction(player_ptr);
+        if (!dir) {
             return false;
         }
 
-        const auto y = player_ptr->y + ddy[dir];
-        const auto x = player_ptr->x + ddx[dir];
-        auto &grid = floor.grid_array[y][x];
-        if (!grid.m_idx) {
+        const auto pos = player_ptr->get_neighbor(*dir);
+        const auto &grid = floor.get_grid(pos);
+        if (!grid.has_monster()) {
             msg_print(_("あなたは何もない場所で手を振った。", "You wave your hands in the air."));
             return true;
         }
 
-        fire_bolt(player_ptr, AttributeType::COLD, dir, 2 * lvl);
+        fire_bolt(player_ptr, AttributeType::COLD, *dir, 2 * lvl);
         return true;
     }
     case PlayerMutationType::LAUNCHER:

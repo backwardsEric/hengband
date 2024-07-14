@@ -9,7 +9,6 @@
 #include "floor/geometry.h"
 #include "grid/grid.h"
 #include "monster-floor/monster-dist-offsets.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-processor-util.h"
@@ -32,7 +31,7 @@
  */
 static coordinate_candidate sweep_safe_coordinate(PlayerType *player_ptr, MONSTER_IDX m_idx, const POSITION *y_offsets, const POSITION *x_offsets, int d)
 {
-    coordinate_candidate candidate = init_coordinate_candidate();
+    coordinate_candidate candidate;
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     for (POSITION i = 0, dx = x_offsets[0], dy = y_offsets[0]; dx != 0 || dy != 0; i++, dx = x_offsets[i], dy = y_offsets[i]) {
@@ -173,7 +172,7 @@ static void sweep_hiding_candidate(
 bool find_hiding(PlayerType *player_ptr, MONSTER_IDX m_idx, POSITION *yp, POSITION *xp)
 {
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
-    coordinate_candidate candidate = init_coordinate_candidate();
+    coordinate_candidate candidate;
     candidate.gdis = 999;
 
     for (POSITION d = 1; d < 10; d++) {

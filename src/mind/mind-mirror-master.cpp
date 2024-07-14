@@ -45,7 +45,6 @@
 #include "target/grid-selector.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-blindness.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -56,7 +55,7 @@
  */
 bool check_multishadow(PlayerType *player_ptr)
 {
-    return (player_ptr->multishadow != 0) && ((w_ptr->game_turn & 1) != 0);
+    return (player_ptr->multishadow != 0) && ((AngbandWorld::get_instance().game_turn & 1) != 0);
 }
 
 /*!
@@ -151,7 +150,7 @@ bool binding_field(PlayerType *player_ptr, int dam)
             }
 
             if (floor.has_los(pos) && projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
-                if (!(player_ptr->effects()->blindness()->is_blind()) && panel_contains(y, x)) {
+                if (!(player_ptr->effects()->blindness().is_blind()) && panel_contains(y, x)) {
                     print_bolt_pict(player_ptr, y, x, y, x, AttributeType::MANA);
                     move_cursor_relative(y, x);
                     term_fresh();
@@ -407,9 +406,9 @@ bool cast_mirror_spell(PlayerType *player_ptr, MindMirrorMasterType spell)
         }
 
         if (plev > 9 && g_ptr->is_mirror()) {
-            fire_beam(player_ptr, AttributeType::LITE, dir, damroll(3 + ((plev - 1) / 5), 4));
+            fire_beam(player_ptr, AttributeType::LITE, dir, Dice::roll(3 + ((plev - 1) / 5), 4));
         } else {
-            fire_bolt(player_ptr, AttributeType::LITE, dir, damroll(3 + ((plev - 1) / 5), 4));
+            fire_bolt(player_ptr, AttributeType::LITE, dir, Dice::roll(3 + ((plev - 1) / 5), 4));
         }
 
         break;
@@ -417,7 +416,7 @@ bool cast_mirror_spell(PlayerType *player_ptr, MindMirrorMasterType spell)
         teleport_player(player_ptr, 10, TELEPORT_SPONTANEOUS);
         break;
     case MindMirrorMasterType::MIRROR_LIGHT:
-        (void)lite_area(player_ptr, damroll(2, (plev / 2)), (plev / 10) + 1);
+        (void)lite_area(player_ptr, Dice::roll(2, (plev / 2)), (plev / 10) + 1);
         break;
     case MindMirrorMasterType::WANDERING_MIRROR:
         teleport_player(player_ptr, plev * 5, TELEPORT_SPONTANEOUS);
@@ -437,7 +436,7 @@ bool cast_mirror_spell(PlayerType *player_ptr, MindMirrorMasterType spell)
             return false;
         }
 
-        fire_ball(player_ptr, AttributeType::SHARDS, dir, damroll(8 + ((plev - 5) / 4), 8), (plev > 20 ? (plev - 20) / 8 + 1 : 0));
+        fire_ball(player_ptr, AttributeType::SHARDS, dir, Dice::roll(8 + ((plev - 5) / 4), 8), (plev > 20 ? (plev - 20) / 8 + 1 : 0));
         break;
     case MindMirrorMasterType::SLEEPING_MIRROR:
         for (x = 0; x < player_ptr->current_floor_ptr->width; x++) {
@@ -455,7 +454,7 @@ bool cast_mirror_spell(PlayerType *player_ptr, MindMirrorMasterType spell)
             return false;
         }
 
-        SpellsMirrorMaster(player_ptr).seeker_ray(dir, damroll(11 + (plev - 5) / 4, 8));
+        SpellsMirrorMaster(player_ptr).seeker_ray(dir, Dice::roll(11 + (plev - 5) / 4, 8));
         break;
     case MindMirrorMasterType::SEALING_MIRROR:
         SpellsMirrorMaster(player_ptr).seal_of_mirror(plev * 4 + 100);

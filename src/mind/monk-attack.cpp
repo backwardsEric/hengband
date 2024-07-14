@@ -15,9 +15,6 @@
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-force-trainer.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "player-attack/player-attack.h"
@@ -31,8 +28,6 @@
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -104,6 +99,7 @@ static int select_blow(PlayerType *player_ptr, player_attack_type *pa_ptr, int m
 {
     int min_level = 1;
     const martial_arts *old_ptr = &ma_blows[0];
+    const auto is_wizard = AngbandWorld::get_instance().wizard;
     for (int times = 0; times < max_blow_selection_times; times++) {
         do {
             pa_ptr->ma_ptr = &rand_choice(ma_blows);
@@ -114,16 +110,16 @@ static int select_blow(PlayerType *player_ptr, player_attack_type *pa_ptr, int m
             }
         } while ((min_level > player_ptr->lev) || (randint1(player_ptr->lev) < pa_ptr->ma_ptr->chance));
 
-        auto effects = player_ptr->effects();
-        auto is_stunned = effects->stun()->is_stunned();
-        auto is_confused = effects->confusion()->is_confused();
+        const auto effects = player_ptr->effects();
+        const auto is_stunned = effects->stun().is_stunned();
+        const auto is_confused = effects->confusion().is_confused();
         if ((pa_ptr->ma_ptr->min_level <= old_ptr->min_level) || is_stunned || is_confused) {
             pa_ptr->ma_ptr = old_ptr;
             continue;
         }
 
         old_ptr = pa_ptr->ma_ptr;
-        if (w_ptr->wizard && cheat_xtra) {
+        if (is_wizard && cheat_xtra) {
             msg_print(_("攻撃を再選択しました。", "Attack re-selected."));
         }
     }
@@ -152,7 +148,7 @@ static int process_monk_additional_effect(player_attack_type *pa_ptr, int *stun_
     }
 
     else if (pa_ptr->ma_ptr->effect == MA_SLOW) {
-        if (!(r_ptr->behavior_flags.has(MonsterBehaviorType::NEVER_MOVE) || angband_strchr("~#{}.UjmeEv$,DdsbBFIJQSXclnw!=?", r_ptr->d_char))) {
+        if (!(r_ptr->behavior_flags.has(MonsterBehaviorType::NEVER_MOVE) || r_ptr->symbol_char_is_any_of("~#{}.UjmeEv$,DdsbBFIJQSXclnw!=?"))) {
             msg_format(_("%sの足首に関節蹴りをくらわした！", "You kick %s in the ankle."), pa_ptr->m_name);
             special_effect = MA_SLOW;
         } else {
@@ -174,7 +170,7 @@ static int process_monk_additional_effect(player_attack_type *pa_ptr, int *stun_
  * @param player_ptr プレイヤーへの参照ポインタ
  * @return 重さ
  */
-static WEIGHT calc_monk_attack_weight(PlayerType *player_ptr)
+WEIGHT calc_monk_attack_weight(PlayerType *player_ptr)
 {
     WEIGHT weight = 8;
     PlayerClass pc(player_ptr);
@@ -253,7 +249,9 @@ void process_monk_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
     int max_blow_selection_times = calc_max_blow_selection_times(player_ptr);
     int min_level = select_blow(player_ptr, pa_ptr, max_blow_selection_times);
 
-    pa_ptr->attack_damage = damroll(pa_ptr->ma_ptr->dd + player_ptr->to_dd[pa_ptr->hand], pa_ptr->ma_ptr->ds + player_ptr->to_ds[pa_ptr->hand]);
+    const auto num = pa_ptr->ma_ptr->damage_dice.num + player_ptr->damage_dice_bonus[pa_ptr->hand].num;
+    const auto sides = pa_ptr->ma_ptr->damage_dice.sides + player_ptr->damage_dice_bonus[pa_ptr->hand].sides;
+    pa_ptr->attack_damage = Dice::roll(num, sides);
     if (player_ptr->special_attack & ATTACK_SUIKEN) {
         pa_ptr->attack_damage *= 2;
     }
@@ -272,9 +270,11 @@ bool double_attack(PlayerType *player_ptr)
     if (!get_rep_dir(player_ptr, &dir)) {
         return false;
     }
-    POSITION y = player_ptr->y + ddy[dir];
-    POSITION x = player_ptr->x + ddx[dir];
-    if (!player_ptr->current_floor_ptr->grid_array[y][x].m_idx) {
+
+    const auto pos = player_ptr->get_neighbor(dir);
+    const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+    const auto has_monster = grid.has_monster();
+    if (!has_monster) {
         msg_print(_("その方向にはモンスターはいません。", "You don't see any monster in this direction"));
         msg_print(nullptr);
         return true;
@@ -288,10 +288,10 @@ bool double_attack(PlayerType *player_ptr)
         msg_print(_("オラオラオラオラオラオラオラオラオラオラオラオラ！！！", "Oraoraoraoraoraoraoraoraoraoraoraoraoraoraoraoraora!!!!"));
     }
 
-    do_cmd_attack(player_ptr, y, x, HISSATSU_NONE);
-    if (player_ptr->current_floor_ptr->grid_array[y][x].m_idx) {
+    do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
+    if (has_monster) {
         handle_stuff(player_ptr);
-        do_cmd_attack(player_ptr, y, x, HISSATSU_NONE);
+        do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
     }
 
     player_ptr->energy_need += ENERGY_NEED();

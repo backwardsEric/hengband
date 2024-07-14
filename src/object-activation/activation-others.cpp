@@ -15,8 +15,6 @@
 #include "game-option/special-options.h"
 #include "hpmp/hp-mp-processor.h"
 #include "mind/mind-archer.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-status.h"
 #include "player-attack/player-attack.h"
@@ -67,7 +65,7 @@ bool activate_sunlight(PlayerType *player_ptr)
     }
 
     msg_print(_("太陽光線が放たれた。", "A line of sunlight appears."));
-    (void)lite_line(player_ptr, dir, damroll(6, 8));
+    (void)lite_line(player_ptr, dir, Dice::roll(6, 8));
     return true;
 }
 
@@ -139,7 +137,7 @@ bool activate_judgement(PlayerType *player_ptr, std::string_view name)
     wiz_lite(player_ptr, false);
 
     msg_format(_("%sはあなたの体力を奪った...", "The %s drains your vitality..."), name.data());
-    take_hit(player_ptr, DAMAGE_LOSELIFE, damroll(3, 8), _("審判の宝石", "the Jewel of Judgement"));
+    take_hit(player_ptr, DAMAGE_LOSELIFE, Dice::roll(3, 8), _("審判の宝石", "the Jewel of Judgement"));
 
     (void)detect_traps(player_ptr, DETECT_RAD_DEFAULT, true);
     (void)detect_doors(player_ptr, DETECT_RAD_DEFAULT);
@@ -355,7 +353,7 @@ bool activate_map_light(PlayerType *player_ptr)
 {
     msg_print(_("眩しく輝いた...", "It shines brightly..."));
     map_area(player_ptr, DETECT_RAD_MAP);
-    lite_area(player_ptr, damroll(2, 15), 3);
+    lite_area(player_ptr, Dice::roll(2, 15), 3);
     return true;
 }
 
@@ -389,7 +387,7 @@ bool activate_protection_elbereth(PlayerType *player_ptr)
 bool activate_light(PlayerType *player_ptr, std::string_view name)
 {
     msg_format(_("%sから澄んだ光があふれ出た...", "The %s wells with clear light..."), name.data());
-    (void)lite_area(player_ptr, damroll(2, 15), 3);
+    (void)lite_area(player_ptr, Dice::roll(2, 15), 3);
     return true;
 }
 
@@ -447,5 +445,36 @@ bool activate_dispel_magic(PlayerType *player_ptr)
     }
 
     dispel_monster_status(player_ptr, m_idx);
+    return true;
+}
+
+bool activate_whistle(PlayerType *player_ptr, const ItemEntity &item)
+{
+    if (item.bi_key.tval() != ItemKindType::WHISTLE) {
+        return false;
+    }
+
+    if (music_singing_any(player_ptr)) {
+        stop_singing(player_ptr);
+    }
+
+    if (SpellHex(player_ptr).is_spelling_any()) {
+        (void)SpellHex(player_ptr).stop_all_spells();
+    }
+
+    const auto &floor = *player_ptr->current_floor_ptr;
+    std::vector<short> pet_index;
+    for (short pet_indice = floor.m_max - 1; pet_indice >= 1; pet_indice--) {
+        const auto &monster = floor.m_list[pet_indice];
+        if (monster.is_pet() && (player_ptr->riding != pet_indice)) {
+            pet_index.push_back(pet_indice);
+        }
+    }
+
+    std::stable_sort(pet_index.begin(), pet_index.end(), [&floor](auto x, auto y) { return floor.order_pet_whistle(x, y); });
+    for (auto pet_indice : pet_index) {
+        teleport_monster_to(player_ptr, pet_indice, player_ptr->y, player_ptr->x, 100, TELEPORT_PASSIVE);
+    }
+
     return true;
 }

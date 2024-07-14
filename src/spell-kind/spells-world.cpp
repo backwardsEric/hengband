@@ -21,8 +21,6 @@
 #include "main/sound-of-music.h"
 #include "market/building-util.h"
 #include "monster-floor/monster-remover.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "system/angband-system.h"
@@ -77,13 +75,13 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
     }
 
     bool go_up;
-    if (randint0(100) < 50) {
+    if (one_in_(2)) {
         go_up = true;
     } else {
         go_up = false;
     }
 
-    if ((m_idx <= 0) && w_ptr->wizard) {
+    if ((m_idx <= 0) && AngbandWorld::get_instance().wizard) {
         if (input_check("Force to go up? ")) {
             go_up = true;
         } else if (input_check("Force to go down? ")) {
@@ -92,6 +90,7 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
     }
 
     const auto &dungeon = floor.get_dungeon_definition();
+    auto &fcms = FloorChangeModesStore::get_instace();
     if ((ironman_downward && (m_idx <= 0)) || (floor.dun_level <= dungeon.mindepth)) {
 #ifdef JP
         if (see_m) {
@@ -103,26 +102,26 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
         }
 #endif
         if (m_idx <= 0) {
-            if (!floor.is_in_dungeon()) {
+            if (!floor.is_in_underground()) {
                 floor.set_dungeon_index(ironman_downward ? DUNGEON_ANGBAND : player_ptr->recall_dungeon);
                 player_ptr->oldpy = player_ptr->y;
                 player_ptr->oldpx = player_ptr->x;
             }
 
             if (record_stair) {
-                exe_write_diary(player_ptr, DiaryKind::TELEPORT_LEVEL, 1);
+                exe_write_diary(floor, DiaryKind::TELEPORT_LEVEL, 1);
             }
 
             if (autosave_l) {
                 do_cmd_save_game(player_ptr, true);
             }
 
-            if (!floor.is_in_dungeon()) {
+            fcms->set(FloorChangeMode::RANDOM_PLACE);
+            if (!floor.is_in_underground()) {
                 const auto &recall_dungeon = floor.get_dungeon_definition();
                 floor.dun_level = recall_dungeon.mindepth;
-                prepare_change_floor_mode(player_ptr, CFM_RAND_PLACE);
             } else {
-                prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_DOWN | CFM_RAND_PLACE | CFM_RAND_CONNECT);
+                fcms->set({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::DOWN, FloorChangeMode::RANDOM_CONNECT });
             }
 
             player_ptr->leaving = true;
@@ -140,15 +139,14 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
 
         if (m_idx <= 0) {
             if (record_stair) {
-                exe_write_diary(player_ptr, DiaryKind::TELEPORT_LEVEL, -1);
+                exe_write_diary(floor, DiaryKind::TELEPORT_LEVEL, -1);
             }
 
             if (autosave_l) {
                 do_cmd_save_game(player_ptr, true);
             }
 
-            prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_UP | CFM_RAND_PLACE | CFM_RAND_CONNECT);
-
+            fcms->set({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::UP, FloorChangeMode::RANDOM_PLACE, FloorChangeMode::RANDOM_CONNECT });
             leave_quest_check(player_ptr);
             floor.quest_number = QuestId::NONE;
             player_ptr->leaving = true;
@@ -166,14 +164,14 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
 
         if (m_idx <= 0) {
             if (record_stair) {
-                exe_write_diary(player_ptr, DiaryKind::TELEPORT_LEVEL, -1);
+                exe_write_diary(floor, DiaryKind::TELEPORT_LEVEL, -1);
             }
 
             if (autosave_l) {
                 do_cmd_save_game(player_ptr, true);
             }
 
-            prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_UP | CFM_RAND_PLACE | CFM_RAND_CONNECT);
+            fcms->set({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::UP, FloorChangeMode::RANDOM_PLACE, FloorChangeMode::RANDOM_CONNECT });
             player_ptr->leaving = true;
         }
     } else {
@@ -189,13 +187,13 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
 
         if (m_idx <= 0) {
             if (record_stair) {
-                exe_write_diary(player_ptr, DiaryKind::TELEPORT_LEVEL, 1);
+                exe_write_diary(floor, DiaryKind::TELEPORT_LEVEL, 1);
             }
             if (autosave_l) {
                 do_cmd_save_game(player_ptr, true);
             }
 
-            prepare_change_floor_mode(player_ptr, CFM_SAVE_FLOORS | CFM_DOWN | CFM_RAND_PLACE | CFM_RAND_CONNECT);
+            fcms->set({ FloorChangeMode::SAVE_FLOORS, FloorChangeMode::DOWN, FloorChangeMode::RANDOM_PLACE, FloorChangeMode::RANDOM_CONNECT });
             player_ptr->leaving = true;
         }
     }
@@ -209,7 +207,7 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
     QuestCompletionChecker(player_ptr, m_ptr).complete();
     if (record_named_pet && m_ptr->is_named_pet()) {
         const auto m2_name = monster_desc(player_ptr, m_ptr, MD_INDEF_VISIBLE);
-        exe_write_diary(player_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_TELE_LEVEL, m2_name);
+        exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_TELE_LEVEL, m2_name);
     }
 
     delete_monster_idx(player_ptr, m_idx);
@@ -244,7 +242,7 @@ bool teleport_level_other(PlayerType *player_ptr)
     msg_format(_("%s^の足を指さした。", "You gesture at %s^'s feet."), m_name.data());
 
     auto has_immune = monrace.resistance_flags.has_any_of(RFR_EFF_RESIST_NEXUS_MASK) || monrace.resistance_flags.has(MonsterResistanceType::RESIST_TELEPORT);
-    if (has_immune || (monrace.flags1 & RF1_QUESTOR) || (monrace.level + randint1(50) > player_ptr->lev + randint1(60))) {
+    if (has_immune || (monrace.misc_flags.has(MonsterMiscType::QUESTOR)) || (monrace.level + randint1(50) > player_ptr->lev + randint1(60))) {
         msg_print(_("しかし効果がなかった！", format("%s^ is unaffected!", m_name.data())));
     } else {
         teleport_level(player_ptr, target_m_idx);
@@ -276,13 +274,11 @@ bool tele_town(PlayerType *player_ptr)
     auto num = 0;
     const int towns_size = towns_info.size();
     for (auto i = 1; i < towns_size; i++) {
-        char buf[80];
-
         if ((i == VALID_TOWNS) || (i == SECRET_TOWN) || (i == player_ptr->town_num) || !(player_ptr->visit & (1UL << (i - 1)))) {
             continue;
         }
 
-        strnfmt(buf, sizeof(buf), "%c) %-20s", I2A(i - 1), towns_info[i].name.data());
+        const auto buf = format("%c) %-20s", I2A(i - 1), towns_info[i].name.data());
         prt(buf, 5 + i, 5);
         num++;
     }
@@ -316,8 +312,9 @@ bool tele_town(PlayerType *player_ptr)
         break;
     }
 
-    for (POSITION y = 0; y < w_ptr->max_wild_y; y++) {
-        for (POSITION x = 0; x < w_ptr->max_wild_x; x++) {
+    const auto &world = AngbandWorld::get_instance();
+    for (POSITION y = 0; y < world.max_wild_y; y++) {
+        for (POSITION x = 0; x < world.max_wild_x; x++) {
             if (wilderness[y][x].town == (key - 'a' + 1)) {
                 player_ptr->wilderness_y = y;
                 player_ptr->wilderness_x = x;
@@ -378,28 +375,28 @@ static DUNGEON_IDX choose_dungeon(concptr note, POSITION y, POSITION x)
     std::vector<DUNGEON_IDX> dun;
 
     screen_save();
-    for (const auto &d_ref : dungeons_info) {
-        char buf[80];
-        bool seiha = false;
+    for (const auto &dungeon : dungeons_info) {
+        auto is_conquered = false;
+        if (!dungeon.is_dungeon() || !dungeon.maxdepth) {
+            continue;
+        }
 
-        if (d_ref.idx == 0 || !d_ref.maxdepth) {
+        if (!max_dlv[dungeon.idx]) {
             continue;
         }
-        if (!max_dlv[d_ref.idx]) {
-            continue;
-        }
-        if (MonsterRace(d_ref.final_guardian).is_valid()) {
-            if (!monraces_info[d_ref.final_guardian].max_num) {
-                seiha = true;
+
+        if (dungeon.has_guardian()) {
+            if (dungeon.get_guardian().max_num == 0) {
+                is_conquered = true;
             }
-        } else if (max_dlv[d_ref.idx] == d_ref.maxdepth) {
-            seiha = true;
+        } else if (max_dlv[dungeon.idx] == dungeon.maxdepth) {
+            is_conquered = true;
         }
 
         constexpr auto fmt = _("      %c) %c%-12s : 最大 %d 階", "      %c) %c%-16s : Max level %d");
-        strnfmt(buf, sizeof(buf), fmt, static_cast<char>('a' + dun.size()), seiha ? '!' : ' ', d_ref.name.data(), (int)max_dlv[d_ref.idx]);
+        const auto buf = format(fmt, static_cast<char>('a' + dun.size()), is_conquered ? '!' : ' ', dungeon.name.data(), (int)max_dlv[dungeon.idx]);
         prt(buf, y + dun.size(), x);
-        dun.push_back(d_ref.idx);
+        dun.push_back(dungeon.idx);
     }
 
     if (dun.empty()) {
@@ -441,7 +438,7 @@ bool recall_player(PlayerType *player_ptr, TIME_EFFECT turns)
         return true;
     }
 
-    bool is_special_floor = floor.is_in_dungeon();
+    bool is_special_floor = floor.is_in_underground();
     is_special_floor &= max_dlv[floor.dungeon_idx] > floor.dun_level;
     is_special_floor &= !floor.is_in_quest();
     is_special_floor &= !player_ptr->word_recall;
@@ -449,7 +446,7 @@ bool recall_player(PlayerType *player_ptr, TIME_EFFECT turns)
         if (input_check(_("ここは最深到達階より浅い階です。この階に戻って来ますか？ ", "Reset recall depth? "))) {
             max_dlv[floor.dungeon_idx] = floor.dun_level;
             if (record_maxdepth) {
-                exe_write_diary(player_ptr, DiaryKind::TRUMP, floor.dungeon_idx, _("帰還のときに", "when recalled from dungeon"));
+                exe_write_diary(floor, DiaryKind::TRUMP, floor.dungeon_idx, _("帰還のときに", "when recalled from dungeon"));
             }
         }
     }
@@ -462,7 +459,7 @@ bool recall_player(PlayerType *player_ptr, TIME_EFFECT turns)
         return true;
     }
 
-    if (!floor.is_in_dungeon()) {
+    if (!floor.is_in_underground()) {
         DUNGEON_IDX select_dungeon;
         select_dungeon = choose_dungeon(_("に帰還", "recall"), 2, 14);
         if (!select_dungeon) {
@@ -487,10 +484,10 @@ bool free_level_recall(PlayerType *player_ptr)
     const auto &dungeon = dungeons_info[select_dungeon];
     auto max_depth = dungeon.maxdepth;
     if (select_dungeon == DUNGEON_ANGBAND) {
-        const auto &quest_list = QuestList::get_instance();
-        if (quest_list[QuestId::OBERON].status != QuestStatusType::FINISHED) {
+        const auto &quests = QuestList::get_instance();
+        if (quests.get_quest(QuestId::OBERON).status != QuestStatusType::FINISHED) {
             max_depth = 98;
-        } else if (quest_list[QuestId::SERPENT].status != QuestStatusType::FINISHED) {
+        } else if (quests.get_quest(QuestId::SERPENT).status != QuestStatusType::FINISHED) {
             max_depth = 99;
         }
     }
@@ -506,7 +503,7 @@ bool free_level_recall(PlayerType *player_ptr)
     max_dlv[player_ptr->recall_dungeon] = ((amt > dungeon.maxdepth) ? dungeon.maxdepth
                                                                     : ((amt < dungeon.mindepth) ? dungeon.mindepth : amt));
     if (record_maxdepth) {
-        exe_write_diary(player_ptr, DiaryKind::TRUMP, select_dungeon, _("トランプタワーで", "at Trump Tower"));
+        exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::TRUMP, select_dungeon, _("トランプタワーで", "at Trump Tower"));
     }
 
     msg_print(_("回りの大気が張りつめてきた...", "The air about you becomes charged..."));
@@ -534,7 +531,7 @@ bool reset_recall(PlayerType *player_ptr)
     constexpr auto prompt = _("何階にセットしますか？", "Reset to which level?");
     const auto min_level = dungeons_info[select_dungeon].mindepth;
     const auto max_level = max_dlv[select_dungeon];
-    const auto reset_level = input_numerics(prompt, min_level, max_level, player_ptr->current_floor_ptr->dun_level);
+    const auto reset_level = input_numerics(prompt, min_level, max_level, max_level);
     if (!reset_level) {
         return false;
     }
@@ -542,7 +539,7 @@ bool reset_recall(PlayerType *player_ptr)
     max_dlv[select_dungeon] = *reset_level;
     if (record_maxdepth) {
         constexpr auto note = _("フロア・リセットで", "using a scroll of reset recall");
-        exe_write_diary(player_ptr, DiaryKind::TRUMP, select_dungeon, note);
+        exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::TRUMP, select_dungeon, note);
     }
 #ifdef JP
     msg_format("%sの帰還レベルを %d 階にセット。", dungeons_info[select_dungeon].name.data(), *reset_level);

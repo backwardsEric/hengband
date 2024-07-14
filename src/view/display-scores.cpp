@@ -124,14 +124,15 @@ void display_scores(int from, int to, int note, high_score *score)
             }
 
             std::string out_val;
+            const auto pclass = i2enum<PlayerClassType>(pc);
 #ifdef JP
             /* out_val = format("%3d.%9s  %s%s%sという名の%sの%s (レベル %d)", */
-            out_val = format("%3d.%9s  %s%s%s - %s%s (レベル %d)", place, the_score.pts, personality_info[pa].title, (personality_info[pa].no ? "の" : ""),
-                the_score.who, race_info[pr].title, class_info[pc].title, clev);
+            out_val = format("%3d.%9s  %s%s%s - %s%s (レベル %d)", place, the_score.pts, personality_info[pa].title.data(), (personality_info[pa].no ? "の" : ""),
+                the_score.who, race_info[pr].title.data(), class_info.at(pclass).title.data(), clev);
 
 #else
-            out_val = format("%3d.%9s  %s %s the %s %s, Level %d", place, the_score.pts, personality_info[pa].title, the_score.who, race_info[pr].title,
-                class_info[pc].title, clev);
+            out_val = format("%3d.%9s  %s %s the %s %s, Level %d", place, the_score.pts, personality_info[pa].title.data(), the_score.who, race_info[pr].title.data(),
+                class_info.at(pclass).title.data(), clev);
 #endif
             if (mlev > clev) {
                 out_val.append(format(_(" (最高%d)", " (Max %d)"), mlev));
@@ -208,8 +209,8 @@ void display_scores(int from, int to, int note, high_score *score)
  */
 void display_scores(int from, int to)
 {
-    const auto &path = path_build(ANGBAND_DIR_APEX, "scores.raw");
-    const auto &filename = path.string();
+    const auto path = path_build(ANGBAND_DIR_APEX, "scores.raw");
+    const auto filename = path.string();
     highscore_fd = fd_open(filename, O_RDONLY);
     if (highscore_fd < 0) {
         quit(_("スコア・ファイルが使用できません。", "Score file unavailable."));

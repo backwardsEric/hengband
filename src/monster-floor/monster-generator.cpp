@@ -15,10 +15,6 @@
 #include "monster-floor/one-monster-placer.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags7.h"
-#include "monster-race/race-flags8.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
@@ -40,20 +36,6 @@
 #include <optional>
 
 #define MON_SCAT_MAXD 10 /*!< mon_scatter()関数によるモンスター配置で許される中心からの最大距離 */
-
-/*!
- * @var place_monster_idx
- * @brief 護衛対象となるモンスター種族IDを渡すグローバル変数 / Hack -- help pick an escort type
- * @todo 関数ポインタの都合を配慮しながら、グローバル変数place_monster_idxを除去し、関数引数化する
- */
-static MonsterRaceId place_monster_idx = MonsterRace::empty_id();
-
-/*!
- * @var place_monster_m_idx
- * @brief 護衛対象となるモンスターIDを渡すグローバル変数 / Hack -- help pick an escort type
- * @todo 関数ポインタの都合を配慮しながら、グローバル変数place_monster_m_idxを除去し、関数引数化する
- */
-static MONSTER_IDX place_monster_m_idx = 0;
 
 /*!
  * @brief モンスター1体を目標地点に可能な限り近い位置に生成する / improved version of scatter() for place monster
@@ -91,7 +73,7 @@ bool mon_scatter(PlayerType *player_ptr, MonsterRaceId r_idx, POSITION *yp, POSI
             if (!projectable(player_ptr, y, x, ny, nx)) {
                 continue;
             }
-            if (MonsterRace(r_idx).is_valid()) {
+            if (MonraceList::is_valid(r_idx)) {
                 auto *r_ptr = &monraces_info[r_idx];
                 if (!monster_can_enter(player_ptr, ny, nx, r_ptr, 0)) {
                     continue;
@@ -138,44 +120,46 @@ bool mon_scatter(PlayerType *player_ptr, MonsterRaceId r_idx, POSITION *yp, POSI
  * @param m_idx 増殖するモンスター情報ID
  * @param clone クローン・モンスター処理ならばtrue
  * @param mode 生成オプション
- * @return 生成できたらtrueを返す
+ * @return 生成に成功したらモンスターID、失敗したらstd::nullopt
  * @details
  * Note that "reproduction" REQUIRES empty space.
  */
-bool multiply_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool clone, BIT_FLAGS mode)
+std::optional<MONSTER_IDX> multiply_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool clone, BIT_FLAGS mode)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
     POSITION y, x;
     if (!mon_scatter(player_ptr, m_ptr->r_idx, &y, &x, m_ptr->fy, m_ptr->fx, 1)) {
-        return false;
+        return std::nullopt;
     }
 
     if (m_ptr->mflag2.has(MonsterConstantFlagType::NOPET)) {
         mode |= PM_NO_PET;
     }
 
-    if (!place_specific_monster(player_ptr, m_idx, y, x, m_ptr->r_idx, (mode | PM_NO_KAGE | PM_MULTIPLY))) {
-        return false;
+    const auto multiplied_m_idx = place_specific_monster(player_ptr, m_idx, y, x, m_ptr->r_idx, (mode | PM_NO_KAGE | PM_MULTIPLY));
+    if (!multiplied_m_idx) {
+        return std::nullopt;
     }
 
     if (clone || m_ptr->mflag2.has(MonsterConstantFlagType::CLONED)) {
-        floor_ptr->m_list[hack_m_idx_ii].mflag2.set({ MonsterConstantFlagType::CLONED, MonsterConstantFlagType::NOPET });
+        floor_ptr->m_list[*multiplied_m_idx].mflag2.set({ MonsterConstantFlagType::CLONED, MonsterConstantFlagType::NOPET });
     }
 
-    return true;
+    return multiplied_m_idx;
 }
 
 /*!
  * @brief モンスターを目標地点に集団生成する / Attempt to place a "group" of monsters around the given location
- * @param who 召喚主のモンスター情報ID
+ * @param src_idx 召喚主のモンスター情報ID
  * @param y 中心生成位置y座標
  * @param x 中心生成位置x座標
  * @param r_idx 生成モンスター種族
  * @param mode 生成オプション
+ * @param summoner_m_idx モンスターの召喚による場合、召喚主のモンスターID
  * @return 成功したらtrue
  */
-static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode)
+static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode, std::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto *r_ptr = &monraces_info[r_idx];
     auto total = randint1(10);
@@ -221,7 +205,7 @@ static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITIO
                 continue;
             }
 
-            if (place_monster_one(player_ptr, who, my, mx, r_idx, mode)) {
+            if (place_monster_one(player_ptr, src_idx, my, mx, r_idx, mode, summoner_m_idx)) {
                 hack_y[hack_n] = my;
                 hack_x[hack_n] = mx;
                 hack_n++;
@@ -233,21 +217,23 @@ static bool place_monster_group(PlayerType *player_ptr, MONSTER_IDX who, POSITIO
 }
 
 /*!
- * @brief モンスター種族が召喚主の護衛となれるかどうかをチェックする / Hack -- help pick an escort type
- * @param r_idx チェックするモンスター種族のID
+ * @brief モンスター種族が護衛となれるかどうかをチェックする
+ * @param monrace_id チェックするモンスターの種族ID
+ * @param escorted_monrace_id 護衛されるモンスターの種族ID
+ * @param escorted_m_idx 護衛されるモンスターのモンスターID
  * @return 護衛にできるならばtrue
  */
-static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId r_idx)
+static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId monrace_id, MonsterRaceId escorted_monrace_id, MONSTER_IDX escorted_m_idx)
 {
-    auto *r_ptr = &monraces_info[place_monster_idx];
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[place_monster_m_idx];
-    MonsterRaceInfo *z_ptr = &monraces_info[r_idx];
+    auto *r_ptr = &monraces_info[escorted_monrace_id];
+    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[escorted_m_idx];
+    MonsterRaceInfo *z_ptr = &monraces_info[monrace_id];
 
-    if (mon_hook_dungeon(player_ptr, place_monster_idx) != mon_hook_dungeon(player_ptr, r_idx)) {
+    if (mon_hook_dungeon(player_ptr, escorted_monrace_id) != mon_hook_dungeon(player_ptr, monrace_id)) {
         return false;
     }
 
-    if (z_ptr->d_char != r_ptr->d_char) {
+    if (z_ptr->symbol_definition.character != r_ptr->symbol_definition.character) {
         return false;
     }
 
@@ -259,7 +245,7 @@ static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId r_idx
         return false;
     }
 
-    if (place_monster_idx == r_idx) {
+    if (escorted_monrace_id == monrace_id) {
         return false;
     }
 
@@ -273,7 +259,7 @@ static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId r_idx
         }
     }
 
-    if ((r_ptr->flags7 & RF7_CHAMELEON) && !(z_ptr->flags7 & RF7_CHAMELEON)) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::CHAMELEON) && z_ptr->misc_flags.has_not(MonsterMiscType::CHAMELEON)) {
         return false;
     }
 
@@ -283,15 +269,16 @@ static bool place_monster_can_escort(PlayerType *player_ptr, MonsterRaceId r_idx
 /*!
  * @brief 特定モンスターを生成する
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param who 召喚主のモンスター情報ID
+ * @param src_idx 召喚主のモンスター情報ID
  * @param y 生成地点y座標
  * @param x 生成地点x座標
  * @param r_idx 生成するモンスターの種族ID
  * @param mode 生成オプション
- * @return 生成に成功したらtrue
+ * @param summoner_m_idx モンスターの召喚による場合、召喚主のモンスターID
+ * @return 生成に成功したらモンスターID、失敗したらstd::nullopt
  * @details 護衛も一緒に生成する
  */
-bool place_specific_monster(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode)
+std::optional<MONSTER_IDX> place_specific_monster(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION y, POSITION x, MonsterRaceId r_idx, BIT_FLAGS mode, std::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto *r_ptr = &monraces_info[r_idx];
 
@@ -299,28 +286,27 @@ bool place_specific_monster(PlayerType *player_ptr, MONSTER_IDX who, POSITION y,
         mode |= PM_KAGE;
     }
 
-    if (!place_monster_one(player_ptr, who, y, x, r_idx, mode)) {
-        return false;
+    const auto m_idx = place_monster_one(player_ptr, src_idx, y, x, r_idx, mode, summoner_m_idx);
+    if (!m_idx) {
+        return std::nullopt;
     }
     if (!(mode & PM_ALLOW_GROUP)) {
-        return true;
+        return m_idx;
     }
 
-    place_monster_m_idx = hack_m_idx_ii;
-
     /* Reinforcement */
-    for (auto [reinforce_r_idx, dd, ds] : r_ptr->reinforces) {
-        if (!MonsterRace(reinforce_r_idx).is_valid()) {
+    for (const auto &[reinforce_monrace_id, num_dice] : r_ptr->reinforces) {
+        if (!MonraceList::is_valid(reinforce_monrace_id)) {
             continue;
         }
-        auto n = damroll(dd, ds);
+        auto n = num_dice.roll();
         for (int j = 0; j < n; j++) {
             POSITION nx, ny, d;
             const POSITION scatter_min = 7;
             const POSITION scatter_max = 40;
             for (d = scatter_min; d <= scatter_max; d++) {
                 scatter(player_ptr, &ny, &nx, y, x, d, PROJECT_NONE);
-                if (place_monster_one(player_ptr, place_monster_m_idx, ny, nx, reinforce_r_idx, mode)) {
+                if (place_monster_one(player_ptr, *m_idx, ny, nx, reinforce_monrace_id, mode, summoner_m_idx)) {
                     break;
                 }
             }
@@ -330,63 +316,66 @@ bool place_specific_monster(PlayerType *player_ptr, MONSTER_IDX who, POSITION y,
         }
     }
 
-    if (r_ptr->flags1 & (RF1_FRIENDS)) {
-        (void)place_monster_group(player_ptr, who, y, x, r_idx, mode);
+    if (r_ptr->misc_flags.has(MonsterMiscType::HAS_FRIENDS)) {
+        (void)place_monster_group(player_ptr, src_idx, y, x, r_idx, mode, summoner_m_idx);
     }
 
-    if (!(r_ptr->flags1 & (RF1_ESCORT))) {
-        return true;
+    if (r_ptr->misc_flags.has_not(MonsterMiscType::ESCORT)) {
+        return m_idx;
     }
 
-    place_monster_idx = r_idx;
     for (int i = 0; i < 32; i++) {
         POSITION nx, ny, d = 3;
-        MonsterRaceId z;
         scatter(player_ptr, &ny, &nx, y, x, d, PROJECT_NONE);
         if (!is_cave_empty_bold2(player_ptr, ny, nx)) {
             continue;
         }
 
-        get_mon_num_prep(player_ptr, place_monster_can_escort, get_monster_hook2(player_ptr, ny, nx));
-        z = get_mon_num(player_ptr, 0, r_ptr->level, 0);
-        if (!MonsterRace(z).is_valid()) {
+        auto hook = [place_monster_monrace_id = r_idx, place_monster_m_idx = *m_idx](PlayerType *player_ptr, MonsterRaceId escort_monrace_id) {
+            return place_monster_can_escort(player_ptr, escort_monrace_id, place_monster_monrace_id, place_monster_m_idx);
+        };
+        get_mon_num_prep(player_ptr, std::move(hook), get_monster_hook2(player_ptr, ny, nx));
+        const auto monrace_id = get_mon_num(player_ptr, 0, r_ptr->level, 0);
+        if (!MonraceList::is_valid(monrace_id)) {
             break;
         }
 
-        (void)place_monster_one(player_ptr, place_monster_m_idx, ny, nx, z, mode);
-        if ((monraces_info[z].flags1 & RF1_FRIENDS) || (r_ptr->flags1 & RF1_ESCORTS)) {
-            (void)place_monster_group(player_ptr, place_monster_m_idx, ny, nx, z, mode);
+        (void)place_monster_one(player_ptr, *m_idx, ny, nx, monrace_id, mode, summoner_m_idx);
+        if (monraces_info[monrace_id].misc_flags.has(MonsterMiscType::HAS_FRIENDS) || r_ptr->misc_flags.has(MonsterMiscType::MORE_ESCORT)) {
+            (void)place_monster_group(player_ptr, *m_idx, ny, nx, monrace_id, mode, summoner_m_idx);
         }
     }
 
-    return true;
+    return m_idx;
 }
-
 /*!
  * @brief フロア相当のモンスターを1体生成する
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param y 生成地点y座標
  * @param x 生成地点x座標
  * @param mode 生成オプション
- * @return 生成に成功したらtrue
+ * @return 生成に成功したらモンスターID、失敗したらstd::nullopt
  */
-bool place_random_monster(PlayerType *player_ptr, POSITION y, POSITION x, BIT_FLAGS mode)
+std::optional<MONSTER_IDX> place_random_monster(PlayerType *player_ptr, POSITION y, POSITION x, BIT_FLAGS mode)
 {
     get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), get_monster_hook2(player_ptr, y, x));
-    MonsterRaceId r_idx;
+    const auto &floor = *player_ptr->current_floor_ptr;
+    MonsterRaceId monrace_id;
     do {
-        r_idx = get_mon_num(player_ptr, 0, player_ptr->current_floor_ptr->monster_level, PM_NONE);
-    } while ((mode & PM_NO_QUEST) && (monraces_info[r_idx].flags8 & RF8_NO_QUEST));
-
-    if (!MonsterRace(r_idx).is_valid()) {
-        return false;
+        monrace_id = get_mon_num(player_ptr, 0, floor.monster_level, PM_NONE);
+    } while ((mode & PM_NO_QUEST) && monraces_info[monrace_id].misc_flags.has(MonsterMiscType::NO_QUEST));
+    if (!MonraceList::is_valid(monrace_id)) {
+        return std::nullopt;
     }
 
-    if ((one_in_(5) || (player_ptr->current_floor_ptr->dun_level == 0)) && monraces_info[r_idx].kind_flags.has_not(MonsterKindType::UNIQUE) && angband_strchr("hkoptuyAHLOPTUVY", monraces_info[r_idx].d_char)) {
+    auto try_become_jural = one_in_(5) || !floor.is_in_underground();
+    try_become_jural &= monraces_info[monrace_id].kind_flags.has_not(MonsterKindType::UNIQUE);
+    try_become_jural &= monraces_info[monrace_id].symbol_char_is_any_of("hkoptuyAHLOPTUVY");
+    if (try_become_jural) {
         mode |= PM_JURAL;
     }
 
-    return place_specific_monster(player_ptr, 0, y, x, r_idx, mode);
+    return place_specific_monster(player_ptr, 0, y, x, monrace_id, mode);
 }
 
 static std::optional<MonsterRaceId> select_horde_leader_r_idx(PlayerType *player_ptr)
@@ -394,20 +383,20 @@ static std::optional<MonsterRaceId> select_horde_leader_r_idx(PlayerType *player
     const auto *floor_ptr = player_ptr->current_floor_ptr;
 
     for (auto attempts = 1000; attempts > 0; --attempts) {
-        auto r_idx = get_mon_num(player_ptr, 0, floor_ptr->monster_level, PM_NONE);
-        if (!MonsterRace(r_idx).is_valid()) {
+        const auto monrace_id = get_mon_num(player_ptr, 0, floor_ptr->monster_level, PM_NONE);
+        if (!MonraceList::is_valid(monrace_id)) {
             return std::nullopt;
         }
 
-        if (monraces_info[r_idx].kind_flags.has(MonsterKindType::UNIQUE)) {
+        if (monraces_info[monrace_id].kind_flags.has(MonsterKindType::UNIQUE)) {
             continue;
         }
 
-        if (r_idx == MonsterRaceId::HAGURE) {
+        if (monrace_id == MonsterRaceId::HAGURE) {
             continue;
         }
 
-        return r_idx;
+        return monrace_id;
     }
 
     return std::nullopt;
@@ -439,14 +428,15 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
         }
     }
 
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    MONSTER_IDX m_idx = floor_ptr->grid_array[y][x].m_idx;
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto m_idx = floor.get_grid({ y, x }).m_idx;
+    const auto &monentity = floor.m_list[m_idx];
 
     POSITION cy = y;
     POSITION cx = x;
     for (auto attempts = randint1(10) + 5; attempts > 0; attempts--) {
         scatter(player_ptr, &cy, &cx, y, x, 5, PROJECT_NONE);
-        (void)(*summon_specific)(player_ptr, m_idx, cy, cx, floor_ptr->dun_level + 5, SUMMON_KIN, PM_ALLOW_GROUP);
+        (void)(*summon_specific)(player_ptr, m_idx, cy, cx, floor.dun_level + 5, SUMMON_KIN, PM_ALLOW_GROUP);
         y = cy;
         x = cx;
     }
@@ -455,13 +445,8 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
         return true;
     }
 
-    auto *r_ptr = &monraces_info[*r_idx];
-    if (floor_ptr->m_list[m_idx].mflag2.has(MonsterConstantFlagType::CHAMELEON)) {
-        r_ptr = &monraces_info[floor_ptr->m_list[m_idx].r_idx];
-    }
-
-    msg_format(_("モンスターの大群(%c)", "Monster horde (%c)."), r_ptr->d_char);
-
+    const auto &monrace = monentity.mflag2.has(MonsterConstantFlagType::CHAMELEON) ? monentity.get_monrace() : monraces_info[*r_idx];
+    msg_format(_("モンスターの大群(%c)", "Monster horde (%c)."), monrace.symbol_definition.character);
     return true;
 }
 
@@ -475,29 +460,31 @@ bool alloc_guardian(PlayerType *player_ptr, bool def_val)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     const auto &dungeon = floor_ptr->get_dungeon_definition();
-    MonsterRaceId guardian = dungeon.final_guardian;
-    bool is_guardian_applicable = MonsterRace(guardian).is_valid();
-    is_guardian_applicable &= dungeon.maxdepth == floor_ptr->dun_level;
-    is_guardian_applicable &= monraces_info[guardian].cur_num < monraces_info[guardian].max_num;
+    if (!dungeon.has_guardian()) {
+        return def_val;
+    }
+
+    const auto &monrace = dungeon.get_guardian();
+    auto is_guardian_applicable = dungeon.maxdepth == floor_ptr->dun_level;
+    is_guardian_applicable &= monrace.cur_num < monrace.max_num;
     if (!is_guardian_applicable) {
         return def_val;
     }
 
-    int try_count = 4000;
-    while (try_count) {
-        POSITION oy = randint1(floor_ptr->height - 4) + 2;
-        POSITION ox = randint1(floor_ptr->width - 4) + 2;
-        if (!is_cave_empty_bold2(player_ptr, oy, ox)) {
+    auto try_count = 4000;
+    while (try_count > 0) {
+        const auto pos = Pos2D(randint1(floor_ptr->height - 4), randint1(floor_ptr->width - 4)) + Pos2DVec(2, 2);
+        if (!is_cave_empty_bold2(player_ptr, pos.y, pos.x)) {
             try_count++;
             continue;
         }
 
-        if (!monster_can_cross_terrain(player_ptr, floor_ptr->grid_array[oy][ox].feat, &monraces_info[guardian], 0)) {
+        if (!monster_can_cross_terrain(player_ptr, floor_ptr->get_grid(pos).feat, &monrace, 0)) {
             try_count++;
             continue;
         }
 
-        if (place_specific_monster(player_ptr, 0, oy, ox, guardian, (PM_ALLOW_GROUP | PM_NO_KAGE | PM_NO_PET))) {
+        if (place_specific_monster(player_ptr, 0, pos.y, pos.x, dungeon.final_guardian, (PM_ALLOW_GROUP | PM_NO_KAGE | PM_NO_PET))) {
             return true;
         }
 

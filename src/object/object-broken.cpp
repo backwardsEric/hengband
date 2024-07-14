@@ -71,7 +71,7 @@ bool BreakerAcid::hates(ItemEntity *o_ptr) const
     case ItemKindType::STAFF:
     case ItemKindType::SCROLL:
     case ItemKindType::CHEST:
-    case ItemKindType::SKELETON:
+    case ItemKindType::FLAVOR_SKELETON:
     case ItemKindType::BOTTLE:
     case ItemKindType::JUNK:
         return true;
@@ -201,13 +201,13 @@ bool ObjectBreaker::can_destroy(ItemEntity *o_ptr) const
  *    o_ptr --- pointer to the potion object.
  * </pre>
  */
-bool potion_smash_effect(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, POSITION x, short bi_id)
+bool potion_smash_effect(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION y, POSITION x, short bi_id)
 {
-    int radius = 2;
-    AttributeType dt = AttributeType::NONE;
-    int dam = 0;
-    bool angry = false;
-    const auto &baseitem = baseitems_info[bi_id];
+    auto radius = 2;
+    auto dt = AttributeType::NONE;
+    auto dam = 0;
+    auto angry = false;
+    const auto &baseitem = BaseitemList::get_instance().get_baseitem(bi_id);
     switch (*baseitem.bi_key.sval()) {
     case SV_POTION_SALT_WATER:
     case SV_POTION_SLIME_MOLD:
@@ -277,7 +277,7 @@ bool potion_smash_effect(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, PO
     case SV_POTION_RUINATION:
     case SV_POTION_DETONATIONS:
         dt = AttributeType::SHARDS;
-        dam = damroll(25, 25);
+        dam = Dice::roll(25, 25);
         angry = true;
         break;
     case SV_POTION_DEATH:
@@ -291,20 +291,20 @@ bool potion_smash_effect(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, PO
         break;
     case SV_POTION_CURE_LIGHT:
         dt = AttributeType::OLD_HEAL;
-        dam = damroll(2, 3);
+        dam = Dice::roll(2, 3);
         break;
     case SV_POTION_CURE_SERIOUS:
         dt = AttributeType::OLD_HEAL;
-        dam = damroll(4, 3);
+        dam = Dice::roll(4, 3);
         break;
     case SV_POTION_CURE_CRITICAL:
     case SV_POTION_CURING:
         dt = AttributeType::OLD_HEAL;
-        dam = damroll(6, 3);
+        dam = Dice::roll(6, 3);
         break;
     case SV_POTION_HEALING:
         dt = AttributeType::OLD_HEAL;
-        dam = damroll(10, 10);
+        dam = Dice::roll(10, 10);
         break;
     case SV_POTION_RESTORE_EXP:
         dt = AttributeType::STAR_HEAL;
@@ -313,29 +313,29 @@ bool potion_smash_effect(PlayerType *player_ptr, MONSTER_IDX who, POSITION y, PO
         break;
     case SV_POTION_LIFE:
         dt = AttributeType::STAR_HEAL;
-        dam = damroll(50, 50);
+        dam = Dice::roll(50, 50);
         radius = 1;
         break;
     case SV_POTION_STAR_HEALING:
         dt = AttributeType::OLD_HEAL;
-        dam = damroll(50, 50);
+        dam = Dice::roll(50, 50);
         radius = 1;
         break;
     case SV_POTION_RESTORE_MANA:
         dt = AttributeType::MANA;
-        dam = damroll(10, 10);
+        dam = Dice::roll(10, 10);
         radius = 1;
         break;
     case SV_POTION_POLY_SELF:
         dt = AttributeType::NEXUS;
-        dam = damroll(20, 20);
+        dam = Dice::roll(20, 20);
         radius = 1;
         break;
     default:
         break;
     }
 
-    (void)project(player_ptr, who, radius, y, x, dam, dt, (PROJECT_JUMP | PROJECT_ITEM | PROJECT_KILL));
+    (void)project(player_ptr, src_idx, radius, y, x, dam, dt, (PROJECT_JUMP | PROJECT_ITEM | PROJECT_KILL));
     return angry;
 }
 
@@ -388,7 +388,7 @@ PERCENTAGE breakage_chance(PlayerType *player_ptr, ItemEntity *o_ptr, bool has_a
         /* Often break */
     case ItemKindType::LITE:
     case ItemKindType::SCROLL:
-    case ItemKindType::SKELETON:
+    case ItemKindType::FLAVOR_SKELETON:
         return 50;
 
         /* Sometimes break */

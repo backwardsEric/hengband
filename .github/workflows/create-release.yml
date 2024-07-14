@@ -13,8 +13,7 @@ jobs:
     name: Publish Release Page
     runs-on: windows-2022
     steps:
-      - name: Checkout Repository
-        uses: nschloe/action-cached-lfs-checkout@v1
+      - uses: actions/checkout@v3
         with:
           submodules: true
 
@@ -32,7 +31,7 @@ jobs:
 
       - name: Restore Nuget Packages
         run: |
-          NuGet restore .\Hengband\Hengband.sln
+          NuGet restore .\VisualStudio\Hengband.sln
 
       - name: Build Windows Release Package
         run: |

@@ -28,9 +28,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain-type-definition.h"
 #include "term/screen-processor.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-hallucination.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -62,11 +59,11 @@ bool exe_open(PlayerType *player_ptr, POSITION y, POSITION x)
 
     int i = player_ptr->skill_dis;
     const auto effects = player_ptr->effects();
-    if (effects->blindness()->is_blind() || no_lite(player_ptr)) {
+    if (effects->blindness().is_blind() || no_lite(player_ptr)) {
         i = i / 10;
     }
 
-    if (effects->confusion()->is_confused() || effects->hallucination()->is_hallucinated()) {
+    if (effects->confusion().is_confused() || effects->hallucination().is_hallucinated()) {
         i = i / 10;
     }
 
@@ -76,7 +73,7 @@ bool exe_open(PlayerType *player_ptr, POSITION y, POSITION x)
         j = 2;
     }
 
-    if (randint0(100) >= j) {
+    if (!evaluate_percent(j)) {
         if (flush_failure) {
             flush();
         }
@@ -118,7 +115,7 @@ bool exe_close(PlayerType *player_ptr, POSITION y, POSITION x)
     const auto closed_feat = feat_state(player_ptr->current_floor_ptr, terrain_id, TerrainCharacteristics::CLOSE);
     auto is_preventing = !grid.o_idx_list.empty() || grid.is_object();
     is_preventing &= closed_feat != terrain_id;
-    is_preventing &= TerrainList::get_instance()[closed_feat].flags.has_not(TerrainCharacteristics::DROP);
+    is_preventing &= TerrainList::get_instance().get_terrain(closed_feat).flags.has_not(TerrainCharacteristics::DROP);
     if (is_preventing) {
         msg_print(_("何かがつっかえて閉まらない。", "Something prevents it from closing."));
         return more;
@@ -163,11 +160,11 @@ bool easy_open_door(PlayerType *player_ptr, POSITION y, POSITION x)
     } else if (terrain.power) {
         auto power_disarm = player_ptr->skill_dis;
         const auto effects = player_ptr->effects();
-        if (effects->blindness()->is_blind() || no_lite(player_ptr)) {
+        if (effects->blindness().is_blind() || no_lite(player_ptr)) {
             power_disarm = power_disarm / 10;
         }
 
-        if (effects->confusion()->is_confused() || effects->hallucination()->is_hallucinated()) {
+        if (effects->confusion().is_confused() || effects->hallucination().is_hallucinated()) {
             power_disarm = power_disarm / 10;
         }
 
@@ -177,7 +174,7 @@ bool easy_open_door(PlayerType *player_ptr, POSITION y, POSITION x)
             power_terrain = 2;
         }
 
-        if (randint0(100) < power_terrain) {
+        if (evaluate_percent(power_terrain)) {
             msg_print(_("鍵をはずした。", "You have picked the lock."));
             cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::OPEN);
             sound(SOUND_OPENDOOR);
@@ -218,11 +215,11 @@ bool exe_disarm_chest(PlayerType *player_ptr, POSITION y, POSITION x, OBJECT_IDX
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     int i = player_ptr->skill_dis;
     const auto effects = player_ptr->effects();
-    if (effects->blindness()->is_blind() || no_lite(player_ptr)) {
+    if (effects->blindness().is_blind() || no_lite(player_ptr)) {
         i = i / 10;
     }
 
-    if (effects->confusion()->is_confused() || effects->hallucination()->is_hallucinated()) {
+    if (effects->confusion().is_confused() || effects->hallucination().is_hallucinated()) {
         i = i / 10;
     }
 
@@ -238,7 +235,7 @@ bool exe_disarm_chest(PlayerType *player_ptr, POSITION y, POSITION x, OBJECT_IDX
         msg_print(_("箱にはトラップが仕掛けられていない。", "The chest is not trapped."));
     } else if (chest_traps[o_ptr->pval].none()) {
         msg_print(_("箱にはトラップが仕掛けられていない。", "The chest is not trapped."));
-    } else if (randint0(100) < j) {
+    } else if (evaluate_percent(j)) {
         msg_print(_("箱に仕掛けられていたトラップを解除した。", "You have disarmed the chest."));
         gain_exp(player_ptr, o_ptr->pval);
         o_ptr->pval = (0 - o_ptr->pval);
@@ -283,11 +280,11 @@ bool exe_disarm(PlayerType *player_ptr, POSITION y, POSITION x, DIRECTION dir)
     int i = player_ptr->skill_dis;
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     auto effects = player_ptr->effects();
-    if (effects->blindness()->is_blind() || no_lite(player_ptr)) {
+    if (effects->blindness().is_blind() || no_lite(player_ptr)) {
         i = i / 10;
     }
 
-    if (effects->confusion()->is_confused() || effects->hallucination()->is_hallucinated()) {
+    if (effects->confusion().is_confused() || effects->hallucination().is_hallucinated()) {
         i = i / 10;
     }
 
@@ -297,7 +294,7 @@ bool exe_disarm(PlayerType *player_ptr, POSITION y, POSITION x, DIRECTION dir)
     }
 
     auto more = false;
-    if (randint0(100) < j) {
+    if (evaluate_percent(j)) {
         msg_format(_("%sを解除した。", "You have disarmed the %s."), name.data());
         gain_exp(player_ptr, power);
         cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::DISARM);
@@ -352,17 +349,17 @@ bool exe_bash(PlayerType *player_ptr, POSITION y, POSITION x, DIRECTION dir)
     }
 
     auto more = false;
-    if (randint0(100) < power) {
+    if (evaluate_percent(power)) {
         msg_format(_("%sを壊した！", "The %s crashes open!"), name.data());
         sound(terrain.flags.has(TerrainCharacteristics::GLASS) ? SOUND_GLASS : SOUND_OPENDOOR);
-        if ((randint0(100) < 50) || (feat_state(player_ptr->current_floor_ptr, grid.feat, TerrainCharacteristics::OPEN) == grid.feat) || terrain.flags.has(TerrainCharacteristics::GLASS)) {
+        if (one_in_(2) || (feat_state(player_ptr->current_floor_ptr, grid.feat, TerrainCharacteristics::OPEN) == grid.feat) || terrain.flags.has(TerrainCharacteristics::GLASS)) {
             cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::BASH);
         } else {
             cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::OPEN);
         }
 
         exe_movement(player_ptr, dir, false, false);
-    } else if (randint0(100) < adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev) {
+    } else if (evaluate_percent(adj_dex_safe[player_ptr->stat_index[A_DEX]] + player_ptr->lev)) {
         msg_format(_("この%sは頑丈だ。", "The %s holds firm."), name.data());
         more = true;
     } else {

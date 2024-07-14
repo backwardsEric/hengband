@@ -11,7 +11,6 @@
 #include "floor/geometry.h"
 #include "grid/grid.h"
 #include "monster-attack/monster-attack-player.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-describer.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
@@ -27,6 +26,7 @@
 #include "system/terrain-type-definition.h"
 #include "target/target-checker.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 /*!
  * @brief モンスターから直接攻撃を受けた時に落馬するかどうかを判定し、判定アウトならば落馬させる
@@ -94,7 +94,7 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
     auto *r_ptr = &m_ptr->get_monrace();
 
-    if (!player_ptr->riding || player_ptr->wild_mode) {
+    if (!player_ptr->riding || AngbandWorld::get_instance().is_wild_mode()) {
         return false;
     }
 
@@ -111,7 +111,7 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
             Grid *g_ptr;
             g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
 
-            if (g_ptr->m_idx) {
+            if (g_ptr->has_monster()) {
                 continue;
             }
 

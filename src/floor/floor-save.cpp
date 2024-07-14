@@ -11,10 +11,10 @@
 
 #include "floor/floor-save.h"
 #include "core/asking-player.h"
+#include "floor/floor-mode-changer.h"
 #include "floor/floor-save-util.h"
 #include "io/files-util.h"
 #include "io/uid-checker.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
 #include "system/floor-type-definition.h"
@@ -24,11 +24,11 @@
 #include "term/z-form.h"
 #include "util/angband-files.h"
 #include "view/display-messages.h"
+#include "world/world.h"
 
 static std::string get_saved_floor_name(int level)
 {
-    char ext[32];
-    strnfmt(ext, sizeof(ext), ".F%02d", level);
+    const auto ext = format(".F%02d", level);
     return savefile.string().append(ext);
 }
 
@@ -60,7 +60,7 @@ static void check_saved_tmp_files(const int fd, bool *force)
  * @param force テンポラリファイルが残っていた場合も警告なしで強制的に削除するフラグ
  * @details Make sure that old temporary files are not remaining as gurbages.
  */
-void init_saved_floors(PlayerType *player_ptr, bool force)
+void init_saved_floors(bool force)
 {
     auto fd = -1;
     if (!savefile.empty()) {
@@ -82,7 +82,7 @@ void init_saved_floors(PlayerType *player_ptr, bool force)
     latest_visit_mark = 1;
     saved_floor_file_sign = (uint32_t)time(nullptr);
     new_floor_id = 0;
-    player_ptr->change_floor_mode = 0;
+    FloorChangeModesStore::get_instace()->clear();
 }
 
 /*!
@@ -94,7 +94,7 @@ void clear_saved_floor_files(PlayerType *player_ptr)
 {
     for (int i = 0; i < MAX_SAVED_FLOORS; i++) {
         saved_floor_type *sf_ptr = &saved_floors[i];
-        if ((sf_ptr->floor_id == 0) || (sf_ptr->floor_id == player_ptr->floor_id)) {
+        if (!is_saved_floor(sf_ptr) || (sf_ptr->floor_id == player_ptr->floor_id)) {
             continue;
         }
 
@@ -132,7 +132,7 @@ saved_floor_type *get_sf_ptr(FLOOR_IDX floor_id)
  */
 void kill_saved_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
 {
-    if (!sf_ptr || (sf_ptr->floor_id == 0)) {
+    if (!sf_ptr || !is_saved_floor(sf_ptr)) {
         return;
     }
 
@@ -167,19 +167,19 @@ static FLOOR_IDX find_oldest_floor_idx(PlayerType *player_ptr)
 }
 
 /*!
- * @brief 新規に利用可能な保存フロアを返す / Initialize new saved floor and get its floor id.
+ * @brief 新規に利用可能なフロアIDを返す / Initialize new floor and get its floor id.
  * @param player_ptr プレイヤーへの参照ポインタ
- * @return 利用可能な保存フロアID
+ * @return 利用可能なフロアID
  * @details
  * If number of saved floors are already MAX_SAVED_FLOORS, kill the oldest one.
  */
-FLOOR_IDX get_new_floor_id(PlayerType *player_ptr)
+FLOOR_IDX get_unused_floor_id(PlayerType *player_ptr)
 {
     saved_floor_type *sf_ptr = nullptr;
     FLOOR_IDX fl_idx;
     for (fl_idx = 0; fl_idx < MAX_SAVED_FLOORS; fl_idx++) {
         sf_ptr = &saved_floors[fl_idx];
-        if (!sf_ptr->floor_id) {
+        if (!is_saved_floor(sf_ptr)) {
             break;
         }
     }
@@ -207,21 +207,18 @@ FLOOR_IDX get_new_floor_id(PlayerType *player_ptr)
 }
 
 /*!
- * @brief フロア移動時にペットを伴った場合の準備処理 / Pre-calculate the racial counters of preserved pets
- * @param player_ptr プレイヤーへの参照ポインタ
- * @details
- * To prevent multiple generation of unique monster who is the minion of player
+ * @brief フロアにいるペットの数を数える
+ * @todo party_mon をPartyMonsters クラスに組み上げてそのオブジェクトメソッドに繰り込む
  */
-void precalc_cur_num_of_pet(PlayerType *player_ptr)
+void precalc_cur_num_of_pet()
 {
-    MonsterEntity *m_ptr;
-    int max_num = player_ptr->wild_mode ? 1 : MAX_PARTY_MON;
-    for (int i = 0; i < max_num; i++) {
-        m_ptr = &party_mon[i];
-        if (!m_ptr->is_valid()) {
+    const auto max_num = AngbandWorld::get_instance().is_wild_mode() ? 1 : MAX_PARTY_MON;
+    for (auto i = 0; i < max_num; i++) {
+        auto &monster = party_mon[i];
+        if (!monster.is_valid()) {
             continue;
         }
 
-        m_ptr->get_real_monrace().cur_num++;
+        monster.get_real_monrace().cur_num++;
     }
 }

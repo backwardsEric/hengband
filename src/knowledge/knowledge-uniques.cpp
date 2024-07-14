@@ -8,20 +8,16 @@
 #include "core/show-file.h"
 #include "game-option/cheat-options.h"
 #include "io-dump/dump-util.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
-#include "util/sort.h"
 #include "util/string-processor.h"
 
 struct unique_list_type {
     unique_list_type(bool is_alive);
     int num_uniques[10]{};
     bool is_alive;
-    uint16_t why = 2;
     std::vector<MonsterRaceId> monrace_ids{};
     int num_uniques_surface = 0;
     int num_uniques_over100 = 0;
@@ -52,7 +48,7 @@ static bool sweep_uniques(MonsterRaceInfo *r_ptr, bool is_alive)
         return false;
     }
 
-    bool is_except_arena = is_alive ? (r_ptr->rarity > 100) && ((r_ptr->flags1 & RF1_QUESTOR) == 0) : false;
+    bool is_except_arena = is_alive ? (r_ptr->rarity > 100) && (r_ptr->misc_flags.has_not(MonsterMiscType::QUESTOR)) : false;
     if (!r_ptr->rarity || is_except_arena) {
         return false;
     }
@@ -136,16 +132,16 @@ void do_cmd_knowledge_uniques(PlayerType *player_ptr, bool is_alive)
         return;
     }
 
-    for (auto &[r_idx, r_ref] : monraces_info) {
-        if (!MonsterRace(r_ref.idx).is_valid()) {
+    for (auto &[monrace_id, monrace] : monraces_info) {
+        if (!monrace.is_valid()) {
             continue;
         }
-        if (!sweep_uniques(&r_ref, unique_list_ptr->is_alive)) {
+        if (!sweep_uniques(&monrace, unique_list_ptr->is_alive)) {
             continue;
         }
 
-        if (r_ref.level) {
-            int lev = (r_ref.level - 1) / 10;
+        if (monrace.level) {
+            int lev = (monrace.level - 1) / 10;
             if (lev < 10) {
                 unique_list_ptr->num_uniques[lev]++;
                 if (unique_list_ptr->max_lev < lev) {
@@ -158,13 +154,14 @@ void do_cmd_knowledge_uniques(PlayerType *player_ptr, bool is_alive)
             unique_list_ptr->num_uniques_surface++;
         }
 
-        unique_list_ptr->monrace_ids.push_back(r_ref.idx);
+        unique_list_ptr->monrace_ids.push_back(monrace_id);
     }
 
-    ang_sort(player_ptr, unique_list_ptr->monrace_ids.data(), &unique_list_ptr->why, unique_list_ptr->monrace_ids.size(), ang_sort_comp_hook, ang_sort_swap_hook);
+    const auto &monraces = MonraceList::get_instance();
+    std::stable_sort(unique_list_ptr->monrace_ids.begin(), unique_list_ptr->monrace_ids.end(), [&monraces](auto x, auto y) { return monraces.order(x, y); });
     display_uniques(unique_list_ptr, fff);
     angband_fclose(fff);
     concptr title_desc = unique_list_ptr->is_alive ? _("まだ生きているユニーク・モンスター", "Alive Uniques") : _("もう撃破したユニーク・モンスター", "Dead Uniques");
-    (void)show_file(player_ptr, true, file_name, 0, 0, title_desc);
+    FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, title_desc);
     fd_kill(file_name);
 }

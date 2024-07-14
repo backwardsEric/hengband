@@ -19,10 +19,6 @@
 #include "inventory/inventory-slot-types.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
@@ -43,6 +39,7 @@
 #include "player/player-status.h"
 #include "player/special-defense-types.h"
 #include "status/action-setter.h"
+#include "system/angband-exceptions.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
 #include "system/grid-type-definition.h"
@@ -50,11 +47,8 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-fear.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
+#include "tracking/lore-tracker.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
@@ -73,42 +67,36 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     auto *r_ptr = &m_ptr->get_monrace();
 
-    int dice_num, dice_side;
+    Dice dice{};
     concptr atk_desc;
     switch (attack) {
     case PlayerMutationType::SCOR_TAIL:
-        dice_num = 3;
-        dice_side = 7;
+        dice = Dice(3, 7);
         n_weight = 5;
         atk_desc = _("尻尾", "tail");
         break;
     case PlayerMutationType::HORNS:
-        dice_num = 2;
-        dice_side = 6;
+        dice = Dice(2, 6);
         n_weight = 15;
         atk_desc = _("角", "horns");
         break;
     case PlayerMutationType::BEAK:
-        dice_num = 2;
-        dice_side = 4;
+        dice = Dice(2, 4);
         n_weight = 5;
         atk_desc = _("クチバシ", "beak");
         break;
     case PlayerMutationType::TRUNK:
-        dice_num = 1;
-        dice_side = 4;
+        dice = Dice(1, 4);
         n_weight = 35;
         atk_desc = _("象の鼻", "trunk");
         break;
     case PlayerMutationType::TENTACLES:
-        dice_num = 2;
-        dice_side = 5;
+        dice = Dice(2, 5);
         n_weight = 5;
         atk_desc = _("触手", "tentacles");
         break;
     default:
-        dice_num = dice_side = n_weight = 1;
-        atk_desc = _("未定義の部位", "undefined body part");
+        THROW_EXCEPTION(std::range_error, _("未定義の部位", "undefined body part"));
     }
 
     const auto m_name = monster_desc(player_ptr, m_ptr, 0);
@@ -126,8 +114,7 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
     sound(SOUND_HIT);
     msg_format(_("%sを%sで攻撃した。", "You hit %s with your %s."), m_name.data(), atk_desc);
 
-    int k = damroll(dice_num, dice_side);
-    k = critical_norm(player_ptr, n_weight, bonus, k, (int16_t)bonus, HISSATSU_NONE);
+    auto k = critical_norm(player_ptr, n_weight, bonus, dice.roll(), (int16_t)bonus, HISSATSU_NONE);
     k += player_ptr->to_d_m;
     if (k < 0) {
         k = 0;
@@ -143,7 +130,7 @@ static void natural_attack(PlayerType *player_ptr, MONSTER_IDX m_idx, PlayerMuta
     switch (attack) {
     case PlayerMutationType::SCOR_TAIL:
         project(player_ptr, 0, 0, m_ptr->fy, m_ptr->fx, k, AttributeType::POIS, PROJECT_KILL);
-        *mdeath = !MonsterRace(m_ptr->r_idx).is_valid();
+        *mdeath = !m_ptr->is_valid();
         break;
     case PlayerMutationType::HORNS:
     case PlayerMutationType::BEAK:
@@ -194,18 +181,18 @@ bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_option
     }
 
     const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-    auto effects = player_ptr->effects();
-    auto is_hallucinated = effects->hallucination()->is_hallucinated();
+    const auto effects = player_ptr->effects();
+    const auto is_hallucinated = effects->hallucination().is_hallucinated();
     if (m_ptr->ml) {
         if (!is_hallucinated) {
-            monster_race_track(player_ptr, m_ptr->ap_r_idx);
+            LoreTracker::get_instance().set_trackee(m_ptr->ap_r_idx);
         }
 
         health_track(player_ptr, g_ptr->m_idx);
     }
 
-    auto is_confused = effects->confusion()->is_confused();
-    auto is_stunned = effects->stun()->is_stunned();
+    const auto is_confused = effects->confusion().is_confused();
+    const auto is_stunned = effects->stun().is_stunned();
     if (is_female(*r_ptr) && !(is_stunned || is_confused || is_hallucinated || !m_ptr->ml)) {
         // @todo 「特定の武器を装備している」旨のメソッドを別途作る
         constexpr auto zantetsu = FixedArtifactId::ZANTETSU;
@@ -254,7 +241,7 @@ bool do_cmd_attack(PlayerType *player_ptr, POSITION y, POSITION x, combat_option
         }
     }
 
-    if (effects->fear()->is_fearful()) {
+    if (effects->fear().is_fearful()) {
         if (m_ptr->ml) {
             sound(SOUND_ATTACK_FAILED);
             msg_format(_("恐くて%sを攻撃できない！", "You are too fearful to attack %s!"), m_name.data());

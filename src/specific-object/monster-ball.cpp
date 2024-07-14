@@ -4,7 +4,6 @@
 #include "game-option/input-options.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race.h"
 #include "monster/monster-info.h"
 #include "monster/monster-util.h"
 #include "object/tval-types.h"
@@ -95,16 +94,18 @@ static void restore_monster_nickname(MonsterEntity &monster, ItemEntity &item)
 
 static bool release_monster(PlayerType *player_ptr, ItemEntity &item, DIRECTION dir)
 {
-    auto r_idx = i2enum<MonsterRaceId>(item.pval);
-    if (!monster_can_enter(player_ptr, player_ptr->y + ddy[dir], player_ptr->x + ddx[dir], &monraces_info[r_idx], 0)) {
+    const auto &monrace = item.get_monrace();
+    const auto pos = player_ptr->get_neighbor(dir);
+    if (!monster_can_enter(player_ptr, pos.y, pos.x, &monrace, 0)) {
         return false;
     }
 
-    if (!place_specific_monster(player_ptr, 0, player_ptr->y + ddy[dir], player_ptr->x + ddx[dir], r_idx, PM_FORCE_PET | PM_NO_KAGE)) {
+    const auto m_idx = place_specific_monster(player_ptr, 0, pos.y, pos.x, monrace.idx, PM_FORCE_PET | PM_NO_KAGE);
+    if (!m_idx) {
         return false;
     }
 
-    auto &monster = player_ptr->current_floor_ptr->m_list[hack_m_idx_ii];
+    auto &monster = player_ptr->current_floor_ptr->m_list[*m_idx];
     if (item.captured_monster_speed > 0) {
         monster.mspeed = item.captured_monster_speed;
     }
@@ -141,12 +142,12 @@ bool exe_monster_capture(PlayerType *player_ptr, ItemEntity &item)
         return true;
     }
 
-    DIRECTION dir;
-    if (!get_direction(player_ptr, &dir)) {
+    const auto dir = get_direction(player_ptr);
+    if (!dir) {
         return true;
     }
 
-    if (!release_monster(player_ptr, item, dir)) {
+    if (!release_monster(player_ptr, item, *dir)) {
         msg_print(_("おっと、解放に失敗した。", "Oops.  You failed to release your pet."));
     }
 

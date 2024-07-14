@@ -4,7 +4,6 @@
 #include "player-info/class-types.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
-#include "util/rng-xoshiro.h"
 #include <tuple>
 
 constexpr auto MAX_BOUNTY = 20;
@@ -14,14 +13,19 @@ constexpr auto MAX_BOUNTY = 20;
  */
 enum term_color_type : unsigned char;
 enum class PlayerRaceType;
+class MonsterRaceInfo;
 class AngbandWorld {
 public:
-    AngbandWorld() = default;
+    ~AngbandWorld() = default;
+    AngbandWorld(AngbandWorld &&) = delete;
+    AngbandWorld(const AngbandWorld &) = delete;
+    AngbandWorld &operator=(const AngbandWorld &) = delete;
+    AngbandWorld &operator=(AngbandWorld &&) = delete;
+    static AngbandWorld &get_instance();
 
     POSITION max_wild_x{}; /*!< Maximum size of the wilderness */
     POSITION max_wild_y{}; /*!< Maximum size of the wilderness */
     GAME_TURN game_turn{}; /*!< 画面表示上のゲーム時間基準となるターン / Current game turn */
-    GAME_TURN game_turn_limit{}; /*!< game_turnの最大値 / Limit of game_turn */
     GAME_TURN dungeon_turn{}; /*!< NASTY生成の計算に関わる内部ターン値 / Game turn in dungeon */
     GAME_TURN dungeon_turn_limit{}; /*!< dungeon_turnの最大値 / Limit of game_turn in dungeon */
     GAME_TURN arena_start_turn{}; /*!< 闘技場賭博の開始ターン値 */
@@ -31,24 +35,13 @@ public:
 
     MONSTER_IDX timewalk_m_idx{}; /*!< 現在時間停止を行っているモンスターのID */
 
-    bounty_type bounties[MAX_BOUNTY]{};
+    bounty_type bounties[MAX_BOUNTY]{}; //!< 賞金首ユニーク
+    bool knows_daily_bounty{}; //!< 日替わり賞金首を知っているか否か
     MonsterRaceId today_mon{}; //!< 実際の日替わり賞金首
 
     uint32_t play_time{}; /*!< 実プレイ時間 */
 
-    Xoshiro128StarStar rng; //!< Uniform random bit generator for <random>
-
-    uint32_t seed_flavor{}; /* Hack -- consistent object colors */
-    uint32_t seed_town{}; /* Hack -- consistent town layout */
-
     bool is_loading_now{}; /*!< ロード処理中フラグ...ロード直後にcalc_bonus()時の徳変化、及びsanity_blast()による異常を抑止する */
-
-    byte h_ver_major{}; //!< 変愚蛮怒バージョン(メジャー番号) / Hengband version (major ver.)
-    byte h_ver_minor{}; //!< 変愚蛮怒バージョン(マイナー番号) / Hengband version (minor ver.)
-    byte h_ver_patch{}; //!< 変愚蛮怒バージョン(パッチ番号) / Hengband version (patch ver.)
-    byte h_ver_extra{}; //!< 変愚蛮怒バージョン(エクストラ番号) / Hengband version (extra ver.)
-
-    byte sf_extra{}; //!< セーブファイルエンコードキー(XOR)
 
     uint32_t sf_system{}; //!< OS情報 / OS information
     uint32_t sf_when{}; //!< 作成日時 / Created Date
@@ -70,9 +63,8 @@ public:
 
     bool wizard{}; /* This world under wizard mode */
 
-    OBJECT_IDX max_o_idx = 1024; /*!< 1フロアに存在可能な最大アイテム数 */
-    MONSTER_IDX max_m_idx = 1024; /*!< 1フロアに存在可能な最大モンスター数 */
-
+    bool is_wild_mode() const;
+    void set_wild_mode(bool new_wild_mode);
     void set_arena(const bool new_status);
     bool get_arena() const;
     std::tuple<int, int, int> extract_date_time(PlayerRaceType start_race) const;
@@ -81,12 +73,20 @@ public:
     void add_winner_class(PlayerClassType c);
     void add_retired_class(PlayerClassType c);
     term_color_type get_birth_class_color(PlayerClassType c) const;
+    MonsterRaceInfo &get_today_bounty();
+    const MonsterRaceInfo &get_today_bounty() const;
+    bool is_player_true_winner() const;
+    void pass_game_turn_by_stay();
+    std::string format_real_playtime() const;
+    void set_gametime();
 
 private:
+    AngbandWorld() = default;
+    static AngbandWorld instance;
+
     bool is_out_arena = false; // アリーナ外部にいる時だけtrue.
+    bool wild_mode = false;
 
     bool is_winner_class(PlayerClassType c) const;
     bool is_retired_class(PlayerClassType c) const;
 };
-
-extern AngbandWorld *w_ptr;

@@ -6,10 +6,6 @@
 #include "monster-floor/monster-remover.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
@@ -298,7 +294,7 @@ ProcessResult effect_monster_domination(PlayerType *player_ptr, EffectMonster *e
     }
 
     const auto is_unique = em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    const auto is_questor = any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
+    const auto is_questor = em_ptr->r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
     const auto is_no_confusion = em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF);
     if (is_unique || is_questor || is_no_confusion || (em_ptr->r_ptr->level > randint1((em_ptr->dam - 10) < 1 ? 1 : (em_ptr->dam - 10)) + 10)) {
         if ((em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) && is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
@@ -342,7 +338,7 @@ static bool effect_monster_crusade_domination(PlayerType *player_ptr, EffectMons
         return true;
     }
 
-    bool failed = any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
+    bool failed = em_ptr->r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
     failed |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
     failed |= em_ptr->m_ptr->mflag2.has(MonsterConstantFlagType::NOPET);
     failed |= has_aggravate(player_ptr);
@@ -415,7 +411,7 @@ static int calcutate_capturable_hp(PlayerType *player_ptr, MonsterEntity *m_ptr,
 static void effect_monster_captured(PlayerType *player_ptr, EffectMonster *em_ptr, std::optional<CapturedMonsterType *> tmp_cap_mon_ptr)
 {
     if (em_ptr->m_ptr->mflag2.has(MonsterConstantFlagType::CHAMELEON)) {
-        choose_new_monster(player_ptr, em_ptr->g_ptr->m_idx, false, MonsterRaceId::CHAMELEON);
+        em_ptr->m_ptr->reset_chameleon_polymorph();
     }
 
     msg_format(_("%sを捕えた！", "You capture %s^!"), em_ptr->m_name);
@@ -441,26 +437,26 @@ static void effect_monster_captured(PlayerType *player_ptr, EffectMonster *em_pt
  */
 ProcessResult effect_monster_capture(PlayerType *player_ptr, EffectMonster *em_ptr, std::optional<CapturedMonsterType *> cap_mon_ptr)
 {
-    const auto &quest_list = QuestList::get_instance();
-    auto *floor_ptr = player_ptr->current_floor_ptr;
+    const auto &quests = QuestList::get_instance();
+    const auto &floor = *player_ptr->current_floor_ptr;
 
-    auto quest_monster = floor_ptr->is_in_quest();
-    quest_monster &= (quest_list[floor_ptr->quest_number].type == QuestKindType::KILL_ALL);
+    auto quest_monster = floor.is_in_quest();
+    quest_monster &= (quests.get_quest(floor.quest_number).type == QuestKindType::KILL_ALL);
     quest_monster &= !em_ptr->m_ptr->is_pet();
 
     auto cannot_capture = quest_monster;
     cannot_capture |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    cannot_capture |= any_bits(em_ptr->r_ptr->flags1, RF1_QUESTOR);
+    cannot_capture |= em_ptr->r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
     cannot_capture |= em_ptr->r_ptr->population_flags.has(MonsterPopulationType::NAZGUL);
     cannot_capture |= em_ptr->r_ptr->population_flags.has(MonsterPopulationType::ONLY_ONE);
-    cannot_capture |= (em_ptr->m_ptr->parent_m_idx != 0);
+    cannot_capture |= em_ptr->m_ptr->has_parent();
     if (cannot_capture) {
         msg_format(_("%sには効果がなかった。", "%s is unaffected."), em_ptr->m_name);
         em_ptr->skipped = true;
         return ProcessResult::PROCESS_CONTINUE;
     }
 
-    auto r_max_hp = em_ptr->r_ptr->hdice * em_ptr->r_ptr->hside;
+    auto r_max_hp = em_ptr->r_ptr->hit_dice.maxroll();
     auto threshold_hp = calcutate_capturable_hp(player_ptr, em_ptr->m_ptr, r_max_hp);
     auto capturable_hp = std::max(2, calcutate_capturable_hp(player_ptr, em_ptr->m_ptr, em_ptr->m_ptr->max_maxhp));
 

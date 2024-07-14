@@ -19,7 +19,6 @@
 #include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trg-types.h"
-#include "object-hook/hook-quest.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
@@ -73,10 +72,10 @@ static std::string describe_chest_trap(const ItemEntity &item)
     case ChestTrapType::SCATTER:
         return _("(アイテム散乱)", " (Scatter)");
     case ChestTrapType::MAX:
-        throw("Invalid chest trap type is specified!");
+        THROW_EXCEPTION(std::logic_error, "Invalid chest trap type is specified!");
+    default:
+        return "";
     }
-
-    return "";
 }
 
 static std::string describe_chest(const ItemEntity &item, const describe_option_type &opt)
@@ -141,13 +140,16 @@ static bool should_show_slaying_bonus(const ItemEntity &item)
 
 static std::string describe_weapon_dice(PlayerType *player_ptr, const ItemEntity &item, const describe_option_type &opt)
 {
-    if (!opt.known && object_is_quest_target(player_ptr->current_floor_ptr->quest_number, &item)) {
+    if (!opt.known && item.is_target_of(player_ptr->current_floor_ptr->quest_number)) {
         return "";
     }
 
     const auto is_bonus = (player_ptr->riding > 0) && item.is_lance();
-    const auto bonus = is_bonus ? 2 : 0;
-    return format(" (%dd%d)", item.dd + bonus, item.ds);
+    auto bonused_dice = item.damage_dice;
+    if (is_bonus) {
+        bonused_dice.num += 2;
+    }
+    return format(" (%s)", bonused_dice.to_string().data());
 }
 
 static std::string describe_bow_power(PlayerType *player_ptr, const ItemEntity &item, const describe_option_type &opt)
@@ -246,7 +248,7 @@ static std::string describe_fire_energy(PlayerType *player_ptr, const ItemEntity
 
 static std::string describe_ammo_detail(PlayerType *player_ptr, const ItemEntity &ammo, const ItemEntity &bow, const describe_option_type &opt)
 {
-    auto avgdam = ammo.dd * (ammo.ds + 1) * 10 / 2;
+    auto avgdam = ammo.damage_dice.floored_expected_value_multiplied_by(10);
     auto tmul = bow.get_arrow_magnification();
     if (bow.is_known()) {
         avgdam += (bow.to_d * 10);

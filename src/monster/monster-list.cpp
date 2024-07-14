@@ -22,12 +22,7 @@
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-kind-mask.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags2.h"
-#include "monster-race/race-flags3.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
@@ -62,27 +57,28 @@
 MONSTER_IDX m_pop(FloorType *floor_ptr)
 {
     /* Normal allocation */
-    if (floor_ptr->m_max < w_ptr->max_m_idx) {
-        MONSTER_IDX i = floor_ptr->m_max;
+    if (floor_ptr->m_max < MAX_FLOOR_MONSTERS) {
+        const auto i = floor_ptr->m_max;
         floor_ptr->m_max++;
         floor_ptr->m_cnt++;
         return i;
     }
 
     /* Recycle dead monsters */
-    for (MONSTER_IDX i = 1; i < floor_ptr->m_max; i++) {
-        MonsterEntity *m_ptr;
-        m_ptr = &floor_ptr->m_list[i];
-        if (MonsterRace(m_ptr->r_idx).is_valid()) {
+    for (short i = 1; i < floor_ptr->m_max; i++) {
+        const auto &monster = floor_ptr->m_list[i];
+        if (monster.is_valid()) {
             continue;
         }
+
         floor_ptr->m_cnt++;
         return i;
     }
 
-    if (w_ptr->character_dungeon) {
+    if (AngbandWorld::get_instance().character_dungeon) {
         msg_print(_("モンスターが多すぎる！", "Too many monsters!"));
     }
+
     return 0;
 }
 
@@ -108,7 +104,7 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
 
     /* +1 per day after the base date */
     /* base dates : day5(1F), day18(10F,0F), day34(30F), day53(60F), day69(90F) */
-    const auto over_days = std::max<int>(0, w_ptr->dungeon_turn / (TURNS_PER_TICK * 10000L) - delay / 20);
+    const auto over_days = std::max<int>(0, AngbandWorld::get_instance().dungeon_turn / (TURNS_PER_TICK * 10000L) - delay / 20);
 
     /* Probability starts from 1/25, reaches 1/3 after 44days from a max_level dependent base date */
     /* Boost level starts from 0, reaches +25lv after 75days from a max_level dependent base date */
@@ -158,7 +154,7 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
         } // sorted by depth array,
         auto r_idx = i2enum<MonsterRaceId>(entry.index);
         auto r_ptr = &monraces_info[r_idx];
-        if (none_bits(mode, PM_ARENA) && !chameleon_change_m_idx) {
+        if (none_bits(mode, PM_ARENA | PM_CHAMELEON)) {
             if ((r_ptr->kind_flags.has(MonsterKindType::UNIQUE) || r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) && (r_ptr->cur_num >= r_ptr->max_num) && none_bits(mode, PM_CLONE)) {
                 continue;
             }
@@ -181,7 +177,7 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
     }
 
     if (prob_table.empty()) {
-        return MonsterRace::empty_id();
+        return MonraceList::empty_id();
     }
 
     // 40%で1回、50%で2回、10%で3回抽選し、その中で一番レベルが高いモンスターを選択する
@@ -207,19 +203,22 @@ MonsterRaceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_lev
  * @param player_ptr プレイヤーへの参照ポインタ
  * @brief カメレオンの王の変身対象となるモンスターかどうか判定する / Hack -- the index of the summoning monster
  * @param r_idx モンスター種族ID
+ * @param m_idx 変身するモンスターのモンスターID
+ * @param grid カメレオンの足元の地形
+ * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
  * @return 対象にできるならtrueを返す
  */
-static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_idx)
+static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_idx, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *r_ptr = &monraces_info[r_idx];
-    auto *m_ptr = &floor_ptr->m_list[chameleon_change_m_idx];
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
     MonsterRaceInfo *old_r_ptr = &m_ptr->get_monrace();
 
     if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE)) {
         return false;
     }
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY) || (r_ptr->flags7 & RF7_CHAMELEON)) {
+    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY) || r_ptr->misc_flags.has(MonsterMiscType::CHAMELEON)) {
         return false;
     }
 
@@ -227,22 +226,20 @@ static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_
         return false;
     }
 
-    if (m_ptr->is_explodable()) {
+    if (r_ptr->is_explodable()) {
         return false;
     }
 
-    if (!monster_can_cross_terrain(player_ptr, floor_ptr->grid_array[m_ptr->fy][m_ptr->fx].feat, r_ptr, 0)) {
+    if (!monster_can_cross_terrain(player_ptr, grid.feat, r_ptr, 0)) {
         return false;
     }
 
-    if (!(old_r_ptr->flags7 & RF7_CHAMELEON)) {
+    if (old_r_ptr->misc_flags.has_not(MonsterMiscType::CHAMELEON)) {
         if (monster_has_hostile_align(player_ptr, m_ptr, 0, 0, r_ptr)) {
             return false;
         }
-    } else if (summon_specific_who > 0) {
-        if (monster_has_hostile_align(player_ptr, &floor_ptr->m_list[summon_specific_who], 0, 0, r_ptr)) {
-            return false;
-        }
+    } else if (summoner_m_idx && monster_has_hostile_align(player_ptr, &floor_ptr->m_list[*summoner_m_idx], 0, 0, r_ptr)) {
+        return false;
     }
 
     return true;
@@ -251,35 +248,38 @@ static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonsterRaceId r_
 /*!
  * @brief カメレオンの変身対象となるモンスターかどうか判定する / Hack -- the index of the summoning monster
  * @param r_idx モンスター種族ID
+ * @param m_idx 変身するモンスターのモンスターID
+ * @param grid カメレオンの足元の地形
+ * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
  * @return 対象にできるならtrueを返す
  * @todo グローバル変数対策の上 monster_hook.cへ移す。
  */
-static bool monster_hook_chameleon(PlayerType *player_ptr, MonsterRaceId r_idx)
+static bool monster_hook_chameleon(PlayerType *player_ptr, MonsterRaceId r_idx, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *r_ptr = &monraces_info[r_idx];
-    auto *m_ptr = &floor_ptr->m_list[chameleon_change_m_idx];
+    auto *m_ptr = &floor_ptr->m_list[m_idx];
     MonsterRaceInfo *old_r_ptr = &m_ptr->get_monrace();
 
     if (r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
         return false;
     }
-    if (r_ptr->flags2 & RF2_MULTIPLY) {
+    if (r_ptr->misc_flags.has(MonsterMiscType::MULTIPLY)) {
         return false;
     }
-    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY) || (r_ptr->flags7 & RF7_CHAMELEON)) {
-        return false;
-    }
-
-    if (m_ptr->is_explodable()) {
+    if (r_ptr->behavior_flags.has(MonsterBehaviorType::FRIENDLY) || (r_ptr->misc_flags.has(MonsterMiscType::CHAMELEON))) {
         return false;
     }
 
-    if (!monster_can_cross_terrain(player_ptr, floor_ptr->grid_array[m_ptr->fy][m_ptr->fx].feat, r_ptr, 0)) {
+    if (r_ptr->is_explodable()) {
         return false;
     }
 
-    if (!(old_r_ptr->flags7 & RF7_CHAMELEON)) {
+    if (!monster_can_cross_terrain(player_ptr, grid.feat, r_ptr, 0)) {
+        return false;
+    }
+
+    if (old_r_ptr->misc_flags.has_not(MonsterMiscType::CHAMELEON)) {
         if (old_r_ptr->kind_flags.has(MonsterKindType::GOOD) && r_ptr->kind_flags.has_not(MonsterKindType::GOOD)) {
             return false;
         }
@@ -289,148 +289,81 @@ static bool monster_hook_chameleon(PlayerType *player_ptr, MonsterRaceId r_idx)
         if (old_r_ptr->kind_flags.has_none_of(alignment_mask)) {
             return false;
         }
-    } else if (summon_specific_who > 0) {
-        if (monster_has_hostile_align(player_ptr, &floor_ptr->m_list[summon_specific_who], 0, 0, r_ptr)) {
-            return false;
-        }
+    } else if (summoner_m_idx && monster_has_hostile_align(player_ptr, &floor_ptr->m_list[*summoner_m_idx], 0, 0, r_ptr)) {
+        return false;
     }
 
     auto hook_pf = get_monster_hook(player_ptr);
-    return (*hook_pf)(player_ptr, r_idx);
+    return hook_pf(player_ptr, r_idx);
 }
 
-/*!
- * @brief モンスターの変身処理
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param m_idx 変身処理を受けるモンスター情報のID
- * @param born 生成時の初変身先指定ならばtrue
- * @param r_idx 旧モンスター種族のID
- */
-void choose_new_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool born, MonsterRaceId r_idx)
+static std::optional<MonsterRaceId> polymorph_of_chameleon(PlayerType *player_ptr, MONSTER_IDX m_idx, const Grid &grid, const std::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto *floor_ptr = player_ptr->current_floor_ptr;
     auto *m_ptr = &floor_ptr->m_list[m_idx];
-    MonsterRaceInfo *r_ptr;
 
     bool old_unique = false;
     if (m_ptr->get_monrace().kind_flags.has(MonsterKindType::UNIQUE)) {
         old_unique = true;
     }
-    if (old_unique && (r_idx == MonsterRaceId::CHAMELEON)) {
-        r_idx = MonsterRaceId::CHAMELEON_K;
-    }
-    r_ptr = &monraces_info[r_idx];
 
-    const auto old_m_name = monster_desc(player_ptr, m_ptr, 0);
+    auto hook_fp = old_unique ? monster_hook_chameleon_lord : monster_hook_chameleon;
+    auto hook = [m_idx, grid, summoner_m_idx, hook_fp](PlayerType *player_ptr, MonsterRaceId r_idx) {
+        return hook_fp(player_ptr, r_idx, m_idx, grid, summoner_m_idx);
+    };
+    get_mon_num_prep_chameleon(player_ptr, std::move(hook));
 
-    if (!MonsterRace(r_idx).is_valid()) {
-        DEPTH level;
+    int level;
 
-        chameleon_change_m_idx = m_idx;
-        if (old_unique) {
-            get_mon_num_prep(player_ptr, monster_hook_chameleon_lord, nullptr);
-        } else {
-            get_mon_num_prep(player_ptr, monster_hook_chameleon, nullptr);
-        }
-
-        if (old_unique) {
-            level = monraces_info[MonsterRaceId::CHAMELEON_K].level;
-        } else if (!floor_ptr->dun_level) {
-            level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
-        } else {
-            level = floor_ptr->dun_level;
-        }
-
-        if (floor_ptr->get_dungeon_definition().flags.has(DungeonFeatureType::CHAMELEON)) {
-            level += 2 + randint1(3);
-        }
-
-        r_idx = get_mon_num(player_ptr, 0, level, 0);
-        r_ptr = &monraces_info[r_idx];
-
-        chameleon_change_m_idx = 0;
-        if (!MonsterRace(r_idx).is_valid()) {
-            return;
-        }
-    }
-
-    m_ptr->r_idx = r_idx;
-    m_ptr->ap_r_idx = r_idx;
-    update_monster(player_ptr, m_idx, false);
-    lite_spot(player_ptr, m_ptr->fy, m_ptr->fx);
-
-    auto old_r_idx = m_ptr->r_idx;
-    if (monraces_info[old_r_idx].brightness_flags.has_any_of(ld_mask) || r_ptr->brightness_flags.has_any_of(ld_mask)) {
-        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);
-    }
-
-    if (born) {
-        if (r_ptr->kind_flags.has_any_of(alignment_mask)) {
-            m_ptr->sub_align = SUB_ALIGN_NEUTRAL;
-            if (r_ptr->kind_flags.has(MonsterKindType::EVIL)) {
-                m_ptr->sub_align |= SUB_ALIGN_EVIL;
-            }
-            if (r_ptr->kind_flags.has(MonsterKindType::GOOD)) {
-                m_ptr->sub_align |= SUB_ALIGN_GOOD;
-            }
-        }
-
-        return;
-    }
-
-    if (m_idx == player_ptr->riding) {
-        msg_format(_("突然%sが変身した。", "Suddenly, %s transforms!"), old_m_name.data());
-        if (!(r_ptr->flags7 & RF7_RIDING)) {
-            if (process_fall_off_horse(player_ptr, 0, true)) {
-                const auto m_name = monster_desc(player_ptr, m_ptr, 0);
-                msg_print(_("地面に落とされた。", format("You have fallen from %s.", m_name.data())));
-            }
-        }
-    }
-
-    m_ptr->mspeed = get_mspeed(floor_ptr, r_ptr);
-
-    int oldmaxhp = m_ptr->max_maxhp;
-    if (r_ptr->flags1 & RF1_FORCE_MAXHP) {
-        m_ptr->max_maxhp = maxroll(r_ptr->hdice, r_ptr->hside);
+    if (old_unique) {
+        level = monraces_info[MonsterRaceId::CHAMELEON_K].level;
+    } else if (!floor_ptr->dun_level) {
+        level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
     } else {
-        m_ptr->max_maxhp = damroll(r_ptr->hdice, r_ptr->hside);
+        level = floor_ptr->dun_level;
     }
 
-    if (ironman_nightmare) {
-        auto hp = m_ptr->max_maxhp * 2;
-        m_ptr->max_maxhp = std::min(MONSTER_MAXHP, hp);
+    if (floor_ptr->get_dungeon_definition().flags.has(DungeonFeatureType::CHAMELEON)) {
+        level += 2 + randint1(3);
     }
 
-    m_ptr->maxhp = (long)(m_ptr->maxhp * m_ptr->max_maxhp) / oldmaxhp;
-    if (m_ptr->maxhp < 1) {
-        m_ptr->maxhp = 1;
+    const auto new_monrace_id = get_mon_num(player_ptr, 0, level, PM_CHAMELEON);
+
+    if (!MonraceList::is_valid(new_monrace_id)) {
+        return std::nullopt;
     }
-    m_ptr->hp = (long)(m_ptr->hp * m_ptr->max_maxhp) / oldmaxhp;
-    m_ptr->dealt_damage = 0;
+
+    return new_monrace_id;
 }
 
 /*!
- * @brief モンスターの個体加速を設定する / Get initial monster speed
- * @param r_ptr モンスター種族の参照ポインタ
- * @return 加速値
+ * @brief カメレオンの変身処理
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param m_idx 変身処理を受けるモンスター情報のID
+ * @param grid カメレオンの足元の地形
+ * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
  */
-byte get_mspeed(FloorType *floor_ptr, MonsterRaceInfo *r_ptr)
+void choose_chameleon_polymorph(PlayerType *player_ptr, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
 {
-    auto mspeed = r_ptr->speed;
-    if (r_ptr->kind_flags.has_not(MonsterKindType::UNIQUE) && !floor_ptr->inside_arena) {
-        /* Allow some small variation per monster */
-        int i = speed_to_energy(r_ptr->speed) / (one_in_(4) ? 3 : 10);
-        if (i) {
-            mspeed += rand_spread(0, i);
-        }
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto &monster = floor.m_list[m_idx];
+
+    auto new_monrace_id = polymorph_of_chameleon(player_ptr, m_idx, grid, summoner_m_idx);
+    if (!new_monrace_id) {
+        return;
     }
 
-    if (mspeed > 199) {
-        mspeed = 199;
-    }
+    const auto &monrace = MonraceList::get_instance().get_monrace(*new_monrace_id);
 
-    return mspeed;
+    monster.r_idx = *new_monrace_id;
+    monster.ap_r_idx = *new_monrace_id;
+    update_monster(player_ptr, m_idx, false);
+    lite_spot(player_ptr, monster.fy, monster.fx);
+
+    const auto &new_monrace = monster.get_monrace();
+    if (new_monrace.brightness_flags.has_any_of(ld_mask) || monrace.brightness_flags.has_any_of(ld_mask)) {
+        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);
+    }
 }
 
 /*!
@@ -453,7 +386,7 @@ int get_monster_crowd_number(FloorType *floor_ptr, MONSTER_IDX m_idx)
         if (!in_bounds(floor_ptr, ay, ax)) {
             continue;
         }
-        if (floor_ptr->grid_array[ay][ax].m_idx > 0) {
+        if (floor_ptr->grid_array[ay][ax].has_monster()) {
             count++;
         }
     }

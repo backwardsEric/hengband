@@ -1,5 +1,4 @@
 #include "load/player-info-loader.h"
-#include "cmd-building/cmd-building.h"
 #include "load/angband-version-comparer.h"
 #include "load/birth-loader.h"
 #include "load/dummy-loader.h"
@@ -10,30 +9,24 @@
 #include "load/player-class-specific-data-loader.h"
 #include "load/savedata-old-flag-types.h"
 #include "load/world-loader.h"
+#include "market/arena-entry.h"
 #include "market/arena.h"
 #include "monster-race/race-ability-flags.h"
 #include "mutation/mutation-calculator.h"
+#include "object/tval-types.h"
 #include "player-base/player-class.h"
 #include "player-info/mane-data-type.h"
 #include "player-info/sniper-data-type.h"
 #include "player/attack-defense-types.h"
+#include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "spell-realm/spells-song.h"
 #include "system/angband-exceptions.h"
 #include "system/angband-system.h"
 #include "system/dungeon-info.h"
 #include "system/floor-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-acceleration.h"
-#include "timed-effect/player-blindness.h"
-#include "timed-effect/player-confusion.h"
-#include "timed-effect/player-cut.h"
-#include "timed-effect/player-deceleration.h"
-#include "timed-effect/player-fear.h"
-#include "timed-effect/player-hallucination.h"
-#include "timed-effect/player-paralysis.h"
-#include "timed-effect/player-poison.h"
-#include "timed-effect/player-stun.h"
 #include "timed-effect/timed-effects.h"
 #include "world/world.h"
 
@@ -43,16 +36,24 @@
  */
 static void rd_realms(PlayerType *player_ptr)
 {
+    PlayerRealm pr(player_ptr);
+    pr.reset();
+
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
         player_ptr->element = rd_byte();
-    } else {
-        player_ptr->realm1 = rd_byte();
+        (void)rd_byte();
+        return;
     }
 
-    player_ptr->realm2 = rd_byte();
-    if (player_ptr->realm2 == 255) {
-        player_ptr->realm2 = 0;
+    const auto realm1 = i2enum<RealmType>(rd_byte());
+    auto realm2 = rd_byte();
+    if (realm1 == RealmType::NONE) {
+        return;
     }
+    if (realm2 == 255) { // 何のため？
+        realm2 = 0;
+    }
+    pr.set(realm1, i2enum<RealmType>(realm2));
 }
 
 /*!
@@ -61,18 +62,20 @@ static void rd_realms(PlayerType *player_ptr)
  */
 void rd_base_info(PlayerType *player_ptr)
 {
-    rd_string(player_ptr->name, sizeof(player_ptr->name));
-    rd_string(player_ptr->died_from, 1024);
+    const auto player_name = rd_string();
+    const auto player_name_len = player_name.copy(player_ptr->name, sizeof(player_ptr->name) - 1);
+    player_ptr->name[player_name_len] = '\0';
+    player_ptr->died_from = rd_string();
     if (!h_older_than(1, 7, 0, 1)) {
-        char buf[1024];
-        rd_string(buf, sizeof buf);
-        player_ptr->last_message = buf;
+        player_ptr->last_message = rd_string();
     }
 
     load_quick_start();
     const int max_history_lines = 4;
     for (int i = 0; i < max_history_lines; i++) {
-        rd_string(player_ptr->history[i], sizeof(player_ptr->history[i]));
+        const auto history = rd_string();
+        const auto history_len = history.copy(player_ptr->history[i], sizeof(player_ptr->history[i]) - 1);
+        player_ptr->history[i][history_len] = '\0';
     }
 
     player_ptr->prace = i2enum<PlayerRaceType>(rd_byte());
@@ -87,7 +90,7 @@ void rd_base_info(PlayerType *player_ptr)
         set_zangband_realm(player_ptr);
     }
 
-    player_ptr->hitdie = rd_byte();
+    player_ptr->hit_dice = Dice(1, rd_byte());
     player_ptr->expfact = rd_u16b();
 
     player_ptr->age = rd_s16b();
@@ -153,7 +156,7 @@ void rd_skills(PlayerType *player_ptr)
 
 static void set_race(PlayerType *player_ptr)
 {
-    player_ptr->start_race = i2enum<PlayerRaceType>(rd_byte());
+    InnerGameData::get_instance().set_start_race(i2enum<PlayerRaceType>(rd_byte()));
     player_ptr->old_race1 = rd_u32b();
     player_ptr->old_race2 = rd_u32b();
     player_ptr->old_realm = rd_s16b();
@@ -176,21 +179,20 @@ void rd_bounty_uniques(PlayerType *player_ptr)
         return;
     }
 
-    for (auto &[r_idx, is_achieved] : w_ptr->bounties) {
-        auto r_idx_num = rd_s16b();
-
+    for (auto &[bounty_monrace_id, is_achieved] : AngbandWorld::get_instance().bounties) {
+        auto monrace_id = rd_s16b();
         if (loading_savefile_version_is_older_than(16)) {
             constexpr auto old_achieved_flag = 10000; // かつて賞金首達成フラグとしてモンスター種族番号を10000増やしていた
             is_achieved = false;
-            if (r_idx_num >= old_achieved_flag) {
-                r_idx_num -= old_achieved_flag;
+            if (monrace_id >= old_achieved_flag) {
+                monrace_id -= old_achieved_flag;
                 is_achieved = true;
             }
         } else {
             is_achieved = rd_bool();
         }
 
-        r_idx = i2enum<MonsterRaceId>(r_idx_num);
+        bounty_monrace_id = i2enum<MonsterRaceId>(monrace_id);
     }
 }
 
@@ -276,21 +278,31 @@ static void rd_arena(PlayerType *player_ptr)
     }
 
     player_ptr->town_num = rd_s16b();
-    player_ptr->arena_number = rd_s16b();
+    auto &entries = ArenaEntryList::get_instance();
+    entries.load_current_entry(rd_s16b());
     if (h_older_than(1, 5, 0, 1)) {
-        if (player_ptr->arena_number >= 99) {
-            player_ptr->arena_number = ARENA_DEFEATED_OLD_VER;
+        if (entries.get_current_entry() >= 99) {
+            entries.reset_entry();
+            entries.set_defeated_entry();
         }
+    } else if (loading_savefile_version < 23) {
+        const auto currrent_entry = entries.get_current_entry();
+        if (currrent_entry < 0) {
+            entries.load_current_entry(-currrent_entry);
+            entries.set_defeated_entry();
+        }
+    } else {
+        entries.load_defeated_entry(rd_s16b());
     }
 
     rd_phase_out(player_ptr);
-    w_ptr->set_arena(rd_bool());
+    AngbandWorld::get_instance().set_arena(rd_bool());
     strip_bytes(1);
 
     player_ptr->oldpx = rd_s16b();
     player_ptr->oldpy = rd_s16b();
-    const auto &floor_ref = *player_ptr->current_floor_ptr;
-    if (h_older_than(0, 3, 13) && !floor_ref.is_in_dungeon() && !floor_ref.inside_arena) {
+    const auto &floor = *player_ptr->current_floor_ptr;
+    if (h_older_than(0, 3, 13) && !floor.is_in_underground() && !floor.inside_arena) {
         player_ptr->oldpy = 33;
         player_ptr->oldpx = 131;
     }
@@ -336,9 +348,9 @@ static void rd_bad_status(PlayerType *player_ptr)
 {
     auto effects = player_ptr->effects();
     strip_bytes(2); /* Old "rest" */
-    effects->blindness()->set(rd_s16b());
-    effects->paralysis()->set(rd_s16b());
-    effects->confusion()->set(rd_s16b());
+    effects->blindness().set(rd_s16b());
+    effects->paralysis().set(rd_s16b());
+    effects->confusion().set(rd_s16b());
     player_ptr->food = rd_s16b();
     strip_bytes(4); /* Old "food_digested" / "protection" */
 }
@@ -365,13 +377,13 @@ static void rd_energy(PlayerType *player_ptr)
 static void rd_status(PlayerType *player_ptr)
 {
     const auto effects = player_ptr->effects();
-    effects->acceleration()->set(rd_s16b());
-    effects->deceleration()->set(rd_s16b());
-    effects->fear()->set(rd_s16b());
-    effects->cut()->set(rd_s16b());
-    effects->stun()->set(rd_s16b());
-    effects->poison()->set(rd_s16b());
-    effects->hallucination()->set(rd_s16b());
+    effects->acceleration().set(rd_s16b());
+    effects->deceleration().set(rd_s16b());
+    effects->fear().set(rd_s16b());
+    effects->cut().set(rd_s16b());
+    effects->stun().set(rd_s16b());
+    effects->poison().set(rd_s16b());
+    effects->hallucination().set(rd_s16b());
     player_ptr->protevil = rd_s16b();
     player_ptr->invuln = rd_s16b();
     if (h_older_than(0, 0, 0)) {

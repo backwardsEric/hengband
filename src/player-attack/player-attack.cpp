@@ -23,12 +23,11 @@
 #include "mind/mind-samurai.h"
 #include "mind/monk-attack.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
-#include "monster-race/race-flags3.h"
 #include "monster/monster-damage.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
+#include "monster/monster-util.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/vorpal-weapon.h"
 #include "object-hook/hook-weapon.h"
@@ -52,7 +51,6 @@
 #include "system/monster-entity.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "timed-effect/player-cut.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
@@ -251,7 +249,7 @@ static MagicalBrandEffectType select_magical_brand_effect(PlayerType *player_ptr
  * @param pa_ptr プレイヤー攻撃情報への参照ポインタ
  * @return ダイス数
  */
-static DICE_NUMBER magical_brand_extra_dice(player_attack_type *pa_ptr)
+static int magical_brand_extra_dice(player_attack_type *pa_ptr)
 {
     switch (pa_ptr->magical_effect) {
     case MagicalBrandEffectType::NONE:
@@ -329,9 +327,9 @@ static bool does_weapon_has_flag(BIT_FLAGS &attacker_flags, player_attack_type *
 static void process_weapon_attack(PlayerType *player_ptr, player_attack_type *pa_ptr, bool *do_quake, const bool vorpal_cut, const int vorpal_chance)
 {
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    auto dd = o_ptr->dd + player_ptr->to_dd[pa_ptr->hand] + magical_brand_extra_dice(pa_ptr);
-    pa_ptr->attack_damage = damroll(dd, o_ptr->ds + player_ptr->to_ds[pa_ptr->hand]);
-    pa_ptr->attack_damage = calc_attack_damage_with_slay(player_ptr, o_ptr, pa_ptr->attack_damage, pa_ptr->m_ptr, pa_ptr->mode, false);
+    const auto num = o_ptr->damage_dice.num + player_ptr->damage_dice_bonus[pa_ptr->hand].num + magical_brand_extra_dice(pa_ptr);
+    const auto sides = o_ptr->damage_dice.sides + player_ptr->damage_dice_bonus[pa_ptr->hand].sides;
+    pa_ptr->attack_damage = calc_attack_damage_with_slay(player_ptr, o_ptr, Dice::roll(num, sides), pa_ptr->m_ptr, pa_ptr->mode, false);
     calc_surprise_attack_damage(player_ptr, pa_ptr);
 
     if (does_equip_cause_earthquake(player_ptr, pa_ptr) || (pa_ptr->chaos_effect == CE_QUAKE) || (pa_ptr->mode == HISSATSU_QUAKE)) {
@@ -390,7 +388,7 @@ static void apply_damage_bonus(PlayerType *player_ptr, player_attack_type *pa_pt
         pa_ptr->attack_damage = 0;
     }
 
-    auto is_cut = player_ptr->effects()->cut()->is_cut();
+    auto is_cut = player_ptr->effects()->cut().is_cut();
     if ((pa_ptr->mode == HISSATSU_SEKIRYUKA) && !is_cut) {
         pa_ptr->attack_damage /= 2;
     }
@@ -520,7 +518,7 @@ static void cause_earthquake(PlayerType *player_ptr, player_attack_type *pa_ptr,
     }
 
     earthquake(player_ptr, player_ptr->y, player_ptr->x, 10, 0);
-    if (player_ptr->current_floor_ptr->grid_array[y][x].m_idx == 0) {
+    if (!player_ptr->current_floor_ptr->grid_array[y][x].has_monster()) {
         *(pa_ptr->mdeath) = true;
     }
 }
@@ -545,8 +543,8 @@ void exe_player_attack_to_monster(PlayerType *player_ptr, POSITION y, POSITION x
     player_attack_type tmp_attack(*player_ptr->current_floor_ptr, y, x, hand, mode, fear, mdeath);
     auto pa_ptr = &tmp_attack;
 
-    bool is_human = (pa_ptr->r_ptr->d_char == 'p');
-    bool is_lowlevel = (pa_ptr->r_ptr->level < (player_ptr->lev - 15));
+    const auto is_human = pa_ptr->r_ptr->symbol_char_is_any_of("p");
+    const auto is_lowlevel = (pa_ptr->r_ptr->level < (player_ptr->lev - 15));
 
     attack_classify(player_ptr, pa_ptr);
     get_attack_exp(player_ptr, pa_ptr);
@@ -557,8 +555,8 @@ void exe_player_attack_to_monster(PlayerType *player_ptr, POSITION y, POSITION x
 
     int chance = calc_attack_quality(player_ptr, pa_ptr);
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
-    bool is_zantetsu_nullified = (o_ptr->is_specific_artifact(FixedArtifactId::ZANTETSU) && (pa_ptr->r_ptr->d_char == 'j'));
-    bool is_ej_nullified = (o_ptr->is_specific_artifact(FixedArtifactId::EXCALIBUR_J) && (pa_ptr->r_ptr->d_char == 'S'));
+    const auto is_zantetsu_nullified = o_ptr->is_specific_artifact(FixedArtifactId::ZANTETSU) && pa_ptr->r_ptr->symbol_char_is_any_of("j");
+    const auto is_ej_nullified = o_ptr->is_specific_artifact(FixedArtifactId::EXCALIBUR_J) && pa_ptr->r_ptr->symbol_char_is_any_of("S");
     calc_num_blow(player_ptr, pa_ptr);
 
     /* Attack once for each legal blow */
@@ -613,7 +611,7 @@ void massacre(PlayerType *player_ptr)
         POSITION x = player_ptr->x + ddx_ddd[dir];
         g_ptr = &player_ptr->current_floor_ptr->grid_array[y][x];
         m_ptr = &player_ptr->current_floor_ptr->m_list[g_ptr->m_idx];
-        if (g_ptr->m_idx && (m_ptr->ml || cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT))) {
+        if (g_ptr->has_monster() && (m_ptr->ml || cave_has_flag_bold(player_ptr->current_floor_ptr, y, x, TerrainCharacteristics::PROJECT))) {
             do_cmd_attack(player_ptr, y, x, HISSATSU_NONE);
         }
     }

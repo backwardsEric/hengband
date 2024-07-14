@@ -4,12 +4,10 @@
 #include "floor/wild.h"
 #include "game-option/cheat-options.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-flags1.h"
-#include "monster-race/race-flags7.h"
 #include "monster-race/race-indice-types.h"
+#include "monster-race/race-misc-flags.h"
 #include "spell/summon-types.h"
 #include "system/alloc-entries.h"
 #include "system/angband-system.h"
@@ -30,23 +28,6 @@ enum dungeon_mode_type {
     DUNGEON_MODE_OR = 3,
     DUNGEON_MODE_NOR = 4,
 };
-
-MONSTER_IDX hack_m_idx = 0; /* Hack -- see "process_monsters()" */
-MONSTER_IDX hack_m_idx_ii = 0;
-
-/*!
- * @var chameleon_change_m_idx
- * @brief カメレオンの変身先モンスターIDを受け渡すためのグローバル変数
- * @todo 変数渡しの問題などもあるができればchameleon_change_m_idxのグローバル変数を除去し、関数引き渡しに移行すること
- */
-int chameleon_change_m_idx = 0;
-
-/*!
- * @var summon_specific_type
- * @brief 召喚条件を指定するグローバル変数 / Hack -- the "type" of the current "summon specific"
- * @todo summon_specific_typeグローバル変数の除去と関数引数への代替を行う
- */
-summon_type summon_specific_type = SUMMON_NONE;
 
 /**
  * @brief モンスターがダンジョンに出現できる条件を満たしているかのフラグ判定関数(AND)
@@ -78,14 +59,16 @@ static bool is_possible_monster_or(const EnumClassFlagGroup<T> &r_flags, const E
  * @brief 指定されたモンスター種族がダンジョンの制限にかかるかどうかをチェックする / Some dungeon types restrict the possible monsters.
  * @param floor_ptr フロアへの参照ポインタ
  * @param r_idx チェックするモンスター種族ID
+ * @param summon_specific_type summon_specific() によるものの場合、召喚種別を指定する
+ * @param is_chameleon_polymorph カメレオンの変身の場合、true
  * @return 召喚条件が一致するならtrue / Return TRUE is the monster is OK and FALSE otherwise
  */
-static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceId r_idx)
+static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceId r_idx, std::optional<summon_type> summon_specific_type, bool is_chameleon_polymorph)
 {
     const auto *d_ptr = &floor_ptr->get_dungeon_definition();
     const auto *r_ptr = &monraces_info[r_idx];
     if (d_ptr->flags.has(DungeonFeatureType::CHAMELEON)) {
-        if (chameleon_change_m_idx) {
+        if (is_chameleon_polymorph) {
             return true;
         }
     }
@@ -123,11 +106,6 @@ static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceI
     case DUNGEON_MODE_AND:
     case DUNGEON_MODE_NAND: {
         std::vector<bool> is_possible = {
-            all_bits(r_ptr->flags1, d_ptr->mflags1),
-            all_bits(r_ptr->flags2, d_ptr->mflags2),
-            all_bits(r_ptr->flags3, d_ptr->mflags3),
-            all_bits(r_ptr->flags7, d_ptr->mflags7),
-            all_bits(r_ptr->flags8, d_ptr->mflags8),
             is_possible_monster_and(r_ptr->ability_flags, d_ptr->mon_ability_flags),
             is_possible_monster_and(r_ptr->behavior_flags, d_ptr->mon_behavior_flags),
             is_possible_monster_and(r_ptr->resistance_flags, d_ptr->mon_resistance_flags),
@@ -138,23 +116,17 @@ static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceI
             is_possible_monster_and(r_ptr->population_flags, d_ptr->mon_population_flags),
             is_possible_monster_and(r_ptr->speak_flags, d_ptr->mon_speak_flags),
             is_possible_monster_and(r_ptr->brightness_flags, d_ptr->mon_brightness_flags),
-            is_male(d_ptr->mon_sex) ? is_male(r_ptr->sex) : true,
-            is_female(d_ptr->mon_sex) ? is_female(r_ptr->sex) : true,
+            is_possible_monster_and(r_ptr->misc_flags, d_ptr->mon_misc_flags),
         };
 
         auto result = std::all_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
-        result &= std::all_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->d_char; });
+        result &= std::all_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->symbol_definition.character; });
 
         return d_ptr->mode == DUNGEON_MODE_AND ? result : !result;
     }
     case DUNGEON_MODE_OR:
     case DUNGEON_MODE_NOR: {
         std::vector<bool> is_possible = {
-            any_bits(r_ptr->flags1, d_ptr->mflags1),
-            any_bits(r_ptr->flags2, d_ptr->mflags2),
-            any_bits(r_ptr->flags3, d_ptr->mflags3),
-            any_bits(r_ptr->flags7, d_ptr->mflags7),
-            any_bits(r_ptr->flags8, d_ptr->mflags8),
             is_possible_monster_or(r_ptr->ability_flags, d_ptr->mon_ability_flags),
             is_possible_monster_or(r_ptr->behavior_flags, d_ptr->mon_behavior_flags),
             is_possible_monster_or(r_ptr->resistance_flags, d_ptr->mon_resistance_flags),
@@ -165,12 +137,11 @@ static bool restrict_monster_to_dungeon(const FloorType *floor_ptr, MonsterRaceI
             is_possible_monster_or(r_ptr->population_flags, d_ptr->mon_population_flags),
             is_possible_monster_or(r_ptr->speak_flags, d_ptr->mon_speak_flags),
             is_possible_monster_or(r_ptr->brightness_flags, d_ptr->mon_brightness_flags),
-            is_male(d_ptr->mon_sex) ? is_male(r_ptr->sex) : true,
-            is_female(d_ptr->mon_sex) ? is_female(r_ptr->sex) : true,
+            is_possible_monster_or(r_ptr->misc_flags, d_ptr->mon_misc_flags),
         };
 
         auto result = std::any_of(is_possible.begin(), is_possible.end(), [](const auto &v) { return v; });
-        result |= std::any_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->d_char; });
+        result |= std::any_of(d_ptr->r_chars.begin(), d_ptr->r_chars.end(), [r_ptr](const auto &v) { return v == r_ptr->symbol_definition.character; });
 
         return d_ptr->mode == DUNGEON_MODE_OR ? result : !result;
     }
@@ -188,31 +159,31 @@ monsterrace_hook_type get_monster_hook(PlayerType *player_ptr)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     if ((floor.dun_level > 0) || (floor.is_in_quest())) {
-        return (monsterrace_hook_type)mon_hook_dungeon;
+        return mon_hook_dungeon;
     }
 
     switch (wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].terrain) {
     case TERRAIN_TOWN:
-        return (monsterrace_hook_type)mon_hook_town;
+        return mon_hook_town;
     case TERRAIN_DEEP_WATER:
-        return (monsterrace_hook_type)mon_hook_ocean;
+        return mon_hook_ocean;
     case TERRAIN_SHALLOW_WATER:
     case TERRAIN_SWAMP:
-        return (monsterrace_hook_type)mon_hook_shore;
+        return mon_hook_shore;
     case TERRAIN_DIRT:
     case TERRAIN_DESERT:
-        return (monsterrace_hook_type)mon_hook_waste;
+        return mon_hook_waste;
     case TERRAIN_GRASS:
-        return (monsterrace_hook_type)mon_hook_grass;
+        return mon_hook_grass;
     case TERRAIN_TREES:
-        return (monsterrace_hook_type)mon_hook_wood;
+        return mon_hook_wood;
     case TERRAIN_SHALLOW_LAVA:
     case TERRAIN_DEEP_LAVA:
-        return (monsterrace_hook_type)mon_hook_volcano;
+        return mon_hook_volcano;
     case TERRAIN_MOUNTAIN:
-        return (monsterrace_hook_type)mon_hook_mountain;
+        return mon_hook_mountain;
     default:
-        return (monsterrace_hook_type)mon_hook_dungeon;
+        return mon_hook_dungeon;
     }
 }
 
@@ -225,14 +196,14 @@ monsterrace_hook_type get_monster_hook2(PlayerType *player_ptr, POSITION y, POSI
     const Pos2D pos(y, x);
     const auto &terrain = player_ptr->current_floor_ptr->get_grid(pos).get_terrain();
     if (terrain.flags.has(TerrainCharacteristics::WATER)) {
-        return terrain.flags.has(TerrainCharacteristics::DEEP) ? (monsterrace_hook_type)mon_hook_deep_water : (monsterrace_hook_type)mon_hook_shallow_water;
+        return terrain.flags.has(TerrainCharacteristics::DEEP) ? mon_hook_deep_water : mon_hook_shallow_water;
     }
 
     if (terrain.flags.has(TerrainCharacteristics::LAVA)) {
-        return (monsterrace_hook_type)mon_hook_lava;
+        return mon_hook_lava;
     }
 
-    return (monsterrace_hook_type)mon_hook_floor;
+    return mon_hook_floor;
 }
 
 /*!
@@ -241,12 +212,14 @@ monsterrace_hook_type get_monster_hook2(PlayerType *player_ptr, POSITION y, POSI
  * @param hook1 生成制約関数1 (nullptr の場合、制約なし)
  * @param hook2 生成制約関数2 (nullptr の場合、制約なし)
  * @param restrict_to_dungeon 現在プレイヤーのいるダンジョンの制約を適用するか
+ * @param summon_specific_type summon_specific によるものの場合、召喚種別を指定する
+ * @param is_chameleon_polymorph カメレオンの変身の場合、true
  * @return 常に 0
  *
  * モンスター生成テーブル alloc_race_table の各要素の基本重み prob1 を指定条件
  * に従って変更し、結果を prob2 に書き込む。
  */
-static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_type hook1, const monsterrace_hook_type hook2, const bool restrict_to_dungeon)
+static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_type &hook1, const monsterrace_hook_type &hook2, const bool restrict_to_dungeon, std::optional<summon_type> summon_specific_type, bool is_chameleon_polymorph)
 {
     const FloorType *const floor_ptr = player_ptr->current_floor_ptr;
 
@@ -278,25 +251,29 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
         }
 
         // 原則生成禁止するものたち(フェイズアウト状態 / カメレオンの変身先 / ダンジョンの主召喚 は例外)。
-        if (!system.is_phase_out() && !chameleon_change_m_idx && summon_specific_type != SUMMON_GUARDIANS) {
+        if (!system.is_phase_out() && !is_chameleon_polymorph && summon_specific_type != SUMMON_GUARDIANS) {
             // クエストモンスターは生成禁止。
-            if (r_ptr->flags1 & RF1_QUESTOR) {
+            if (r_ptr->misc_flags.has(MonsterMiscType::QUESTOR)) {
                 continue;
             }
 
             // ダンジョンの主は生成禁止。
-            if (r_ptr->flags7 & RF7_GUARDIAN) {
+            if (r_ptr->misc_flags.has(MonsterMiscType::GUARDIAN)) {
                 continue;
             }
 
-            // RF1_FORCE_DEPTH フラグ持ちは指定階未満では生成禁止。
-            if ((r_ptr->flags1 & RF1_FORCE_DEPTH) && (r_ptr->level > floor_ptr->dun_level)) {
+            // FORCE_DEPTH フラグ持ちは指定階未満では生成禁止。
+            if (r_ptr->misc_flags.has(MonsterMiscType::FORCE_DEPTH) && (r_ptr->level > floor_ptr->dun_level)) {
                 continue;
             }
 
-            // クエスト内でRES_ALLの生成を禁止する (殲滅系クエストの詰み防止)
-            if (player_ptr->current_floor_ptr->is_in_quest() && r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
-                continue;
+            // クエスト内でRES_ALL及び指定階未満でのDIMINISH_MAX_DAMAGEの生成を禁止する (殲滅系クエストの詰み防止)
+            if (player_ptr->current_floor_ptr->is_in_quest()) {
+                auto is_indefeatable = r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL);
+                is_indefeatable |= r_ptr->special_flags.has(MonsterSpecialType::DIMINISH_MAX_DAMAGE) && r_ptr->level > floor_ptr->dun_level;
+                if (is_indefeatable) {
+                    continue;
+                }
             }
         }
 
@@ -313,7 +290,7 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
             const bool in_random_quest = floor_ptr->is_in_quest() && !QuestType::is_fixed(floor_ptr->quest_number);
             const bool cond = !system.is_phase_out() && floor_ptr->dun_level > 0 && !in_random_quest;
 
-            if (cond && !restrict_monster_to_dungeon(floor_ptr, entry_r_idx)) {
+            if (cond && !restrict_monster_to_dungeon(floor_ptr, entry_r_idx, summon_specific_type, is_chameleon_polymorph)) {
                 // ダンジョンによる制約に掛かった場合、重みを special_div/64 倍する。
                 // 丸めは確率的に行う。
                 const int numer = entry->prob2 * floor_ptr->get_dungeon_definition().special_div;
@@ -349,13 +326,25 @@ static errr do_get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_t
  * @param player_ptr
  * @param hook1 生成制約関数1 (nullptr の場合、制約なし)
  * @param hook2 生成制約関数2 (nullptr の場合、制約なし)
+ * @param summon_specific_type summon_specific によるものの場合、召喚種別を指定する
  * @return 常に 0
  *
  * get_mon_num() を呼ぶ前に get_mon_num_prep() 系関数のいずれかを呼ぶこと。
  */
-errr get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_type hook1, const monsterrace_hook_type hook2)
+errr get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_type &hook1, const monsterrace_hook_type &hook2, std::optional<summon_type> summon_specific_type)
 {
-    return do_get_mon_num_prep(player_ptr, hook1, hook2, true);
+    return do_get_mon_num_prep(player_ptr, hook1, hook2, true, summon_specific_type, false);
+}
+
+/*!
+ * @brief モンスター生成テーブルの重み修正(カメレオン変身専用)
+ * @return 常に 0
+ *
+ * get_mon_num() を呼ぶ前に get_mon_num_prep 系関数のいずれかを呼ぶこと。
+ */
+errr get_mon_num_prep_chameleon(PlayerType *player_ptr, const monsterrace_hook_type &hook)
+{
+    return do_get_mon_num_prep(player_ptr, hook, nullptr, true, std::nullopt, true);
 }
 
 /*!
@@ -366,5 +355,15 @@ errr get_mon_num_prep(PlayerType *player_ptr, const monsterrace_hook_type hook1,
  */
 errr get_mon_num_prep_bounty(PlayerType *player_ptr)
 {
-    return do_get_mon_num_prep(player_ptr, nullptr, nullptr, false);
+    return do_get_mon_num_prep(player_ptr, nullptr, nullptr, false, std::nullopt, false);
+}
+
+bool is_player(MONSTER_IDX m_idx)
+{
+    return m_idx == 0;
+}
+
+bool is_monster(MONSTER_IDX m_idx)
+{
+    return m_idx > 0;
 }

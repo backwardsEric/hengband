@@ -17,7 +17,6 @@
 #include "floor/line-of-sight.h"
 #include "grid/feature-flag-types.h"
 #include "main/sound-definitions-table.h"
-#include "monster-race/monster-race.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster/monster-status.h"
 #include "player-base/player-class.h"
@@ -53,7 +52,7 @@
 bool direct_beam(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, POSITION x2, MonsterEntity *m_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    projection_path grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), y1, x1, y2, x2, PROJECT_THRU);
+    ProjectionPath grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { y1, x1 }, { y2, x2 }, PROJECT_THRU);
     if (grid_g.path_num()) {
         return false;
     }
@@ -65,7 +64,7 @@ bool direct_beam(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, 
         const auto &grid = floor.get_grid(pos);
         if (y == y2 && x == x2) {
             hit2 = true;
-        } else if (is_friend && grid.m_idx > 0 && !m_ptr->is_hostile_to_melee(floor.m_list[grid.m_idx])) {
+        } else if (is_friend && grid.has_monster() && !m_ptr->is_hostile_to_melee(floor.m_list[grid.m_idx])) {
             return false;
         }
 
@@ -105,7 +104,7 @@ bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2
         break;
     }
 
-    projection_path grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), y1, x1, y2, x2, flg);
+    ProjectionPath grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { y1, x1 }, { y2, x2 }, flg);
     auto path_n = 0;
     POSITION y = y1;
     POSITION x = x1;
@@ -193,7 +192,7 @@ bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2
  */
 void get_project_point(PlayerType *player_ptr, POSITION sy, POSITION sx, POSITION *ty, POSITION *tx, BIT_FLAGS flg)
 {
-    projection_path path_g(player_ptr, AngbandSystem::get_instance().get_max_range(), sy, sx, *ty, *tx, flg);
+    ProjectionPath path_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { sy, sx }, { *ty, *tx }, flg);
     *ty = sy;
     *tx = sx;
     for (const auto &[y, x] : path_g) {
