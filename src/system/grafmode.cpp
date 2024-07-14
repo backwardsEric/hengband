@@ -473,13 +473,17 @@ bool init_graphics_modes(void) {
 	msg_format("Cannot open '%s'.", buf);
 	gps.result = 1;
     } else {
-	while (angband_fgets(f, line, sizeof line) == 0) {
-	    ++gps.line_no;
-	    parse_line(&gps, line);
-	    if (gps.result != 0) {
-		break;
-	    }
-	}
+        while (true) {
+            const auto line_str = angband_fgets(f);
+            if (!line_str) {
+                break;
+            }
+            ++gps.line_no;
+            parse_line(&gps, line_str->data());
+            if (gps.result != 0) {
+                break;
+            }
+        }
 
 	finish_parse_grafmode(&gps, gps.result == 0);
 	angband_fclose(f);

@@ -269,6 +269,35 @@ static std::optional<std::string> read_line(FILE *fp)
     std::string line_buf;
 
     char buf[1024];
+#ifdef MACH_O_COCOA
+    int i = 0;
+    while (1) {
+        int c = fgetc(fp);
+
+        if (c == EOF) {
+            break;
+        }
+        /*
+         * Be nice to the Macintosh, where a file can have Mac or Unix
+         * end of line, especially since the introduction of OS X.
+         * MPW tools were also very tolerant to the Unix EOL.
+         */
+        if (c == '\r' || c == '\n') {
+            buf[i] = '\n';
+            buf[i + 1] = '\0';
+            std::string_view sv(buf);
+            line_buf.append(sv.begin(), sv.end());
+            break;
+        }
+        buf[i] = c;
+        ++i;
+        if (i == (int)(sizeof(buf) - 1)) {
+            buf[i] = '\0';
+            std::string_view sv(buf);
+            line_buf.append(sv.begin(), sv.end());
+        }
+    }
+#else
     while (fgets(buf, sizeof(buf), fp) != nullptr) {
         std::string_view sv(buf);
 
@@ -277,6 +306,7 @@ static std::optional<std::string> read_line(FILE *fp)
             break;
         }
     }
+#endif /* MACH_O_COCOA */
 
     if (line_buf.empty()) {
         return std::nullopt;

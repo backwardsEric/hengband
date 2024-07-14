@@ -576,53 +576,52 @@ static AngbandAudioManager *_sharedManager = nil;
 		const char white[] = " \t";
 		NSMutableDictionary *playersByPath =
 			[[NSMutableDictionary alloc] init];
-		char buffer[2048];
 
 		/* Parse the file. */
 		/* Lines are always of the form "name = sample [sample ...]". */
-		while (angband_fgets(fff, buffer, sizeof(buffer)) == 0) {
+		while (1) {
+			const auto line_str = angband_fgets(fff);
 			NSMutableArray *soundSamples;
-			char *msg_name;
-			char *sample_name;
-			char *search;
+			std::string msg_name;
+			std::string sample_names;
 			int match;
-			size_t skip;
+			size_t skip1, skip2, search;
+
+			if (!line_str) {
+				break;
+			}
 
 			/* Skip leading whitespace. */
-			skip = strspn(buffer, white);
+			skip1 = line_str->find_first_not_of(white);
 
 			/*
 			 * Ignore anything not beginning with an alphabetic
 			 * character.
 			 */
-			if (!buffer[skip] || !isalpha((unsigned char)buffer[skip])) {
+			if (skip1 == std::string::npos
+					|| !isalpha((unsigned char)(line_str->at(skip1)))) {
 				continue;
 			}
 
 			/*
 			 * Split the line into two; message name and the rest.
 			 */
-			search = strchr(buffer + skip, '=');
-			if (!search) {
+			search = line_str->find('=', skip1);
+			if (search == std::string::npos) {
 				continue;
 			}
-			msg_name = buffer + skip;
-			skip = strcspn(msg_name, white);
-			if (skip > (size_t)(search - msg_name)) {
-				/*
-				 *  No white space between the message name and
-				 * '='.
-				 */
-				*search = '\0';
-			} else {
-				msg_name[skip] = '\0';
+			skip2 = line_str->find_first_of(white, skip1);
+			msg_name = line_str->substr(skip1,
+				((search <= skip2) ? search : skip2) - skip1);
+			skip2 = line_str->find_first_not_of(white, search + 1);
+			if (skip2 != std::string::npos) {
+				sample_names = line_str->substr(skip2);
 			}
-			skip = strspn(search + 1, white);
-			sample_name = search + 1 + skip;
 
 			/* Make sure this is a valid event name. */
 			for (match = SOUND_MAX - 1; match >= 0; --match) {
-				if (!strcmp(msg_name, angband_sound_name[match])) {
+				if (!strcmp(msg_name.data(),
+						angband_sound_name[match])) {
 					break;
 				}
 			}
@@ -643,28 +642,36 @@ static AngbandAudioManager *_sharedManager = nil;
 			 * Now find all the sample names and add them one by
 			 * one.
 			 */
+			skip1 = 0;
 			while (1) {
 				int num;
+				std::string sample_name;
 				NSString *token_string;
 				AVAudioPlayer *player;
 				BOOL done;
 
-				if (!sample_name[0]) {
+				if (skip1 >= sample_names.length()) {
 					break;
 				}
 				/* Terminate the current token. */
-				skip = strcspn(sample_name, white);
-				done = !sample_name[skip];
-				sample_name[skip] = '\0';
+				skip2 = sample_names.find_first_of(white, skip1);
+				if (skip2 == std::string::npos) {
+					sample_name = sample_names.substr(skip1);
+					done = TRUE;
+				} else {
+					sample_name = sample_names.substr(skip1,
+						skip2 - skip1);
+					done = FALSE;
+				}
 
 				/* Don't allow too many samples. */
-				num = (int) soundSamples.count;
+				num = (int)soundSamples.count;
 				if (num >= [AngbandAudioManager maxSamples]) {
 					break;
 				}
 
 				token_string = [NSString
-					stringWithUTF8String:sample_name];
+					stringWithUTF8String:sample_name.data()];
 				player = [playersByPath
 					objectForKey:token_string];
 				if (!player) {
@@ -674,7 +681,7 @@ static AngbandAudioManager *_sharedManager = nil;
 					 */
 					struct stat stb;
 
-					p = path_build(psound, sample_name);
+					p = path_build(psound, sample_name.data());
 					if (stat(p.native().data(), &stb) == 0
 							&& (stb.st_mode & S_IFREG)) {
 						NSData *audioData = [NSData
@@ -699,9 +706,11 @@ static AngbandAudioManager *_sharedManager = nil;
 				if (done) {
 					break;
 				}
-				sample_name += skip + 1;
-				skip = strspn(sample_name, white);
-				sample_name += skip;
+				skip1 = sample_names.find_first_not_of(white,
+					skip2 + 1);
+				if (skip1 == std::string::npos) {
+					break;
+				}
 			}
 		}
 		playersByPath = nil;
@@ -749,38 +758,43 @@ static AngbandAudioManager *_sharedManager = nil;
 		const char white[] = " \t";
 		NSMutableDictionary *catalogTypeRestricted = nil;
 		int isec = -1;
-		char buffer[2048];
 
 		/* Parse the file. */
-		while (angband_fgets(fff, buffer, sizeof(buffer)) == 0) {
+		while (1) {
+			const auto line_str = angband_fgets(fff);
 			NSMutableArray *samples;
-			char *id_name;
-			char *sample_name;
-			char *search;
-			size_t skip;
+			std::string id_name;
+			std::string sample_names;
+			size_t skip1, skip2, search;
 			int id;
 
+			if (!line_str) {
+				break;
+			}
+
 			/* Skip leading whitespace. */
-			skip = strspn(buffer, white);
+			skip1 = line_str->find_first_not_of(white);
 
 			/*
 			 * Ignore empty lines or ones that only have comments.
 			 */
-			if (!buffer[skip] || buffer[skip] == '#') {
+			if (skip1 == std::string::npos
+					|| line_str->at(skip1) == '#') {
 				continue;
 			}
 
-			if (buffer[skip] == '[') {
+			if (line_str->at(skip1) == '[') {
 				/*
 				 * Found the start of a new section.  Will do
 				 * nothing if the section name is malformed
 				 * (i.e. missing the trailing bracket).
 				 */
-				search = strchr(buffer + skip + 1, ']');
-				if (search) {
+				search = line_str->find(']', skip1 + 1);
+				if (search != std::string::npos) {
+					std::string sec_name =
+						line_str->substr(skip1 + 1,
+						search - skip1 - 1);
 					isec = 0;
-
-					*search = '\0';
 					while (1) {
 						if (!sections_of_interest[isec].name) {
 							catalogTypeRestricted =
@@ -788,7 +802,7 @@ static AngbandAudioManager *_sharedManager = nil;
 							isec = -1;
 							break;
 						}
-						if (!strcmp(sections_of_interest[isec].name, buffer + skip + 1)) {
+						if (!strcmp(sections_of_interest[isec].name, sec_name.data())) {
 							NSNumber *key = [NSNumber
 								numberWithInteger:sections_of_interest[isec].type_code];
 							catalogTypeRestricted =
@@ -813,30 +827,24 @@ static AngbandAudioManager *_sharedManager = nil;
 			 * Targets should begin with an alphabetical character.
 			 * Skip anything else.
 			 */
-			if (!isalpha((unsigned char)buffer[skip])) {
+			if (!isalpha((unsigned char)(line_str->at(skip1)))) {
 				continue;
 			}
 
-			search = strchr(buffer + skip, '=');
-			if (!search) {
+			search = line_str->find('=', skip1);
+			if (search == std::string::npos) {
 				continue;
 			}
-			id_name = buffer + skip;
-			skip = strcspn(id_name, white);
-			if (skip > (size_t)(search - id_name)) {
-				/*
-				 * No white space between the name on the left
-				 * and '='.
-				 */
-				*search = '\0';
-			} else {
-				id_name[skip] = '\0';
+			skip2 = line_str->find_first_of(white, skip1);
+			id_name = line_str->substr(skip1,
+				((search <= skip2) ? search : skip2) - skip1);
+			skip2 = line_str->find_first_not_of(white, search + 1);
+			if (skip2 != std::string::npos) {
+				sample_names = line_str->substr(skip2);
 			}
-			skip = strspn(search + 1, white);
-			sample_name = search + 1 + skip;
 
 			if (!catalogTypeRestricted
-					|| (*(sections_of_interest[isec].name2id_func))(id_name, &id)) {
+					|| (*(sections_of_interest[isec].name2id_func))(id_name.data(), &id)) {
 				/*
 				 * It is not in a section of interest or did
 				 * not recognize what was on the left side of
@@ -860,24 +868,32 @@ static AngbandAudioManager *_sharedManager = nil;
 			 * Now find all the sample names and add them one by
 			 * one.
 			 */
+			skip1 = 0;
 			while (1) {
+				std::string sample_name;
 				BOOL done;
 				struct stat stb;
 
-				if (!sample_name[0]) {
+				if (skip1 >= sample_names.length()) {
 					break;
 				}
 				/* Terminate the current token. */
-				skip = strcspn(sample_name, white);
-				done = !sample_name[skip];
-				sample_name[skip] = '\0';
+				skip2 = sample_names.find_first_of(white, skip1);
+				if (skip2 == std::string::npos) {
+					sample_name = sample_names.substr(skip1);
+					done = TRUE;
+				} else {
+					sample_name = sample_names.substr(skip1,
+						skip2 - skip1);
+					done = FALSE;
+				}
 
 				/*
 				 * Check if the path actually corresponds to a
 				 * file.  Also restrict the number of samples
 				 * stored for any type/ID combination.
 				 */
-				p = path_build(pmusic, sample_name);
+				p = path_build(pmusic, sample_name.data());
 				if (stat(p.native().data(), &stb) == 0
 						&& (stb.st_mode & S_IFREG)
 						&& (int)samples.count
@@ -889,9 +905,8 @@ static AngbandAudioManager *_sharedManager = nil;
 				if (done) {
 					break;
 				}
-				sample_name += skip + 1;
-				skip = strspn(sample_name, white);
-				sample_name += skip;
+				skip1 = sample_names.find_first_not_of(white,
+					skip2 + 1);
 			}
 		}
 	}

@@ -11,7 +11,6 @@
 #include "system/terrain-type-definition.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
-#include <span>
 
 /*!
  * @brief テキストトークンを走査してフラグを一つ得る(ダンジョン用) /
@@ -237,11 +236,11 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
         }
 
         try {
-            const std::span tags(tokens.begin() + DUNGEON_FEAT_PROB_NUM * 2 + 1, 4);
-            d_ptr->outer_wall = terrains.get_terrain_id_by_tag(tags[0]);
-            d_ptr->inner_wall = terrains.get_terrain_id_by_tag(tags[1]);
-            d_ptr->stream1 = terrains.get_terrain_id_by_tag(tags[2]);
-            d_ptr->stream2 = terrains.get_terrain_id_by_tag(tags[3]);
+            const auto token_start = tokens.begin() + DUNGEON_FEAT_PROB_NUM * 2 + 1;
+            d_ptr->outer_wall = terrains.get_terrain_id_by_tag(*token_start);
+            d_ptr->inner_wall = terrains.get_terrain_id_by_tag(*(token_start + 1));
+            d_ptr->stream1 = terrains.get_terrain_id_by_tag(*(token_start + 2));
+            d_ptr->stream2 = terrains.get_terrain_id_by_tag(*(token_start + 3));
         } catch (const std::exception &) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
         }

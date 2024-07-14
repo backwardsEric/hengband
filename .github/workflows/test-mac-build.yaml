@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -107,7 +107,7 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -160,3 +160,46 @@ jobs:
           # Verify that some key files in the application bundle are there.
           test -x hengband.app/Contents/MacOS/hengband || exit 1
           test -r hengband.app/Contents/Info.plist || exit 1
+
+  ncurses_english:
+    name: NCurses-English
+    runs-on: macos-latest
+    env:
+      # This will be passed to all invocations of configure for this test.
+      DEFAULT_CONFIGURE_OPTIONS: --disable-japanese
+
+    steps:
+      - name: Clone Project
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Requires automake and autoconf; install those via homebrew (available
+      # by default).
+      - name: Install Build Dependencies
+        run: |
+          brew install m4
+          brew install autoconf
+          brew install automake
+
+      - name: Build
+        run: |
+          if test -n `echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'` ; then
+            SDKROOT=`echo "${{ env.SDK_OVERRIDE }}" | tr -d ' \t\r\n'`
+            export SDKROOT
+          fi
+          ./bootstrap
+          ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
+          # Print out the compiler version for debugging problems with a build.
+          g++ -v
+          make
+
+      # Use make distcheck to verify that configure.ac and the Makefile.am
+      # files properly list all the dependencies and that a build outside of
+      # of the source tree works.
+      - name: Distcheck
+        run: |
+          ./bootstrap
+          ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
+          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
+            distcheck

@@ -4412,14 +4412,14 @@ static errr Term_xtra_cocoa_react(void)
 
 	    /* Reset visuals */
 	    if (arg_bigtile == use_bigtile &&
-		w_ptr->character_generated)
+		AngbandWorld::get_instance().character_generated)
 	    {
 		reset_visuals(p_ptr);
 	    }
 	}
 
 	if (arg_bigtile != use_bigtile) {
-	    if (w_ptr->character_generated)
+	    if (AngbandWorld::get_instance().character_generated)
 	    {
 		/* Reset visuals */
 		reset_visuals(p_ptr);
@@ -4843,7 +4843,7 @@ static BOOL redraw_for_tiles_or_term0_font(void)
      * character has been generated.  Therefore, only call it if a character
      * has been generated.
      */
-    if (w_ptr->character_generated) {
+    if (AngbandWorld::get_instance().character_generated) {
 	do_cmd_redraw(p_ptr);
 	wakeup_event_loop();
 	return YES;
@@ -4869,7 +4869,7 @@ static void wakeup_event_loop(void)
 static void quit_calmly(void)
 {
     /* Quit immediately if game's not started */
-    if (!game_in_progress || !w_ptr->character_generated) quit(NULL);
+    if (!game_in_progress || !AngbandWorld::get_instance().character_generated) quit(NULL);
 
     /* Save the game and Quit (if it's safe) */
     if (inkey_flag)
@@ -5881,7 +5881,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
          * that become outdated when the graphics mode is changed.
          */
         return (!game_in_progress
-            || (w_ptr->character_generated && inkey_flag)) ?  YES : NO;
+            || (AngbandWorld::get_instance().character_generated && inkey_flag)) ?  YES : NO;
     }
     else if (sel == @selector(toggleWideTiles:)) {
 	BOOL is_on = [[NSUserDefaults standardUserDefaults]
@@ -5895,7 +5895,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
          * graphics mode, if at the splash screen or command prompt.
          */
 	return (!graphics_are_enabled() || !game_in_progress
-            || (w_ptr->character_generated && inkey_flag)) ? YES : NO;
+            || (AngbandWorld::get_instance().character_generated && inkey_flag)) ? YES : NO;
     }
     else if( sel == @selector(sendAngbandCommand:) ||
 	     sel == @selector(saveGame:) )
@@ -5905,7 +5905,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
          * after the birth screens when the core is waiting for a player
          * command
          */
-        return !!game_in_progress && w_ptr->character_generated && inkey_flag;
+        return !!game_in_progress && AngbandWorld::get_instance().character_generated && inkey_flag;
     }
     else return YES;
 }
