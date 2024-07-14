@@ -349,66 +349,9 @@ std::optional<std::string> angband_fgets(FILE *fp, size_t n)
     // Reserve for null termination
     --n;
 
-    std::vector<char> file_read_tmp(FILE_READ_BUFF_SIZE);
-    if (fgets(file_read_tmp.data(), file_read_tmp.size(), fff)) {
-#ifdef JP
-        guess_convert_to_system_encoding(file_read_tmp.data(), FILE_READ_BUFF_SIZE);
-#endif
-        for (s = file_read_tmp.data(); *s; s++) {
-#ifdef MACH_O_COCOA
-            /*
-             * Be nice to the Macintosh, where a file can have Mac or Unix
-             * end of line, especially since the introduction of OS X.
-             * MPW tools were also very tolerant to the Unix EOL.
-             */
-            if (*s == '\r') *s = '\n';
-#endif /* MACH_O_COCOA */
-            if (*s == '\n') {
-                buf[i] = '\0';
-                return 0;
-            } else if (*s == '\t') {
-                if (i + 8 >= n) {
-                    break;
-                }
-
-                buf[i++] = ' ';
-                while (0 != (i % 8)) {
-                    buf[i++] = ' ';
-                }
-            }
-#ifdef JP
-            else if (iskanji(*s)) {
-                if (i + 1 >= n) {
-                    break;
-                }
-                if (!s[1]) {
-                    break;
-                }
-                buf[i++] = *s++;
-                buf[i++] = *s;
-            } else if (iskana(*s)) {
-                /* 半角かなに対応 */
-                buf[i++] = *s;
-                if (i >= n) {
-                    break;
-                }
-            }
-#endif
-            else if (isprint((unsigned char)*s)) {
-                buf[i++] = *s;
-                if (i >= n) {
-                    break;
-                }
-            } else {
-                buf[i++] = '?';
-                if (i >= n) {
-                    break;
-                }
-            }
-        }
-
-        buf[i] = '\0';
-        return 0;
+    const auto line = read_line(fp);
+    if (!line) {
+        return std::nullopt;
     }
 
     std::string str;
