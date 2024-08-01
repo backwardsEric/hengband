@@ -4796,7 +4796,7 @@ static errr Term_wipe_cocoa(TERM_LEN x, TERM_LEN y, int n)
 }
 
 static errr Term_pict_cocoa(TERM_LEN x, TERM_LEN y, int n,
-			    TERM_COLOR *ap, concptr cp,
+			    const TERM_COLOR *ap, concptr cp,
 			    const TERM_COLOR *tap, concptr tcp)
 {
     /* Paranoia: Bail if graphics aren't enabled */
