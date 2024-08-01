@@ -2681,7 +2681,7 @@ I:17:10:0
 W:35:35:2:5000
 P:0:8d4:30:19:0
 F:KILL_DRAGON | INSTA_ART | SHOW_MODS
-D:$Dealiest of arrows, imbued with elemental strength, this shaft is 
+D:$Deadliest of arrows, imbued with elemental strength, this shaft is 
 D:$feared especially by the wyrmkin.
 D:後に王となる湖の街の陰気面バルドが龍を射抜いた伝説の黒い矢だ。
 D:彼が龍を射抜いたこの矢は歌に唄われ語り継がれている。
