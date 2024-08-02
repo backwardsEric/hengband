@@ -15,7 +15,7 @@ esac])
 AC_SUBST(GAMEGROUP)
 AM_CONDITIONAL(SET_GID, test "$GAMEGROUP" != "")
 
-AC_LANG_C
+AC_LANG([C])
 
 dnl generate the installation path for the ./lib/ folder
 if test "$GAMEGROUP" != ""; then
@@ -146,7 +146,6 @@ AC_TYPE_SIZE_T
 AC_STRUCT_TM
 
 dnl Checks for library functions.
-AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MEMCMP
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
