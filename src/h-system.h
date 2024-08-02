@@ -105,7 +105,7 @@
 
 #include <string.h>
 
-#if !defined(linux) && !defined(__MWERKS__) && !defined(ACORN) && !defined(WIN32)
+#if !defined(linux) && !defined(__MWERKS__) && !defined(ACORN) && !defined(WIN32) && !defined(__MACH__)
 extern long atol();
 #endif
 
