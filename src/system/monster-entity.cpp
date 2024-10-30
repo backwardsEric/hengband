@@ -14,6 +14,13 @@
 #include "util/string-processor.h"
 #include <algorithm>
 
+MonsterEntity::MonsterEntity()
+{
+    for (const auto mte : MONSTER_TIMED_EFFECT_RANGE) {
+        this->mtimed[mte] = 0;
+    }
+}
+
 /*!
  * @brief モンスターの属性に基づいた敵対関係の有無を返す
  * @param sub_align1 モンスター1のサブフラグ
@@ -172,7 +179,7 @@ MonsterRaceInfo &MonsterEntity::get_monrace() const
 
 short MonsterEntity::get_remaining_sleep() const
 {
-    return this->mtimed[MTIMED_CSLEEP];
+    return this->mtimed.at(MonsterTimedEffect::SLEEP);
 }
 
 bool MonsterEntity::is_dead() const
@@ -187,7 +194,7 @@ bool MonsterEntity::is_asleep() const
 
 short MonsterEntity::get_remaining_acceleration() const
 {
-    return this->mtimed[MTIMED_FAST];
+    return this->mtimed.at(MonsterTimedEffect::FAST);
 }
 
 bool MonsterEntity::is_accelerated() const
@@ -197,7 +204,7 @@ bool MonsterEntity::is_accelerated() const
 
 short MonsterEntity::get_remaining_deceleration() const
 {
-    return this->mtimed[MTIMED_SLOW];
+    return this->mtimed.at(MonsterTimedEffect::SLOW);
 }
 
 bool MonsterEntity::is_decelerated() const
@@ -207,7 +214,7 @@ bool MonsterEntity::is_decelerated() const
 
 short MonsterEntity::get_remaining_stun() const
 {
-    return this->mtimed[MTIMED_STUNNED];
+    return this->mtimed.at(MonsterTimedEffect::STUN);
 }
 
 bool MonsterEntity::is_stunned() const
@@ -217,7 +224,7 @@ bool MonsterEntity::is_stunned() const
 
 short MonsterEntity::get_remaining_confusion() const
 {
-    return this->mtimed[MTIMED_CONFUSED];
+    return this->mtimed.at(MonsterTimedEffect::CONFUSION);
 }
 
 bool MonsterEntity::is_confused() const
@@ -227,7 +234,7 @@ bool MonsterEntity::is_confused() const
 
 short MonsterEntity::get_remaining_fear() const
 {
-    return this->mtimed[MTIMED_MONFEAR];
+    return this->mtimed.at(MonsterTimedEffect::FEAR);
 }
 
 bool MonsterEntity::is_fearful() const
@@ -237,7 +244,7 @@ bool MonsterEntity::is_fearful() const
 
 short MonsterEntity::get_remaining_invulnerability() const
 {
-    return this->mtimed[MTIMED_INVULNER];
+    return this->mtimed.at(MonsterTimedEffect::INVULNERABILITY);
 }
 
 bool MonsterEntity::is_invulnerable() const
@@ -508,4 +515,14 @@ void MonsterEntity::set_friendly()
 bool MonsterEntity::is_riding() const
 {
     return this->mflag2.has(MonsterConstantFlagType::RIDING);
+}
+
+bool MonsterEntity::can_ring_boss_call_nazgul() const
+{
+    auto is_boss = this->r_idx == MonsterRaceId::MORGOTH;
+    is_boss |= this->r_idx == MonsterRaceId::SAURON;
+    is_boss |= this->r_idx == MonsterRaceId::ANGMAR;
+    const auto &nazgul = MonraceList::get_instance().get_monrace(MonsterRaceId::NAZGUL);
+    const auto is_nazgul_alive = (nazgul.cur_num + 2) < nazgul.max_num;
+    return is_boss && is_nazgul_alive;
 }

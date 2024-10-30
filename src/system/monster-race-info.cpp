@@ -298,6 +298,13 @@ const std::vector<Reinforce> &MonsterRaceInfo::get_reinforces() const
     return this->reinforces;
 }
 
+bool MonsterRaceInfo::can_generate() const
+{
+    auto can_generate = this->kind_flags.has(MonsterKindType::UNIQUE) || this->population_flags.has(MonsterPopulationType::NAZGUL);
+    can_generate &= this->cur_num >= this->max_num;
+    return can_generate;
+}
+
 void MonsterRaceInfo::init_sex(uint32_t value)
 {
     const auto sex_tmp = i2enum<MonsterSex>(value);
@@ -881,4 +888,16 @@ std::optional<std::string> MonraceList::probe_lore(MonsterRaceId monrace_id)
     }
 
     return this->get_monrace(monrace_id).probe_lore();
+}
+
+/*
+ * @brief ユニークの死亡処理
+ * @param monrace_id 死亡したユニークの種族番号
+ */
+void MonraceList::kill_unique_monster(MonsterRaceId monrace_id)
+{
+    this->get_monrace(monrace_id).max_num = 0;
+    if (this->can_unify_separate(monrace_id)) {
+        this->kill_unified_unique(monrace_id);
+    }
 }
