@@ -6,6 +6,7 @@
 #include "monster-race/race-sex.h"
 #include "monster/horror-descriptions.h"
 #include "system/redrawing-flags-updater.h"
+#include "system/system-variables.h"
 #include "tracking/lore-tracker.h"
 #include "util/enum-converter.h"
 #include "util/probability-table.h"
@@ -16,6 +17,8 @@
 #endif
 
 namespace {
+constexpr auto MAX_MONSTER_NUM = 100; /*!< 1種類の非ユニークモンスターが1フロアに存在できる最大数 */
+
 template <class T>
 static int count_lore_mflag_group(const EnumClassFlagGroup<T> &flags, const EnumClassFlagGroup<T> &r_flags)
 {
@@ -452,6 +455,26 @@ void MonsterRaceInfo::decrement_current_numbers()
     this->cur_num--;
 }
 
+void MonsterRaceInfo::reset_max_number()
+{
+    if (this->kind_flags.has(MonsterKindType::UNIQUE) || this->population_flags.has(MonsterPopulationType::ONLY_ONE)) {
+        this->max_num = MAX_UNIQUE_NUM;
+        return;
+    }
+
+    if (this->population_flags.has(MonsterPopulationType::NAZGUL)) {
+        this->max_num = MAX_NAZGUL_NUM;
+        return;
+    }
+
+    if (this->population_flags.has(MonsterPopulationType::BUNBUN_STRIKER)) {
+        this->max_num = MAX_BUNBUN_NUM;
+        return;
+    }
+
+    this->max_num = MAX_MONSTER_NUM;
+}
+
 /*!
  * @brief エルドリッチホラーの形容詞種別を決める
  * @return エルドリッチホラーの形容詞
@@ -623,6 +646,26 @@ const std::vector<MonsterRaceId> &MonraceList::get_valid_monrace_ids() const
 
     std::transform(++monraces_info.begin(), monraces_info.end(), std::back_inserter(valid_monraces), [](auto &x) { return x.first; });
     return valid_monraces;
+}
+
+//!< @todo ややトリッキーだが、元のmapでMonsterRaceInfo をshared_ptr で持つようにすればかなりスッキリ書けるはず.
+const std::vector<std::pair<MonsterRaceId, const MonsterRaceInfo *>> &MonraceList::get_sorted_monraces() const
+{
+    static std::vector<std::pair<MonsterRaceId, const MonsterRaceInfo *>> sorted_monraces;
+    if (!sorted_monraces.empty()) {
+        return sorted_monraces;
+    }
+
+    for (const auto &pair : monraces_info) {
+        if (pair.second.is_valid()) {
+            sorted_monraces.emplace_back(pair.first, &pair.second);
+        }
+    }
+
+    std::stable_sort(sorted_monraces.begin(), sorted_monraces.end(), [](const auto &pair1, const auto &pair2) {
+        return pair2.second->order_level_strictly(*pair1.second);
+    });
+    return sorted_monraces;
 }
 
 /*!
