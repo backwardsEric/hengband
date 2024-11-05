@@ -266,7 +266,7 @@ static errr set_mon_escorts(nlohmann::json &escort_data, MonsterRaceInfo &monrac
     }
 
     for (const auto &escort : escort_data.items()) {
-        MonsterRaceId monrace_id;
+        MonraceId monrace_id;
         if (auto err = info_set_integer(escort.value()["escorts_id"], monrace_id, true, Range(0, 8192))) {
             return err;
         }
@@ -424,8 +424,8 @@ errr parse_monraces_info(nlohmann::json &mon_data, angband_header *)
         return PARSE_ERROR_NON_SEQUENTIAL_RECORDS;
     }
     error_idx = monster_idx;
-    auto &monrace = monraces_info.emplace_hint(monraces_info.end(), i2enum<MonsterRaceId>(monster_idx), MonsterRaceInfo{})->second;
-    monrace.idx = i2enum<MonsterRaceId>(monster_idx);
+    auto &monrace = monraces_info.emplace_hint(monraces_info.end(), i2enum<MonraceId>(monster_idx), MonsterRaceInfo{})->second;
+    monrace.idx = i2enum<MonraceId>(monster_idx);
 
     errr err;
     err = set_mon_name(mon_data["name"], monrace);
@@ -471,10 +471,6 @@ errr parse_monraces_info(nlohmann::json &mon_data, angband_header *)
     err = info_set_integer(mon_data["rarity"], monrace.rarity, true, Range(0, 255));
     if (err) {
         msg_format(_("モンスター希少度読込失敗。ID: '%d'。", "Failed to load monster rarity. ID: '%d'."), error_idx);
-        return err;
-    }
-    if (err) {
-        msg_format(_("モンスター希少度範囲外。ID: '%d'。", "Monster rarity is out of range. ID: '%d'."), error_idx);
         return err;
     }
     err = info_set_integer(mon_data["exp"], monrace.mexp, true, Range(0, 9999999));
