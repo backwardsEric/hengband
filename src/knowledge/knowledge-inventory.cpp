@@ -153,7 +153,7 @@ static void do_cmd_knowledge_inventory_aux(PlayerType *player_ptr, FILE *fff, It
 {
     constexpr auto max_item_length = 26;
     std::stringstream ss;
-    ss << describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY, max_item_length);
+    ss << describe_flavor(player_ptr, *o_ptr, OD_NAME_ONLY, max_item_length);
     const int item_length = ss.tellp();
     constexpr auto max_display_length = 28;
     for (auto i = item_length; i < max_display_length; i++) {
@@ -260,12 +260,12 @@ static void show_home_equipment_resistances(PlayerType *player_ptr, ItemKindType
     char where[32];
     strcpy(where, _("家", "H "));
     for (int i = 0; i < store_ptr->stock_num; i++) {
-        auto *o_ptr = &store_ptr->stock[i];
-        if (!check_item_knowledge(o_ptr, tval)) {
+        const auto &item = store_ptr->stock[i];
+        if (!check_item_knowledge(item.get(), tval)) {
             continue;
         }
 
-        do_cmd_knowledge_inventory_aux(player_ptr, fff, o_ptr, where);
+        do_cmd_knowledge_inventory_aux(player_ptr, fff, item.get(), where);
         add_res_label(label_number, fff);
     }
 }
