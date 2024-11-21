@@ -1,5 +1,6 @@
 #include "system/floor-type-definition.h"
 #include "dungeon/quest.h"
+#include "floor/geometry.h"
 #include "game-option/birth-options.h"
 #include "monster/monster-timed-effects.h"
 #include "system/angband-system.h"
@@ -125,7 +126,7 @@ QuestId FloorType::get_quest_id(const int bonus) const
  * @param pos 座標
  * @return LOSフラグを持つか否か
  */
-bool FloorType::has_los(const Pos2D pos) const
+bool FloorType::has_los(const Pos2D &pos) const
 {
     return this->get_grid(pos).has_los();
 }
@@ -153,6 +154,58 @@ bool FloorType::can_teleport_level(bool to_player) const
     is_invalid_floor &= this->dun_level >= 1;
     is_invalid_floor &= ironman_downward;
     return this->is_special() || is_invalid_floor;
+}
+
+bool FloorType::is_mark(const Pos2D &pos) const
+{
+    return this->get_grid(pos).is_mark();
+}
+
+bool FloorType::is_closed_door(const Pos2D &pos, bool is_mimic) const
+{
+    const auto &grid = this->get_grid(pos);
+    if (is_mimic) {
+        return grid.get_terrain_mimic().is_closed_door();
+    }
+
+    return grid.get_terrain().is_closed_door();
+}
+
+bool FloorType::is_trap(const Pos2D &pos) const
+{
+    return this->get_grid(pos).get_terrain().is_trap();
+}
+
+/*!
+ * @brief プレイヤーの周辺9マスに該当する地形がいくつあるかを返す
+ * @param p_pos プレイヤーの現在位置
+ * @param gck 判定条件
+ * @param under TRUEならばプレイヤーの直下の座標も走査対象にする
+ * @return 該当する地形の数と、該当する地形の中から1つの座標
+ */
+std::pair<int, Pos2D> FloorType::count_doors_traps(const Pos2D &p_pos, GridCountKind gck, bool under) const
+{
+    auto count = 0;
+    Pos2D pos(0, 0);
+    for (auto d = 0; d < 9; d++) {
+        if ((d == 8) && !under) {
+            continue;
+        }
+
+        Pos2D pos_neighbor = p_pos + Pos2DVec(ddy_ddd[d], ddx_ddd[d]);
+        if (!this->is_mark(pos_neighbor)) {
+            continue;
+        }
+
+        if (!this->check_terrain_state(pos_neighbor, gck)) {
+            continue;
+        }
+
+        ++count;
+        pos = pos_neighbor;
+    }
+
+    return { count, pos };
 }
 
 bool FloorType::check_terrain_state(const Pos2D &pos, GridCountKind gck) const
@@ -249,69 +302,17 @@ ItemEntity FloorType::make_gold(std::optional<int> initial_offset) const
 
 /*!
  * @brief INSTA_ART型の固定アーティファクトの生成を確率に応じて試行する
- * @param item 生成に割り当てたいアイテムへの参照
- * @return 生成に成功したらTRUEを返す
+ * @return 生成したアイテム (失敗したらnullopt)
+ * @details 地上生成は禁止、生成制限がある場合も禁止、個々のアーティファクト生成条件及び生成確率を潜り抜けなければ生成失敗とする
+ * 最初に潜り抜けたINSTA_ART型の固定アーティファクトを生成し、以後はチェックせずスキップする
  */
 std::optional<ItemEntity> FloorType::try_make_instant_artifact() const
 {
-    /*! @note 地上ではキャンセルする / No artifacts in the town */
-    if (!this->is_in_underground()) {
+    if (!this->is_in_underground() || (get_obj_index_hook != nullptr)) {
         return std::nullopt;
     }
 
-    /*! @note get_obj_index_hookによる指定がある場合は生成をキャンセルする / Themed object */
-    if (get_obj_index_hook) {
-        return std::nullopt;
-    }
-
-    /*! @note 全固定アーティファクト中からIDの若い順に生成対象とその確率を走査する / Check the artifact list (just the "specials") */
-    for (const auto &[fa_id, artifact] : ArtifactList::get_instance()) {
-        /*! @note 既に生成回数がカウントされたアーティファクト、QUESTITEMと非INSTA_ARTは除外 / Cannot make an artifact twice */
-        if (artifact.is_generated) {
-            continue;
-        }
-        if (artifact.gen_flags.has(ItemGenerationTraitType::QUESTITEM)) {
-            continue;
-        }
-        if (!(artifact.gen_flags.has(ItemGenerationTraitType::INSTA_ART))) {
-            continue;
-        }
-
-        /*! @note アーティファクト生成階が現在に対して足りない場合は高確率で1/(不足階層*2)を満たさないと生成リストに加えられない */
-        if (artifact.level > this->object_level) {
-            /* @note  / Acquire the "out-of-depth factor". Roll for out-of-depth creation. */
-            int d = (artifact.level - this->object_level) * 2;
-            if (!one_in_(d)) {
-                continue;
-            }
-        }
-
-        /*! @note 1/(レア度)の確率を満たさないと除外される / Artifact "rarity roll" */
-        if (!one_in_(artifact.rarity)) {
-            continue;
-        }
-
-        /*!
-         * @note INSTA_ART型固定アーティファクトのベースアイテムもチェック対象とする。
-         * ベースアイテムの生成階層が足りない場合1/(不足階層*5)を満たさないと除外される。
-         */
-        const auto &baseitems = BaseitemList::get_instance();
-        const auto &baseitem = baseitems.lookup_baseitem(artifact.bi_key);
-        if (baseitem.level > this->object_level) {
-            int d = (baseitem.level - this->object_level) * 5;
-            if (!one_in_(d)) {
-                continue;
-            }
-        }
-
-        //<! @note 前述の条件を満たしたら、後のIDのアーティファクトはチェックせずすぐ確定し生成処理に移す.
-        ItemEntity instant_artifact(artifact.bi_key);
-        instant_artifact.fa_id = fa_id;
-        return instant_artifact;
-    }
-
-    /*! @note 全INSTA_ART固定アーティファクトを試行しても決まらなかった場合 FALSEを返す / Failure */
-    return std::nullopt;
+    return ArtifactList::get_instance().try_make_instant_artifact(this->object_level);
 }
 
 /*!
