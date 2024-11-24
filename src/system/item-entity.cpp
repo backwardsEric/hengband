@@ -26,7 +26,6 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/artifact-type-definition.h"
 #include "system/baseitem-info.h"
-#include "system/enums/monrace/monrace-id.h"
 #include "system/monster-race-info.h"
 #include "term/term-color-types.h"
 #include "tracking/baseitem-tracker.h"
@@ -788,13 +787,14 @@ bool ItemEntity::is_bounty() const
         return false;
     }
 
-    const auto &monrace = this->get_monrace();
-    const auto &world = AngbandWorld::get_instance();
-    if (world.knows_daily_bounty && (monrace.name == world.get_today_bounty().name)) {
+    const auto monrace_id = this->get_monrace_id();
+    if (MonraceList::is_tsuchinoko(monrace_id)) {
         return true;
     }
 
-    if (monrace.idx == MonraceId::TSUCHINOKO) {
+    const auto &world = AngbandWorld::get_instance();
+    const auto &monrace = MonraceList::get_instance().get_monrace(monrace_id);
+    if (world.knows_daily_bounty && (monrace.name == world.get_today_bounty().name)) {
         return true;
     }
 
@@ -949,7 +949,7 @@ const MonraceDefinition &ItemEntity::get_monrace() const
         THROW_EXCEPTION(std::logic_error, "This item is not related to monrace!");
     }
 
-    const auto monrace_id = i2enum<MonraceId>(this->pval);
+    const auto monrace_id = this->get_monrace_id();
     return MonraceList::get_instance().get_monrace(monrace_id);
 }
 
@@ -1293,6 +1293,57 @@ bool ItemEntity::try_become_artifact(int dungeon_level)
 }
 
 /*!
+ * @brief 両オブジェクトをスロットに重ね合わせる
+ * @param other 重ね合わせ元アイテムへの参照
+ */
+void ItemEntity::absorb(ItemEntity &other)
+{
+    int max_num = this->is_similar_part(other);
+    int total = this->number + other.number;
+    int diff = (total > max_num) ? total - max_num : 0;
+
+    this->number = (total > max_num) ? max_num : total;
+    if (other.is_known()) {
+        this->mark_as_known();
+    }
+
+    if (((this->ident & IDENT_STORE) || (other.ident & IDENT_STORE)) && (!((this->ident & IDENT_STORE) && (other.ident & IDENT_STORE)))) {
+        if (other.ident & IDENT_STORE) {
+            other.ident &= 0xEF;
+        }
+
+        if (this->ident & IDENT_STORE) {
+            this->ident &= 0xEF;
+        }
+    }
+
+    if (other.is_fully_known()) {
+        this->ident |= (IDENT_FULL_KNOWN);
+    }
+
+    if (other.is_inscribed()) {
+        this->inscription = other.inscription;
+    }
+
+    if (other.feeling) {
+        this->feeling = other.feeling;
+    }
+
+    if (this->discount < other.discount) {
+        this->discount = other.discount;
+    }
+
+    const auto tval = this->bi_key.tval();
+    if (tval == ItemKindType::ROD) {
+        this->pval += other.pval * (other.number - diff) / other.number;
+        this->timeout += other.timeout * (other.number - diff) / other.number;
+    }
+
+    if (tval == ItemKindType::WAND) {
+        this->pval += other.pval * (other.number - diff) / other.number;
+    }
+}
+/*!
  * @brief エゴ光源のフラグを修正する
  *
  * 寿命のある光源で寿命が0ターンの時、光源エゴアイテムに起因するフラグは
@@ -1459,4 +1510,13 @@ char ItemEntity::get_character() const
     const auto &baseitem = this->get_baseitem();
     const auto flavor = baseitem.flavor;
     return flavor ? BaseitemList::get_instance().get_baseitem(flavor).symbol_config.character : baseitem.symbol_config.character;
+}
+
+MonraceId ItemEntity::get_monrace_id() const
+{
+    if (!this->has_monrace()) {
+        THROW_EXCEPTION(std::logic_error, "This item is not related to monrace!");
+    }
+
+    return i2enum<MonraceId>(this->pval);
 }

@@ -22,11 +22,11 @@
 
 enum class FixedArtifactId : short;
 enum class ItemKindType : short;
-enum class SmithEffectType : short;
+enum class MonraceId : short;
 enum class QuestId : short;
 enum class RandomArtifactBias : int;
 enum class RandomArtActType : short;
-
+enum class SmithEffectType : short;
 class ActivationType;
 class ArtifactType;
 class BaseitemInfo;
@@ -168,6 +168,7 @@ public:
     void mark_as_tried() const;
 
     bool try_become_artifact(int dungeon_level);
+    void absorb(ItemEntity &other);
 
 private:
     int get_baseitem_price() const;
@@ -182,4 +183,5 @@ private:
     std::string build_activation_description_dragon_breath() const;
     uint8_t get_color() const;
     char get_character() const;
+    MonraceId get_monrace_id() const;
 };
