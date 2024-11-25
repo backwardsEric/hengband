@@ -25,7 +25,9 @@
 #include "sv-definition/sv-ring-types.h"
 #include "sv-definition/sv-weapon-types.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/enums/monrace/monrace-id.h"
 #include "system/monster-race-info.h"
 #include "term/term-color-types.h"
 #include "tracking/baseitem-tracker.h"
@@ -101,7 +103,7 @@ void ItemEntity::generate(short new_bi_id)
         this->activation_id = baseitem.act_idx;
     }
 
-    if (this->get_baseitem().cost <= 0) {
+    if (this->is_worthless()) {
         this->ident |= (IDENT_BROKEN);
     }
 
@@ -820,7 +822,7 @@ bool ItemEntity::is_target_of(QuestId quest_id) const
     return this->bi_key == artifact.bi_key;
 }
 
-BaseitemInfo &ItemEntity::get_baseitem() const
+BaseitemDefinition &ItemEntity::get_baseitem() const
 {
     return BaseitemList::get_instance().get_baseitem(this->bi_id);
 }
@@ -1200,6 +1202,26 @@ bool ItemEntity::is_similar_for_store(const ItemEntity &other) const
     return true;
 }
 
+int ItemEntity::get_baseitem_level() const
+{
+    return this->get_baseitem().level;
+}
+
+short ItemEntity::get_baseitem_pval() const
+{
+    return this->get_baseitem().pval;
+}
+
+bool ItemEntity::is_worthless() const
+{
+    return this->get_baseitem().cost <= 0;
+}
+
+int ItemEntity::get_baseitem_cost() const
+{
+    return this->get_baseitem().cost;
+}
+
 std::string ItemEntity::build_timeout_description(const ActivationType &act) const
 {
     const auto description = act.build_timeout_description();
@@ -1258,7 +1280,7 @@ void ItemEntity::mark_as_known()
  */
 void ItemEntity::mark_as_tried() const
 {
-    this->get_baseitem().mark_as_tried();
+    this->get_baseitem().mark_trial(true);
 }
 
 /*!

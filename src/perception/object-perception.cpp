@@ -3,6 +3,7 @@
 #include "flavor/object-flavor-types.h"
 #include "game-option/play-record-options.h"
 #include "io/write-diary.h"
+#include "system/baseitem/baseitem-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 
@@ -16,7 +17,7 @@ void object_aware(PlayerType *player_ptr, const ItemEntity *o_ptr)
 {
     const bool is_already_awared = o_ptr->is_aware();
     auto &baseitem = o_ptr->get_baseitem();
-    baseitem.mark_as_aware();
+    baseitem.mark_awareness(true);
 
     // 以下、playrecordに記録しない場合はreturnする
     if (!record_ident) {
