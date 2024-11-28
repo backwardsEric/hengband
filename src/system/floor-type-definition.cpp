@@ -277,6 +277,7 @@ bool FloorType::order_pet_dismission(short index1, short index2, short riding_in
  * @brief 特定の財宝を生成する。指定がない場合、生成階に応じたランダムな財宝を生成する。
  * @param bi_key 財宝を固定生成する場合のBaseitemKey
  * @return 財宝データで初期化したアイテム
+ * @details 生成レベルが0になったら1に補正する
  */
 ItemEntity FloorType::make_gold(std::optional<BaseitemKey> bi_key) const
 {
@@ -284,11 +285,12 @@ ItemEntity FloorType::make_gold(std::optional<BaseitemKey> bi_key) const
     if (bi_key) {
         item = ItemEntity(*bi_key);
     } else {
-        item = ItemEntity(get_obj_index(this, this->object_level, AM_GOLD));
+        const auto level = this->object_level <= 0 ? 1 : this->object_level;
+        item = ItemEntity(get_obj_index(this, level, AM_GOLD));
     }
 
     const auto base = item.get_baseitem_cost();
-    item.pval = base + (8 * randint1(base)) + randint1(8);
+    item.pval = 3 * base + randint1(6 * base);
     return item;
 }
 
