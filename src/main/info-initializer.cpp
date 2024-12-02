@@ -30,7 +30,8 @@
 #include "system/artifact-type-definition.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "system/dungeon-info.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
 #include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/spell-info-list.h"
@@ -231,7 +232,7 @@ void init_terrains_info()
 void init_monrace_definitions()
 {
     init_header(&monraces_header);
-    init_json("MonraceDefinitions.jsonc", "monsters", monraces_header, monraces_info, parse_monraces_info);
+    init_json("MonraceDefinitions.jsonc", "monsters", monraces_header, MonraceList::get_instance().get_raw_map(), parse_monraces_info);
 }
 
 /*!
