@@ -44,7 +44,7 @@
 #include "room/rooms-builder.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/grid-flow.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
@@ -86,8 +86,8 @@ bool new_player_spot(PlayerType *player_ptr)
     auto &floor = *player_ptr->current_floor_ptr;
     while (max_attempts--) {
         /* Pick a legal spot */
-        y = (POSITION)rand_range(1, floor.height - 2);
-        x = (POSITION)rand_range(1, floor.width - 2);
+        y = rand_range(1, floor.height - 2);
+        x = rand_range(1, floor.width - 2);
 
         const auto &grid = player_ptr->current_floor_ptr->get_grid({ y, x });
 

@@ -22,7 +22,7 @@
 #include "player/player-status-flags.h"
 #include "player/player-status-table.h"
 #include "status/experience.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -138,7 +138,7 @@ void process_eat_item(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
     for (int i = 0; i < 10; i++) {
         OBJECT_IDX o_idx;
-        INVENTORY_IDX i_idx = (INVENTORY_IDX)randint0(INVEN_PACK);
+        auto i_idx = randnum0<short>(INVEN_PACK);
         monap_ptr->o_ptr = &player_ptr->inventory_list[i_idx];
         if (!monap_ptr->o_ptr->is_valid()) {
             continue;
@@ -168,7 +168,7 @@ void process_eat_item(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 void process_eat_food(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr)
 {
     for (int i = 0; i < 10; i++) {
-        INVENTORY_IDX i_idx = (INVENTORY_IDX)randint0(INVEN_PACK);
+        auto i_idx = randnum0<short>(INVEN_PACK);
         monap_ptr->o_ptr = &player_ptr->inventory_list[i_idx];
         if (!monap_ptr->o_ptr->is_valid()) {
             continue;

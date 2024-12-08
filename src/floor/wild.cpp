@@ -14,7 +14,6 @@
 #include "dungeon/dungeon-flag-types.h"
 #include "dungeon/quest.h"
 #include "floor/cave.h"
-#include "floor/floor-town.h"
 #include "game-option/birth-options.h"
 #include "game-option/map-screen-options.h"
 #include "grid/feature.h"
@@ -39,7 +38,9 @@
 #include "system/angband-system.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/floor/town-info.h"
+#include "system/floor/town-list.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -272,10 +273,10 @@ static void generate_wilderness_area(FloorType *floor_ptr, int terrain, uint32_t
         }
     }
 
-    floor_ptr->grid_array[1][1].feat = (int16_t)randint0(table_size);
-    floor_ptr->grid_array[MAX_HGT - 2][1].feat = (int16_t)randint0(table_size);
-    floor_ptr->grid_array[1][MAX_WID - 2].feat = (int16_t)randint0(table_size);
-    floor_ptr->grid_array[MAX_HGT - 2][MAX_WID - 2].feat = (int16_t)randint0(table_size);
+    floor_ptr->grid_array[1][1].feat = randnum0<short>(table_size);
+    floor_ptr->grid_array[MAX_HGT - 2][1].feat = randnum0<short>(table_size);
+    floor_ptr->grid_array[1][MAX_WID - 2].feat = randnum0<short>(table_size);
+    floor_ptr->grid_array[MAX_HGT - 2][MAX_WID - 2].feat = randnum0<short>(table_size);
     if (corner) {
         floor_ptr->grid_array[1][1].feat = terrain_table[terrain][floor_ptr->grid_array[1][1].feat];
         floor_ptr->grid_array[MAX_HGT - 2][1].feat = terrain_table[terrain][floor_ptr->grid_array[MAX_HGT - 2][1].feat];

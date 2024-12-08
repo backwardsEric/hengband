@@ -16,7 +16,7 @@
 #include "object/item-use-flags.h"
 #include "perception/object-perception.h"
 #include "system/angband.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -122,7 +122,7 @@ bool create_ammo(PlayerType *player_ptr)
         }
 
         ItemEntity item({ ItemKindType::SHOT, m_bonus(1, player_ptr->lev) + 1 });
-        item.number = (byte)rand_range(15, 30);
+        item.number = rand_range(15, 30);
         object_aware(player_ptr, item);
         item.mark_as_known();
         ItemMagicApplier(player_ptr, &item, player_ptr->lev, AM_NO_FIXED_ART).execute();
@@ -147,7 +147,7 @@ bool create_ammo(PlayerType *player_ptr)
             return false;
         }
         ItemEntity ammo({ ItemKindType::ARROW, m_bonus(1, player_ptr->lev) + 1 });
-        ammo.number = (byte)rand_range(5, 10);
+        ammo.number = rand_range(5, 10);
         object_aware(player_ptr, ammo);
         ammo.mark_as_known();
         ItemMagicApplier(player_ptr, &ammo, player_ptr->lev, AM_NO_FIXED_ART).execute();
@@ -172,7 +172,7 @@ bool create_ammo(PlayerType *player_ptr)
         }
 
         ItemEntity ammo({ ItemKindType::BOLT, m_bonus(1, player_ptr->lev) + 1 });
-        ammo.number = (byte)rand_range(4, 8);
+        ammo.number = rand_range(4, 8);
         object_aware(player_ptr, ammo);
         ammo.mark_as_known();
         ItemMagicApplier(player_ptr, &ammo, player_ptr->lev, AM_NO_FIXED_ART).execute();

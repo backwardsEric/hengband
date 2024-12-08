@@ -35,7 +35,7 @@
 #include "player/player-status.h"
 #include "system/angband-system.h"
 #include "system/enums/monrace/monrace-id.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
@@ -399,9 +399,9 @@ std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y,
     }
 
     if (!ironman_nightmare) {
-        monster.energy_need = ENERGY_NEED() - (int16_t)randint0(100);
+        monster.energy_need = ENERGY_NEED() - randnum0<short>(100);
     } else {
-        monster.energy_need = ENERGY_NEED() - (int16_t)randint0(100) * 2;
+        monster.energy_need = ENERGY_NEED() - randnum0<short>(100) * 2;
     }
 
     if (!ironman_nightmare) {

@@ -3,7 +3,7 @@
 #include "object-enchant/tr-types.h"
 #include "player-ability/player-ability-types.h"
 #include "system/baseitem/baseitem-definition.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
@@ -351,7 +351,7 @@ void one_activation(ItemEntity *o_ptr)
     RandomArtActType type = RandomArtActType::NONE;
     PERCENTAGE chance = 0;
     while (randint1(100) >= chance) {
-        type = i2enum<RandomArtActType>(randint1(enum2i(RandomArtActType::MAX) - 1));
+        type = randnum1<RandomArtActType>(enum2i(RandomArtActType::MAX) - 1);
         switch (type) {
         case RandomArtActType::SUNLIGHT:
         case RandomArtActType::BO_MISS_1:

@@ -14,7 +14,7 @@
 #include "monster/monster-status-setter.h" //!< @todo 相互依存. 後で何とかする.
 #include "monster/monster-update.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -131,7 +131,7 @@ static void process_monsters_mtimed_aux(PlayerType *player_ptr, MONSTER_IDX m_id
             break;
         }
 
-        auto notice = (uint32_t)randint0(1024);
+        auto notice = randnum0<uint32_t>(1024);
 
         /* Nightmare monsters are more alert */
         if (ironman_nightmare) {
