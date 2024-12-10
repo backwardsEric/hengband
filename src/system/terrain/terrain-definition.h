@@ -1,7 +1,7 @@
 #pragma once
 
-#include "grid/feature-flag-types.h"
 #include "system/angband.h"
+#include "system/enums/terrain/terrain-characteristics.h"
 #include "util/flag-group.h"
 #include "view/display-symbol.h"
 #include <map>
@@ -89,9 +89,13 @@ public:
     void resize(size_t new_size);
     void shrink_to_fit();
 
+    void retouch();
+
 private:
     TerrainList() = default;
 
     static TerrainList instance;
     std::vector<TerrainType> terrains{};
+
+    std::optional<short> search_real_terrain(std::string_view tag) const;
 };
