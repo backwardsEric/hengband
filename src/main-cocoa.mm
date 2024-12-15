@@ -1917,8 +1917,8 @@ static BOOL game_in_progress = NO;
 
 #pragma mark Prototypes
 static void wakeup_event_loop(void);
-static void hook_plog(const char *str);
-static void hook_quit(const char * str);
+static void hook_plog(std::string_view str);
+static void hook_quit(std::string_view str);
 static NSString* get_lib_directory(void);
 static NSString* get_doc_directory(void);
 static NSString* AngbandCorrectedDirectoryPath(NSString *originalPath);
@@ -5182,14 +5182,15 @@ static BOOL check_events(int wait)
 /**
  * Hook to tell the user something important
  */
-static void hook_plog(const char * str)
+static void hook_plog(std::string_view str)
 {
-    if (str)
+    if (str.size() > 0)
     {
 	NSString *msg = NSLocalizedStringWithDefaultValue(
 	    @"Warning", AngbandMessageCatalog, [NSBundle mainBundle],
 	    @"Warning", @"Alert text for generic warning");
-        NSString *info = [NSString stringWithCString:str
+        NSString *info = [[NSString alloc] initWithBytes:str.data()
+				   length:str.size()
 #ifdef JP
 				   encoding:NSJapaneseEUCStringEncoding
 #else
@@ -5208,7 +5209,7 @@ static void hook_plog(const char * str)
 /**
  * Hook to tell the user something, and then quit
  */
-static void hook_quit(const char * str)
+static void hook_quit(std::string_view str)
 {
     for (int i = ANGBAND_TERM_MAX - 1; i >= 0; --i) {
         if (angband_terms[i]) {

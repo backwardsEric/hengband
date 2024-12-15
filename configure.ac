@@ -85,6 +85,14 @@ if test x"$enable_cocoa" = xyes ; then
   AC_DEFINE(VERSION_STRING, "3.0.0", [Version string to use for var directory])
 fi
 
+dnl Set minimum targeted version of macOS.
+AC_ARG_VAR([MACOS_MIN], [minimum version number of macOS to target; default is 10.15 which is the oldest version that the source code can handle])
+if test x"$MACOS_MIN" = x ; then
+    AC_SUBST(MACOS_MIN_INTERNAL, 10.15)
+else
+    AC_SUBST(MACOS_MIN_INTERNAL, $MACOS_MIN)
+fi
+
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:
 if test x"$enable_cocoa" != xyes ; then
