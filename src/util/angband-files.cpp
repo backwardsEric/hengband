@@ -284,6 +284,9 @@ static std::optional<std::string> read_line(FILE *fp)
         int c = fgetc(fp);
 
         if (c == EOF) {
+            buf[i] = '\0';
+            std::string_view sv(buf);
+            line_buf.append(sv.begin(), sv.end());
             break;
         }
         /*
