@@ -10,7 +10,6 @@
 #include "game-option/cheat-options.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/map-screen-options.h"
-#include "grid/feature-flag-types.h"
 #include "grid/grid.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-ninja.h"
@@ -28,16 +27,15 @@
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-ring-types.h"
 #include "system/angband-system.h"
-#include "system/baseitem-info.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -141,7 +139,7 @@ static byte get_dungeon_feeling(PlayerType *player_ptr)
     int rating = 0;
     for (MONSTER_IDX i = 1; i < floor_ptr->m_max; i++) {
         auto *m_ptr = &floor_ptr->m_list[i];
-        MonsterRaceInfo *r_ptr;
+        MonraceDefinition *r_ptr;
         int delta = 0;
         if (!m_ptr->is_valid() || m_ptr->is_pet()) {
             continue;
@@ -231,9 +229,9 @@ static byte get_dungeon_feeling(PlayerType *player_ptr)
             delta += 15 * base;
         }
 
-        const auto &baseitem = o_ptr->get_baseitem();
-        if (!o_ptr->is_cursed() && !o_ptr->is_broken() && baseitem.level > floor_ptr->dun_level) {
-            delta += (baseitem.level - floor_ptr->dun_level) * base;
+        const auto item_level = o_ptr->get_baseitem_level();
+        if (!o_ptr->is_cursed() && !o_ptr->is_broken() && item_level > floor_ptr->dun_level) {
+            delta += (item_level - floor_ptr->dun_level) * base;
         }
 
         rating += rating_boost(delta);

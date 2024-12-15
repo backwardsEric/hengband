@@ -10,8 +10,10 @@
 #include "save/save-util.h"
 #include "system/angband-system.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/timed-effects.h"
@@ -116,9 +118,10 @@ void wr_player(PlayerType *player_ptr)
         wr_bool(is_achieved);
     }
 
-    for (int i = 0; i < 4; i++) {
-        wr_s16b(enum2i(battle_mon_list[i]));
-        wr_u32b(mon_odds[i]);
+    const auto &melee_arena = MeleeArena::get_instance();
+    for (const auto &gladiator : melee_arena.get_gladiators()) {
+        wr_s16b(enum2i(gladiator.monrace_id));
+        wr_u32b(gladiator.odds);
     }
 
     wr_s16b(player_ptr->town_num);
@@ -144,10 +147,11 @@ void wr_player(PlayerType *player_ptr)
     wr_u32b(player_ptr->csp_frac);
     wr_s16b(player_ptr->max_plv);
 
-    byte tmp8u = (byte)dungeons_info.size();
+    const auto &dungeon_records = DungeonRecords::get_instance();
+    auto tmp8u = static_cast<uint8_t>(dungeon_records.size());
     wr_byte(tmp8u);
-    for (int i = 0; i < tmp8u; i++) {
-        wr_s16b((int16_t)max_dlv[i]);
+    for (const auto &[_, dungeon_record] : dungeon_records) {
+        wr_s16b(static_cast<int16_t>(dungeon_record.get_max_level()));
     }
 
     wr_s16b(0);
@@ -173,7 +177,7 @@ void wr_player(PlayerType *player_ptr)
     wr_s16b(effects->stun().current());
     wr_s16b(effects->poison().current());
     wr_s16b(effects->hallucination().current());
-    wr_s16b(player_ptr->protevil);
+    wr_s16b(effects->protection().current());
     wr_s16b(player_ptr->invuln);
     wr_s16b(player_ptr->ult_res);
     wr_s16b(player_ptr->hero);
@@ -182,7 +186,7 @@ void wr_player(PlayerType *player_ptr)
     wr_s16b(player_ptr->blessed);
     wr_s16b(player_ptr->tim_invis);
     wr_s16b(player_ptr->word_recall);
-    wr_s16b(player_ptr->recall_dungeon);
+    wr_s16b(static_cast<int16_t>(player_ptr->recall_dungeon));
     wr_s16b(player_ptr->alter_reality);
     wr_s16b(player_ptr->see_infra);
     wr_s16b(player_ptr->tim_infra);

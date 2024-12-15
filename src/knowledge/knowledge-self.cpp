@@ -9,7 +9,6 @@
 #include "birth/birth-explanations-table.h"
 #include "core/show-file.h"
 #include "flavor/flavor-describer.h"
-#include "floor/floor-town.h"
 #include "info-reader/fixed-map-parser.h"
 #include "io-dump/dump-util.h"
 #include "player-info/alignment.h"
@@ -19,6 +18,8 @@
 #include "player/player-status-table.h"
 #include "player/race-info-table.h"
 #include "store/store-util.h"
+#include "system/floor/town-info.h"
+#include "system/floor/town-list.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
@@ -197,7 +198,7 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
     }
 
     constexpr auto home_inventory = _("我が家のアイテム", "Home Inventory");
-    const auto &store = towns_info[1].stores[StoreSaleType::HOME];
+    const auto &store = towns_info[1].get_store(StoreSaleType::HOME);
     if (store.stock_num == 0) {
         angband_fclose(fff);
         FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, home_inventory);
@@ -216,7 +217,7 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
             fprintf(fff, "\n ( %d ページ )\n", x++);
         }
 
-        const auto item_name = describe_flavor(player_ptr, &store.stock[i], 0);
+        const auto item_name = describe_flavor(player_ptr, *store.stock[i], 0);
         const int item_length = item_name.length();
         if (item_length <= 80 - 3) {
             fprintf(fff, "%c%s %s\n", I2A(i % 12), close_bracket, item_name.data());
@@ -229,7 +230,7 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
         fprintf(fff, "%c%s %.*s\n", I2A(i % 12), close_bracket, n, item_name.substr(0, n).data());
         fprintf(fff, "   %.77s\n", item_name.substr(n).data());
 #else
-        const auto item_name = describe_flavor(player_ptr, &store.stock[i], 0);
+        const auto item_name = describe_flavor(player_ptr, *store.stock[i], 0);
         fprintf(fff, "%c%s %s\n", I2A(i % 12), close_bracket, item_name.data());
 #endif
     }

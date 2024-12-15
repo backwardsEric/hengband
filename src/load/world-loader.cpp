@@ -6,24 +6,33 @@
 #include "market/bounty.h"
 #include "system/angband-system.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "world/world.h"
 
-static void rd_hengband_dungeons(void)
+static void rd_hengband_dungeons()
 {
-    auto max = rd_byte();
+    const auto &dungeons = DungeonList::get_instance();
+    auto &dungeon_records = DungeonRecords::get_instance();
+    const auto max = rd_byte();
     for (auto i = 0U; i < max; i++) {
         auto tmp16s = rd_s16b();
-        if (i >= dungeons_info.size()) {
+        if (i >= dungeons.size()) {
             continue;
         }
 
-        max_dlv[i] = tmp16s;
-        if (max_dlv[i] > dungeons_info[i].maxdepth) {
-            max_dlv[i] = dungeons_info[i].maxdepth;
+        auto &dungeon_record = dungeon_records.get_record(i);
+        if (tmp16s > 0) {
+            dungeon_record.set_max_level(tmp16s);
+        }
+
+        const auto &dungeon = dungeons.get_dungeon(i);
+        if (dungeon_record.get_max_level() > dungeon.maxdepth) {
+            dungeon_record.set_max_level(dungeon.maxdepth);
         }
     }
 }
@@ -60,16 +69,19 @@ void rd_alter_reality(PlayerType *player_ptr)
     }
 }
 
-void set_gambling_monsters(void)
+void set_gambling_monsters()
 {
-    const int max_gambling_monsters = 4;
-    for (int i = 0; i < max_gambling_monsters; i++) {
-        battle_mon_list[i] = i2enum<MonsterRaceId>(rd_s16b());
+    auto &melee_arena = MeleeArena::get_instance();
+    for (auto i = 0; i < NUM_GLADIATORS; i++) {
+        const auto monrace_id = i2enum<MonraceId>(rd_s16b());
+        uint32_t odds;
         if (h_older_than(0, 3, 4)) {
-            set_zangband_gambling_monsters(i);
+            odds = rd_s16b();
         } else {
-            mon_odds[i] = rd_u32b();
+            odds = rd_u32b();
         }
+
+        melee_arena.set_gladiator(i, { monrace_id, odds });
     }
 }
 
@@ -114,7 +126,7 @@ static void rd_world_info(PlayerType *player_ptr)
     if (h_older_than(0, 0, 3)) {
         determine_daily_bounty(player_ptr, true);
     } else {
-        world.today_mon = i2enum<MonsterRaceId>(rd_s16b());
+        world.today_mon = i2enum<MonraceId>(rd_s16b());
         world.knows_daily_bounty = rd_s16b() != 0; // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
     }
 }

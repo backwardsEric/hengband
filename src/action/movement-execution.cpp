@@ -19,7 +19,6 @@
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-indice-types.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
@@ -32,14 +31,15 @@
 #include "player/player-move.h"
 #include "player/player-status-flags.h"
 #include "player/player-status.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "timed-effect/timed-effects.h"
 #include "tracking/lore-tracker.h"
 #include "util/bit-flags-calculator.h"
@@ -291,7 +291,7 @@ void exe_movement(PlayerType *player_ptr, DIRECTION dir, bool do_pickup, bool br
                     energy.reset_player_turn();
                 }
             } else {
-                if (easy_open && is_closed_door(player_ptr, grid.get_feat_mimic()) && easy_open_door(player_ptr, pos.y, pos.x)) {
+                if (easy_open && floor.is_closed_door(pos, true) && easy_open_door(player_ptr, pos.y, pos.x)) {
                     return;
                 }
 

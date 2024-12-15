@@ -30,15 +30,15 @@
 #include "player/special-defense-types.h"
 #include "status/bad-status-setter.h"
 #include "status/element-resistance.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -141,15 +141,14 @@ void process_player_hp_mp(PlayerType *player_ptr)
             }
         }
 
-        const auto *o_ptr = &player_ptr->inventory_list[INVEN_LITE];
-        const auto flags = o_ptr->get_flags();
-
+        const auto &item = player_ptr->inventory_list[INVEN_LITE];
+        const auto flags = item.get_flags();
         if ((player_ptr->inventory_list[INVEN_LITE].bi_key.tval() != ItemKindType::NONE) && flags.has_not(TR_DARK_SOURCE) && !has_resist_lite(player_ptr)) {
-            const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+            const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
             msg_format(_("%sがあなたのアンデッドの肉体を焼き焦がした！", "The %s scorches your undead flesh!"), item_name.data());
             cave_no_regen = true;
             if (!is_invuln(player_ptr)) {
-                const auto wielding_item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
+                const auto wielding_item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
                 std::stringstream ss;
                 ss << _(wielding_item_name, "wielding ") << _("を装備したダメージ", wielding_item_name);
                 take_hit(player_ptr, DAMAGE_NOESCAPE, 1, ss.str());

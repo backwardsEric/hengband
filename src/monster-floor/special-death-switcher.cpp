@@ -23,7 +23,6 @@
 #include "monster-floor/monster-death.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-info.h"
@@ -36,10 +35,12 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/angband-system.h"
 #include "system/artifact-type-definition.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -79,7 +80,6 @@ static void summon_self(PlayerType *player_ptr, MonsterDeath *md_ptr, summon_typ
     POSITION wy = md_ptr->md_y;
     POSITION wx = md_ptr->md_x;
     int attempts = 100;
-    bool pet = md_ptr->m_ptr->is_pet();
     do {
         scatter(player_ptr, &wy, &wx, md_ptr->md_y, md_ptr->md_x, radius, PROJECT_NONE);
     } while (!(in_bounds(floor_ptr, wy, wx) && is_cave_empty_bold2(player_ptr, wy, wx)) && --attempts);
@@ -89,7 +89,7 @@ static void summon_self(PlayerType *player_ptr, MonsterDeath *md_ptr, summon_typ
     }
 
     BIT_FLAGS mode = dead_mode(md_ptr);
-    if (summon_specific(player_ptr, (pet ? -1 : md_ptr->m_idx), wy, wx, 100, type, mode) && player_can_see_bold(player_ptr, wy, wx)) {
+    if (summon_specific(player_ptr, wy, wx, 100, type, mode) && player_can_see_bold(player_ptr, wy, wx)) {
         msg_print(message);
     }
 }
@@ -105,9 +105,8 @@ static void on_dead_pink_horror(PlayerType *player_ptr, MonsterDeath *md_ptr)
     for (int i = 0; i < blue_horrors; i++) {
         POSITION wy = md_ptr->md_y;
         POSITION wx = md_ptr->md_x;
-        bool pet = md_ptr->m_ptr->is_pet();
         BIT_FLAGS mode = dead_mode(md_ptr);
-        if (summon_specific(player_ptr, (pet ? -1 : md_ptr->m_idx), wy, wx, 100, SUMMON_BLUE_HORROR, mode) && player_can_see_bold(player_ptr, wy, wx)) {
+        if (summon_specific(player_ptr, wy, wx, 100, SUMMON_BLUE_HORROR, mode) && player_can_see_bold(player_ptr, wy, wx)) {
             notice = true;
         }
     }
@@ -140,9 +139,9 @@ static void on_dead_raal(PlayerType *player_ptr, MonsterDeath *md_ptr)
     auto *q_ptr = &forge;
     q_ptr->wipe();
     if ((floor_ptr->dun_level > 49) && one_in_(5)) {
-        get_obj_index_hook = kind_is_good_book;
+        select_baseitem_id_hook = kind_is_good_book;
     } else {
-        get_obj_index_hook = kind_is_book;
+        select_baseitem_id_hook = kind_is_book;
     }
 
     (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
@@ -216,9 +215,9 @@ static void on_dead_death_sword(PlayerType *player_ptr, MonsterDeath *md_ptr)
 static void on_dead_can_angel(PlayerType *player_ptr, MonsterDeath *md_ptr)
 {
     auto is_drop_can = md_ptr->drop_chosen_item;
-    auto is_silver = md_ptr->m_ptr->r_idx == MonsterRaceId::A_SILVER;
+    auto is_silver = md_ptr->m_ptr->r_idx == MonraceId::A_SILVER;
     is_silver &= md_ptr->r_ptr->r_akills % 5 == 0;
-    is_drop_can &= (md_ptr->m_ptr->r_idx == MonsterRaceId::A_GOLD) || is_silver;
+    is_drop_can &= (md_ptr->m_ptr->r_idx == MonraceId::A_GOLD) || is_silver;
     if (!is_drop_can) {
         return;
     }
@@ -314,22 +313,22 @@ static bool make_equipment(PlayerType *player_ptr, ItemEntity *q_ptr, const BIT_
  * @brief 死亡時ドロップとしてランダムアーティファクトのみを生成する
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param md_ptr モンスター撃破構造体への参照ポインタ
- * @param object_hook_pf アイテム種別指定、特になければnullptrで良い
+ * @param hook_pf アイテム種別指定、特になければnullptrで良い
  * @return なし
  * @details
  * 最初のアイテム生成でいきなり☆が生成された場合を除き、中途半端な☆ (例：呪われている)は生成しない.
  * このルーチンで★は生成されないので、★生成フラグのキャンセルも不要
  */
-static void on_dead_random_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, bool (*object_hook_pf)(short bi_id))
+static void on_dead_random_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, bool (*hook_pf)(short bi_id))
 {
     ItemEntity forge;
     auto *q_ptr = &forge;
-    auto is_object_hook_null = object_hook_pf == nullptr;
+    auto is_object_hook_null = hook_pf == nullptr;
     auto drop_mode = md_ptr->mo_mode | AM_NO_FIXED_ART;
     while (true) {
         // make_object() の中でアイテム種別をキャンセルしている
         // よってこのwhileループ中へ入れないと、引数で指定していない種別のアイテムが選ばれる可能性がある
-        get_obj_index_hook = object_hook_pf;
+        select_baseitem_id_hook = hook_pf;
         if (!make_equipment(player_ptr, q_ptr, drop_mode, is_object_hook_null)) {
             continue;
         }
@@ -374,7 +373,7 @@ static void drop_specific_item_on_dead(PlayerType *player_ptr, MonsterDeath *md_
     ItemEntity forge;
     auto *q_ptr = &forge;
     q_ptr->wipe();
-    get_obj_index_hook = object_hook_pf;
+    select_baseitem_id_hook = object_hook_pf;
     (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
     (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
 }
@@ -389,16 +388,16 @@ static void on_dead_chest_mimic(PlayerType *player_ptr, MonsterDeath *md_ptr)
     auto mimic_inside = MonraceList::empty_id();
     auto num_summons = 0;
     switch (md_ptr->m_ptr->r_idx) {
-    case MonsterRaceId::CHEST_MIMIC_03:
-        mimic_inside = MonsterRaceId::CHEST_MIMIC_02;
+    case MonraceId::CHEST_MIMIC_03:
+        mimic_inside = MonraceId::CHEST_MIMIC_02;
         num_summons = 1;
         break;
-    case MonsterRaceId::CHEST_MIMIC_04:
-        mimic_inside = MonsterRaceId::CHEST_MIMIC_03;
+    case MonraceId::CHEST_MIMIC_04:
+        mimic_inside = MonraceId::CHEST_MIMIC_03;
         num_summons = 1;
         break;
-    case MonsterRaceId::CHEST_MIMIC_11:
-        mimic_inside = MonsterRaceId::CHEST_MIMIC_04;
+    case MonraceId::CHEST_MIMIC_11:
+        mimic_inside = MonraceId::CHEST_MIMIC_04;
         num_summons = one_in_(2) ? 3 : 2;
         break;
     default:
@@ -457,7 +456,7 @@ static void on_dead_mimics(PlayerType *player_ptr, MonsterDeath *md_ptr)
         drop_specific_item_on_dead(player_ptr, md_ptr, kind_is_hafted);
         return;
     case '|':
-        if (md_ptr->m_ptr->r_idx == MonsterRaceId::STORMBRINGER) {
+        if (md_ptr->m_ptr->r_idx == MonraceId::STORMBRINGER) {
             return;
         }
 
@@ -487,81 +486,81 @@ static void on_dead_swordfish(PlayerType *player_ptr, MonsterDeath *md_ptr, Attr
 void switch_special_death(PlayerType *player_ptr, MonsterDeath *md_ptr, AttributeFlags attribute_flags)
 {
     switch (md_ptr->m_ptr->r_idx) {
-    case MonsterRaceId::PINK_HORROR:
+    case MonraceId::PINK_HORROR:
         on_dead_pink_horror(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::BLOODLETTER:
+    case MonraceId::BLOODLETTER:
         on_dead_bloodletter(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::RAAL:
+    case MonraceId::RAAL:
         on_dead_raal(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::DAWN:
+    case MonraceId::DAWN:
         on_dead_dawn(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::UNMAKER:
+    case MonraceId::UNMAKER:
         (void)project(player_ptr, md_ptr->m_idx, 6, md_ptr->md_y, md_ptr->md_x, 100, AttributeType::CHAOS, PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL);
         break;
-    case MonsterRaceId::UNICORN_ORD:
-    case MonsterRaceId::MORGOTH:
-    case MonsterRaceId::ONE_RING:
+    case MonraceId::UNICORN_ORD:
+    case MonraceId::MORGOTH:
+    case MonraceId::ONE_RING:
         on_dead_sacred_treasures(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::SERPENT:
+    case MonraceId::SERPENT:
         on_dead_serpent(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::B_DEATH_SWORD:
+    case MonraceId::B_DEATH_SWORD:
         on_dead_death_sword(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::A_GOLD:
-    case MonsterRaceId::A_SILVER:
+    case MonraceId::A_GOLD:
+    case MonraceId::A_SILVER:
         on_dead_can_angel(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::ROLENTO:
+    case MonraceId::ROLENTO:
         (void)project(player_ptr, md_ptr->m_idx, 3, md_ptr->md_y, md_ptr->md_x, Dice::roll(20, 10), AttributeType::FIRE, PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL);
         return;
-    case MonsterRaceId::MIDDLE_AQUA_FIRST:
-    case MonsterRaceId::LARGE_AQUA_FIRST:
-    case MonsterRaceId::EXTRA_LARGE_AQUA_FIRST:
-    case MonsterRaceId::MIDDLE_AQUA_SECOND:
-    case MonsterRaceId::LARGE_AQUA_SECOND:
-    case MonsterRaceId::EXTRA_LARGE_AQUA_SECOND:
+    case MonraceId::MIDDLE_AQUA_FIRST:
+    case MonraceId::LARGE_AQUA_FIRST:
+    case MonraceId::EXTRA_LARGE_AQUA_FIRST:
+    case MonraceId::MIDDLE_AQUA_SECOND:
+    case MonraceId::LARGE_AQUA_SECOND:
+    case MonraceId::EXTRA_LARGE_AQUA_SECOND:
         on_dead_aqua_illusion(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::TOTEM_MOAI:
+    case MonraceId::TOTEM_MOAI:
         on_dead_totem_moai(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::DRAGON_CENTIPEDE:
-    case MonsterRaceId::DRAGON_WORM:
+    case MonraceId::DRAGON_CENTIPEDE:
+    case MonraceId::DRAGON_WORM:
         on_dead_dragon_centipede(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::CAIT_SITH:
+    case MonraceId::CAIT_SITH:
         if (player_ptr->current_floor_ptr->dun_level <= 0) {
             return;
         }
         drop_specific_item_on_dead(player_ptr, md_ptr, kind_is_boots);
         return;
-    case MonsterRaceId::YENDOR_WIZARD_1:
+    case MonraceId::YENDOR_WIZARD_1:
         on_dead_random_artifact(player_ptr, md_ptr, kind_is_amulet);
         return;
-    case MonsterRaceId::YENDOR_WIZARD_2:
+    case MonraceId::YENDOR_WIZARD_2:
         if (player_ptr->current_floor_ptr->dun_level <= 0) {
             return;
         }
         drop_specific_item_on_dead(player_ptr, md_ptr, kind_is_amulet);
         return;
-    case MonsterRaceId::MANIMANI:
+    case MonraceId::MANIMANI:
         on_dead_manimani(player_ptr, md_ptr);
         return;
-    case MonsterRaceId::LOSTRINGIL:
+    case MonraceId::LOSTRINGIL:
         on_dead_random_artifact(player_ptr, md_ptr, kind_is_sword);
         return;
-    case MonsterRaceId::CHEST_MIMIC_03:
-    case MonsterRaceId::CHEST_MIMIC_04:
-    case MonsterRaceId::CHEST_MIMIC_11:
+    case MonraceId::CHEST_MIMIC_03:
+    case MonraceId::CHEST_MIMIC_04:
+    case MonraceId::CHEST_MIMIC_11:
         on_dead_chest_mimic(player_ptr, md_ptr);
         break;
-    case MonsterRaceId::SWORDFISH:
+    case MonraceId::SWORDFISH:
         on_dead_swordfish(player_ptr, md_ptr, attribute_flags);
         break;
     default:

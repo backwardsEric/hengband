@@ -59,7 +59,6 @@
 #include "monster-floor/monster-lite.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-util.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
@@ -80,10 +79,12 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/angband-system.h"
 #include "system/angband-version.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
@@ -119,7 +120,7 @@ static void send_waiting_record(PlayerType *player_ptr)
     }
 
     if (!input_check_strict(player_ptr, _("待機していたスコア登録を今行ないますか？", "Do you register score now? "), UserCheck::NO_HISTORY)) {
-        quit(0);
+        quit("");
     }
 
     static constexpr auto flags = {
@@ -155,7 +156,7 @@ static void send_waiting_record(PlayerType *player_ptr)
     (void)fd_close(highscore_fd);
     highscore_fd = -1;
     signals_handle_tstp();
-    quit(0);
+    quit("");
 }
 
 static void init_random_seed(PlayerType *player_ptr, bool new_game)
@@ -219,11 +220,11 @@ static void restore_world_floor_info(PlayerType *player_ptr)
         return;
     }
 
-    player_ptr->riding = 0;
+    player_ptr->ride_monster(0);
     for (short i = floor.m_max; i > 0; i--) {
         const auto &monster = floor.m_list[i];
         if (player_ptr->is_located_at({ monster.fy, monster.fx })) {
-            player_ptr->riding = i;
+            player_ptr->ride_monster(i);
             break;
         }
     }
@@ -324,16 +325,16 @@ static void init_riding_pet(PlayerType *player_ptr, bool new_game)
         return;
     }
 
-    MonsterRaceId pet_r_idx = pc.equals(PlayerClassType::CAVALRY) ? MonsterRaceId::HORSE : MonsterRaceId::YASE_HORSE;
-    auto *r_ptr = &monraces_info[pet_r_idx];
-    auto m_idx = place_specific_monster(player_ptr, 0, player_ptr->y, player_ptr->x - 1, pet_r_idx, (PM_FORCE_PET | PM_NO_KAGE));
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[*m_idx];
-    m_ptr->mspeed = r_ptr->speed;
-    m_ptr->maxhp = r_ptr->hit_dice.floored_expected_value();
-    m_ptr->max_maxhp = m_ptr->maxhp;
-    m_ptr->hp = r_ptr->hit_dice.floored_expected_value();
-    m_ptr->dealt_damage = 0;
-    m_ptr->energy_need = ENERGY_NEED() + ENERGY_NEED();
+    const auto pet_id = pc.equals(PlayerClassType::CAVALRY) ? MonraceId::HORSE : MonraceId::YASE_HORSE;
+    const auto &monrace = MonraceList::get_instance().get_monrace(pet_id);
+    const auto m_idx = place_specific_monster(player_ptr, player_ptr->y, player_ptr->x - 1, pet_id, (PM_FORCE_PET | PM_NO_KAGE));
+    auto &monster = player_ptr->current_floor_ptr->m_list[*m_idx];
+    monster.mspeed = monrace.speed;
+    monster.maxhp = monrace.hit_dice.floored_expected_value();
+    monster.max_maxhp = monster.maxhp;
+    monster.hp = monrace.hit_dice.floored_expected_value();
+    monster.dealt_damage = 0;
+    monster.energy_need = ENERGY_NEED() + ENERGY_NEED();
 }
 
 static void decide_arena_death(PlayerType *player_ptr)
@@ -460,5 +461,5 @@ void play_game(PlayerType *player_ptr, bool new_game, bool browsing_movie)
     select_floor_music(player_ptr);
     process_game_turn(player_ptr);
     close_game(player_ptr);
-    quit(nullptr);
+    quit("");
 }

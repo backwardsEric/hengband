@@ -12,11 +12,12 @@
 #include "room/door-definition.h"
 #include "room/pit-nest-util.h"
 #include "room/space-finder.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/probability-table.h"
 #include "wizard/wizard-messages.h"
@@ -47,13 +48,14 @@ const std::map<NestKind, nest_pit_type> nest_types = {
 std::optional<std::array<NestMonsterInfo, NUM_NEST_MON_TYPE>> pick_nest_monraces(PlayerType *player_ptr, MonsterEntity &align)
 {
     std::array<NestMonsterInfo, NUM_NEST_MON_TYPE> nest_mon_info_list{};
+    const auto &monraces = MonraceList::get_instance();
     for (auto &nest_mon_info : nest_mon_info_list) {
         const auto monrace_id = select_pit_nest_monrace_id(player_ptr, align, 11);
         if (!monrace_id) {
             return std::nullopt;
         }
 
-        const auto &monrace = monraces_info[*monrace_id];
+        const auto &monrace = monraces.get_monrace(*monrace_id);
         if (monrace.kind_flags.has(MonsterKindType::EVIL)) {
             align.sub_align |= SUB_ALIGN_EVIL;
         }
@@ -120,7 +122,7 @@ void place_monsters_in_nest(PlayerType *player_ptr, const Pos2D &center, std::ar
 {
     Rect2D(center, Vector2D(2, 9)).each_area([player_ptr, &nest_mon_info_list](const Pos2D &pos) {
         auto &nest_mon_info = rand_choice(nest_mon_info_list);
-        (void)place_specific_monster(player_ptr, 0, pos.y, pos.x, nest_mon_info.monrace_id, 0L);
+        (void)place_specific_monster(player_ptr, pos.y, pos.x, nest_mon_info.monrace_id, 0L);
         nest_mon_info.used = true;
     });
 }
@@ -172,12 +174,9 @@ bool NestMonsterInfo::order_nest(const NestMonsterInfo &other) const
 
     const auto &monrace1 = this->get_monrace();
     const auto &monrace2 = other.get_monrace();
-    if (monrace1.level < monrace2.level) {
-        return true;
-    }
-
-    if (monrace1.level > monrace2.level) {
-        return false;
+    const auto order_level = monrace2.order_level(monrace1);
+    if (order_level) {
+        return *order_level;
     }
 
     if (monrace1.mexp < monrace2.mexp) {
@@ -191,7 +190,7 @@ bool NestMonsterInfo::order_nest(const NestMonsterInfo &other) const
     return this->monrace_id < other.monrace_id;
 }
 
-const MonsterRaceInfo &NestMonsterInfo::get_monrace() const
+const MonraceDefinition &NestMonsterInfo::get_monrace() const
 {
     return MonraceList::get_instance().get_monrace(this->monrace_id);
 }
@@ -200,7 +199,7 @@ const MonsterRaceInfo &NestMonsterInfo::get_monrace() const
  * @brief タイプ5の部屋…nestを生成する / Type 5 -- Monster nests
  * @param player_ptr プレイヤーへの参照ポインタ
  */
-bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
+bool build_type5(PlayerType *player_ptr, DungeonData *dd_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     const auto nest_type = pick_nest_type(floor, nest_types);
@@ -222,20 +221,17 @@ bool build_type5(PlayerType *player_ptr, dun_data_type *dd_ptr)
         return false;
     }
 
-    /* Find and reserve some space in the dungeon.  Get center of room. */
-    int xval;
-    int yval;
-    if (!find_space(player_ptr, dd_ptr, &yval, &xval, 11, 25)) {
+    const auto center = find_space(player_ptr, dd_ptr, 11, 25);
+    if (!center) {
         return false;
     }
 
-    const Pos2D center(yval, xval);
-    auto rectangle = generate_large_room(player_ptr, center);
-    generate_inner_room(player_ptr, center, rectangle);
+    auto rectangle = generate_large_room(player_ptr, *center);
+    generate_inner_room(player_ptr, *center, rectangle);
 
     constexpr auto fmt_nest = _("モンスター部屋(nest)(%s%s)を生成します。", "Monster nest (%s%s)");
     msg_format_wizard(player_ptr, CHEAT_DUNGEON, fmt_nest, nest.name.data(), nest_subtype_string(*nest_type).data());
-    place_monsters_in_nest(player_ptr, center, *nest_mon_info_list);
+    place_monsters_in_nest(player_ptr, *center, *nest_mon_info_list);
     output_debug_nest(player_ptr, *nest_mon_info_list);
     return true;
 }

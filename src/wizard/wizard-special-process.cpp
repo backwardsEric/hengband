@@ -63,6 +63,7 @@
 #include "player/patron.h"
 #include "player/player-realm.h"
 #include "player/player-skill.h"
+#include "player/player-spell-status.h"
 #include "player/player-status-table.h"
 #include "player/player-status.h"
 #include "player/race-info-table.h"
@@ -78,15 +79,18 @@
 #include "system/angband-system.h"
 #include "system/angband-version.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "target/grid-selector.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
@@ -105,14 +109,12 @@
 #include "wizard/wizard-spoiler.h"
 #include "world/world.h"
 #include <algorithm>
+#include <fstream>
 #include <optional>
 #include <span>
 #include <sstream>
 #include <tuple>
 #include <vector>
-
-#define NUM_O_SET 8
-#define NUM_O_BIT 32
 
 /*!
  * @brief プレイヤーを完全回復する
@@ -226,7 +228,7 @@ static std::string wiz_make_named_artifact_desc(PlayerType *player_ptr, FixedArt
     ItemEntity item(artifact.bi_key);
     item.fa_id = fa_id;
     item.mark_as_known();
-    return describe_flavor(player_ptr, &item, OD_NAME_ONLY);
+    return describe_flavor(player_ptr, item, OD_NAME_ONLY);
 }
 
 /**
@@ -468,10 +470,10 @@ void wiz_create_feature(PlayerType *player_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @details 範囲外の値が選択されたら再入力を促す
  */
-static std::optional<short> select_debugging_dungeon(short initial_dungeon_id)
+static std::optional<int> select_debugging_dungeon(int initial_dungeon_id)
 {
     if (command_arg > 0) {
-        return static_cast<short>(std::clamp(static_cast<int>(command_arg), DUNGEON_ANGBAND, DUNGEON_MAX));
+        return std::clamp(static_cast<int>(command_arg), DUNGEON_ANGBAND, DUNGEON_MAX);
     }
 
     return input_numerics("Jump which dungeon", DUNGEON_ANGBAND, DUNGEON_MAX, initial_dungeon_id);
@@ -485,7 +487,7 @@ static std::optional<short> select_debugging_dungeon(short initial_dungeon_id)
  */
 static std::optional<int> select_debugging_floor(const FloorType &floor, int dungeon_id)
 {
-    const auto &dungeon = dungeons_info[dungeon_id];
+    const auto &dungeon = DungeonList::get_instance().get_dungeon(dungeon_id);
     const auto max_depth = dungeon.maxdepth;
     const auto min_depth = dungeon.mindepth;
     const auto is_current_dungeon = floor.dungeon_idx == dungeon_id;
@@ -501,7 +503,7 @@ static std::optional<int> select_debugging_floor(const FloorType &floor, int dun
  * @brief 任意のダンジョン及び階層に飛ぶ
  * Go to any level
  */
-static void wiz_jump_floor(PlayerType *player_ptr, DUNGEON_IDX dun_idx, DEPTH depth)
+static void wiz_jump_floor(PlayerType *player_ptr, int dun_idx, DEPTH depth)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     floor.set_dungeon_index(dun_idx);
@@ -535,7 +537,7 @@ void wiz_jump_to_dungeon(PlayerType *player_ptr)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     const auto is_in_dungeon = floor.is_in_underground();
-    const auto dungeon_idx = is_in_dungeon ? floor.dungeon_idx : static_cast<short>(DUNGEON_ANGBAND);
+    const auto dungeon_idx = is_in_dungeon ? floor.dungeon_idx : DUNGEON_ANGBAND;
     const auto dungeon_id = select_debugging_dungeon(dungeon_idx);
     if (!dungeon_id) {
         if (!is_in_dungeon) {
@@ -571,7 +573,7 @@ void wiz_learn_items_all(PlayerType *player_ptr)
     for (const auto &baseitem : BaseitemList::get_instance()) {
         if (baseitem.is_valid() && baseitem.level <= command_arg) {
             ItemEntity item(baseitem.idx);
-            object_aware(player_ptr, &item);
+            object_aware(player_ptr, item);
         }
     }
 }
@@ -684,6 +686,10 @@ void wiz_reset_class(PlayerType *player_ptr)
     if (chosen_realms->first != RealmType::NONE) {
         pr.set(chosen_realms->first, chosen_realms->second);
     }
+    PlayerSpellStatus pss(player_ptr);
+    pss.realm1().initialize();
+    pss.realm2().initialize();
+    player_ptr->learned_spells = 0;
     change_birth_flags();
     handle_stuff(player_ptr);
 }
@@ -704,52 +710,56 @@ void wiz_reset_realms(PlayerType *player_ptr)
     if (chosen_realms->first != RealmType::NONE) {
         pr.set(chosen_realms->first, chosen_realms->second);
     }
+    PlayerSpellStatus pss(player_ptr);
+    pss.realm1().initialize();
+    pss.realm2().initialize();
+    player_ptr->learned_spells = 0;
     change_birth_flags();
     handle_stuff(player_ptr);
 }
 
 /*!
- * @brief 現在のオプション設定をダンプ出力する /
+ * @brief 現在のオプション設定をダンプ出力する
  * @param player_ptr プレイヤーへの参照ポインタ
- * Hack -- Dump option bits usage
  */
-void wiz_dump_options(void)
+void wiz_dump_options()
 {
     const auto path = path_build(ANGBAND_DIR_USER, "opt_info.txt");
     const auto &filename = path.string();
-    auto *fff = angband_fopen(path, FileOpenMode::APPEND);
-    if (fff == nullptr) {
+    std::ofstream ofs(path);
+    if (ofs.bad()) {
         msg_format(_("ファイル %s を開けませんでした。", "Failed to open file %s."), filename.data());
         msg_print(nullptr);
         return;
     }
 
-    std::vector<std::vector<int>> exist(NUM_O_SET, std::vector<int>(NUM_O_BIT));
+    constexpr auto num_o_set = 8;
+    constexpr auto num_o_bit = 32;
 
-    for (int i = 0; option_info[i].o_desc; i++) {
-        const option_type *ot_ptr = &option_info[i];
-        if (ot_ptr->o_var) {
-            exist[ot_ptr->o_set][ot_ptr->o_bit] = i + 1;
-        }
+    std::vector<std::vector<int>> exist(num_o_set, std::vector<int>(num_o_bit));
+    auto option_count = 0;
+    for (const auto &option : option_info) {
+        exist[option.flag_position][option.offset] = option_count + 1;
+        option_count++;
     }
 
-    fprintf(fff, "[Option bits usage on %s\n]", AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data());
-    fputs("Set - Bit (Page) Option Name\n", fff);
-    fputs("------------------------------------------------\n", fff);
-    for (int i = 0; i < NUM_O_SET; i++) {
-        for (int j = 0; j < NUM_O_BIT; j++) {
+    ofs << "[Option bits usage on %s\n]", AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL);
+    ofs << "Set - Bit (Page) Option Name\n";
+    ofs << "------------------------------------------------\n";
+    for (auto i = 0; i < num_o_set; i++) {
+        for (auto j = 0; j < num_o_bit; j++) {
             if (exist[i][j]) {
-                const option_type *ot_ptr = &option_info[exist[i][j] - 1];
-                fprintf(fff, "  %d -  %02d (%4d) %s\n", i, j, ot_ptr->o_page, ot_ptr->o_text);
+                const auto &option = option_info[exist[i][j] - 1];
+                const auto page = option.page ? enum2i(*option.page) : 255; //!< @details かつてnulloptではなかった頃の値.
+                ofs << format("  %d -  %02d (%4d) %s\n", i, j, page, option.text.data());
             } else {
-                fprintf(fff, "  %d -  %02d\n", i, j);
+                ofs << format("  %d -  %02d\n", i, j);
             }
         }
 
-        fputc('\n', fff);
+        ofs << '\n';
     }
 
-    angband_fclose(fff);
     msg_format(_("オプションbit使用状況をファイル %s に書き出しました。", "Option bits usage dump saved to file %s."), filename.data());
 }
 
@@ -783,7 +793,7 @@ void wiz_zap_floor_monsters(PlayerType *player_ptr)
     const auto &floor = *player_ptr->current_floor_ptr;
     for (MONSTER_IDX i = 1; i < floor.m_max; i++) {
         const auto &monster = floor.m_list[i];
-        if (!monster.is_valid() || (i == player_ptr->riding)) {
+        if (!monster.is_valid() || monster.is_riding()) {
             continue;
         }
 

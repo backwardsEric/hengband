@@ -13,31 +13,23 @@
 #include "floor/cave.h"
 #include "floor/wild.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-indice-types.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-status.h"
 #include "monster/smart-learn-types.h"
 #include "player/player-status-flags.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
-
-/*!
- * @brief モンスターを友好的にする
- * @param m_ptr モンスター情報構造体の参照ポインタ
- */
-void set_friendly(MonsterEntity *m_ptr)
-{
-    m_ptr->mflag2.set(MonsterConstantFlagType::FRIENDLY);
-}
 
 /*!
  * @brief モンスターが地形を踏破できるかどうかを返す
@@ -48,7 +40,7 @@ void set_friendly(MonsterEntity *m_ptr)
  * @param mode オプション
  * @return 踏破可能ならばTRUEを返す
  */
-bool monster_can_cross_terrain(PlayerType *player_ptr, FEAT_IDX feat, const MonsterRaceInfo *r_ptr, BIT_FLAGS16 mode)
+bool monster_can_cross_terrain(PlayerType *player_ptr, FEAT_IDX feat, const MonraceDefinition *r_ptr, BIT_FLAGS16 mode)
 {
     const auto &terrain = TerrainList::get_instance().get_terrain(feat);
     if (terrain.flags.has(TerrainCharacteristics::PATTERN)) {
@@ -138,7 +130,7 @@ bool monster_can_cross_terrain(PlayerType *player_ptr, FEAT_IDX feat, const Mons
  * @param mode オプション
  * @return 踏破可能ならばTRUEを返す
  */
-bool monster_can_enter(PlayerType *player_ptr, POSITION y, POSITION x, const MonsterRaceInfo *r_ptr, BIT_FLAGS16 mode)
+bool monster_can_enter(PlayerType *player_ptr, POSITION y, POSITION x, const MonraceDefinition *r_ptr, BIT_FLAGS16 mode)
 {
     const Pos2D pos(y, x);
     auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
@@ -164,7 +156,7 @@ bool monster_can_enter(PlayerType *player_ptr, POSITION y, POSITION x, const Mon
  * @details
  * If user is player, m_ptr == nullptr.
  */
-bool monster_has_hostile_align(PlayerType *player_ptr, MonsterEntity *m_ptr, int pa_good, int pa_evil, const MonsterRaceInfo *r_ptr)
+bool monster_has_hostile_align(PlayerType *player_ptr, const MonsterEntity *m_ptr, int pa_good, int pa_evil, const MonraceDefinition *r_ptr)
 {
     byte sub_align1 = SUB_ALIGN_NEUTRAL;
     byte sub_align2 = SUB_ALIGN_NEUTRAL;

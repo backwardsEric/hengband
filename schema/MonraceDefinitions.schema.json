@@ -62,7 +62,7 @@
                             "character": {
                                 "type": "string",
                                 "description": "表示される文字",
-                                "pattern": "[a-zA-Z!\/.!?#$%&()@,|*'`<>+{}=~\\[\\]]|\\\\"
+                                "pattern": "[a-zA-Z0-9!\/.!?#$%&()@,|*'`<>+{}=~\\[\\]]|\\\\"
                             },
                             "color": {
                                 "type": "string",
@@ -456,6 +456,18 @@
                                 "DROP_2D2",
                                 "DROP_3D2",
                                 "DROP_4D2",
+                                "DROP_COPPER",
+                                "DROP_SILVER",
+                                "DROP_GARNET",
+                                "DROP_GOLD",
+                                "DROP_OPAL",
+                                "DROP_SAPPHIRE",
+                                "DROP_RUBY",
+                                "DROP_DIAMOND",
+                                "DROP_EMERALD",
+                                "DROP_MITHRIL",
+                                "DROP_ADAMANTITE",
+                                "DROP_OBSIDIAN",
                                 "WILD_ONLY",
                                 "WILD_TOWN",
                                 "WILD_SHORE",
@@ -508,7 +520,8 @@
                                 "QUESTOR",
                                 "EMPTY_MIND",
                                 "WEIRD_MIND",
-                                "DIMINISH_MAX_DAMAGE"
+                                "DIMINISH_MAX_DAMAGE",
+                                "BUNBUN_STRIKER"
                             ]
                         }
                     },

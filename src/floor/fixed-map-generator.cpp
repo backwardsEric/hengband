@@ -3,7 +3,6 @@
 #include "artifact/fixed-art-types.h"
 #include "dungeon/quest.h"
 #include "floor/floor-object.h"
-#include "floor/floor-town.h"
 #include "floor/wild.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
@@ -25,14 +24,18 @@
 #include "room/rooms-vault.h"
 #include "sv-definition/sv-scroll-types.h"
 #include "system/artifact-type-definition.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/floor/town-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "window/main-window-util.h"
-#include "world/world-object.h"
 #include "world/world.h"
 
 // PARSE_ERROR_MAXが既にあり扱い辛いのでここでconst宣言.
@@ -52,23 +55,22 @@ qtwg_type *initialize_quest_generator_type(qtwg_type *qtwg_ptr, int ymin, int xm
 /*!
  * @brief フロアの所定のマスにオブジェクトを配置する
  * Place the object j_ptr to a grid
- * @param floor_ptr 現在フロアへの参照ポインタ
- * @param j_ptr オブジェクト構造体の参照ポインタ
+ * @param floor 現在フロアへの参照
+ * @param item アイテムの参照
  * @param y 配置先Y座標
  * @param x 配置先X座標
  * @return エラーコード
  */
-static void drop_here(FloorType *floor_ptr, ItemEntity *j_ptr, POSITION y, POSITION x)
+static void drop_here(FloorType &floor, ItemEntity &&item, POSITION y, POSITION x)
 {
-    OBJECT_IDX o_idx = o_pop(floor_ptr);
-    ItemEntity *o_ptr;
-    o_ptr = &floor_ptr->o_list[o_idx];
-    o_ptr->copy_from(j_ptr);
-    o_ptr->iy = y;
-    o_ptr->ix = x;
-    o_ptr->held_m_idx = 0;
-    auto *g_ptr = &floor_ptr->grid_array[y][x];
-    g_ptr->o_idx_list.add(floor_ptr, o_idx);
+    const auto item_idx = floor.pop_empty_index_item();
+    auto &dropped_item = floor.o_list[item_idx];
+    dropped_item = std::move(item);
+    dropped_item.iy = y;
+    dropped_item.ix = x;
+    dropped_item.held_m_idx = 0;
+    auto *g_ptr = &floor.grid_array[y][x];
+    g_ptr->o_idx_list.add(&floor, item_idx);
 }
 
 static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId a_idx)
@@ -83,66 +85,62 @@ static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const
     }
 
     ItemEntity item({ ItemKindType::SCROLL, SV_SCROLL_ACQUIREMENT });
-    drop_here(player_ptr->current_floor_ptr, &item, *qtwg_ptr->y, *qtwg_ptr->x);
+    drop_here(*player_ptr->current_floor_ptr, std::move(item), *qtwg_ptr->y, *qtwg_ptr->x);
 }
 
 static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
 {
     *qtwg_ptr->x = qtwg_ptr->xmin;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto &floor = *player_ptr->current_floor_ptr;
     int len = strlen(s);
-    for (int i = 0; ((*qtwg_ptr->x < qtwg_ptr->xmax) && (i < len)); (*qtwg_ptr->x)++, s++, i++) {
-        auto *g_ptr = &floor_ptr->grid_array[*qtwg_ptr->y][*qtwg_ptr->x];
+    auto &monraces = MonraceList::get_instance();
+    const auto &dungeon = floor.get_dungeon_definition();
+    for (auto i = 0; ((*qtwg_ptr->x < qtwg_ptr->xmax) && (i < len)); (*qtwg_ptr->x)++, s++, i++) {
+        auto &grid = floor.grid_array[*qtwg_ptr->y][*qtwg_ptr->x];
         int idx = s[0];
-        OBJECT_IDX object_index = letter[idx].object;
-        MONSTER_IDX monster_index = letter[idx].monster;
-        int random = letter[idx].random;
-        g_ptr->feat = conv_dungeon_feat(floor_ptr, letter[idx].feature);
+        const auto item_index = letter[idx].object;
+        auto monster_index = letter[idx].monster;
+        const auto random = letter[idx].random;
+        grid.feat = dungeon.convert_terrain_id(letter[idx].feature);
         if (init_flags & INIT_ONLY_FEATURES) {
             continue;
         }
 
-        g_ptr->info = letter[idx].cave_info;
+        grid.info = letter[idx].cave_info;
         if (random & RANDOM_MONSTER) {
-            floor_ptr->monster_level = floor_ptr->base_level + monster_index;
-
+            floor.monster_level = floor.base_level + monster_index;
             place_random_monster(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, (PM_ALLOW_SLEEP | PM_ALLOW_GROUP | PM_NO_QUEST));
-
-            floor_ptr->monster_level = floor_ptr->base_level;
+            floor.monster_level = floor.base_level;
         } else if (monster_index) {
-            int old_cur_num, old_max_num;
-            bool clone = false;
-
+            auto clone = false;
             if (monster_index < 0) {
                 monster_index = -monster_index;
                 clone = true;
             }
 
-            const auto r_idx = i2enum<MonsterRaceId>(monster_index);
-            auto &r_ref = monraces_info[r_idx];
-
-            old_cur_num = r_ref.cur_num;
-            old_max_num = r_ref.max_num;
-
-            if (r_ref.kind_flags.has(MonsterKindType::UNIQUE)) {
-                r_ref.cur_num = 0;
-                r_ref.max_num = MAX_UNIQUE_NUM;
-            } else if (r_ref.population_flags.has(MonsterPopulationType::NAZGUL)) {
-                if (r_ref.cur_num == r_ref.max_num) {
-                    r_ref.max_num++;
+            const auto monrace_id = i2enum<MonraceId>(monster_index);
+            auto &monrace = monraces.get_monrace(monrace_id);
+            const auto old_cur_num = monrace.cur_num;
+            const auto old_max_num = monrace.max_num;
+            if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
+                monrace.reset_current_numbers();
+                monrace.max_num = MAX_UNIQUE_NUM;
+            } else if (monrace.population_flags.has(MonsterPopulationType::NAZGUL)) {
+                if (monrace.cur_num == monrace.max_num) {
+                    monrace.max_num++;
                 }
             }
 
-            const auto m_idx = place_specific_monster(player_ptr, 0, *qtwg_ptr->y, *qtwg_ptr->x, r_idx, (PM_ALLOW_SLEEP | PM_NO_KAGE));
+            const auto m_idx = place_specific_monster(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, monrace_id, (PM_ALLOW_SLEEP | PM_NO_KAGE));
             if (clone && m_idx) {
-                floor_ptr->m_list[*m_idx].mflag2.set(MonsterConstantFlagType::CLONED);
-                r_ref.cur_num = old_cur_num;
-                r_ref.max_num = old_max_num;
+                floor.m_list[*m_idx].mflag2.set(MonsterConstantFlagType::CLONED);
+                monrace.cur_num = old_cur_num;
+                monrace.max_num = old_max_num;
             }
         }
 
         if ((random & RANDOM_OBJECT) && (random & RANDOM_TRAP)) {
-            floor_ptr->object_level = floor_ptr->base_level + object_index;
+            floor.object_level = floor.base_level + item_index;
 
             /*
              * Random trap and random treasure defined
@@ -151,12 +149,12 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
             if (evaluate_percent(75)) {
                 place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, 0L);
             } else {
-                place_trap(floor_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
+                place_trap(&floor, *qtwg_ptr->y, *qtwg_ptr->x);
             }
 
-            floor_ptr->object_level = floor_ptr->base_level;
+            floor.object_level = floor.base_level;
         } else if (random & RANDOM_OBJECT) {
-            floor_ptr->object_level = floor_ptr->base_level + object_index;
+            floor.object_level = floor.base_level + item_index;
             if (evaluate_percent(75)) {
                 place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, 0L);
             } else if (evaluate_percent(80)) {
@@ -165,26 +163,24 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
                 place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, AM_GOOD | AM_GREAT);
             }
 
-            floor_ptr->object_level = floor_ptr->base_level;
+            floor.object_level = floor.base_level;
         } else if (random & RANDOM_TRAP) {
-            place_trap(floor_ptr, *qtwg_ptr->y, *qtwg_ptr->x);
+            place_trap(&floor, *qtwg_ptr->y, *qtwg_ptr->x);
         } else if (letter[idx].trap) {
-            g_ptr->mimic = g_ptr->feat;
-            g_ptr->feat = conv_dungeon_feat(floor_ptr, letter[idx].trap);
-        } else if (object_index) {
-            ItemEntity item(object_index);
+            grid.mimic = grid.feat;
+            grid.feat = dungeon.convert_terrain_id(letter[idx].trap);
+        } else if (item_index) {
+            ItemEntity item(item_index);
             if (item.bi_key.tval() == ItemKindType::GOLD) {
-                coin_type = object_index - OBJ_GOLD_LIST;
-                make_gold(player_ptr, &item);
-                coin_type = 0;
+                item = floor.make_gold(item.bi_key);
             }
 
-            ItemMagicApplier(player_ptr, &item, floor_ptr->base_level, AM_NO_FIXED_ART | AM_GOOD).execute();
-            drop_here(floor_ptr, &item, *qtwg_ptr->y, *qtwg_ptr->x);
+            ItemMagicApplier(player_ptr, &item, floor.base_level, AM_NO_FIXED_ART | AM_GOOD).execute();
+            drop_here(floor, std::move(item), *qtwg_ptr->y, *qtwg_ptr->x);
         }
 
         generate_artifact(player_ptr, qtwg_ptr, letter[idx].artifact);
-        g_ptr->special = letter[idx].special;
+        grid.special = letter[idx].special;
     }
 }
 
@@ -207,10 +203,10 @@ static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
     q_ptr->cur_num = (MONSTER_NUMBER)atoi(zz[4]);
     q_ptr->max_num = (MONSTER_NUMBER)atoi(zz[5]);
     q_ptr->level = (DEPTH)atoi(zz[6]);
-    q_ptr->r_idx = i2enum<MonsterRaceId>(atoi(zz[7]));
+    q_ptr->r_idx = i2enum<MonraceId>(atoi(zz[7]));
     const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[8]));
     q_ptr->reward_fa_id = fa_id;
-    q_ptr->dungeon = (DUNGEON_IDX)atoi(zz[9]);
+    q_ptr->dungeon = std::atoi(zz[9]);
 
     if (num > 10) {
         q_ptr->flags = atoi(zz[10]);

@@ -24,13 +24,14 @@
 #include "player/player-personality-types.h"
 #include "player/player-status.h"
 #include "system/artifact-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h" // @todo 相互参照、将来的に削除する.
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h" // @todo 相互参照、将来的に削除する.
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -78,7 +79,7 @@ ArtifactType &QuestType::get_reward() const
  * @brief 討伐対象モンスターを返す. いなければプレイヤー (無効値の意)
  * @return 討伐対象モンスター
  */
-MonsterRaceInfo &QuestType::get_bounty()
+MonraceDefinition &QuestType::get_bounty()
 {
     return MonraceList::get_instance().get_monrace(this->r_idx);
 }
@@ -87,7 +88,7 @@ MonsterRaceInfo &QuestType::get_bounty()
  * @brief 討伐対象モンスターを返す. いなければプレイヤー (無効値の意)
  * @return 討伐対象モンスター
  */
-const MonsterRaceInfo &QuestType::get_bounty() const
+const MonraceDefinition &QuestType::get_bounty() const
 {
     return MonraceList::get_instance().get_monrace(this->r_idx);
 }
@@ -209,46 +210,15 @@ bool QuestList::order_completed(QuestId id1, QuestId id2) const
 void determine_random_questor(PlayerType *player_ptr, QuestType &quest)
 {
     get_mon_num_prep(player_ptr, mon_hook_quest, nullptr);
-    MonsterRaceId r_idx;
+    const auto &monraces = MonraceList::get_instance();
+    MonraceId r_idx;
     while (true) {
         r_idx = get_mon_num(player_ptr, 0, quest.level + 5 + randint1(quest.level / 10), PM_ARENA);
-        const auto &monrace = monraces_info[r_idx];
-        if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+        if (monraces.can_unify_separate(r_idx)) {
             continue;
         }
 
-        if (monrace.misc_flags.has(MonsterMiscType::NO_QUEST)) {
-            continue;
-        }
-
-        if (monrace.misc_flags.has(MonsterMiscType::QUESTOR)) {
-            continue;
-        }
-
-        if (monrace.rarity > 100) {
-            continue;
-        }
-
-        if (monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY)) {
-            continue;
-        }
-
-        if (monrace.feature_flags.has(MonsterFeatureType::AQUATIC)) {
-            continue;
-        }
-
-        if (monrace.wilderness_flags.has(MonsterWildernessType::WILD_ONLY)) {
-            continue;
-        }
-
-        if (MonraceList::get_instance().can_unify_separate(r_idx)) {
-            continue;
-        }
-
-        /*
-         * Accept monsters that are 2 - 6 levels
-         * out of depth depending on the quest level
-         */
+        const auto &monrace = monraces.get_monrace(r_idx);
         if (monrace.level > (quest.level + (quest.level / 20))) {
             break;
         }

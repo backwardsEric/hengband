@@ -246,7 +246,7 @@ static void compare_weapon_aux(PlayerType *player_ptr, ItemEntity *o_ptr, int co
 /*!
  * @brief 武器匠における武器一つ毎の完全情報を表示する。
  * @param PlayerType プレイヤーへの参照ポインタ
- * @param o_ptr オブジェクトの構造体の参照ポインタ。
+ * @param item アイテムへの参照
  * @param row 表示する列の左端
  * @param col 表示する行の上端
  * @details
@@ -255,12 +255,12 @@ static void compare_weapon_aux(PlayerType *player_ptr, ItemEntity *o_ptr, int co
  * Only accurate for the current weapon, because it includes
  * various info about the player's +to_dam and number of blows.
  */
-static void list_weapon(PlayerType *player_ptr, ItemEntity *o_ptr, TERM_LEN row, TERM_LEN col)
+static void list_weapon(PlayerType *player_ptr, const ItemEntity &item, TERM_LEN row, TERM_LEN col)
 {
-    const auto eff_dd = o_ptr->damage_dice.num + player_ptr->damage_dice_bonus[0].num;
-    const auto eff_ds = o_ptr->damage_dice.sides + player_ptr->damage_dice_bonus[0].sides;
-    const auto hit_reliability = player_ptr->skill_thn + (player_ptr->to_h[0] + o_ptr->to_h) * BTH_PLUS_ADJ;
-    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
+    const auto eff_dd = item.damage_dice.num + player_ptr->damage_dice_bonus[0].num;
+    const auto eff_ds = item.damage_dice.sides + player_ptr->damage_dice_bonus[0].sides;
+    const auto hit_reliability = player_ptr->skill_thn + (player_ptr->to_h[0] + item.to_h) * BTH_PLUS_ADJ;
+    const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
     c_put_str(TERM_YELLOW, item_name, row, col);
     put_str(format(_("攻撃回数: %d", "Number of Blows: %d"), player_ptr->num_blow[0]), row + 1, col);
 
@@ -275,13 +275,13 @@ static void list_weapon(PlayerType *player_ptr, ItemEntity *o_ptr, TERM_LEN row,
     c_put_str(TERM_YELLOW, _("可能なダメージ:", "Possible Damage:"), row + 5, col);
 
     put_str(format(_("攻撃一回につき %d-%d", "One Strike: %d-%d damage"),
-                (int)(eff_dd + o_ptr->to_d + player_ptr->to_d[0]),
-                (int)(eff_ds * eff_dd + o_ptr->to_d + player_ptr->to_d[0])),
+                (int)(eff_dd + item.to_d + player_ptr->to_d[0]),
+                (int)(eff_ds * eff_dd + item.to_d + player_ptr->to_d[0])),
         row + 6, col + 1);
 
     put_str(format(_("１ターンにつき %d-%d", "One Attack: %d-%d damage"),
-                (int)(player_ptr->num_blow[0] * (eff_dd + o_ptr->to_d + player_ptr->to_d[0])),
-                (int)(player_ptr->num_blow[0] * (eff_ds * eff_dd + o_ptr->to_d + player_ptr->to_d[0]))),
+                (int)(player_ptr->num_blow[0] * (eff_dd + item.to_d + player_ptr->to_d[0])),
+                (int)(player_ptr->num_blow[0] * (eff_ds * eff_dd + item.to_d + player_ptr->to_d[0]))),
         row + 7, col + 1);
 }
 
@@ -297,7 +297,6 @@ static void list_weapon(PlayerType *player_ptr, ItemEntity *o_ptr, TERM_LEN row,
 PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
 {
     ItemEntity *o_ptr[2]{};
-    ItemEntity orig_weapon;
     TERM_LEN row = 2;
     TERM_LEN wid = 38, mgn = 2;
     auto &world = AngbandWorld::get_instance();
@@ -309,7 +308,7 @@ PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
     screen_save();
     clear_bldg(0, 22);
     auto *i_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND];
-    (&orig_weapon)->copy_from(i_ptr);
+    auto orig_weapon = i_ptr->clone();
 
     constexpr auto first_q = _("第一の武器は？", "What is your first weapon? ");
     constexpr auto first_s = _("比べるものがありません。", "You have nothing to compare.");
@@ -331,15 +330,15 @@ PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
         for (int i = 0; i < n; i++) {
             int col = (wid * i + mgn);
             if (o_ptr[i] != i_ptr) {
-                i_ptr->copy_from(o_ptr[i]);
+                *i_ptr = o_ptr[i]->clone();
             }
 
             rfu.set_flag(StatusRecalculatingFlag::BONUS);
             handle_stuff(player_ptr);
 
-            list_weapon(player_ptr, o_ptr[i], row, col);
+            list_weapon(player_ptr, *o_ptr[i], row, col);
             compare_weapon_aux(player_ptr, o_ptr[i], col, row + 8);
-            i_ptr->copy_from(&orig_weapon);
+            *i_ptr = orig_weapon.clone();
         }
 
         rfu.set_flag(StatusRecalculatingFlag::BONUS);

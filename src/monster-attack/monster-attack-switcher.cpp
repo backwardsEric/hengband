@@ -29,7 +29,7 @@
 #include "status/base-status.h"
 #include "status/element-resistance.h"
 #include "status/experience.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -111,7 +111,7 @@ static void calc_blow_un_power(PlayerType *player_ptr, MonsterAttackPlayer *mona
 
     int max_draining_item = is_magic_mastery ? 5 : 10;
     for (int i = 0; i < max_draining_item; i++) {
-        INVENTORY_IDX i_idx = (INVENTORY_IDX)randint0(INVEN_PACK);
+        auto i_idx = randnum0<short>(INVEN_PACK);
         monap_ptr->o_ptr = &player_ptr->inventory_list[i_idx];
         if (!monap_ptr->o_ptr->is_valid()) {
             continue;
@@ -275,7 +275,7 @@ static void calc_blow_drain_life(PlayerType *player_ptr, MonsterAttackPlayer *mo
     }
 
     bool resist_drain = check_drain_hp(player_ptr, d);
-    process_drain_life(player_ptr, monap_ptr, resist_drain);
+    process_drain_life(monap_ptr, resist_drain);
 }
 
 /*!
@@ -556,7 +556,7 @@ void switch_monster_blow_to_player(PlayerType *player_ptr, MonsterAttackPlayer *
                 int32_t d = Dice::roll(60, 6) + (player_ptr->exp / 100) * MON_DRAIN_LIFE;
 
                 bool resist_drain = check_drain_hp(player_ptr, d);
-                process_drain_life(player_ptr, monap_ptr, resist_drain);
+                process_drain_life(monap_ptr, resist_drain);
             }
             break;
         }

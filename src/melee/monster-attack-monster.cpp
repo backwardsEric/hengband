@@ -18,6 +18,7 @@
 #include "melee/melee-switcher.h"
 #include "melee/melee-util.h"
 #include "monster-attack/monster-attack-effect.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster/monster-describer.h"
@@ -26,17 +27,17 @@
 #include "monster/monster-status.h"
 #include "spell-kind/spells-teleport.h"
 #include "spell-realm/spells-hex.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "tracking/health-bar-tracker.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 
-static void heal_monster_by_melee(PlayerType *player_ptr, mam_type *mam_ptr)
+static void heal_monster_by_melee(mam_type *mam_ptr)
 {
     if (!mam_ptr->t_ptr->has_living_flag() || (mam_ptr->damage <= 2)) {
         return;
@@ -49,7 +50,7 @@ static void heal_monster_by_melee(PlayerType *player_ptr, mam_type *mam_ptr)
     }
 
     HealthBarTracker::get_instance().set_flag_if_tracking(mam_ptr->m_idx);
-    if (player_ptr->riding == mam_ptr->m_idx) {
+    if (mam_ptr->m_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
@@ -71,7 +72,7 @@ static void process_blow_effect(PlayerType *player_ptr, mam_type *mam_ptr)
             AttributeType::OLD_SLEEP, PROJECT_KILL | PROJECT_STOP | PROJECT_AIMED);
         break;
     case BlowEffectType::HEAL:
-        heal_monster_by_melee(player_ptr, mam_ptr);
+        heal_monster_by_melee(mam_ptr);
         break;
     default:
         break;
@@ -176,14 +177,14 @@ static bool check_same_monster(PlayerType *player_ptr, mam_type *mam_ptr)
     return true;
 }
 
-static void redraw_health_bar(PlayerType *player_ptr, mam_type *mam_ptr)
+static void redraw_health_bar(mam_type *mam_ptr)
 {
     if (!mam_ptr->t_ptr->ml) {
         return;
     }
 
     HealthBarTracker::get_instance().set_flag_if_tracking(mam_ptr->t_idx);
-    if (player_ptr->riding == mam_ptr->t_idx) {
+    if (mam_ptr->t_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 }
@@ -244,7 +245,7 @@ static void process_melee(PlayerType *player_ptr, mam_type *mam_ptr)
     }
 
     (void)set_monster_csleep(player_ptr, mam_ptr->t_idx, 0);
-    redraw_health_bar(player_ptr, mam_ptr);
+    redraw_health_bar(mam_ptr);
     describe_melee_method(player_ptr, mam_ptr);
     describe_silly_melee(mam_ptr);
     mam_ptr->obvious = true;
@@ -292,7 +293,7 @@ static void explode_monster_by_melee(PlayerType *player_ptr, mam_type *mam_ptr)
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param mam_ptr モンスター乱闘構造体への参照ポインタ
  */
-void repeat_melee(PlayerType *player_ptr, mam_type *mam_ptr)
+static void repeat_melee(PlayerType *player_ptr, mam_type *mam_ptr)
 {
     const auto *m_ptr = mam_ptr->m_ptr;
     auto *r_ptr = &m_ptr->get_monrace();
@@ -348,7 +349,7 @@ bool monst_attack_monst(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t
         player_ptr->current_floor_ptr->monster_noise = true;
     }
 
-    if (player_ptr->riding && (m_idx == player_ptr->riding)) {
+    if (mam_ptr->m_ptr->is_riding()) {
         disturb(player_ptr, true, true);
     }
 

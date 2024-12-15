@@ -9,10 +9,10 @@
 #include "player/attack-defense-types.h"
 #include "player/player-status-table.h"
 #include "player/special-defense-types.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "tracking/health-bar-tracker.h"
@@ -124,7 +124,7 @@ void regenmana(PlayerType *player_ptr, MANA_POINT upkeep_factor, MANA_POINT rege
  */
 void regenmagic(PlayerType *player_ptr, int regen_amount)
 {
-    auto magic_eater_data = PlayerClass(player_ptr).get_specific_data<magic_eater_data_type>();
+    auto magic_eater_data = PlayerClass(player_ptr).get_specific_data<MagicEaterDataList>();
     if (!magic_eater_data) {
         return;
     }
@@ -198,7 +198,7 @@ void regenerate_monsters(PlayerType *player_ptr)
             }
 
             tracker.set_flag_if_tracking(i);
-            if (player_ptr->riding == i) {
+            if (monster.is_riding()) {
                 rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
             }
         }

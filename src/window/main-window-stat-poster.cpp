@@ -18,7 +18,7 @@
 #include "realm/realm-types.h"
 #include "spell-realm/spells-hex.h"
 #include "status/element-resistance.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
@@ -488,7 +488,7 @@ void print_status(PlayerType *player_ptr)
         ADD_BAR_FLAG(BAR_INFRAVISION);
     }
 
-    if (player_ptr->protevil) {
+    if (effects->protection().is_protected()) {
         ADD_BAR_FLAG(BAR_PROTEVIL);
     }
 

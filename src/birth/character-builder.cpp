@@ -17,7 +17,6 @@
 #include "birth/game-play-initializer.h"
 #include "birth/quick-start.h"
 #include "core/window-redrawer.h"
-#include "floor/floor-town.h"
 #include "floor/wild.h"
 #include "game-option/option-flags.h"
 #include "io/write-diary.h"
@@ -36,6 +35,8 @@
 #include "player/race-info-table.h"
 #include "store/store-owners.h"
 #include "store/store.h"
+#include "system/floor/town-info.h"
+#include "system/floor/town-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
@@ -74,7 +75,7 @@ static void write_birth_diary(PlayerType *player_ptr)
     }
 
     if (player_ptr->element) {
-        const auto mes_element = format(_("%s元素系統に%sを選択した。", "%schose %s system."), indent, get_element_title(player_ptr->element));
+        const auto mes_element = format(_("%s元素系統に%sを選択した。", "%schose %s system."), indent, get_element_title(player_ptr->element).data());
         exe_write_diary(floor, DiaryKind::DESCRIPTION, 1, mes_element);
     }
 

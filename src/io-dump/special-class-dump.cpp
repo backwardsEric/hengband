@@ -10,11 +10,13 @@
 #include "mind/mind-blue-mage.h"
 #include "monster-race/race-ability-flags.h"
 #include "mspell/monster-power-table.h"
+#include "object/tval-types.h"
 #include "player-base/player-class.h"
 #include "player-info/bluemage-data-type.h"
 #include "player-info/magic-eater-data-type.h"
 #include "smith/object-smith.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
 #include "system/player-type-definition.h"
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
@@ -34,7 +36,7 @@ struct learnt_spell_table {
  */
 static void dump_magic_eater(PlayerType *player_ptr, FILE *fff)
 {
-    auto magic_eater_data = PlayerClass(player_ptr).get_specific_data<magic_eater_data_type>();
+    auto magic_eater_data = PlayerClass(player_ptr).get_specific_data<MagicEaterDataList>();
     if (!magic_eater_data) {
         return;
     }

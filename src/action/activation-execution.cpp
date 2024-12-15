@@ -35,8 +35,8 @@
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-ring-types.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-key.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -156,7 +156,7 @@ static bool activate_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
         return false;
     }
 
-    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY | OD_OMIT_PREFIX | OD_BASE_NAME);
+    const auto item_name = describe_flavor(player_ptr, *o_ptr, OD_NAME_ONLY | OD_OMIT_PREFIX | OD_BASE_NAME);
     if (!switch_activation(player_ptr, &o_ptr, it_activation->index, item_name)) {
         return false;
     }

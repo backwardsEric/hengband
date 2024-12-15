@@ -17,9 +17,9 @@
 #include "io/uid-checker.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
@@ -219,6 +219,6 @@ void precalc_cur_num_of_pet()
             continue;
         }
 
-        monster.get_real_monrace().cur_num++;
+        monster.get_real_monrace().increment_current_numbers();
     }
 }

@@ -11,12 +11,12 @@
 #include "main/music-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "market/arena-entry.h"
+#include "monster-attack/monster-attack-table.h"
 #include "monster-floor/monster-death-util.h"
 #include "monster-floor/monster-object.h"
 #include "monster-floor/special-death-switcher.h"
 #include "monster-race/monster-race-hook.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "monster/monster-flag-types.h"
@@ -30,14 +30,19 @@
 #include "sv-definition/sv-scroll-types.h"
 #include "system/angband-system.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
+#include "system/services/baseitem-monrace-service.h"
 #include "system/system-variables.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
@@ -148,12 +153,12 @@ static void drop_corpse(PlayerType *player_ptr, MonsterDeath *md_ptr)
 static void drop_artifact_from_unique(PlayerType *player_ptr, MonsterDeath *md_ptr)
 {
     const auto is_wizard = AngbandWorld::get_instance().wizard;
-    for (const auto &[a_idx, chance] : md_ptr->r_ptr->drop_artifacts) {
+    for (const auto &[fa_id, chance] : md_ptr->r_ptr->get_drop_artifacts()) {
         if (!is_wizard && !evaluate_percent(chance)) {
             continue;
         }
 
-        if (drop_single_artifact(player_ptr, md_ptr, a_idx)) {
+        if (drop_single_artifact(player_ptr, md_ptr, fa_id)) {
             return;
         }
     }
@@ -278,32 +283,29 @@ static int decide_drop_numbers(MonsterDeath *md_ptr, const bool drop_item, const
 
 static void drop_items_golds(PlayerType *player_ptr, MonsterDeath *md_ptr, int drop_numbers)
 {
-    int dump_item = 0;
-    int dump_gold = 0;
-    for (int i = 0; i < drop_numbers; i++) {
-        ItemEntity forge;
-        auto *q_ptr = &forge;
-        q_ptr->wipe();
+    auto dump_item = 0;
+    auto dump_gold = 0;
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto &monraces = MonraceList::get_instance();
+    for (auto i = 0; i < drop_numbers; i++) {
+        ItemEntity item;
         if (md_ptr->do_gold && (!md_ptr->do_item || one_in_(2))) {
-            if (!make_gold(player_ptr, q_ptr)) {
-                continue;
-            }
-
+            const auto &monrace = monraces.get_monrace(md_ptr->m_ptr->r_idx);
+            const auto bi_key = BaseitemMonraceService::lookup_fixed_gold_drop(monrace.drop_flags);
+            item = floor.make_gold(bi_key);
             dump_gold++;
         } else {
-            if (!make_object(player_ptr, q_ptr, md_ptr->mo_mode)) {
+            if (!make_object(player_ptr, &item, md_ptr->mo_mode)) {
                 continue;
             }
 
             dump_item++;
         }
 
-        (void)drop_near(player_ptr, q_ptr, -1, md_ptr->md_y, md_ptr->md_x);
+        (void)drop_near(player_ptr, &item, -1, md_ptr->md_y, md_ptr->md_x);
     }
 
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->object_level = floor_ptr->base_level;
-    coin_type = 0;
+    floor.object_level = floor.base_level;
     auto visible = md_ptr->m_ptr->ml && !player_ptr->effects()->hallucination().is_hallucinated();
     visible |= (md_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE));
     if (visible && (dump_item || dump_gold)) {
@@ -391,7 +393,7 @@ void monster_death(PlayerType *player_ptr, MONSTER_IDX m_idx, bool drop_item, At
 
     QuestCompletionChecker(player_ptr, md_ptr->m_ptr).complete();
     on_defeat_arena_monster(player_ptr, md_ptr);
-    if (m_idx == player_ptr->riding && process_fall_off_horse(player_ptr, -1, false)) {
+    if (md_ptr->m_ptr->is_riding() && process_fall_off_horse(player_ptr, -1, false)) {
         msg_print(_("地面に落とされた。", "You have fallen from the pet you were riding."));
     }
 
@@ -400,11 +402,10 @@ void monster_death(PlayerType *player_ptr, MONSTER_IDX m_idx, bool drop_item, At
     decide_drop_quality(md_ptr);
     switch_special_death(player_ptr, md_ptr, attribute_flags);
     drop_artifacts(player_ptr, md_ptr);
-    int drop_numbers = decide_drop_numbers(md_ptr, drop_item, floor.inside_arena);
-    coin_type = md_ptr->force_coin;
+    const auto drop_numbers = decide_drop_numbers(md_ptr, drop_item, floor.inside_arena);
     floor.object_level = (floor.dun_level + md_ptr->r_ptr->level) / 2;
     drop_items_golds(player_ptr, md_ptr, drop_numbers);
-    if ((md_ptr->r_ptr->misc_flags.has_not(MonsterMiscType::QUESTOR)) || AngbandSystem::get_instance().is_phase_out() || (md_ptr->m_ptr->r_idx != MonsterRaceId::SERPENT) || md_ptr->cloned) {
+    if ((md_ptr->r_ptr->misc_flags.has_not(MonsterMiscType::QUESTOR)) || AngbandSystem::get_instance().is_phase_out() || (md_ptr->m_ptr->r_idx != MonraceId::SERPENT) || md_ptr->cloned) {
         return;
     }
 

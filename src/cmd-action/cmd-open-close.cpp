@@ -20,12 +20,14 @@
 #include "specific-object/chest.h"
 #include "status/action-setter.h"
 #include "status/experience.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/grid-count-kind.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
@@ -103,8 +105,9 @@ void do_cmd_open(PlayerType *player_ptr)
     }
 
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
+    auto &floor = *player_ptr->current_floor_ptr;
     if (easy_open) {
-        const auto &[num_doors, pos_door] = count_dt(player_ptr, is_closed_door, false);
+        const auto &[num_doors, pos_door] = floor.count_doors_traps(player_ptr->get_position(), GridCountKind::CLOSED_DOOR, false);
         const auto &[num_chests, pos_chest] = count_chests(player_ptr, false);
         if ((num_doors > 0) || (num_chests > 0)) {
             const auto pos = pos_chest == Pos2D(0, 0) ? pos_door : pos_chest;
@@ -124,11 +127,11 @@ void do_cmd_open(PlayerType *player_ptr)
     int dir;
     if (get_rep_dir(player_ptr, &dir, true)) {
         const auto pos = player_ptr->get_neighbor(dir);
-        const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
-        const auto o_idx = chest_check(player_ptr->current_floor_ptr, pos, false);
+        const auto &grid = floor.get_grid(pos);
+        const auto o_idx = chest_check(&floor, pos, false);
         if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::OPEN) && !o_idx) {
             msg_print(_("そこには開けるものが見当たらない。", "You see nothing there to open."));
-        } else if (grid.has_monster() && player_ptr->riding != grid.m_idx) {
+        } else if (grid.has_monster() && !floor.m_list[grid.m_idx].is_riding()) {
             PlayerEnergy(player_ptr).set_player_turn_energy(100);
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
@@ -156,9 +159,10 @@ void do_cmd_close(PlayerType *player_ptr)
         return;
     }
 
+    const auto &floor = *player_ptr->current_floor_ptr;
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
     if (easy_open) {
-        const auto &[num_doors, pos] = count_dt(player_ptr, is_open, false);
+        const auto &[num_doors, pos] = floor.count_doors_traps(player_ptr->get_position(), GridCountKind::OPEN, false);
         if (num_doors == 1) {
             command_dir = coords_to_dir(player_ptr, pos.y, pos.x);
         }
@@ -174,7 +178,7 @@ void do_cmd_close(PlayerType *player_ptr)
     int dir;
     if (get_rep_dir(player_ptr, &dir)) {
         const auto pos = player_ptr->get_neighbor(dir);
-        const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+        const auto &grid = floor.get_grid(pos);
         if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::CLOSE)) {
             msg_print(_("そこには閉じるものが見当たらない。", "You see nothing there to close."));
         } else if (grid.has_monster()) {
@@ -201,9 +205,10 @@ void do_cmd_disarm(PlayerType *player_ptr)
         return;
     }
 
+    auto &floor = *player_ptr->current_floor_ptr;
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
     if (easy_disarm) {
-        const auto &[num_traps, pos_trap] = count_dt(player_ptr, is_trap, true);
+        const auto &[num_traps, pos_trap] = floor.count_doors_traps(player_ptr->get_position(), GridCountKind::TRAP, true);
         const auto &[num_chests, pos_chest] = count_chests(player_ptr, true);
         if ((num_traps > 0) || (num_chests > 0)) {
             const auto pos = pos_chest == Pos2D(0, 0) ? pos_trap : pos_chest;
@@ -224,12 +229,11 @@ void do_cmd_disarm(PlayerType *player_ptr)
     auto more = false;
     if (get_rep_dir(player_ptr, &dir, true)) {
         const auto pos = player_ptr->get_neighbor(dir);
-        const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
-        const auto feat = grid.get_feat_mimic();
-        const auto o_idx = chest_check(player_ptr->current_floor_ptr, pos, true);
-        if (!is_trap(player_ptr, feat) && !o_idx) {
+        const auto &grid = floor.get_grid(pos);
+        const auto o_idx = chest_check(&floor, pos, true);
+        if (!floor.is_trap(pos) && !o_idx) {
             msg_print(_("そこには解除するものが見当たらない。", "You see nothing there to disarm."));
-        } else if (grid.has_monster() && player_ptr->riding != grid.m_idx) {
+        } else if (grid.has_monster() && !floor.m_list[grid.m_idx].is_riding()) {
             msg_print(_("モンスターが立ちふさがっている！", "There is a monster in the way!"));
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
         } else if (o_idx) {

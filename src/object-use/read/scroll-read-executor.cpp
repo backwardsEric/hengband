@@ -36,10 +36,11 @@
 #include "status/element-resistance.h"
 #include "store/rumor.h"
 #include "sv-definition/sv-scroll-types.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
+#include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -100,7 +101,7 @@ bool ScrollReadExecutor::read()
     }
     case SV_SCROLL_SUMMON_MONSTER:
         for (auto k = 0; k < randint1(3); k++) {
-            if (summon_specific(this->player_ptr, 0, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE,
+            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE,
                     PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET)) {
                 this->ident = true;
             }
@@ -109,7 +110,7 @@ bool ScrollReadExecutor::read()
         break;
     case SV_SCROLL_SUMMON_UNDEAD:
         for (auto k = 0; k < randint1(3); k++) {
-            if (summon_specific(this->player_ptr, 0, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_UNDEAD,
+            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_UNDEAD,
                     PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET)) {
                 this->ident = true;
             }
@@ -118,7 +119,7 @@ bool ScrollReadExecutor::read()
         break;
     case SV_SCROLL_SUMMON_PET:
         if (summon_specific(
-                this->player_ptr, -1, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE, PM_ALLOW_GROUP | PM_FORCE_PET)) {
+                this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE, PM_ALLOW_GROUP | PM_FORCE_PET)) {
             this->ident = true;
         }
 
@@ -306,8 +307,10 @@ bool ScrollReadExecutor::read()
         this->ident = true;
         break;
     case SV_SCROLL_PROTECTION_FROM_EVIL: {
-        auto k = 3 * this->player_ptr->lev;
-        if (set_protevil(this->player_ptr, this->player_ptr->protevil + randint1(25) + k, false)) {
+        const auto k = 3 * this->player_ptr->lev;
+        BodyImprovement improvement(this->player_ptr);
+        improvement.mod_protection(randint1(25) + k);
+        if (improvement.has_effect()) {
             this->ident = true;
         }
 

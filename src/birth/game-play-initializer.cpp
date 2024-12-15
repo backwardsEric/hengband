@@ -6,20 +6,26 @@
 #include "info-reader/fixed-map-parser.h"
 #include "inventory/inventory-slot-types.h"
 #include "market/arena-entry.h"
-#include "market/arena.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
 #include "player-info/race-info.h"
 #include "player-info/race-types.h"
 #include "player/digestion-processor.h"
+#include "player/player-spell-status.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/building-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/floor/floor-info.h"
+#include "system/floor/floor-list.h"
 #include "system/inner-game-data.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "util/enum-range.h"
 #include "util/string-processor.h"
@@ -38,7 +44,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
     *player_ptr = {};
 
     // TODO: キャラ作成からゲーム開始までに  current_floor_ptr を参照しなければならない処理は今後整理して外す。
-    player_ptr->current_floor_ptr = &floor_info;
+    player_ptr->current_floor_ptr = &FloorList::get_instance().get_floor(0);
     //! @todo std::make_shared の配列対応版は C++20 から
     player_ptr->inventory_list = std::shared_ptr<ItemEntity[]>{ new ItemEntity[INVEN_TOTAL] };
     for (int i = 0; i < 4; i++) {
@@ -65,35 +71,21 @@ void player_wipe_without_name(PlayerType *player_ptr)
 
     ArtifactList::get_instance().reset_generated_flags();
     BaseitemList::get_instance().reset_identification_flags();
-    for (auto &[_, monrace] : monraces_info) {
+    for (auto &[_, monrace] : MonraceList::get_instance()) {
         if (!monrace.is_valid()) {
             continue;
         }
-        monrace.cur_num = 0;
-        monrace.max_num = MAX_MONSTER_NUM;
-        if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
-            monrace.max_num = MAX_UNIQUE_NUM;
-        } else if (monrace.population_flags.has(MonsterPopulationType::NAZGUL)) {
-            monrace.max_num = MAX_NAZGUL_NUM;
-        }
-
+        monrace.reset_current_numbers();
+        monrace.reset_max_number();
         monrace.r_pkills = 0;
         monrace.r_akills = 0;
     }
 
     player_ptr->food = PY_FOOD_FULL - 1;
-    if (PlayerClass(player_ptr).equals(PlayerClassType::SORCERER)) {
-        player_ptr->spell_learned1 = player_ptr->spell_learned2 = 0xffffffffL;
-        player_ptr->spell_worked1 = player_ptr->spell_worked2 = 0xffffffffL;
-    } else {
-        player_ptr->spell_learned1 = player_ptr->spell_learned2 = 0L;
-        player_ptr->spell_worked1 = player_ptr->spell_worked2 = 0L;
-    }
 
-    player_ptr->spell_forgotten1 = player_ptr->spell_forgotten2 = 0L;
-    for (int i = 0; i < 64; i++) {
-        player_ptr->spell_order[i] = 99;
-    }
+    PlayerSpellStatus pss(player_ptr);
+    pss.realm1().initialize();
+    pss.realm2().initialize();
 
     player_ptr->learned_spells = 0;
     player_ptr->add_spells = 0;
@@ -121,11 +113,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
     player_ptr->wait_report_score = false;
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
-
-    for (const auto &d_ref : dungeons_info) {
-        max_dlv[d_ref.idx] = 0;
-    }
-
+    DungeonRecords::get_instance().reset_all();
     player_ptr->visit = 1;
     world.set_wild_mode(false);
 
@@ -133,7 +121,8 @@ void player_wipe_without_name(PlayerType *player_ptr)
     ArenaEntryList::get_instance().reset_entry();
     world.set_arena(true);
     world.knows_daily_bounty = false;
-    update_gambling_monsters(player_ptr);
+    auto &melee_arena = MeleeArena::get_instance();
+    melee_arena.update_gladiators(player_ptr);
     player_ptr->muta.clear();
 
     for (int i = 0; i < 8; i++) {

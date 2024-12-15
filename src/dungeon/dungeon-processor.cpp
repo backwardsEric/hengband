@@ -18,11 +18,9 @@
 #include "io/cursor.h"
 #include "io/input-key-requester.h"
 #include "io/write-diary.h"
-#include "market/arena.h"
 #include "mind/mind-ninja.h"
 #include "monster/monster-compaction.h"
 #include "monster/monster-processor.h"
-#include "monster/monster-status.h"
 #include "monster/monster-util.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
@@ -31,9 +29,11 @@
 #include "realm/realm-song.h"
 #include "spell-realm/spells-song.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
-#include "system/monster-race-info.h"
+#include "system/building-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
@@ -128,8 +128,9 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         player_ptr->max_plv = player_ptr->lev;
     }
 
-    if ((max_dlv[floor.dungeon_idx] < floor.dun_level) && !floor.is_in_quest()) {
-        max_dlv[floor.dungeon_idx] = floor.dun_level;
+    auto &dungeon_record = DungeonRecords::get_instance().get_record(floor.dungeon_idx);
+    if ((dungeon_record.get_max_level() < floor.dun_level) && !floor.is_in_quest()) {
+        dungeon_record.set_max_level(floor.dun_level);
         if (record_maxdepth) {
             exe_write_diary(floor, DiaryKind::MAXDEAPTH, floor.dun_level);
         }
@@ -164,7 +165,8 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     if (is_watching) {
         if (load_game) {
             player_ptr->energy_need = 0;
-            update_gambling_monsters(player_ptr);
+            auto &melee_arena = MeleeArena::get_instance();
+            melee_arena.update_gladiators(player_ptr);
         } else {
             msg_print(_("試合開始！", "Ready..Fight!"));
             msg_print(nullptr);
@@ -209,7 +211,7 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     }
 
     player_ptr->leaving_dungeon = false;
-    mproc_init(&floor);
+    floor.reset_mproc();
 
     while (true) {
         if ((floor.m_cnt + 32 > MAX_FLOOR_MONSTERS) && !is_watching) {

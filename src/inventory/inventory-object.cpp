@@ -16,6 +16,7 @@
 #include "util/object-sort.h"
 #include "view/display-messages.h"
 #include "view/object-describer.h"
+#include <algorithm>
 
 void vary_item(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBER num)
 {
@@ -115,12 +116,12 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX i_idx)
     }
 
     player_ptr->inven_cnt--;
-    int i;
-    for (i = i_idx; i < INVEN_PACK; i++) {
-        player_ptr->inventory_list[i] = player_ptr->inventory_list[i + 1];
-    }
 
-    (&player_ptr->inventory_list[i])->wipe();
+    auto first = &player_ptr->inventory_list[i_idx];
+    auto last = &player_ptr->inventory_list[INVEN_PACK];
+    std::rotate(first, first + 1, last + 1);
+    last->wipe();
+
     static constexpr auto flags = {
         SubWindowRedrawingFlag::INVENTORY,
         SubWindowRedrawingFlag::SPELL,
@@ -136,8 +137,6 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX i_idx)
  */
 void drop_from_inventory(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBER amt)
 {
-    ItemEntity forge;
-    ItemEntity *q_ptr;
     auto *o_ptr = &player_ptr->inventory_list[i_idx];
     if (amt <= 0) {
         return;
@@ -152,14 +151,13 @@ void drop_from_inventory(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBE
         o_ptr = &player_ptr->inventory_list[i_idx];
     }
 
-    q_ptr = &forge;
-    q_ptr->copy_from(o_ptr);
-    distribute_charges(o_ptr, q_ptr, amt);
+    auto item = o_ptr->clone();
+    distribute_charges(o_ptr, &item, amt);
 
-    q_ptr->number = amt;
-    const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
+    item.number = amt;
+    const auto item_name = describe_flavor(player_ptr, item, 0);
     msg_format(_("%s(%c)を落とした。", "You drop %s (%c)."), item_name.data(), index_to_label(i_idx));
-    (void)drop_near(player_ptr, q_ptr, 0, player_ptr->y, player_ptr->x);
+    (void)drop_near(player_ptr, &item, 0, player_ptr->y, player_ptr->x);
     vary_item(player_ptr, i_idx, -amt);
 }
 
@@ -178,53 +176,45 @@ void combine_pack(PlayerType *player_ptr)
         is_first_combination = false;
         combined = false;
 
-        for (int i = INVEN_PACK; i > 0; i--) {
-            ItemEntity *o_ptr;
-            o_ptr = &player_ptr->inventory_list[i];
-            if (!o_ptr->is_valid()) {
+        for (auto i = enum2i(INVEN_PACK); i > 0; i--) {
+            auto &item1 = player_ptr->inventory_list[i];
+            if (!item1.is_valid()) {
                 continue;
             }
-            for (int j = 0; j < i; j++) {
-                ItemEntity *j_ptr;
-                j_ptr = &player_ptr->inventory_list[j];
-                if (!j_ptr->is_valid()) {
+
+            for (short j = 0; j < i; j++) {
+                auto &item2 = player_ptr->inventory_list[j];
+                if (!item2.is_valid()) {
                     continue;
                 }
 
-                /*
-                 * Get maximum number of the stack if these
-                 * are similar, get zero otherwise.
-                 */
-                int max_num = object_similar_part(j_ptr, o_ptr);
-
-                bool is_max = (max_num != 0) && (j_ptr->number < max_num);
+                auto max_num = item2.is_similar_part(item1);
+                auto is_max = (max_num != 0) && (item2.number < max_num);
                 if (!is_max) {
                     continue;
                 }
 
-                if (o_ptr->number + j_ptr->number <= max_num) {
+                if (item1.number + item2.number <= max_num) {
                     flag = true;
-                    object_absorb(j_ptr, o_ptr);
+                    item2.absorb(item1);
                     player_ptr->inven_cnt--;
-                    int k;
-                    for (k = i; k < INVEN_PACK; k++) {
-                        player_ptr->inventory_list[k] = player_ptr->inventory_list[k + 1];
-                    }
-
-                    (&player_ptr->inventory_list[k])->wipe();
+                    auto first = &player_ptr->inventory_list[i];
+                    auto last = &player_ptr->inventory_list[INVEN_PACK];
+                    std::rotate(first, first + 1, last + 1);
+                    last->wipe();
                 } else {
-                    int old_num = o_ptr->number;
-                    int remain = j_ptr->number + o_ptr->number - max_num;
-                    object_absorb(j_ptr, o_ptr);
-                    o_ptr->number = remain;
-                    const auto tval = o_ptr->bi_key.tval();
+                    int old_num = item1.number;
+                    int remain = item2.number + item1.number - max_num;
+                    item2.absorb(item1);
+                    item1.number = remain;
+                    const auto tval = item1.bi_key.tval();
                     if (tval == ItemKindType::ROD) {
-                        o_ptr->pval = o_ptr->pval * remain / old_num;
-                        o_ptr->timeout = o_ptr->timeout * remain / old_num;
+                        item1.pval = item1.pval * remain / old_num;
+                        item1.timeout = item1.timeout * remain / old_num;
                     }
 
                     if (tval == ItemKindType::WAND) {
-                        o_ptr->pval = o_ptr->pval * remain / old_num;
+                        item1.pval = item1.pval * remain / old_num;
                     }
                 }
 
@@ -249,48 +239,23 @@ void combine_pack(PlayerType *player_ptr)
  */
 void reorder_pack(PlayerType *player_ptr)
 {
-    int i, j, k;
-    int32_t o_value;
-    ItemEntity forge;
-    ItemEntity *q_ptr;
-    ItemEntity *o_ptr;
-    bool flag = false;
+    const auto comp = [player_ptr](const auto &item1, const auto &item2) {
+        return object_sort_comp(player_ptr, item1, item2);
+    };
 
-    for (i = 0; i < INVEN_PACK; i++) {
-        if ((i == INVEN_PACK) && (player_ptr->inven_cnt == INVEN_PACK)) {
-            break;
-        }
+    const auto sort_count = std::min(enum2i(INVEN_PACK), player_ptr->inven_cnt);
 
-        o_ptr = &player_ptr->inventory_list[i];
-        if (!o_ptr->is_valid()) {
-            continue;
-        }
+    auto first = &player_ptr->inventory_list[0];
+    auto last = &player_ptr->inventory_list[sort_count];
 
-        o_value = o_ptr->get_price();
-        for (j = 0; j < INVEN_PACK; j++) {
-            if (object_sort_comp(player_ptr, o_ptr, o_value, &player_ptr->inventory_list[j])) {
-                break;
-            }
-        }
-
-        if (j >= i) {
-            continue;
-        }
-
-        flag = true;
-        q_ptr = &forge;
-        q_ptr->copy_from(&player_ptr->inventory_list[i]);
-        for (k = i; k > j; k--) {
-            (&player_ptr->inventory_list[k])->copy_from(&player_ptr->inventory_list[k - 1]);
-        }
-
-        (&player_ptr->inventory_list[j])->copy_from(q_ptr);
-        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::INVENTORY);
+    if (std::is_sorted(first, last, comp)) {
+        return;
     }
 
-    if (flag) {
-        msg_print(_("ザックの中のアイテムを並べ直した。", "You reorder some items in your pack."));
-    }
+    std::stable_sort(first, last, comp);
+    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::INVENTORY);
+
+    msg_print(_("ザックの中のアイテムを並べ直した。", "You reorder some items in your pack."));
 }
 
 /*!
@@ -301,7 +266,7 @@ void reorder_pack(PlayerType *player_ptr)
  */
 int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
-    INVENTORY_IDX i, j, k;
+    INVENTORY_IDX i, j;
     INVENTORY_IDX n = -1;
 
     ItemEntity *j_ptr;
@@ -317,8 +282,8 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
         }
 
         n = j;
-        if (object_similar(j_ptr, o_ptr)) {
-            object_absorb(j_ptr, o_ptr);
+        if (j_ptr->is_similar(*o_ptr)) {
+            j_ptr->absorb(*o_ptr);
             rfu.set_flag(StatusRecalculatingFlag::BONUS);
             rfu.set_flags(flags_swrf);
             return j;
@@ -338,22 +303,17 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
 
     i = j;
     if (i < INVEN_PACK) {
-        const auto o_value = o_ptr->get_price();
         for (j = 0; j < INVEN_PACK; j++) {
-            if (object_sort_comp(player_ptr, o_ptr, o_value, &player_ptr->inventory_list[j])) {
+            if (object_sort_comp(player_ptr, *o_ptr, player_ptr->inventory_list[j])) {
                 break;
             }
         }
 
         i = j;
-        for (k = n; k >= i; k--) {
-            (&player_ptr->inventory_list[k + 1])->copy_from(&player_ptr->inventory_list[k]);
-        }
-
-        (&player_ptr->inventory_list[i])->wipe();
+        std::rotate(&player_ptr->inventory_list[i], &player_ptr->inventory_list[n + 1], &player_ptr->inventory_list[n + 2]);
     }
 
-    (&player_ptr->inventory_list[i])->copy_from(o_ptr);
+    player_ptr->inventory_list[i] = o_ptr->clone();
     j_ptr = &player_ptr->inventory_list[i];
     j_ptr->held_m_idx = 0;
     j_ptr->iy = j_ptr->ix = 0;
@@ -389,7 +349,7 @@ bool check_store_item_to_inventory(PlayerType *player_ptr, const ItemEntity *o_p
             continue;
         }
 
-        if (object_similar(j_ptr, o_ptr)) {
+        if (j_ptr->is_similar(*o_ptr)) {
             return true;
         }
     }
@@ -406,24 +366,20 @@ bool check_store_item_to_inventory(PlayerType *player_ptr, const ItemEntity *o_p
  */
 INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBER amt)
 {
-    INVENTORY_IDX slot;
-    ItemEntity forge;
-    ItemEntity *q_ptr;
-    ItemEntity *o_ptr;
-    concptr act;
-    o_ptr = &player_ptr->inventory_list[i_idx];
+    const auto &item_inventory = player_ptr->inventory_list[i_idx];
     if (amt <= 0) {
         return -1;
     }
 
-    if (amt > o_ptr->number) {
-        amt = o_ptr->number;
+    if (amt > item_inventory.number) {
+        amt = item_inventory.number;
     }
-    q_ptr = &forge;
-    q_ptr->copy_from(o_ptr);
-    q_ptr->number = amt;
-    const auto item_name = describe_flavor(player_ptr, q_ptr, 0);
-    if (((i_idx == INVEN_MAIN_HAND) || (i_idx == INVEN_SUB_HAND)) && o_ptr->is_melee_weapon()) {
+
+    auto item = item_inventory.clone();
+    item.number = amt;
+    const auto item_name = describe_flavor(player_ptr, item, 0);
+    std::string act;
+    if (((i_idx == INVEN_MAIN_HAND) || (i_idx == INVEN_SUB_HAND)) && item_inventory.is_melee_weapon()) {
         act = _("を装備からはずした", "You were wielding");
     } else if (i_idx == INVEN_BOW) {
         act = _("を装備からはずした", "You were holding");
@@ -436,11 +392,11 @@ INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NU
     inven_item_increase(player_ptr, i_idx, -amt);
     inven_item_optimize(player_ptr, i_idx);
 
-    slot = store_item_to_inventory(player_ptr, q_ptr);
+    const auto slot = store_item_to_inventory(player_ptr, &item);
 #ifdef JP
-    msg_format("%s(%c)%s。", item_name.data(), index_to_label(slot), act);
+    msg_format("%s(%c)%s。", item_name.data(), index_to_label(slot), act.data());
 #else
-    msg_format("%s %s (%c).", act, item_name.data(), index_to_label(slot));
+    msg_format("%s %s (%c).", act.data(), item_name.data(), index_to_label(slot));
 #endif
 
     return slot;

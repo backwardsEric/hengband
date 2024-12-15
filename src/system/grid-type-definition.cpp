@@ -2,9 +2,18 @@
 #include "monster/monster-util.h"
 #include "room/door-definition.h"
 #include "system/angband-system.h"
-#include "system/monster-race-info.h"
-#include "system/terrain-type-definition.h"
+#include "system/enums/grid-flow.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "util/bit-flags-calculator.h"
+
+Grid::Grid()
+{
+    for (const auto gf : GRID_FLOW_RANGE) {
+        this->costs[gf] = 0;
+        this->dists[gf] = 0;
+    }
+}
 
 /*!
  * @brief 指定座標がFLOOR属性を持ったマスかどうかを返す
@@ -93,24 +102,29 @@ bool Grid::is_rune_explosion() const
     return this->is_object() && TerrainList::get_instance().get_terrain(this->mimic).flags.has(TerrainCharacteristics::RUNE_EXPLOSION);
 }
 
+/*!
+ * @brief マスに隠されたドアがあるかの判定
+ * @return 隠されたドアがあるか否か
+ */
+bool Grid::is_hidden_door() const
+{
+    const auto is_secret = (this->mimic > 0) || this->cave_has_flag(TerrainCharacteristics::SECRET);
+    return is_secret && this->get_terrain().is_closed_door();
+}
+
 bool Grid::has_monster() const
 {
     return is_monster(this->m_idx);
 }
 
-byte Grid::get_cost(const MonsterRaceInfo *r_ptr) const
+uint8_t Grid::get_cost(GridFlow gf) const
 {
-    return this->costs[get_grid_flow_type(r_ptr)];
+    return this->costs.at(gf);
 }
 
-byte Grid::get_distance(const MonsterRaceInfo *r_ptr) const
+uint8_t Grid::get_distance(GridFlow gf) const
 {
-    return this->dists[get_grid_flow_type(r_ptr)];
-}
-
-flow_type Grid::get_grid_flow_type(const MonsterRaceInfo *r_ptr) const
-{
-    return r_ptr->feature_flags.has(MonsterFeatureType::CAN_FLY) ? FLOW_CAN_FLY : FLOW_NORMAL;
+    return this->dists.at(gf);
 }
 
 /*
@@ -140,15 +154,15 @@ bool Grid::is_symbol(const int ch) const
 
 void Grid::reset_costs()
 {
-    for (auto &cost : this->costs) {
-        cost = 0;
+    for (const auto gf : GRID_FLOW_RANGE) {
+        this->costs[gf] = 0;
     }
 }
 
 void Grid::reset_dists()
 {
-    for (auto &dist : this->dists) {
-        dist = 0;
+    for (const auto gf : GRID_FLOW_RANGE) {
+        this->dists[gf] = 0;
     }
 }
 
@@ -201,4 +215,19 @@ void Grid::place_closed_curtain()
 void Grid::add_info(int grid_info)
 {
     this->info |= grid_info;
+}
+
+void Grid::set_terrain_id(short terrain_id)
+{
+    this->feat = terrain_id;
+}
+
+void Grid::set_terrain_id(TerrainTag tag)
+{
+    this->feat = TerrainList::get_instance().get_terrain_id(tag);
+}
+
+void Grid::set_mimic_terrain_id(TerrainTag tag)
+{
+    this->mimic = TerrainList::get_instance().get_terrain_id(tag);
 }

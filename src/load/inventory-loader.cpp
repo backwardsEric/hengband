@@ -44,7 +44,7 @@ static errr rd_inventory(PlayerType *player_ptr)
 
         if (n >= INVEN_MAIN_HAND) {
             item.marked.set(OmType::TOUCHED);
-            player_ptr->inventory_list[n].copy_from(&item);
+            player_ptr->inventory_list[n] = std::move(item);
             player_ptr->equip_cnt++;
             continue;
         }
@@ -56,7 +56,7 @@ static errr rd_inventory(PlayerType *player_ptr)
 
         n = slot++;
         item.marked.set(OmType::TOUCHED);
-        player_ptr->inventory_list[n].copy_from(&item);
+        player_ptr->inventory_list[n] = std::move(item);
         player_ptr->inven_cnt++;
     }
 
@@ -65,8 +65,10 @@ static errr rd_inventory(PlayerType *player_ptr)
 
 errr load_inventory(PlayerType *player_ptr)
 {
-    for (int i = 0; i < 64; i++) {
-        player_ptr->spell_order[i] = rd_byte();
+    for (auto i = 0; i < 64; i++) {
+        if (const auto spell_id = rd_byte(); spell_id < 64) {
+            player_ptr->spell_order_learned.push_back(spell_id);
+        }
     }
 
     if (!rd_inventory(player_ptr)) {

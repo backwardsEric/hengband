@@ -192,7 +192,7 @@ std::optional<std::string> do_craft_spell(PlayerType *player_ptr, SPELL_IDX spel
         }
 
         if (cast) {
-            set_protevil(player_ptr, dice.roll() + base, false);
+            BodyImprovement(player_ptr).set_protection(dice.roll() + base);
         }
     } break;
 
@@ -294,7 +294,7 @@ std::optional<std::string> do_craft_spell(PlayerType *player_ptr, SPELL_IDX spel
 
     case 22: {
         if (cast) {
-            if (summon_specific(player_ptr, -1, player_ptr->y, player_ptr->x, plev, SUMMON_GOLEM, PM_FORCE_PET)) {
+            if (summon_specific(player_ptr, player_ptr->y, player_ptr->x, plev, SUMMON_GOLEM, PM_FORCE_PET)) {
                 msg_print(_("ゴーレムを作った。", "You make a golem."));
             } else {
                 msg_print(_("うまくゴーレムを作れなかった。", "You couldn't make a golem."));

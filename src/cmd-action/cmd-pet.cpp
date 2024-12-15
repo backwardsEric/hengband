@@ -43,14 +43,14 @@
 #include "player/player-status-flags.h"
 #include "player/special-defense-types.h"
 #include "status/action-setter.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "target/target-setter.h"
@@ -141,9 +141,9 @@ void do_cmd_pet_dismiss(PlayerType *player_ptr)
                 exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_DISMISS, m_name);
             }
 
-            if (pet_ctr == player_ptr->riding) {
+            if (monster.is_riding()) {
                 msg_format(_("%sから降りた。", "You dismount from %s. "), friend_name.data());
-                player_ptr->riding = 0;
+                player_ptr->ride_monster(0);
                 rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
                 static constexpr auto flags = {
                     MainWindowRedrawingFlag::EXTRA,
@@ -213,7 +213,7 @@ bool do_cmd_riding(PlayerType *player_ptr, bool force)
             return false;
         }
 
-        player_ptr->riding = 0;
+        player_ptr->ride_monster(0);
         player_ptr->pet_extra_flags &= ~(PF_TWO_HANDS);
         player_ptr->riding_ryoute = player_ptr->old_riding_ryoute = false;
     } else {
@@ -270,7 +270,7 @@ bool do_cmd_riding(PlayerType *player_ptr, bool force)
             set_action(player_ptr, ACTION_NONE);
         }
 
-        player_ptr->riding = grid.m_idx;
+        player_ptr->ride_monster(grid.m_idx);
         if (HealthBarTracker::get_instance().is_tracking(player_ptr->riding)) {
             health_track(player_ptr, 0);
         }

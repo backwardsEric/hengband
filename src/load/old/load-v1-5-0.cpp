@@ -23,7 +23,6 @@
 #include "mind/mind-weaponsmith.h"
 #include "monster-floor/monster-move.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-list.h"
@@ -36,16 +35,21 @@
 #include "sv-definition/sv-lite-types.h"
 #include "system/angband-exceptions.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/enums/terrain/terrain-tag.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monster-entity.h"
 #include "system/player-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
-#include "world/world-object.h"
 #include "world/world.h"
 
 /* Old hidden trap flag */
@@ -347,12 +351,12 @@ void rd_item_old(ItemEntity *o_ptr)
  */
 void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
-    m_ptr->r_idx = i2enum<MonsterRaceId>(rd_s16b());
+    m_ptr->r_idx = i2enum<MonraceId>(rd_s16b());
 
     if (h_older_than(1, 0, 12)) {
         m_ptr->ap_r_idx = m_ptr->r_idx;
     } else {
-        m_ptr->ap_r_idx = i2enum<MonsterRaceId>(rd_s16b());
+        m_ptr->ap_r_idx = i2enum<MonraceId>(rd_s16b());
     }
 
     if (h_older_than(1, 0, 14)) {
@@ -387,7 +391,7 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
         m_ptr->dealt_damage = rd_s32b();
     }
 
-    m_ptr->mtimed[MTIMED_CSLEEP] = rd_s16b();
+    m_ptr->mtimed[MonsterTimedEffect::SLEEP] = rd_s16b();
     m_ptr->mspeed = rd_byte();
 
     if (h_older_than(0, 4, 2)) {
@@ -401,28 +405,28 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
     }
 
     if (h_older_than(0, 0, 7)) {
-        m_ptr->mtimed[MTIMED_FAST] = 0;
-        m_ptr->mtimed[MTIMED_SLOW] = 0;
+        m_ptr->mtimed[MonsterTimedEffect::FAST] = 0;
+        m_ptr->mtimed[MonsterTimedEffect::SLOW] = 0;
     } else {
-        m_ptr->mtimed[MTIMED_FAST] = rd_byte();
-        m_ptr->mtimed[MTIMED_SLOW] = rd_byte();
+        m_ptr->mtimed[MonsterTimedEffect::FAST] = rd_byte();
+        m_ptr->mtimed[MonsterTimedEffect::SLOW] = rd_byte();
     }
 
-    m_ptr->mtimed[MTIMED_STUNNED] = rd_byte();
-    m_ptr->mtimed[MTIMED_CONFUSED] = rd_byte();
-    m_ptr->mtimed[MTIMED_MONFEAR] = rd_byte();
+    m_ptr->mtimed[MonsterTimedEffect::STUN] = rd_byte();
+    m_ptr->mtimed[MonsterTimedEffect::CONFUSION] = rd_byte();
+    m_ptr->mtimed[MonsterTimedEffect::FEAR] = rd_byte();
 
     if (h_older_than(0, 0, 10)) {
-        reset_target(m_ptr);
+        m_ptr->reset_target();
     } else if (h_older_than(0, 0, 11)) {
         strip_bytes(2);
-        reset_target(m_ptr);
+        m_ptr->reset_target();
     } else {
         m_ptr->target_y = rd_s16b();
         m_ptr->target_x = rd_s16b();
     }
 
-    m_ptr->mtimed[MTIMED_INVULNER] = rd_byte();
+    m_ptr->mtimed[MonsterTimedEffect::INVULNERABILITY] = rd_byte();
 
     auto tmp32u = rd_u32b();
     migrate_bitflag_to_flaggroup(m_ptr->smart, tmp32u);
@@ -443,7 +447,7 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
 
     if (h_older_than(0, 2, 2)) {
         if (enum2i(m_ptr->r_idx) < 0) {
-            m_ptr->r_idx = i2enum<MonsterRaceId>(0 - enum2i(m_ptr->r_idx));
+            m_ptr->r_idx = i2enum<MonraceId>(0 - enum2i(m_ptr->r_idx));
             m_ptr->mflag2.set(MonsterConstantFlagType::KAGE);
         }
     } else {
@@ -454,7 +458,7 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
 
     if (h_older_than(1, 0, 12)) {
         if (m_ptr->mflag2.has(MonsterConstantFlagType::KAGE)) {
-            m_ptr->ap_r_idx = MonsterRaceId::KAGE;
+            m_ptr->ap_r_idx = MonraceId::KAGE;
         }
     }
 
@@ -470,14 +474,14 @@ void rd_monster_old(PlayerType *player_ptr, MonsterEntity *m_ptr)
     strip_bytes(1);
 }
 
-static void move_RF3_to_RFR(MonsterRaceInfo *r_ptr, BIT_FLAGS f3, const BIT_FLAGS rf3, const MonsterResistanceType rfr)
+static void move_RF3_to_RFR(MonraceDefinition *r_ptr, BIT_FLAGS f3, const BIT_FLAGS rf3, const MonsterResistanceType rfr)
 {
     if (f3 & rf3) {
         r_ptr->resistance_flags.set(rfr);
     }
 }
 
-static void move_RF4_BR_to_RFR(MonsterRaceInfo *r_ptr, BIT_FLAGS f4, const BIT_FLAGS rf4_br, const MonsterResistanceType rfr)
+static void move_RF4_BR_to_RFR(MonraceDefinition *r_ptr, BIT_FLAGS f4, const BIT_FLAGS rf4_br, const MonsterResistanceType rfr)
 {
     if (f4 & rf4_br) {
         r_ptr->resistance_flags.set(rfr);
@@ -490,7 +494,7 @@ static void move_RF4_BR_to_RFR(MonsterRaceInfo *r_ptr, BIT_FLAGS f4, const BIT_F
  * @param r_idx モンスター種族ID
  * @details 本来はr_idxからr_ptrを決定可能だが、互換性を優先するため元コードのままとする
  */
-void set_old_lore(MonsterRaceInfo *r_ptr, BIT_FLAGS f3, BIT_FLAGS f4, const MonsterRaceId r_idx)
+void set_old_lore(MonraceDefinition *r_ptr, BIT_FLAGS f3, BIT_FLAGS f4, const MonraceId r_idx)
 {
     r_ptr->r_resistance_flags.clear();
     move_RF3_to_RFR(r_ptr, f3, RF3_IM_ACID, MonsterResistanceType::IMMUNE_ACID);
@@ -520,7 +524,7 @@ void set_old_lore(MonsterRaceInfo *r_ptr, BIT_FLAGS f3, BIT_FLAGS f4, const Mons
         r_ptr->r_resistance_flags.set(MonsterResistanceType::NO_CONF);
     }
 
-    if (r_idx == MonsterRaceId::STORMBRINGER) {
+    if (r_idx == MonraceId::STORMBRINGER) {
         r_ptr->r_resistance_flags.set(MonsterResistanceType::RESIST_CHAOS);
     }
 
@@ -538,31 +542,31 @@ void set_old_lore(MonsterRaceInfo *r_ptr, BIT_FLAGS f3, BIT_FLAGS f4, const Mons
  */
 errr rd_dungeon_old(PlayerType *player_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->dun_level = rd_s16b();
+    auto &floor = *player_ptr->current_floor_ptr;
+    floor.dun_level = rd_s16b();
     if (h_older_than(0, 3, 8)) {
-        floor_ptr->set_dungeon_index(DUNGEON_ANGBAND);
+        floor.set_dungeon_index(DUNGEON_ANGBAND);
     } else {
-        floor_ptr->set_dungeon_index(rd_byte());
+        floor.set_dungeon_index(rd_byte());
     }
 
-    floor_ptr->base_level = floor_ptr->dun_level;
-    floor_ptr->base_level = rd_s16b();
+    floor.base_level = floor.dun_level;
+    floor.base_level = rd_s16b();
 
-    floor_ptr->num_repro = rd_s16b();
+    floor.num_repro = rd_s16b();
     player_ptr->y = rd_s16b();
     player_ptr->x = rd_s16b();
-    if (h_older_than(0, 3, 13) && !floor_ptr->dun_level && !floor_ptr->inside_arena) {
+    if (h_older_than(0, 3, 13) && !floor.dun_level && !floor.inside_arena) {
         player_ptr->y = 33;
         player_ptr->x = 131;
     }
-    floor_ptr->height = rd_s16b();
-    floor_ptr->width = rd_s16b();
+    floor.height = rd_s16b();
+    floor.width = rd_s16b();
     strip_bytes(2); /* max_panel_rows */
     strip_bytes(2); /* max_panel_cols */
 
-    int ymax = floor_ptr->height;
-    int xmax = floor_ptr->width;
+    int ymax = floor.height;
+    int xmax = floor.width;
 
     for (int x = 0, y = 0; y < ymax;) {
         uint16_t info;
@@ -575,9 +579,8 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         }
 
         for (int i = count; i > 0; i--) {
-            Grid *g_ptr;
-            g_ptr = &floor_ptr->grid_array[y][x];
-            g_ptr->info = info;
+            auto &grid = floor.get_grid({ y, x });
+            grid.info = info;
             if (++x >= xmax) {
                 x = 0;
                 if (++y >= ymax) {
@@ -591,9 +594,8 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp8u = rd_byte();
         for (int i = count; i > 0; i--) {
-            Grid *g_ptr;
-            g_ptr = &floor_ptr->grid_array[y][x];
-            g_ptr->feat = (int16_t)tmp8u;
+            auto &grid = floor.get_grid({ y, x });
+            grid.feat = (int16_t)tmp8u;
             if (++x >= xmax) {
                 x = 0;
                 if (++y >= ymax) {
@@ -607,9 +609,8 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp8u = rd_byte();
         for (int i = count; i > 0; i--) {
-            Grid *g_ptr;
-            g_ptr = &floor_ptr->grid_array[y][x];
-            g_ptr->mimic = (int16_t)tmp8u;
+            auto &grid = floor.get_grid({ y, x });
+            grid.mimic = (int16_t)tmp8u;
             if (++x >= xmax) {
                 x = 0;
                 if (++y >= ymax) {
@@ -623,9 +624,8 @@ errr rd_dungeon_old(PlayerType *player_ptr)
         auto count = rd_byte();
         auto tmp16s = rd_s16b();
         for (int i = count; i > 0; i--) {
-            Grid *g_ptr;
-            g_ptr = &floor_ptr->grid_array[y][x];
-            g_ptr->special = tmp16s;
+            auto &grid = floor.get_grid({ y, x });
+            grid.special = tmp16s;
             if (++x >= xmax) {
                 x = 0;
                 if (++y >= ymax) {
@@ -638,7 +638,7 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (h_older_than(1, 0, 99)) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                floor_ptr->grid_array[y][x].info &= ~(CAVE_MASK);
+                floor.get_grid({ y, x }).info &= ~(CAVE_MASK);
             }
         }
     }
@@ -646,19 +646,18 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (h_older_than(1, 1, 1, 0)) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                Grid *g_ptr;
-                g_ptr = &floor_ptr->grid_array[y][x];
+                auto &grid = floor.get_grid({ y, x });
 
                 /* Very old */
-                if (g_ptr->feat == OLD_FEAT_INVIS) {
-                    g_ptr->feat = feat_floor;
-                    g_ptr->info |= CAVE_TRAP;
+                if (grid.feat == OLD_FEAT_INVIS) {
+                    grid.set_terrain_id(TerrainTag::FLOOR);
+                    grid.info |= CAVE_TRAP;
                 }
 
                 /* Older than 1.1.1 */
-                if (g_ptr->feat == OLD_FEAT_MIRROR) {
-                    g_ptr->feat = feat_floor;
-                    g_ptr->info |= CAVE_OBJECT;
+                if (grid.feat == OLD_FEAT_MIRROR) {
+                    grid.set_terrain_id(TerrainTag::FLOOR);
+                    grid.info |= CAVE_OBJECT;
                 }
             }
         }
@@ -667,23 +666,22 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (h_older_than(1, 3, 1, 0)) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                Grid *g_ptr;
-                g_ptr = &floor_ptr->grid_array[y][x];
+                auto &grid = floor.get_grid({ y, x });
 
                 /* Old CAVE_IN_MIRROR flag */
-                if (g_ptr->info & CAVE_OBJECT) {
-                    g_ptr->mimic = feat_mirror;
-                } else if ((g_ptr->feat == OLD_FEAT_RUNE_EXPLOSION) || (g_ptr->feat == OLD_FEAT_RUNE_PROTECTION)) {
-                    g_ptr->info |= CAVE_OBJECT;
-                    g_ptr->mimic = g_ptr->feat;
-                    g_ptr->feat = feat_floor;
-                } else if (g_ptr->info & CAVE_TRAP) {
-                    g_ptr->info &= ~CAVE_TRAP;
-                    g_ptr->mimic = g_ptr->feat;
-                    g_ptr->feat = choose_random_trap(floor_ptr);
-                } else if (g_ptr->feat == OLD_FEAT_INVIS) {
-                    g_ptr->mimic = feat_floor;
-                    g_ptr->feat = feat_trap_open;
+                if (grid.info & CAVE_OBJECT) {
+                    grid.set_mimic_terrain_id(TerrainTag::MIRROR);
+                } else if ((grid.feat == OLD_FEAT_RUNE_EXPLOSION) || (grid.feat == OLD_FEAT_RUNE_PROTECTION)) {
+                    grid.info |= CAVE_OBJECT;
+                    grid.mimic = grid.feat;
+                    grid.set_terrain_id(TerrainTag::FLOOR);
+                } else if (grid.info & CAVE_TRAP) {
+                    grid.info &= ~CAVE_TRAP;
+                    grid.set_mimic_terrain_id(TerrainTag::FLOOR);
+                    grid.feat = choose_random_trap(&floor);
+                } else if (grid.feat == OLD_FEAT_INVIS) {
+                    grid.mimic = grid.feat;
+                    grid.feat = feat_trap_open;
                 }
             }
         }
@@ -693,26 +691,23 @@ errr rd_dungeon_old(PlayerType *player_ptr)
     if (!vanilla_town) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
-                Grid *g_ptr;
-                g_ptr = &floor_ptr->grid_array[y][x];
-
-                if ((g_ptr->special == OLD_QUEST_WATER_CAVE) && !floor_ptr->dun_level) {
-                    if (g_ptr->feat == OLD_FEAT_QUEST_ENTER) {
-                        g_ptr->feat = feat_tree;
-                        g_ptr->special = 0;
-                    } else if (g_ptr->feat == OLD_FEAT_BLDG_1) {
-                        g_ptr->special = lite_town ? QUEST_OLD_CASTLE : QUEST_ROYAL_CRYPT;
+                auto &grid = floor.get_grid({ y, x });
+                if ((grid.special == OLD_QUEST_WATER_CAVE) && !floor.dun_level) {
+                    if (grid.feat == OLD_FEAT_QUEST_ENTER) {
+                        grid.feat = feat_tree;
+                        grid.special = 0;
+                    } else if (grid.feat == OLD_FEAT_BLDG_1) {
+                        grid.special = lite_town ? QUEST_OLD_CASTLE : QUEST_ROYAL_CRYPT;
                     }
-                } else if ((g_ptr->feat == OLD_FEAT_QUEST_EXIT) && (floor_ptr->quest_number == i2enum<QuestId>(OLD_QUEST_WATER_CAVE))) {
-                    g_ptr->feat = feat_up_stair;
-                    g_ptr->special = 0;
+                } else if ((grid.feat == OLD_FEAT_QUEST_EXIT) && (floor.quest_number == i2enum<QuestId>(OLD_QUEST_WATER_CAVE))) {
+                    grid.set_terrain_id(TerrainTag::UP_STAIR);
+                    grid.special = 0;
                 }
             }
         }
     }
 
-    uint16_t limit;
-    limit = rd_u16b();
+    uint16_t limit = rd_u16b();
     if (limit > MAX_FLOOR_ITEMS) {
         load_note(format(_("アイテムの配列が大きすぎる(%d)！", "Too many (%d) object entries!"), limit));
         return 151;
@@ -720,16 +715,16 @@ errr rd_dungeon_old(PlayerType *player_ptr)
 
     auto item_loader = ItemLoaderFactory::create_loader();
     for (int i = 1; i < limit; i++) {
-        OBJECT_IDX o_idx = o_pop(floor_ptr);
-        if (i != o_idx) {
-            load_note(format(_("アイテム配置エラー (%d <> %d)", "Object allocation error (%d <> %d)"), i, o_idx));
+        const auto item_idx = floor.pop_empty_index_item();
+        if (i != item_idx) {
+            load_note(format(_("アイテム配置エラー (%d <> %d)", "Object allocation error (%d <> %d)"), i, item_idx));
             return 152;
         }
 
-        auto &item = floor_ptr->o_list[o_idx];
+        auto &item = floor.o_list[item_idx];
         item_loader->rd_item(&item);
-        auto &list = get_o_idx_list_contains(floor_ptr, o_idx);
-        list.add(floor_ptr, o_idx);
+        auto &list = get_o_idx_list_contains(&floor, item_idx);
+        list.add(&floor, item_idx);
     }
 
     limit = rd_u16b();
@@ -740,21 +735,21 @@ errr rd_dungeon_old(PlayerType *player_ptr)
 
     auto monster_loader = MonsterLoaderFactory::create_loader(player_ptr);
     for (int i = 1; i < limit; i++) {
-        auto m_idx = m_pop(floor_ptr);
+        const auto m_idx = floor.pop_empty_index_monster();
         if (i != m_idx) {
             load_note(format(_("モンスター配置エラー (%d <> %d)", "Monster allocation error (%d <> %d)"), i, m_idx));
             return 162;
         }
 
-        auto m_ptr = &floor_ptr->m_list[m_idx];
-        monster_loader->rd_monster(m_ptr);
-        auto *g_ptr = &floor_ptr->grid_array[m_ptr->fy][m_ptr->fx];
-        g_ptr->m_idx = m_idx;
-        m_ptr->get_real_monrace().cur_num++;
+        auto &monster = floor.m_list[m_idx];
+        monster_loader->rd_monster(&monster);
+        auto &grid = floor.get_grid(monster.get_position());
+        grid.m_idx = m_idx;
+        monster.get_real_monrace().increment_current_numbers();
     }
 
     auto &world = AngbandWorld::get_instance();
-    if (h_older_than(0, 3, 13) && !floor_ptr->dun_level && !floor_ptr->inside_arena) {
+    if (h_older_than(0, 3, 13) && !floor.dun_level && !floor.inside_arena) {
         world.character_dungeon = false;
     } else {
         world.character_dungeon = true;

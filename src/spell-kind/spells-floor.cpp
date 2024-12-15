@@ -22,7 +22,6 @@
 #include "game-option/cheat-options.h"
 #include "game-option/map-screen-options.h"
 #include "game-option/play-record-options.h"
-#include "grid/feature-flag-types.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
 #include "io/write-diary.h"
@@ -41,15 +40,16 @@
 #include "spell-kind/spells-teleport.h"
 #include "status/bad-status-setter.h"
 #include "system/artifact-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -370,7 +370,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
                         item.get_fixed_artifact().is_generated = false;
 
                         if (in_generate && cheat_peek) {
-                            const auto item_name = describe_flavor(player_ptr, &item, (OD_NAME_ONLY | OD_STORE));
+                            const auto item_name = describe_flavor(player_ptr, item, (OD_NAME_ONLY | OD_STORE));
                             msg_format(_("伝説のアイテム (%s) は生成中に*破壊*された。", "Artifact (%s) was *destroyed* during generation."), item_name.data());
                         }
                     } else if (in_generate && cheat_peek && item.is_random_artifact()) {

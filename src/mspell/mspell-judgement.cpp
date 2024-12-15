@@ -15,7 +15,6 @@
 #include "floor/cave.h"
 #include "floor/geometry.h"
 #include "floor/line-of-sight.h"
-#include "grid/feature-flag-types.h"
 #include "main/sound-definitions-table.h"
 #include "monster-race/race-flags-resistance.h"
 #include "monster/monster-status.h"
@@ -30,11 +29,12 @@
 #include "spell-realm/spells-song.h"
 #include "spell/range-calc.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/terrain/terrain-characteristics.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/projection-path-calculator.h"
 
@@ -90,6 +90,8 @@ bool direct_beam(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, 
  */
 bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2, POSITION x2, POSITION rad, AttributeType typ, bool is_friend)
 {
+    const Pos2D pos_source(y1, x1);
+    const Pos2D pos_target(y2, x2);
     BIT_FLAGS flg;
     switch (typ) {
     case AttributeType::LITE:
@@ -104,21 +106,22 @@ bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2
         break;
     }
 
-    ProjectionPath grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { y1, x1 }, { y2, x2 }, flg);
+    auto &floor = *player_ptr->current_floor_ptr;
+    ProjectionPath grid_g(player_ptr, AngbandSystem::get_instance().get_max_range(), pos_source, pos_target, flg);
     auto path_n = 0;
     POSITION y = y1;
     POSITION x = x1;
     for (const auto &[ny, nx] : grid_g) {
         if (flg & PROJECT_DISI) {
-            if (cave_stop_disintegration(player_ptr->current_floor_ptr, ny, nx)) {
+            if (cave_stop_disintegration(&floor, ny, nx)) {
                 break;
             }
         } else if (flg & PROJECT_LOS) {
-            if (!cave_los_bold(player_ptr->current_floor_ptr, ny, nx)) {
+            if (!cave_los_bold(&floor, ny, nx)) {
                 break;
             }
         } else {
-            if (!cave_has_flag_bold(player_ptr->current_floor_ptr, ny, nx, TerrainCharacteristics::PROJECT)) {
+            if (!cave_has_flag_bold(&floor, ny, nx, TerrainCharacteristics::PROJECT)) {
                 break;
             }
         }
@@ -131,25 +134,26 @@ bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2
     bool hit2 = false;
     bool hityou = false;
     if (path_n == 0) {
+        const auto p_pos = player_ptr->get_position();
         if (flg & PROJECT_DISI) {
-            if (in_disintegration_range(player_ptr->current_floor_ptr, y1, x1, y2, x2) && (distance(y1, x1, y2, x2) <= rad)) {
+            if (in_disintegration_range(&floor, y1, x1, y2, x2) && (distance(y1, x1, y2, x2) <= rad)) {
                 hit2 = true;
             }
-            if (in_disintegration_range(player_ptr->current_floor_ptr, y1, x1, player_ptr->y, player_ptr->x) && (distance(y1, x1, player_ptr->y, player_ptr->x) <= rad)) {
+            if (in_disintegration_range(&floor, y1, x1, p_pos.y, p_pos.x) && (distance(y1, x1, p_pos.y, p_pos.x) <= rad)) {
                 hityou = true;
             }
         } else if (flg & PROJECT_LOS) {
             if (los(player_ptr, y1, x1, y2, x2) && (distance(y1, x1, y2, x2) <= rad)) {
                 hit2 = true;
             }
-            if (los(player_ptr, y1, x1, player_ptr->y, player_ptr->x) && (distance(y1, x1, player_ptr->y, player_ptr->x) <= rad)) {
+            if (los(player_ptr, y1, x1, p_pos.y, p_pos.x) && (distance(y1, x1, p_pos.y, p_pos.x) <= rad)) {
                 hityou = true;
             }
         } else {
-            if (projectable(player_ptr, y1, x1, y2, x2) && (distance(y1, x1, y2, x2) <= rad)) {
+            if (projectable(player_ptr, pos_source, pos_target) && (distance(y1, x1, y2, x2) <= rad)) {
                 hit2 = true;
             }
-            if (projectable(player_ptr, y1, x1, player_ptr->y, player_ptr->x) && (distance(y1, x1, player_ptr->y, player_ptr->x) <= rad)) {
+            if (projectable(player_ptr, pos_source, p_pos) && (distance(y1, x1, p_pos.y, p_pos.x) <= rad)) {
                 hityou = true;
             }
         }

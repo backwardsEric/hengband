@@ -6,7 +6,8 @@
 #include "object-enchant/trg-types.h"
 #include "object/object-value.h"
 #include "system/angband-system.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/z-form.h"
@@ -24,8 +25,8 @@
  */
 static std::pair<DEPTH, PRICE> get_info(const ItemEntity &item)
 {
-    const auto level = item.get_baseitem().level;
-    const auto price = item.get_price();
+    const auto level = item.get_baseitem_level();
+    const auto price = item.calc_price();
     return { level, price };
 }
 
@@ -162,7 +163,7 @@ SpoilerOutputResultType spoil_obj_desc()
         for (const auto &bi_id : whats) {
             PlayerType dummy;
             const auto item = prepare_item_for_obj_desc(bi_id);
-            const auto item_name = describe_flavor(&dummy, &item, OD_NAME_ONLY | OD_STORE);
+            const auto item_name = describe_flavor(&dummy, item, OD_NAME_ONLY | OD_STORE);
             const auto &[depth, price] = get_info(item);
             const auto dam_or_ac = describe_dam_or_ac(item);
             const auto weight = describe_weight(item);

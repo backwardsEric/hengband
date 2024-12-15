@@ -12,7 +12,6 @@
 #include "market/building-util.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-race-hook.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
 #include "object-enchant/item-apply-magic.h"
@@ -20,10 +19,14 @@
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -51,12 +54,12 @@ bool exchange_cash(PlayerType *player_ptr)
             continue;
         }
 
-        if (item.get_monrace().idx != MonsterRaceId::TSUCHINOKO) {
+        if (!MonraceList::is_tsuchinoko(item.get_monrace_id())) {
             continue;
         }
 
         change = true;
-        const auto item_name = describe_flavor(player_ptr, &item, 0);
+        const auto item_name = describe_flavor(player_ptr, item, 0);
         if (!input_check(format(fmt_convert, item_name.data()))) {
             continue;
         }
@@ -74,12 +77,12 @@ bool exchange_cash(PlayerType *player_ptr)
             continue;
         }
 
-        if (item.get_monrace().idx != MonsterRaceId::TSUCHINOKO) {
+        if (!MonraceList::is_tsuchinoko(item.get_monrace_id())) {
             continue;
         }
 
         change = true;
-        const auto item_name = describe_flavor(player_ptr, &item, 0);
+        const auto item_name = describe_flavor(player_ptr, item, 0);
         if (!input_check(format(fmt_convert, item_name.data()))) {
             continue;
         }
@@ -97,12 +100,12 @@ bool exchange_cash(PlayerType *player_ptr)
             continue;
         }
 
-        if (item.get_monrace().idx != MonsterRaceId::TSUCHINOKO) {
+        if (!MonraceList::is_tsuchinoko(item.get_monrace_id())) {
             continue;
         }
 
         change = true;
-        const auto item_name = describe_flavor(player_ptr, &item, 0);
+        const auto item_name = describe_flavor(player_ptr, item, 0);
         if (!input_check(format(fmt_convert, item_name.data()))) {
             continue;
         }
@@ -123,7 +126,7 @@ bool exchange_cash(PlayerType *player_ptr)
         }
 
         change = true;
-        const auto item_name = describe_flavor(player_ptr, &item, 0);
+        const auto item_name = describe_flavor(player_ptr, item, 0);
         if (!input_check(format(fmt_convert, item_name.data()))) {
             continue;
         }
@@ -143,7 +146,7 @@ bool exchange_cash(PlayerType *player_ptr)
         }
 
         change = true;
-        const auto item_name = describe_flavor(player_ptr, &item, 0);
+        const auto item_name = describe_flavor(player_ptr, item, 0);
         if (!input_check(format(fmt_convert, item_name.data()))) {
             continue;
         }
@@ -167,7 +170,7 @@ bool exchange_cash(PlayerType *player_ptr)
             }
 
             INVENTORY_IDX inventory_new;
-            const auto item_name = describe_flavor(player_ptr, &item, 0);
+            const auto item_name = describe_flavor(player_ptr, item, 0);
             if (!input_check(format(_("%sを渡しますか？", "Hand %s over? "), item_name.data()))) {
                 continue;
             }
@@ -183,7 +186,7 @@ bool exchange_cash(PlayerType *player_ptr)
 
             ItemEntity prize_item(prize_list[num - 1]);
             ItemMagicApplier(player_ptr, &prize_item, player_ptr->current_floor_ptr->object_level, AM_NO_FIXED_ART).execute();
-            object_aware(player_ptr, &prize_item);
+            object_aware(player_ptr, prize_item);
             prize_item.mark_as_known();
 
             /*
@@ -192,7 +195,7 @@ bool exchange_cash(PlayerType *player_ptr)
              * there is at least one empty slot.
              */
             inventory_new = store_item_to_inventory(player_ptr, &prize_item);
-            const auto got_item_name = describe_flavor(player_ptr, &prize_item, 0);
+            const auto got_item_name = describe_flavor(player_ptr, prize_item, 0);
             msg_format(_("%s(%c)を貰った。", "You get %s (%c). "), got_item_name.data(), index_to_label(inventory_new));
 
             autopick_alter_item(player_ptr, inventory_new, false);
@@ -274,19 +277,21 @@ void show_bounty(void)
  */
 void determine_daily_bounty(PlayerType *player_ptr, bool conv_old)
 {
+    const auto &dungeon_records = DungeonRecords::get_instance();
     auto max_dl = 3;
     if (!conv_old) {
-        for (const auto &dungeon : dungeons_info) {
-            if (max_dlv[dungeon.idx] < dungeon.mindepth) {
+        for (const auto &[dungeon_id, dungeon] : DungeonList::get_instance()) {
+            const auto max_level = dungeon_records.get_record(dungeon_id).get_max_level();
+            if (max_level < dungeon.mindepth) {
                 continue;
             }
 
-            if (max_dl < max_dlv[dungeon.idx]) {
-                max_dl = max_dlv[dungeon.idx];
+            if (max_dl < max_level) {
+                max_dl = max_level;
             }
         }
     } else {
-        max_dl = std::max(max_dlv[DUNGEON_ANGBAND], 3);
+        max_dl = std::max(dungeon_records.get_record(DUNGEON_ANGBAND).get_max_level(), 3);
     }
 
     get_mon_num_prep_bounty(player_ptr);
@@ -302,7 +307,7 @@ void determine_daily_bounty(PlayerType *player_ptr, bool conv_old)
             continue;
         }
 
-        if (monrace.population_flags.has(MonsterPopulationType::NAZGUL) || monrace.population_flags.has(MonsterPopulationType::ONLY_ONE)) {
+        if (monrace.population_flags.has_any_of({ MonsterPopulationType::NAZGUL, MonsterPopulationType::ONLY_ONE, MonsterPopulationType::BUNBUN_STRIKER })) {
             continue;
         }
 
@@ -342,7 +347,7 @@ void determine_bounty_uniques(PlayerType *player_ptr)
     };
 
     // 賞金首とするモンスターの種族IDのリストを生成
-    std::vector<MonsterRaceId> bounty_monrace_ids;
+    std::vector<MonraceId> bounty_monrace_ids;
     auto &world = AngbandWorld::get_instance();
     while (bounty_monrace_ids.size() < std::size(world.bounties)) {
         const auto monrace_id = get_mon_num(player_ptr, 0, MAX_DEPTH - 1, PM_ARENA);
@@ -360,7 +365,7 @@ void determine_bounty_uniques(PlayerType *player_ptr)
     // モンスターのLVで昇順に並び替える
     std::sort(bounty_monrace_ids.begin(), bounty_monrace_ids.end(),
         [&monraces](auto id1, auto id2) {
-            return monraces.get_monrace(id1).level < monraces.get_monrace(id2).level;
+            return monraces.order_level(id2, id1);
         });
 
     // 賞金首情報を設定

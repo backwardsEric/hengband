@@ -8,8 +8,8 @@
 #include "monster/monster-status.h"
 #include "monster/monster-util.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "tracking/health-bar-tracker.h"
@@ -33,7 +33,7 @@ ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, EffectMonster *e
         return ProcessResult::PROCESS_CONTINUE;
     }
 
-    if (!is_monster(em_ptr->src_idx)) {
+    if (!em_ptr->is_monster()) {
         msg_format(_("%sから精神エネルギーを吸いとった。", "You draw psychic energy from %s."), em_ptr->m_name);
         (void)hp_player(player_ptr, em_ptr->dam);
         em_ptr->dam = 0;
@@ -51,7 +51,7 @@ ProcessResult effect_monster_drain_mana(PlayerType *player_ptr, EffectMonster *e
     }
 
     HealthBarTracker::get_instance().set_flag_if_tracking(em_ptr->src_idx);
-    if (player_ptr->riding == em_ptr->src_idx) {
+    if (em_ptr->m_caster_ptr && em_ptr->m_caster_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
@@ -69,7 +69,7 @@ ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, EffectMonster *e
     if (em_ptr->seen) {
         em_ptr->obvious = true;
     }
-    if (is_player(em_ptr->src_idx)) {
+    if (em_ptr->is_player()) {
         msg_format(_("%sをじっと睨んだ。", "You gaze intently at %s."), em_ptr->m_name);
     }
 
@@ -102,7 +102,7 @@ ProcessResult effect_monster_mind_blast(PlayerType *player_ptr, EffectMonster *e
         em_ptr->note = _("は精神攻撃を食らった。", " is blasted by psionic energy.");
         em_ptr->note_dies = _("の精神は崩壊し、肉体は抜け殻となった。", " collapses, a mindless husk.");
 
-        if (is_monster(em_ptr->src_idx)) {
+        if (em_ptr->is_monster()) {
             em_ptr->do_conf = randint0(4) + 4;
         } else {
             em_ptr->do_conf = randint0(8) + 8;
@@ -117,7 +117,7 @@ ProcessResult effect_monster_brain_smash(PlayerType *player_ptr, EffectMonster *
     if (em_ptr->seen) {
         em_ptr->obvious = true;
     }
-    if (is_player(em_ptr->src_idx)) {
+    if (em_ptr->is_player()) {
         msg_format(_("%sをじっと睨んだ。", "You gaze intently at %s."), em_ptr->m_name);
     }
 
@@ -151,7 +151,7 @@ ProcessResult effect_monster_brain_smash(PlayerType *player_ptr, EffectMonster *
     } else {
         em_ptr->note = _("は精神攻撃を食らった。", " is blasted by psionic energy.");
         em_ptr->note_dies = _("の精神は崩壊し、肉体は抜け殻となった。", " collapses, a mindless husk.");
-        if (is_monster(em_ptr->src_idx)) {
+        if (em_ptr->is_monster()) {
             em_ptr->do_conf = randint0(4) + 4;
             em_ptr->do_stun = randint0(4) + 4;
         } else {

@@ -5,11 +5,9 @@
 #include "flavor/flavor-describer.h"
 #include "floor/cave.h"
 #include "floor/floor-object.h"
-#include "floor/floor-town.h"
 #include "floor/geometry.h"
 #include "floor/object-scanner.h"
 #include "game-option/input-options.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "info-reader/fixed-map-parser.h"
 #include "io/cursor.h"
@@ -24,15 +22,21 @@
 #include "player-base/player-race.h"
 #include "player/player-status-table.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-list.h"
+#include "system/enums/grid-flow.h"
+#include "system/enums/terrain/terrain-tag.h"
+#include "system/floor/floor-info.h"
+#include "system/floor/town-info.h"
+#include "system/floor/town-list.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "target/target-types.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -70,6 +74,9 @@ public:
     FEAT_IDX feat = 0;
     TerrainType *terrain_ptr = nullptr;
     std::string name = "";
+
+    bool matches_terrain(TerrainTag tag) const;
+    void set_terrain_id(TerrainTag tag);
 };
 
 GridExamination::GridExamination(FloorType &floor, POSITION y, POSITION x, target_type mode, concptr info)
@@ -82,6 +89,16 @@ GridExamination::GridExamination(FloorType &floor, POSITION y, POSITION x, targe
     this->m_ptr = &floor.m_list[this->g_ptr->m_idx];
     this->next_o_idx = 0;
 }
+
+bool GridExamination::matches_terrain(TerrainTag tag) const
+{
+    return this->feat == TerrainList::get_instance().get_terrain_id(tag);
+}
+
+void GridExamination::set_terrain_id(TerrainTag tag)
+{
+    this->feat = TerrainList::get_instance().get_terrain_id(tag);
+}
 }
 
 bool show_gold_on_floor = false;
@@ -91,7 +108,7 @@ bool show_gold_on_floor = false;
  */
 static std::string evaluate_monster_exp(PlayerType *player_ptr, MonsterEntity *m_ptr)
 {
-    MonsterRaceInfo *ap_r_ptr = &m_ptr->get_appearance_monrace();
+    MonraceDefinition *ap_r_ptr = &m_ptr->get_appearance_monrace();
     if ((player_ptr->lev >= PY_MAX_LEVEL) || PlayerRace(player_ptr).equals(PlayerRaceType::ANDROID)) {
         return "**";
     }
@@ -220,9 +237,9 @@ static void describe_monster_person(GridExamination *ge_ptr)
 {
     const auto &monrace = ge_ptr->m_ptr->get_appearance_monrace();
     ge_ptr->s1 = _("それは", "It is ");
-    if (monrace.sex == MonsterSex::FEMALE) {
+    if (monrace.is_female()) {
         ge_ptr->s1 = _("彼女は", "She is ");
-    } else if (monrace.sex == MonsterSex::MALE) {
+    } else if (monrace.is_male()) {
         ge_ptr->s1 = _("彼は", "He is ");
     }
 
@@ -237,8 +254,8 @@ static void describe_monster_person(GridExamination *ge_ptr)
 static short describe_monster_item(PlayerType *player_ptr, GridExamination *ge_ptr)
 {
     for (const auto this_o_idx : ge_ptr->m_ptr->hold_o_idx_list) {
-        auto *o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
-        const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+        const auto &item = player_ptr->current_floor_ptr->o_list[this_o_idx];
+        const auto item_name = describe_flavor(player_ptr, item, 0);
 #ifdef JP
         const auto out_val = format("%s%s%s%s[%s]", ge_ptr->s1, item_name.data(), ge_ptr->s2, ge_ptr->s3, ge_ptr->info);
 #else
@@ -306,8 +323,8 @@ static short describe_footing(PlayerType *player_ptr, GridExamination *ge_ptr)
         return CONTINUOUS_DESCRIPTION;
     }
 
-    auto *o_ptr = &player_ptr->current_floor_ptr->o_list[ge_ptr->floor_list[0]];
-    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+    const auto &item = player_ptr->current_floor_ptr->o_list[ge_ptr->floor_list[0]];
+    const auto item_name = describe_flavor(player_ptr, item, 0);
 #ifdef JP
     const auto out_val = format("%s%s%s%s[%s]", ge_ptr->s1, item_name.data(), ge_ptr->s2, ge_ptr->s3, ge_ptr->info);
 #else
@@ -392,14 +409,14 @@ static short loop_describing_grid(PlayerType *player_ptr, GridExamination *ge_pt
     }
 }
 
-static short describe_footing_sight(PlayerType *player_ptr, GridExamination *ge_ptr, ItemEntity *o_ptr)
+static short describe_footing_sight(PlayerType *player_ptr, GridExamination *ge_ptr, const ItemEntity &item)
 {
-    if (o_ptr->marked.has_not(OmType::FOUND)) {
+    if (item.marked.has_not(OmType::FOUND)) {
         return CONTINUOUS_DESCRIPTION;
     }
 
     ge_ptr->boring = false;
-    const auto item_name = describe_flavor(player_ptr, o_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, item, 0);
 #ifdef JP
     const auto out_val = format("%s%s%s%s[%s]", ge_ptr->s1, item_name.data(), ge_ptr->s2, ge_ptr->s3, ge_ptr->info);
 #else
@@ -416,11 +433,7 @@ static short describe_footing_sight(PlayerType *player_ptr, GridExamination *ge_
         return ge_ptr->query;
     }
 
-    ge_ptr->s1 = _("それは", "It is ");
-    if (o_ptr->number != 1) {
-        ge_ptr->s1 = _("それらは", "They are ");
-    }
-
+    ge_ptr->s1 = item.number == 1 ? _("それは", "It is ") : _("それらは", "They are ");
 #ifdef JP
     ge_ptr->s2 = "の上";
     ge_ptr->s3 = "に見える";
@@ -433,8 +446,8 @@ static short describe_footing_sight(PlayerType *player_ptr, GridExamination *ge_
 static int16_t sweep_footing_items(PlayerType *player_ptr, GridExamination *ge_ptr)
 {
     for (const auto this_o_idx : ge_ptr->g_ptr->o_idx_list) {
-        auto *o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
-        const auto ret = describe_footing_sight(player_ptr, ge_ptr, o_ptr);
+        const auto &item = player_ptr->current_floor_ptr->o_list[this_o_idx];
+        const auto ret = describe_footing_sight(player_ptr, ge_ptr, item);
         if (within_char_util(ret)) {
             return (char)ret;
         }
@@ -445,9 +458,9 @@ static int16_t sweep_footing_items(PlayerType *player_ptr, GridExamination *ge_p
 
 static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *ge_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
+    auto &floor = *player_ptr->current_floor_ptr;
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::QUEST_ENTER)) {
-        const auto old_quest = floor_ptr->quest_number;
+        const auto old_quest = floor.quest_number;
         const auto &quests = QuestList::get_instance();
         const auto quest_id = i2enum<QuestId>(ge_ptr->g_ptr->special);
         const auto &quest = quests.get_quest(quest_id);
@@ -455,19 +468,19 @@ static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *
 
         quest_text_lines.clear();
 
-        floor_ptr->quest_number = quest_id;
+        floor.quest_number = quest_id;
         init_flags = INIT_NAME_ONLY;
         parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
-        floor_ptr->quest_number = old_quest;
+        floor.quest_number = old_quest;
         return format(fmt, quest.name.data(), quest.level);
     }
 
-    if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::BLDG) && !floor_ptr->inside_arena) {
+    if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::BLDG) && !floor.inside_arena) {
         return buildings[ge_ptr->terrain_ptr->subtype].name;
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::ENTRANCE)) {
-        const auto &dungeon = dungeons_info[ge_ptr->g_ptr->special];
+        const auto &dungeon = DungeonList::get_instance().get_dungeon(ge_ptr->g_ptr->special);
         return format(_("%s(%d階相当)", "%s(level %d)"), dungeon.text.data(), dungeon.mindepth);
     }
 
@@ -475,7 +488,7 @@ static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *
         return towns_info[ge_ptr->g_ptr->special].name;
     }
 
-    if (AngbandWorld::get_instance().is_wild_mode() && (ge_ptr->feat == feat_floor)) {
+    if (AngbandWorld::get_instance().is_wild_mode() && (ge_ptr->matches_terrain(TerrainTag::FLOOR))) {
         return _("道", "road");
     }
 
@@ -501,11 +514,11 @@ static std::string describe_grid_monster_all(GridExamination *ge_ptr)
 
 #ifdef JP
     return format("%s%s%s%s[%s] %x %s %d %d %d (%d,%d) %d", ge_ptr->s1, ge_ptr->name.data(), ge_ptr->s2, ge_ptr->s3, ge_ptr->info,
-        (uint)ge_ptr->g_ptr->info, f_idx_str.data(), ge_ptr->g_ptr->dists[FLOW_NORMAL], ge_ptr->g_ptr->costs[FLOW_NORMAL], ge_ptr->g_ptr->when, (int)ge_ptr->y,
-        (int)ge_ptr->x, travel.cost[ge_ptr->y][ge_ptr->x]);
+        (uint)ge_ptr->g_ptr->info, f_idx_str.data(), ge_ptr->g_ptr->dists[GridFlow::NORMAL], ge_ptr->g_ptr->costs[GridFlow::NORMAL], ge_ptr->g_ptr->when,
+        ge_ptr->y, ge_ptr->x, travel.cost[ge_ptr->y][ge_ptr->x]);
 #else
     return format("%s%s%s%s [%s] %x %s %d %d %d (%d,%d)", ge_ptr->s1, ge_ptr->s2, ge_ptr->s3, ge_ptr->name.data(), ge_ptr->info, ge_ptr->g_ptr->info,
-        f_idx_str.data(), ge_ptr->g_ptr->dists[FLOW_NORMAL], ge_ptr->g_ptr->costs[FLOW_NORMAL], ge_ptr->g_ptr->when, (int)ge_ptr->y, (int)ge_ptr->x);
+        f_idx_str.data(), ge_ptr->g_ptr->dists[GridFlow::NORMAL], ge_ptr->g_ptr->costs[GridFlow::NORMAL], ge_ptr->g_ptr->when, ge_ptr->y, ge_ptr->x);
 #endif
 }
 
@@ -552,7 +565,7 @@ char examine_grid(PlayerType *player_ptr, const POSITION y, const POSITION x, ta
 
     ge_ptr->feat = ge_ptr->g_ptr->get_feat_mimic();
     if (!ge_ptr->g_ptr->is_mark() && !player_can_see_bold(player_ptr, y, x)) {
-        ge_ptr->feat = feat_none;
+        ge_ptr->set_terrain_id(TerrainTag::NONE);
     }
 
     ge_ptr->terrain_ptr = &TerrainList::get_instance().get_terrain(ge_ptr->feat);

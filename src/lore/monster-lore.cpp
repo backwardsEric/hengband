@@ -9,12 +9,12 @@
 #include "lore/lore-calculator.h"
 #include "lore/lore-util.h"
 #include "lore/magic-types-setter.h"
-#include "monster-race/race-indice-types.h"
 #include "monster-race/race-misc-flags.h"
-#include "monster-race/race-sex-const.h"
+#include "monster-race/race-sex.h"
 #include "player-ability/player-ability-types.h"
 #include "system/angband.h"
-#include "system/monster-race-info.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/monrace/monrace-definition.h"
 #include "term/term-color-types.h"
 #include "view/display-lore-attacks.h"
 #include "view/display-lore-drops.h"
@@ -25,12 +25,12 @@
 
 static void set_msex_flags(lore_type *lore_ptr)
 {
-    lore_ptr->msex = MSEX_NONE;
-    if (is_male(*(lore_ptr->r_ptr))) {
-        lore_ptr->msex = MSEX_MALE;
+    lore_ptr->msex = MonsterSex::NONE;
+    if (lore_ptr->r_ptr->is_male()) {
+        lore_ptr->msex = MonsterSex::MALE;
     }
-    if (is_female(*(lore_ptr->r_ptr))) {
-        lore_ptr->msex = MSEX_FEMALE;
+    if (lore_ptr->r_ptr->is_female()) {
+        lore_ptr->msex = MonsterSex::FEMALE;
     }
 }
 
@@ -134,23 +134,10 @@ static void set_race_flags(lore_type *lore_ptr)
  * left edge of the screen, on a cleared line, in which the recall is
  * to take place.  One extra blank line is left after the recall.
  */
-void process_monster_lore(PlayerType *player_ptr, MonsterRaceId r_idx, monster_lore_mode mode)
+void process_monster_lore(PlayerType *player_ptr, MonraceId r_idx, monster_lore_mode mode)
 {
     lore_type tmp_lore(r_idx, mode);
     lore_type *lore_ptr = &tmp_lore;
-
-    auto is_valid_reinforcer = [](const auto &reinforce) {
-        const auto &[monrace_id, num_dice] = reinforce;
-        auto is_reinforce = MonraceList::is_valid(monrace_id);
-        is_reinforce &= num_dice.is_valid();
-        return is_reinforce;
-    };
-
-    lore_ptr->reinforce =
-        std::find_if(
-            lore_ptr->r_ptr->reinforces.begin(), lore_ptr->r_ptr->reinforces.end(),
-            is_valid_reinforcer) != lore_ptr->r_ptr->reinforces.end();
-
     if (cheat_know || (mode == MONSTER_LORE_RESEARCH) || (mode == MONSTER_LORE_DEBUG)) {
         lore_ptr->know_everything = true;
     }
@@ -160,13 +147,13 @@ void process_monster_lore(PlayerType *player_ptr, MonsterRaceId r_idx, monster_l
     set_flags1(lore_ptr);
     set_race_flags(lore_ptr);
     display_kill_numbers(lore_ptr);
-    concptr tmp = lore_ptr->r_ptr->text.data();
-    if (tmp[0]) {
-        hooked_roff(tmp);
+    const auto &text = lore_ptr->r_ptr->text;
+    if (!text.empty()) {
+        hooked_roff(text);
         hooked_roff("\n");
     }
 
-    if (r_idx == MonsterRaceId::KAGE) {
+    if (r_idx == MonraceId::KAGE) {
         hooked_roff("\n");
         return;
     }
@@ -184,12 +171,12 @@ void process_monster_lore(PlayerType *player_ptr, MonsterRaceId r_idx, monster_l
 
     display_lore_this(player_ptr, lore_ptr);
     if (lore_ptr->special_flags.has(MonsterSpecialType::DIMINISH_MAX_DAMAGE)) {
-        hooked_roff(format(_("%s^は", "%s^ "), Who::who(lore_ptr->msex)));
+        hooked_roff(format(_("%s^は", "%s^ "), Who::who(lore_ptr->msex).data()));
         hook_c_roff(TERM_RED, _("致命的な威力の攻撃に対して大きな耐性を持っている。", "has the strong resistance for a critical damage.  "));
     }
     display_monster_aura(lore_ptr);
     if (lore_ptr->misc_flags.has(MonsterMiscType::REFLECTING)) {
-        hooked_roff(format(_("%s^は矢の呪文を跳ね返す。", "%s^ reflects bolt spells.  "), Who::who(lore_ptr->msex)));
+        hooked_roff(format(_("%s^は矢の呪文を跳ね返す。", "%s^ reflects bolt spells.  "), Who::who(lore_ptr->msex).data()));
     }
 
     display_monster_collective(lore_ptr);

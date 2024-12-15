@@ -21,7 +21,7 @@ enum class ItemKindType : short;
 enum class PlayerSkillKindType;
 enum class MimicKindType;
 enum class MonsterAbilityType;
-enum class MonsterRaceId : int16_t;
+enum class MonraceId : short;
 enum class Virtue : short;
 enum class RealmType;
 
@@ -89,7 +89,6 @@ public:
 
     uint32_t count{};
 
-    TIME_EFFECT protevil{}; /* Timed -- Protection */
     TIME_EFFECT invuln{}; /* Timed -- Invulnerable */
     TIME_EFFECT ult_res{}; /* Timed -- Ultimate Resistance */
     TIME_EFFECT hero{}; /* Timed -- Heroism */
@@ -148,7 +147,7 @@ public:
 
     TIME_EFFECT word_recall{}; /* Word of recall counter */
     TIME_EFFECT alter_reality{}; /* Alter reality counter */
-    DUNGEON_IDX recall_dungeon{}; /* Dungeon set to be recalled */
+    int recall_dungeon{}; /* Dungeon set to be recalled */
 
     ENERGY energy_need{}; /* Energy needed for next move */
     ENERGY enchant_energy_need{}; /* Energy needed for next upkeep effect	 */
@@ -173,7 +172,7 @@ public:
     BIT_FLAGS spell_worked2{}; /* bit mask of spells tried and worked */
     BIT_FLAGS spell_forgotten1{}; /* bit mask of spells learned but forgotten */
     BIT_FLAGS spell_forgotten2{}; /* bit mask of spells learned but forgotten */
-    SPELL_IDX spell_order[64]{}; /* order spells learned/remembered/forgotten */
+    std::vector<int> spell_order_learned{}; /* order spells learned */
 
     SUB_EXP spell_exp[64]{}; /* Proficiency of spells */
     std::map<ItemKindType, std::array<SUB_EXP, 64>> weapon_exp{}; /* Proficiency of weapons */
@@ -386,6 +385,7 @@ public:
     GAME_TEXT name[32]{}; /*!< 現在のプレイヤー名 / Current player's character name */
     char base_name[32]{}; /*!< Stripped version of "player_name" */
 
+    void ride_monster(MONSTER_IDX m_idx);
     std::shared_ptr<TimedEffects> effects() const;
     bool is_fully_healthy() const;
     std::string decrease_ability_random();

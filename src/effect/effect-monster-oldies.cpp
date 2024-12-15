@@ -2,15 +2,15 @@
 #include "avatar/avatar.h"
 #include "effect/effect-monster-util.h"
 #include "monster-floor/monster-generator.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/monster-util.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "tracking/health-bar-tracker.h"
@@ -49,7 +49,7 @@ ProcessResult effect_monster_old_clone(PlayerType *player_ptr, EffectMonster *em
     has_resistance |= em_ptr->m_ptr->is_pet();
     has_resistance |= em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
     has_resistance |= em_ptr->r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
-    has_resistance |= em_ptr->r_ptr->population_flags.has_any_of({ MonsterPopulationType::NAZGUL, MonsterPopulationType::ONLY_ONE });
+    has_resistance |= em_ptr->r_ptr->population_flags.has_any_of({ MonsterPopulationType::NAZGUL, MonsterPopulationType::ONLY_ONE, MonsterPopulationType::BUNBUN_STRIKER });
 
     if (has_resistance) {
         em_ptr->note = _("には効果がなかった。", " is unaffected.");
@@ -83,7 +83,7 @@ ProcessResult effect_monster_star_heal(PlayerType *player_ptr, EffectMonster *em
 
     if (!em_ptr->dam) {
         HealthBarTracker::get_instance().set_flag_if_tracking(em_ptr->g_ptr->m_idx);
-        if (player_ptr->riding == em_ptr->g_ptr->m_idx) {
+        if (em_ptr->m_ptr->is_riding()) {
             RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
         }
 
@@ -97,7 +97,7 @@ ProcessResult effect_monster_star_heal(PlayerType *player_ptr, EffectMonster *em
 // who == 0ならばプレイヤーなので、それの判定.
 static void effect_monster_old_heal_check_player(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if (is_monster(em_ptr->src_idx)) {
+    if (em_ptr->is_monster()) {
         return;
     }
 
@@ -165,15 +165,15 @@ ProcessResult effect_monster_old_heal(PlayerType *player_ptr, EffectMonster *em_
     }
 
     effect_monster_old_heal_check_player(player_ptr, em_ptr);
-    if (em_ptr->m_ptr->r_idx == MonsterRaceId::LEPER) {
+    if (em_ptr->m_ptr->r_idx == MonraceId::LEPER) {
         em_ptr->heal_leper = true;
-        if (is_player(em_ptr->src_idx)) {
+        if (em_ptr->is_player()) {
             chg_virtue(player_ptr, Virtue::COMPASSION, 5);
         }
     }
 
     HealthBarTracker::get_instance().set_flag_if_tracking(em_ptr->g_ptr->m_idx);
-    if (player_ptr->riding == em_ptr->g_ptr->m_idx) {
+    if (em_ptr->m_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
@@ -192,7 +192,7 @@ ProcessResult effect_monster_old_speed(PlayerType *player_ptr, EffectMonster *em
         em_ptr->note = _("の動きが速くなった。", " starts moving faster.");
     }
 
-    if (is_player(em_ptr->src_idx)) {
+    if (em_ptr->is_player()) {
         if (em_ptr->r_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
             chg_virtue(player_ptr, Virtue::INDIVIDUALISM, 1);
         }

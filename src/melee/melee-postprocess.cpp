@@ -34,9 +34,9 @@
 #include "player-info/race-types.h"
 #include "player/player-personality-types.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "tracking/health-bar-tracker.h"
@@ -74,14 +74,14 @@ mam_pp_type::mam_pp_type(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, boo
     this->m_name = monster_desc(player_ptr, m_ptr, 0);
 }
 
-static void prepare_redraw(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
+static void prepare_redraw(mam_pp_type *mam_pp_ptr)
 {
     if (!mam_pp_ptr->m_ptr->ml) {
         return;
     }
 
     HealthBarTracker::get_instance().set_flag_if_tracking(mam_pp_ptr->m_idx);
-    if (player_ptr->riding == mam_pp_ptr->m_idx) {
+    if (mam_pp_ptr->m_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 }
@@ -247,7 +247,7 @@ static void make_monster_fear(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
  */
 static void fall_off_horse_by_melee(PlayerType *player_ptr, mam_pp_type *mam_pp_ptr)
 {
-    if (!player_ptr->riding || (player_ptr->riding != mam_pp_ptr->m_idx) || (mam_pp_ptr->dam <= 0)) {
+    if (!mam_pp_ptr->m_ptr->is_riding() || (mam_pp_ptr->dam <= 0)) {
         return;
     }
 
@@ -278,10 +278,10 @@ void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *
     auto *m_ptr = &floor_ptr->m_list[m_idx];
     mam_pp_type tmp_mam_pp(player_ptr, m_idx, dam, dead, fear, note, src_idx);
     mam_pp_type *mam_pp_ptr = &tmp_mam_pp;
-    prepare_redraw(player_ptr, mam_pp_ptr);
+    prepare_redraw(mam_pp_ptr);
     (void)set_monster_csleep(player_ptr, m_idx, 0);
 
-    if (player_ptr->riding && (m_idx == player_ptr->riding)) {
+    if (m_ptr->is_riding()) {
         disturb(player_ptr, true, true);
     }
 
@@ -300,7 +300,7 @@ void mon_take_hit_mon(PlayerType *player_ptr, MONSTER_IDX m_idx, int dam, bool *
     if ((dam > 0) && !m_ptr->is_pet() && !m_ptr->is_friendly() && (mam_pp_ptr->src_idx != m_idx)) {
         const auto &m_ref = floor_ptr->m_list[src_idx];
         if (m_ref.is_pet() && !player_ptr->is_located_at({ m_ptr->target_y, m_ptr->target_x })) {
-            set_target(m_ptr, m_ref.fy, m_ref.fx);
+            m_ptr->set_target(m_ref.fy, m_ref.fx);
         }
     }
 

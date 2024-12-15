@@ -118,7 +118,7 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
 
     case 5: {
         if (cast) {
-            if (!summon_specific(player_ptr, -1, player_ptr->y, player_ptr->x, (plev * 3) / 2, SUMMON_MANES, (PM_ALLOW_GROUP | PM_FORCE_PET))) {
+            if (!summon_specific(player_ptr, player_ptr->y, player_ptr->x, (plev * 3) / 2, SUMMON_MANES, (PM_ALLOW_GROUP | PM_FORCE_PET))) {
                 msg_print(_("古代の死霊は現れなかった。", "No Manes arrive."));
             }
         }
@@ -224,27 +224,6 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
     } break;
 
     case 13: {
-        int dam = plev * 5;
-
-        if (info) {
-            return info_damage(dam);
-        }
-
-        if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
-            }
-            fire_bolt(player_ptr, AttributeType::FIRE, dir, dam);
-        }
-    } break;
-
-    case 14: {
-        if (cast) {
-            cast_summon_demon(player_ptr, plev * 2 / 3 + randint1(plev / 2));
-        }
-    } break;
-
-    case 15: {
         int sides1 = plev * 2;
         int sides2 = plev * 2;
 
@@ -255,6 +234,27 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         if (cast) {
             dispel_monsters(player_ptr, randint1(sides1));
             dispel_good(player_ptr, randint1(sides2));
+        }
+    } break;
+
+    case 14: {
+        int dam = plev * 3;
+
+        if (info) {
+            return info_damage(dam);
+        }
+
+        if (cast) {
+            if (!get_aim_dir(player_ptr, &dir)) {
+                return std::nullopt;
+            }
+            fire_bolt(player_ptr, AttributeType::ABYSS, dir, dam);
+        }
+    } break;
+
+    case 15: {
+        if (cast) {
+            cast_summon_demon(player_ptr, plev * 2 / 3 + randint1(plev / 2));
         }
     } break;
 
@@ -455,7 +455,7 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
     } break;
 
     case 30: {
-        int dam = 600;
+        int dam = 300 + plev * 4;
         POSITION rad = 0;
 
         if (info) {
@@ -467,8 +467,7 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
                 return std::nullopt;
             }
 
-            fire_ball_hide(player_ptr, AttributeType::BLOOD_CURSE, dir, dam, rad);
-            take_hit(player_ptr, DAMAGE_USELIFE, 20 + randint1(30), _("血の呪い", "Blood curse"));
+            fire_ball_hide(player_ptr, AttributeType::ABYSS, dir, dam, rad);
         }
     } break;
 

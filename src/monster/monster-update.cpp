@@ -15,7 +15,6 @@
 #include "mind/drs-types.h"
 #include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-indice-types.h"
 #include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-processor-util.h"
@@ -29,11 +28,13 @@
 #include "player/special-defense-types.h"
 #include "status/element-resistance.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
@@ -115,7 +116,7 @@ void update_map_flags(turn_flags *turn_flags_ptr)
  * @param turn_flags_ptr ターン経過処理フラグへの参照ポインタ
  * @param r_ptr モンスター種族への参照ポインタ
  */
-void update_lite_flags(turn_flags *turn_flags_ptr, MonsterRaceInfo *r_ptr)
+void update_lite_flags(turn_flags *turn_flags_ptr, MonraceDefinition *r_ptr)
 {
     using Mbt = MonsterBrightnessType;
     const auto has_lite = r_ptr->brightness_flags.has_any_of({ Mbt::HAS_LITE_1, Mbt::HAS_LITE_2 });
@@ -202,7 +203,7 @@ static POSITION decide_updated_distance(PlayerType *player_ptr, um_type *um_ptr)
     return distance;
 }
 
-static void update_smart_stupid_flags(MonsterRaceInfo *r_ptr)
+static void update_smart_stupid_flags(MonraceDefinition *r_ptr)
 {
     if (r_ptr->behavior_flags.has(MonsterBehaviorType::SMART)) {
         r_ptr->r_behavior_flags.set(MonsterBehaviorType::SMART);
@@ -475,37 +476,40 @@ static void decide_sight_invisible_monster(PlayerType *player_ptr, um_type *um_p
  */
 static void update_invisible_monster(PlayerType *player_ptr, um_type *um_ptr, MONSTER_IDX m_idx)
 {
-    auto *m_ptr = um_ptr->m_ptr;
-    if (m_ptr->ml) {
+    auto &monster = *um_ptr->m_ptr;
+    if (monster.ml) {
         return;
     }
 
-    m_ptr->ml = true;
+    monster.ml = true;
     lite_spot(player_ptr, um_ptr->fy, um_ptr->fx);
 
     HealthBarTracker::get_instance().set_flag_if_tracking(m_idx);
-    if (player_ptr->riding == m_idx) {
+    if (monster.is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 
     if (!player_ptr->effects()->hallucination().is_hallucinated()) {
-        auto *r_ptr = &m_ptr->get_monrace();
-        if ((m_ptr->ap_r_idx == MonsterRaceId::KAGE) && (monraces_info[MonsterRaceId::KAGE].r_sights < MAX_SHORT)) {
-            monraces_info[MonsterRaceId::KAGE].r_sights++;
-        } else if (m_ptr->is_original_ap() && (r_ptr->r_sights < MAX_SHORT)) {
-            r_ptr->r_sights++;
+        auto &monrace = monster.get_monrace();
+        auto &shadower = MonraceList::get_instance().get_monrace(MonraceId::KAGE);
+        if ((monster.ap_r_idx == MonraceId::KAGE) && (shadower.r_sights < MAX_SHORT)) {
+            shadower.r_sights++;
+        } else if (monster.is_original_ap() && (monrace.r_sights < MAX_SHORT)) {
+            monrace.r_sights++;
         }
     }
 
     const auto &world = AngbandWorld::get_instance();
-    if (world.is_loading_now && world.character_dungeon && !AngbandSystem::get_instance().is_phase_out() && m_ptr->get_appearance_monrace().misc_flags.has(MonsterMiscType::ELDRITCH_HORROR)) {
-        m_ptr->mflag.set(MonsterTemporaryFlagType::SANITY_BLAST);
+    if (world.is_loading_now && world.character_dungeon && !AngbandSystem::get_instance().is_phase_out() && monster.get_appearance_monrace().misc_flags.has(MonsterMiscType::ELDRITCH_HORROR)) {
+        monster.mflag.set(MonsterTemporaryFlagType::SANITY_BLAST);
     }
 
-    const auto projectable_from_monster = projectable(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
-    const auto projectable_from_player = projectable(player_ptr, player_ptr->y, player_ptr->x, m_ptr->fy, m_ptr->fx);
+    const auto p_pos = player_ptr->get_position();
+    const auto m_pos = monster.get_position();
+    const auto projectable_from_monster = projectable(player_ptr, m_pos, p_pos);
+    const auto projectable_from_player = projectable(player_ptr, p_pos, m_pos);
     if (disturb_near && projectable_from_monster && projectable_from_player) {
-        if (disturb_pets || m_ptr->is_hostile()) {
+        if (disturb_pets || monster.is_hostile()) {
             disturb(player_ptr, true, true);
         }
     }
@@ -521,7 +525,7 @@ static void update_visible_monster(PlayerType *player_ptr, um_type *um_ptr, MONS
     lite_spot(player_ptr, um_ptr->fy, um_ptr->fx);
 
     HealthBarTracker::get_instance().set_flag_if_tracking(m_idx);
-    if (player_ptr->riding == m_idx) {
+    if (um_ptr->m_ptr->is_riding()) {
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::UHEALTH);
     }
 

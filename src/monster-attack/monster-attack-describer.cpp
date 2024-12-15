@@ -10,8 +10,8 @@
 #include "monster-attack/insults-moans.h"
 #include "monster-attack/monster-attack-player.h"
 #include "monster-attack/monster-attack-table.h"
-#include "monster-race/race-indice-types.h"
 #include "system/angband.h"
+#include "system/enums/monrace/monrace-id.h"
 #include "system/monster-entity.h"
 
 static void show_jaian_song(MonsterAttackPlayer *monap_ptr)
@@ -46,7 +46,7 @@ static void monster_attack_show(MonsterAttackPlayer *monap_ptr)
 #ifdef JP
     monap_ptr->abbreviate = -1;
 #endif
-    if (monap_ptr->m_ptr->r_idx == MonsterRaceId::JAIAN) {
+    if (monap_ptr->m_ptr->r_idx == MonraceId::JAIAN) {
         show_jaian_song(monap_ptr);
     } else {
         if (one_in_(3)) {
@@ -124,7 +124,7 @@ void describe_monster_attack_method(MonsterAttackPlayer *monap_ptr)
         break;
     }
     case RaceBlowMethodType::CRUSH: {
-        monap_ptr->act = _("体当たりされた。", "crushes you.");
+        monap_ptr->act = _("押し潰された。", "crushes you.");
         monap_ptr->do_stun = 1;
         monap_ptr->touched = true;
         sound(SOUND_CRUSH);
@@ -204,7 +204,7 @@ void describe_monster_attack_method(MonsterAttackPlayer *monap_ptr)
 #ifdef JP
         monap_ptr->abbreviate = -1;
 #endif
-        monap_ptr->act = desc_insult[randint0(monap_ptr->m_ptr->r_idx == MonsterRaceId::DEBBY ? 10 : 8)];
+        monap_ptr->act = desc_insult[randint0(monap_ptr->m_ptr->r_idx == MonraceId::DEBBY ? 10 : 8)];
         sound(SOUND_MOAN);
         break;
     }

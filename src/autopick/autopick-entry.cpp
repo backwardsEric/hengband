@@ -17,9 +17,9 @@
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player/player-realm.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-definition.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 #include <optional>
@@ -520,7 +520,7 @@ void autopick_entry_from_object(PlayerType *player_ptr, autopick_type *entry, co
         return;
     }
 
-    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL | OD_NAME_ONLY));
+    const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL | OD_NAME_ONLY));
 
     /*
      * If necessary, add a '^' which indicates the

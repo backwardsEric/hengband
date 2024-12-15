@@ -18,7 +18,7 @@
 #include "status/base-status.h"
 #include "status/buff-setter.h"
 #include "status/experience.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "view/display-messages.h"
@@ -76,7 +76,7 @@ void cast_shuffle(PlayerType *player_ptr)
 
     if (die < 14) {
         msg_print(_("なんてこった！《悪魔》だ！", "Oh no! It's the Devil!"));
-        summon_specific(player_ptr, 0, player_ptr->y, player_ptr->x, floor_ptr->dun_level, SUMMON_DEMON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+        summon_specific(player_ptr, player_ptr->y, player_ptr->x, floor_ptr->dun_level, SUMMON_DEMON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
         return;
     }
 

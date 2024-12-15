@@ -14,7 +14,6 @@
 #include "save/save.h"
 #include "core/object-compressor.h"
 #include "dungeon/quest.h"
-#include "floor/floor-town.h"
 #include "floor/wild.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/files-util.h"
@@ -22,21 +21,24 @@
 #include "io/uid-checker.h"
 #include "locale/character-encoding.h"
 #include "monster/monster-compaction.h"
-#include "monster/monster-status.h"
 #include "player/player-status.h"
 #include "save/floor-writer.h"
 #include "save/info-writer.h"
 #include "save/item-writer.h"
-#include "save/monster-writer.h"
+#include "save/lore-writer.h"
 #include "save/player-writer.h"
 #include "save/save-util.h"
 #include "store/store-owners.h"
 #include "store/store-util.h"
 #include "system/angband-system.h"
 #include "system/artifact-type-definition.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/baseitem/baseitem-list.h"
+#include "system/floor/floor-info.h"
+#include "system/floor/town-info.h"
+#include "system/floor/town-list.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "util/enum-converter.h"
@@ -77,7 +79,7 @@ static bool wr_savefile_new(PlayerType *player_ptr)
     wr_byte(H_VER_PATCH);
     wr_byte(H_VER_EXTRA);
 
-    byte tmp8u = (byte)Rand_external(256);
+    auto tmp8u = static_cast<uint8_t>(Rand_external(256));
     wr_byte(tmp8u);
     v_stamp = 0L;
     x_stamp = 0L;
@@ -106,10 +108,10 @@ static bool wr_savefile_new(PlayerType *player_ptr)
     wr_options();
     wr_message_history();
 
-    uint16_t tmp16u = static_cast<uint16_t>(monraces_info.size());
+    uint16_t tmp16u = static_cast<uint16_t>(MonraceList::get_instance().size());
     wr_u16b(tmp16u);
-    for (auto r_idx = 0; r_idx < tmp16u; r_idx++) {
-        wr_lore(i2enum<MonsterRaceId>(r_idx));
+    for (auto monrace_id = 0; monrace_id < tmp16u; monrace_id++) {
+        wr_lore(i2enum<MonraceId>(monrace_id));
     }
 
     tmp16u = static_cast<uint16_t>(BaseitemList::get_instance().size());
@@ -193,8 +195,9 @@ static bool wr_savefile_new(PlayerType *player_ptr)
     wr_u32b(player_ptr->spell_forgotten2);
     wr_s16b(player_ptr->learned_spells);
     wr_s16b(player_ptr->add_spells);
-    for (int i = 0; i < 64; i++) {
-        wr_byte((byte)player_ptr->spell_order[i]);
+    for (auto i = 0; i < 64; i++) {
+        const auto spell_id = (i < std::ssize(player_ptr->spell_order_learned)) ? player_ptr->spell_order_learned[i] : 255;
+        wr_byte(static_cast<byte>(spell_id));
     }
 
     for (int i = 0; i < INVEN_TOTAL; i++) {
@@ -215,7 +218,7 @@ static bool wr_savefile_new(PlayerType *player_ptr)
     wr_u16b(tmp16u);
     for (size_t i = 1; i < towns_info.size(); i++) {
         for (auto sst : STORE_SALE_TYPE_LIST) {
-            wr_store(&towns_info[i].stores[sst]);
+            wr_store(&towns_info[i].get_store(sst));
         }
     }
 
@@ -329,7 +332,7 @@ bool save_player(PlayerType *player_ptr, SaveType type)
     if (type != SaveType::CLOSE_GAME) {
         world.is_loading_now = false;
         update_creature(player_ptr);
-        mproc_init(player_ptr->current_floor_ptr);
+        player_ptr->current_floor_ptr->reset_mproc();
         world.is_loading_now = true;
     }
 

@@ -11,7 +11,7 @@
 #include "spell/summon-types.h"
 #include "status/base-status.h"
 #include "status/experience.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -105,7 +105,7 @@ void blood_curse_to_enemy(PlayerType *player_ptr, MONSTER_IDX m_idx)
             }
 
             const auto level = pet ? player_ptr->lev * 2 / 3 + randint1(player_ptr->lev / 2) : player_ptr->current_floor_ptr->dun_level;
-            count += summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x, level, SUMMON_NONE, mode) ? 1 : 0;
+            count += summon_specific(player_ptr, player_ptr->y, player_ptr->x, level, SUMMON_NONE, mode) ? 1 : 0;
             if (!one_in_(6)) {
                 break;
             }

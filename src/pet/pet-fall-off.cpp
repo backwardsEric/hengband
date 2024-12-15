@@ -17,13 +17,13 @@
 #include "player/player-damage.h"
 #include "player/player-move.h"
 #include "player/player-skill.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "target/target-checker.h"
 #include "view/display-messages.h"
 #include "world/world.h"
@@ -54,7 +54,7 @@ void check_fall_off_horse(PlayerType *player_ptr, MonsterAttackPlayer *monap_ptr
  * @return FALSEなら落馬しないことで確定、TRUEなら処理続行
  * @details レベルの低い乗馬からは落馬しにくい
  */
-static bool calc_fall_off_possibility(PlayerType *player_ptr, const int dam, const bool force, MonsterRaceInfo *r_ptr)
+static bool calc_fall_off_possibility(PlayerType *player_ptr, const int dam, const bool force, MonraceDefinition *r_ptr)
 {
     if (force) {
         return true;
@@ -155,7 +155,7 @@ bool process_fall_off_horse(PlayerType *player_ptr, int dam, bool force)
         verify_panel(player_ptr);
     }
 
-    player_ptr->riding = 0;
+    player_ptr->ride_monster(0);
     player_ptr->pet_extra_flags &= ~(PF_TWO_HANDS);
     player_ptr->riding_ryoute = player_ptr->old_riding_ryoute = false;
 

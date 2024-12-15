@@ -25,6 +25,7 @@
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "mutation/mutation-flag-types.h"
 #include "object-enchant/tr-types.h"
 #include "player-base/player-class.h"
@@ -32,11 +33,11 @@
 #include "player/player-status.h"
 #include "spell-kind/spells-launcher.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
@@ -61,7 +62,7 @@ bool teleport_swap(PlayerType *player_ptr, DIRECTION dir)
     }
 
     const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
-    if (!grid.has_monster() || (grid.m_idx == player_ptr->riding)) {
+    if (!grid.has_monster() || player_ptr->current_floor_ptr->m_list[grid.m_idx].is_riding()) {
         msg_print(_("それとは場所を交換できません。", "You can't trade places with that!"));
         return false;
     }
@@ -178,7 +179,7 @@ bool teleport_away(PlayerType *player_ptr, MONSTER_IDX m_idx, POSITION dis, tele
     m_ptr->fy = ny;
     m_ptr->fx = nx;
 
-    reset_target(m_ptr);
+    m_ptr->reset_target();
     update_monster(player_ptr, m_idx, true);
     lite_spot(player_ptr, oy, ox);
     lite_spot(player_ptr, ny, nx);
@@ -409,8 +410,11 @@ void teleport_player(PlayerType *player_ptr, POSITION dis, BIT_FLAGS mode)
     for (POSITION xx = -1; xx < 2; xx++) {
         for (POSITION yy = -1; yy < 2; yy++) {
             MONSTER_IDX tmp_m_idx = player_ptr->current_floor_ptr->grid_array[oy + yy][ox + xx].m_idx;
-            if (tmp_m_idx && (player_ptr->riding != tmp_m_idx)) {
-                auto *m_ptr = &player_ptr->current_floor_ptr->m_list[tmp_m_idx];
+            if (!is_monster(tmp_m_idx)) {
+                continue;
+            }
+            auto *m_ptr = &player_ptr->current_floor_ptr->m_list[tmp_m_idx];
+            if (!m_ptr->is_riding()) {
                 auto *r_ptr = &m_ptr->get_monrace();
 
                 bool can_follow = r_ptr->ability_flags.has(MonsterAbilityType::TPORT);
@@ -443,13 +447,13 @@ void teleport_player_away(MONSTER_IDX m_idx, PlayerType *player_ptr, POSITION di
     if (!teleport_player_aux(player_ptr, dis, is_quantum_effect, TELEPORT_PASSIVE)) {
         return;
     }
+    const auto &floor = *player_ptr->current_floor_ptr;
 
     /* Monsters with teleport ability may follow the player */
     for (POSITION xx = -1; xx < 2; xx++) {
         for (POSITION yy = -1; yy < 2; yy++) {
-            MONSTER_IDX tmp_m_idx = player_ptr->current_floor_ptr->grid_array[oy + yy][ox + xx].m_idx;
-            bool is_teleportable = tmp_m_idx > 0;
-            is_teleportable &= player_ptr->riding != tmp_m_idx;
+            const auto tmp_m_idx = floor.grid_array[oy + yy][ox + xx].m_idx;
+            auto is_teleportable = is_monster(tmp_m_idx) && !floor.m_list[tmp_m_idx].is_riding();
             is_teleportable &= m_idx != tmp_m_idx;
             if (!is_teleportable) {
                 continue;
@@ -494,8 +498,8 @@ void teleport_player_to(PlayerType *player_ptr, POSITION ny, POSITION nx, telepo
     const auto &world = AngbandWorld::get_instance();
     while (true) {
         while (true) {
-            y = (POSITION)rand_spread(ny, dis);
-            x = (POSITION)rand_spread(nx, dis);
+            y = rand_spread(ny, dis);
+            x = rand_spread(nx, dis);
             if (in_bounds(player_ptr->current_floor_ptr, y, x)) {
                 break;
             }

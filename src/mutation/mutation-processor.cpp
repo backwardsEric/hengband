@@ -39,12 +39,12 @@
 #include "store/store-util.h"
 #include "store/store.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
@@ -222,7 +222,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             mode |= (PM_ALLOW_UNIQUE | PM_NO_PET);
         }
 
-        if (summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_DEMON, mode)) {
+        if (summon_specific(player_ptr, player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_DEMON, mode)) {
             msg_print(_("あなたはデーモンを引き寄せた！", "You have attracted a demon!"));
             disturb(player_ptr, false, true);
         }
@@ -257,7 +257,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         if (!player_ptr->current_floor_ptr->is_in_underground() && player_ptr->town_num) {
             StoreSaleType sst;
             do {
-                sst = i2enum<StoreSaleType>(randint0(MAX_STORES));
+                sst = randnum0<StoreSaleType>(MAX_STORES);
             } while ((sst == StoreSaleType::HOME) || (sst == StoreSaleType::MUSEUM));
 
             msg_print(_("店の主人が丘に向かって走っている！", "You see one of the shopkeepers running for the hills!"));
@@ -301,7 +301,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             mode |= (PM_ALLOW_UNIQUE | PM_NO_PET);
         }
 
-        if (summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_ANIMAL, mode)) {
+        if (summon_specific(player_ptr, player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_ANIMAL, mode)) {
             msg_print(_("動物を引き寄せた！", "You have attracted an animal!"));
             disturb(player_ptr, false, true);
         }
@@ -388,7 +388,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             mode |= (PM_ALLOW_UNIQUE | PM_NO_PET);
         }
 
-        if (summon_specific(player_ptr, (pet ? -1 : 0), player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_DRAGON, mode)) {
+        if (summon_specific(player_ptr, player_ptr->y, player_ptr->x, player_ptr->current_floor_ptr->dun_level, SUMMON_DRAGON, mode)) {
             msg_print(_("ドラゴンを引き寄せた！", "You have attracted a dragon!"));
             disturb(player_ptr, false, true);
         }

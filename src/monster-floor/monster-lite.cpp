@@ -1,7 +1,6 @@
 #include "monster-floor/monster-lite.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "floor/cave.h"
-#include "grid/feature-flag-types.h"
 #include "grid/grid.h"
 #include "monster-floor/monster-lite-util.h"
 #include "monster-race/race-brightness-flags.h"
@@ -10,11 +9,12 @@
 #include "player-info/ninja-data-type.h"
 #include "player/special-defense-types.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/terrain/terrain-characteristics.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/point-2d.h"
@@ -163,7 +163,7 @@ void update_mon_lite(PlayerType *player_ptr)
     const auto &world = AngbandWorld::get_instance();
     if (!world.timewalk_m_idx) {
         MonsterEntity *m_ptr;
-        MonsterRaceInfo *r_ptr;
+        MonraceDefinition *r_ptr;
         for (int i = 1; i < floor.m_max; i++) {
             m_ptr = &floor.m_list[i];
             r_ptr = &m_ptr->get_monrace();

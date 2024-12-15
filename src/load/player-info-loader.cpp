@@ -10,7 +10,6 @@
 #include "load/savedata-old-flag-types.h"
 #include "load/world-loader.h"
 #include "market/arena-entry.h"
-#include "market/arena.h"
 #include "monster-race/race-ability-flags.h"
 #include "mutation/mutation-calculator.h"
 #include "object/tval-types.h"
@@ -23,8 +22,9 @@
 #include "spell-realm/spells-song.h"
 #include "system/angband-exceptions.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/building-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/timed-effects.h"
@@ -192,7 +192,7 @@ void rd_bounty_uniques(PlayerType *player_ptr)
             is_achieved = rd_bool();
         }
 
-        bounty_monrace_id = i2enum<MonsterRaceId>(monrace_id);
+        bounty_monrace_id = i2enum<MonraceId>(monrace_id);
     }
 }
 
@@ -272,7 +272,8 @@ static void rd_phase_out(PlayerType *player_ptr)
 static void rd_arena(PlayerType *player_ptr)
 {
     if (h_older_than(0, 0, 3)) {
-        update_gambling_monsters(player_ptr);
+        auto &melee_arena = MeleeArena::get_instance();
+        melee_arena.update_gladiators(player_ptr);
     } else {
         set_gambling_monsters();
     }
@@ -384,7 +385,7 @@ static void rd_status(PlayerType *player_ptr)
     effects->stun().set(rd_s16b());
     effects->poison().set(rd_s16b());
     effects->hallucination().set(rd_s16b());
-    player_ptr->protevil = rd_s16b();
+    effects->protection().set(rd_s16b());
     player_ptr->invuln = rd_s16b();
     if (h_older_than(0, 0, 0)) {
         player_ptr->ult_res = 0;

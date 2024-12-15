@@ -28,8 +28,8 @@
 #include "status/action-setter.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -40,15 +40,15 @@
 #include "view/display-messages.h"
 
 struct samurai_slaying_type {
-    samurai_slaying_type(MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode, MonsterRaceInfo *r_ptr);
+    samurai_slaying_type(MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode, MonraceDefinition *r_ptr);
     MULTIPLY mult;
     TrFlags flags;
     MonsterEntity *m_ptr;
     combat_options mode;
-    MonsterRaceInfo *r_ptr;
+    MonraceDefinition *r_ptr;
 };
 
-samurai_slaying_type::samurai_slaying_type(MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode, MonsterRaceInfo *r_ptr)
+samurai_slaying_type::samurai_slaying_type(MULTIPLY mult, const TrFlags &flags, MonsterEntity *m_ptr, combat_options mode, MonraceDefinition *r_ptr)
     : mult(mult)
     , flags(flags)
     , m_ptr(m_ptr)

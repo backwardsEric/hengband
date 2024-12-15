@@ -47,10 +47,11 @@
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -77,7 +78,7 @@ static void process_fishing(PlayerType *player_ptr)
         msg_print(nullptr);
         if (MonraceList::is_valid(r_idx) && one_in_(2)) {
             const auto pos = player_ptr->get_neighbor(player_ptr->fishing_dir);
-            if (auto m_idx = place_specific_monster(player_ptr, 0, pos.y, pos.x, r_idx, PM_NO_KAGE)) {
+            if (auto m_idx = place_specific_monster(player_ptr, pos.y, pos.x, r_idx, PM_NO_KAGE)) {
                 const auto m_name = monster_desc(player_ptr, &floor_ptr->m_list[*m_idx], 0);
                 msg_print(_(format("%sが釣れた！", m_name.data()), "You have a good catch!"));
                 success = true;
@@ -332,7 +333,7 @@ void process_player(PlayerType *player_ptr)
 
             for (MONSTER_IDX m_idx = 1; m_idx < player_ptr->current_floor_ptr->m_max; m_idx++) {
                 MonsterEntity *m_ptr;
-                MonsterRaceInfo *r_ptr;
+                MonraceDefinition *r_ptr;
                 m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
                 if (!m_ptr->is_valid()) {
                     continue;
@@ -365,7 +366,7 @@ void process_player(PlayerType *player_ptr)
                         m_ptr->ml = false;
                         update_monster(player_ptr, m_idx, false);
                         HealthBarTracker::get_instance().set_flag_if_tracking(m_idx);
-                        if (player_ptr->riding == m_idx) {
+                        if (m_ptr->is_riding()) {
                             rfu.set_flag(MainWindowRedrawingFlag::UHEALTH);
                         }
 

@@ -14,7 +14,6 @@
 #include "monster-race/race-ability-flags.h"
 #include "monster-race/race-brightness-mask.h"
 #include "monster-race/race-flags-resistance.h"
-#include "monster-race/race-indice-types.h"
 #include "monster-race/race-resistance-mask.h"
 #include "monster/monster-info.h"
 #include "monster/monster-status-setter.h"
@@ -33,9 +32,10 @@
 #include "spell-kind/spells-teleport.h"
 #include "spell-kind/spells-world.h"
 #include "spell-realm/spells-hex.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/monrace/monrace-id.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -60,7 +60,7 @@ MonsterSpellResult spell_RF4_SHRIEK(MONSTER_IDX m_idx, PlayerType *player_ptr, M
 
     auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     auto result = MonsterSpellResult::make_valid();
-    if (m_ptr->r_idx == MonsterRaceId::LEE_QIEZI) {
+    if (m_ptr->r_idx == MonraceId::LEE_QIEZI) {
         msg_print(_("しかし、その声は誰の心にも響かなかった…。", "However, that voice didn't touch anyone's heart..."));
         return result;
     }
@@ -220,7 +220,7 @@ MonsterSpellResult spell_RF6_TELE_TO(PlayerType *player_ptr, MONSTER_IDX m_idx, 
         return res;
     }
 
-    if (t_idx == player_ptr->riding) {
+    if (t_ptr->is_riding()) {
         teleport_player_to(player_ptr, m_ptr->fy, m_ptr->fx, TELEPORT_PASSIVE);
     } else {
         teleport_monster_to(player_ptr, t_idx, m_ptr->fy, m_ptr->fx, 100, TELEPORT_PASSIVE);
@@ -246,7 +246,7 @@ MonsterSpellResult spell_RF6_TELE_AWAY(PlayerType *player_ptr, MONSTER_IDX m_idx
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
     MonsterEntity *t_ptr = &floor_ptr->m_list[t_idx];
-    MonsterRaceInfo *tr_ptr = &t_ptr->get_monrace();
+    MonraceDefinition *tr_ptr = &t_ptr->get_monrace();
 
     mspell_cast_msg_simple msg(_("%s^にテレポートさせられた。", "%s^ teleports you away."),
         _("%s^は%sをテレポートさせた。", "%s^ teleports %s away."));
@@ -300,7 +300,7 @@ MonsterSpellResult spell_RF6_TELE_AWAY(PlayerType *player_ptr, MONSTER_IDX m_idx
         return res;
     }
 
-    if (t_idx == player_ptr->riding) {
+    if (t_ptr->is_riding()) {
         teleport_player_away(m_idx, player_ptr, MAX_PLAYER_SIGHT * 2 + 5, false);
     } else {
         teleport_away(player_ptr, t_idx, MAX_PLAYER_SIGHT * 2 + 5, TELEPORT_PASSIVE);
@@ -325,7 +325,7 @@ MonsterSpellResult spell_RF6_TELE_LEVEL(PlayerType *player_ptr, MONSTER_IDX m_id
 
     auto *floor_ptr = player_ptr->current_floor_ptr;
     MonsterEntity *t_ptr = &floor_ptr->m_list[t_idx];
-    MonsterRaceInfo *tr_ptr = &t_ptr->get_monrace();
+    MonraceDefinition *tr_ptr = &t_ptr->get_monrace();
     DEPTH rlev = monster_level_idx(floor_ptr, m_idx);
     bool resist, saving_throw;
 
@@ -360,7 +360,7 @@ MonsterSpellResult spell_RF6_TELE_LEVEL(PlayerType *player_ptr, MONSTER_IDX m_id
     spell_badstatus_message_to_mons(player_ptr, m_idx, t_idx, msg, resist, saving_throw);
 
     if (!resist && !saving_throw) {
-        teleport_level(player_ptr, (t_idx == player_ptr->riding) ? 0 : t_idx);
+        teleport_level(player_ptr, t_ptr->is_riding() ? 0 : t_idx);
     }
 
     return res;

@@ -43,6 +43,7 @@
 #include "market/building-recharger.h"
 #include "market/building-service.h"
 #include "market/building-util.h"
+#include "market/melee-arena.h"
 #include "market/play-gamble.h"
 #include "market/poker.h"
 #include "mutation/mutation-flag-types.h"
@@ -58,12 +59,12 @@
 #include "system/angband-exceptions.h"
 #include "system/angband-system.h"
 #include "system/building-type-definition.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
@@ -242,8 +243,8 @@ static bool bldg_process_command(PlayerType *player_ptr, building_type *bldg, in
         msg_print(nullptr);
         return false;
     }
-    case BACT_BATTLE:
-        return monster_arena_comm(player_ptr);
+    case BACT_MELEE_ARENA:
+        return melee_arena_comm(player_ptr);
     case BACT_TSUCHINOKO:
         tsuchinoko();
         return false;

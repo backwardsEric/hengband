@@ -13,7 +13,6 @@
 #include "effect/spells-effect-util.h"
 #include "floor/cave.h"
 #include "floor/geometry.h"
-#include "grid/feature-flag-types.h"
 #include "grid/feature.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
@@ -38,12 +37,13 @@
 #include "spell-kind/spells-teleport.h"
 #include "spell/technic-info-table.h"
 #include "status/bad-status-setter.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/enums/terrain/terrain-characteristics.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
@@ -185,13 +185,13 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
             }
 
             do_cmd_attack(player_ptr, pos_target.y, pos_target.x, HISSATSU_NONE);
-            if (!player_can_enter(player_ptr, grid_target.feat, 0) || is_trap(player_ptr, grid_target.feat)) {
+            if (!player_can_enter(player_ptr, grid_target.feat, 0) || floor.is_trap(pos_target)) {
                 break;
             }
 
-            const Pos2D pos_opposite(pos_target.y + ddy[*dir], pos_target.x + ddx[*dir]);
+            const auto pos_opposite = pos_target + Pos2DVec(ddy[*dir], ddx[*dir]);
             const auto &grid_opposite = floor.get_grid(pos_opposite);
-            if (player_can_enter(player_ptr, grid_opposite.feat, 0) && !is_trap(player_ptr, grid_opposite.feat) && !grid_opposite.m_idx) {
+            if (player_can_enter(player_ptr, grid_opposite.feat, 0) && !floor.is_trap(pos_opposite) && !grid_opposite.m_idx) {
                 msg_print(nullptr);
                 (void)move_player_effect(player_ptr, pos_opposite.y, pos_opposite.x, MPE_FORGET_FLOW | MPE_HANDLE_STUFF | MPE_DONT_PICKUP);
             }
@@ -651,14 +651,15 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
     case 27:
         if (cast) {
             POSITION y, x;
-
             if (!tgt_pt(player_ptr, &x, &y)) {
                 return std::nullopt;
             }
 
+            const Pos2D pos(y, x);
+            const auto p_pos = player_ptr->get_position();
             const auto is_teleportable = cave_player_teleportable_bold(player_ptr, y, x, TELEPORT_SPONTANEOUS);
-            const auto dist = distance(y, x, player_ptr->y, player_ptr->x);
-            if (!is_teleportable || (dist > MAX_PLAYER_SIGHT / 2) || !projectable(player_ptr, player_ptr->y, player_ptr->x, y, x)) {
+            const auto dist = distance(y, x, p_pos.y, p_pos.x);
+            if (!is_teleportable || (dist > MAX_PLAYER_SIGHT / 2) || !projectable(player_ptr, p_pos, pos)) {
                 msg_print(_("失敗！", "You cannot move to that place!"));
                 break;
             }

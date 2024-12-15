@@ -6,10 +6,10 @@
 #include "grid/grid.h"
 #include "player/player-move.h"
 #include "player/player-status-flags.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
 #include "target/grid-selector.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
@@ -175,7 +175,7 @@ void do_cmd_travel(PlayerType *player_ptr)
     const auto &floor = *player_ptr->current_floor_ptr;
     const auto &grid = floor.get_grid(pos);
     const auto &terrain = grid.get_terrain();
-    const auto is_marked = any_bits(grid.info, CAVE_MARK);
+    const auto is_marked = grid.is_mark();
     const auto is_wall = terrain.flags.has_any_of({ TerrainCharacteristics::WALL, TerrainCharacteristics::CAN_DIG });
     const auto is_door = terrain.flags.has(TerrainCharacteristics::DOOR) && (grid.mimic > 0);
     if (is_marked && (is_wall || is_door)) {

@@ -33,12 +33,13 @@
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
 #include "status/element-resistance.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "target/projection-path-calculator.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
@@ -441,7 +442,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         msg_print(_("何かがピカッと光った！", "There is a flash of shimmering light!"));
         const auto num = 2 + randint1(3);
         for (auto i = 0; i < num; i++) {
-            (void)summon_specific(player_ptr, 0, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+            (void)summon_specific(player_ptr, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
         }
 
         if (player_ptr->current_floor_ptr->dun_level > randint1(100)) /* No nasty effect for low levels */
@@ -574,23 +575,21 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         for (lev = player_ptr->current_floor_ptr->dun_level; lev >= 20; lev -= 1 + lev / 16) {
             const auto num = levs[std::min(lev / 10, 9)];
             for (auto i = 0; i < num; i++) {
-                POSITION x1 = rand_spread(p_pos.x, 7);
-                POSITION y1 = rand_spread(p_pos.y, 5);
-
-                if (!in_bounds(player_ptr->current_floor_ptr, y1, x1)) {
+                const Pos2D pos(rand_spread(p_pos.y, 5), rand_spread(p_pos.x, 7));
+                if (!in_bounds(player_ptr->current_floor_ptr, pos.y, pos.x)) {
                     continue;
                 }
 
                 /* Require line of projection */
-                if (!projectable(player_ptr, player_ptr->y, player_ptr->x, y1, x1)) {
+                if (!projectable(player_ptr, p_pos, pos)) {
                     continue;
                 }
 
-                if (auto m_idx = summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET))) {
+                if (auto m_idx = summon_specific(player_ptr, pos.y, pos.x, lev, SUMMON_ARMAGE_EVIL, (PM_NO_PET))) {
                     evil_idx = *m_idx;
                 }
 
-                if (auto m_idx = summon_specific(player_ptr, 0, y1, x1, lev, SUMMON_ARMAGE_GOOD, (PM_NO_PET))) {
+                if (auto m_idx = summon_specific(player_ptr, pos.y, pos.x, lev, SUMMON_ARMAGE_GOOD, (PM_NO_PET))) {
                     good_idx = *m_idx;
                 }
 
@@ -618,7 +617,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         /* Summon Piranhas */
         const auto num = 1 + player_ptr->current_floor_ptr->dun_level / 20;
         for (auto i = 0; i < num; i++) {
-            (void)summon_specific(player_ptr, 0, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_PIRANHAS, (PM_ALLOW_GROUP | PM_NO_PET));
+            (void)summon_specific(player_ptr, p_pos.y, p_pos.x, player_ptr->current_floor_ptr->dun_level, SUMMON_PIRANHAS, (PM_ALLOW_GROUP | PM_NO_PET));
         }
         break;
     }
@@ -627,7 +626,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
         break;
     }
 
-    if (break_trap && is_trap(player_ptr, grid.feat)) {
+    if (break_trap && floor.is_trap(p_pos)) {
         cave_alter_feat(player_ptr, p_pos.y, p_pos.x, TerrainCharacteristics::DISARM);
         msg_print(_("トラップを粉砕した。", "You destroyed the trap."));
     }

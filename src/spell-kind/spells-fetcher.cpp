@@ -4,18 +4,19 @@
 #include "flavor/object-flavor-types.h"
 #include "floor/cave.h"
 #include "floor/geometry.h"
-#include "grid/feature-flag-types.h"
 #include "grid/grid.h"
 #include "monster-race/race-brightness-mask.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/enums/terrain/terrain-characteristics.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
@@ -71,7 +72,7 @@ void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_
             if (!floor.has_los(pos)) {
                 msg_print(_("そこはあなたの視界に入っていません。", "You have no direct line of sight to that location."));
                 return;
-            } else if (!projectable(player_ptr, p_pos.y, p_pos.x, ty, tx)) {
+            } else if (!projectable(player_ptr, p_pos, pos)) {
                 msg_print(_("そこは壁の向こうです。", "You have no direct line of sight to that location."));
                 return;
             }
@@ -96,8 +97,8 @@ void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_
         }
     }
 
-    auto *o_ptr = &floor.o_list[g_ptr->o_idx_list.front()];
-    if (o_ptr->weight > wgt) {
+    auto &item = floor.o_list[g_ptr->o_idx_list.front()];
+    if (item.weight > wgt) {
         msg_print(_("そのアイテムは重過ぎます。", "The object is too heavy."));
         return;
     }
@@ -105,10 +106,10 @@ void fetch_item(PlayerType *player_ptr, DIRECTION dir, WEIGHT wgt, bool require_
     OBJECT_IDX i = g_ptr->o_idx_list.front();
     g_ptr->o_idx_list.pop_front();
     floor.grid_array[p_pos.y][p_pos.x].o_idx_list.add(&floor, i); /* 'move' it */
-    o_ptr->iy = p_pos.y;
-    o_ptr->ix = p_pos.x;
+    item.iy = p_pos.y;
+    item.ix = p_pos.x;
 
-    const auto item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
+    const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
     msg_format(_("%s^があなたの足元に飛んできた。", "%s^ flies through the air to your feet."), item_name.data());
     note_spot(player_ptr, p_pos.y, p_pos.x);
     RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MAP);
@@ -123,20 +124,20 @@ bool fetch_monster(PlayerType *player_ptr)
     auto &floor = *player_ptr->current_floor_ptr;
     const Pos2D pos(target_row, target_col);
     auto m_idx = floor.get_grid(pos).m_idx;
-    if (!m_idx) {
+    if (!is_monster(m_idx)) {
         return false;
     }
-    if (m_idx == player_ptr->riding) {
+    auto &monster = floor.m_list[m_idx];
+    if (monster.is_riding()) {
         return false;
     }
     if (!floor.has_los(pos)) {
         return false;
     }
-    if (!projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col)) {
+    if (!projectable(player_ptr, player_ptr->get_position(), pos)) {
         return false;
     }
 
-    auto &monster = floor.m_list[m_idx];
     const auto m_name = monster_desc(player_ptr, &monster, 0);
     msg_format(_("%sを引き戻した。", "You pull back %s."), m_name.data());
     ProjectionPath path_g(player_ptr, AngbandSystem::get_instance().get_max_range(), { target_row, target_col }, player_ptr->get_position(), 0);

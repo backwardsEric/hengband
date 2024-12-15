@@ -20,10 +20,10 @@
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player/player-realm.h"
-#include "system/baseitem-info.h"
-#include "system/floor-type-definition.h"
+#include "system/baseitem/baseitem-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 
@@ -182,7 +182,7 @@ bool is_autopick_match(PlayerType *player_ptr, const ItemEntity *o_ptr, const au
         }
     }
 
-    if (entry.has(FLG_WORTHLESS) && (o_ptr->get_price() > 0)) {
+    if (entry.has(FLG_WORTHLESS) && (o_ptr->calc_price() > 0)) {
         return false;
     }
 
@@ -365,7 +365,7 @@ bool is_autopick_match(PlayerType *player_ptr, const ItemEntity *o_ptr, const au
          * into an inventory slot.
          * But an item can not be absorbed into itself!
          */
-        if ((&player_ptr->inventory_list[j] != o_ptr) && object_similar(&player_ptr->inventory_list[j], o_ptr)) {
+        if ((&player_ptr->inventory_list[j] != o_ptr) && player_ptr->inventory_list[j].is_similar(*o_ptr)) {
             return true;
         }
     }

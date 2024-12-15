@@ -10,10 +10,10 @@
 #include "pet/pet-util.h"
 #include "racial/racial-android.h"
 #include "spell-kind/spells-launcher.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "util/flag-group.h"
@@ -100,7 +100,7 @@ static bool release_monster(PlayerType *player_ptr, ItemEntity &item, DIRECTION 
         return false;
     }
 
-    const auto m_idx = place_specific_monster(player_ptr, 0, pos.y, pos.x, monrace.idx, PM_FORCE_PET | PM_NO_KAGE);
+    const auto m_idx = place_specific_monster(player_ptr, pos.y, pos.x, monrace.idx, PM_FORCE_PET | PM_NO_KAGE);
     if (!m_idx) {
         return false;
     }

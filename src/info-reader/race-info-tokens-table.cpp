@@ -1,14 +1,17 @@
 #include "info-reader/race-info-tokens-table.h"
 #include "monster-attack/monster-attack-effect.h"
 #include "monster-attack/monster-attack-table.h"
+#include "monster-race/monster-aura-types.h"
 #include "monster-race/race-ability-flags.h"
+#include "monster-race/race-behavior-flags.h"
 #include "monster-race/race-brightness-flags.h"
 #include "monster-race/race-drop-flags.h"
 #include "monster-race/race-feature-flags.h"
+#include "monster-race/race-flags-resistance.h"
 #include "monster-race/race-kind-flags.h"
 #include "monster-race/race-misc-flags.h"
 #include "monster-race/race-population-flags.h"
-#include "monster-race/race-sex-const.h"
+#include "monster-race/race-sex.h"
 #include "monster-race/race-speak-flags.h"
 #include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
@@ -355,6 +358,18 @@ const std::unordered_map<std::string_view, MonsterDropType> r_info_drop_flags = 
     { "DROP_2D2", MonsterDropType::DROP_2D2 },
     { "DROP_3D2", MonsterDropType::DROP_3D2 },
     { "DROP_4D2", MonsterDropType::DROP_4D2 },
+    { "DROP_COPPER", MonsterDropType::DROP_COPPER },
+    { "DROP_SILVER", MonsterDropType::DROP_SILVER },
+    { "DROP_GARNET", MonsterDropType::DROP_GARNET },
+    { "DROP_GOLD", MonsterDropType::DROP_GOLD },
+    { "DROP_OPAL", MonsterDropType::DROP_OPAL },
+    { "DROP_SAPPHIRE", MonsterDropType::DROP_SAPPHIRE },
+    { "DROP_RUBY", MonsterDropType::DROP_RUBY },
+    { "DROP_DIAMOND", MonsterDropType::DROP_DIAMOND },
+    { "DROP_EMERALD", MonsterDropType::DROP_EMERALD },
+    { "DROP_MITHRIL", MonsterDropType::DROP_MITHRIL },
+    { "DROP_ADAMANTITE", MonsterDropType::DROP_ADAMANTITE },
+    { "DROP_OBSIDIAN", MonsterDropType::DROP_OBSIDIAN },
 };
 
 const std::unordered_map<std::string_view, MonsterWildernessType> r_info_wilderness_flags = {
@@ -382,6 +397,7 @@ const std::unordered_map<std::string_view, MonsterFeatureType> r_info_feature_fl
 const std::unordered_map<std::string_view, MonsterPopulationType> r_info_population_flags = {
     { "NAZGUL", MonsterPopulationType::NAZGUL },
     { "ONLY_ONE", MonsterPopulationType::ONLY_ONE },
+    { "BUNBUN_STRIKER", MonsterPopulationType::BUNBUN_STRIKER },
 };
 
 const std::unordered_map<std::string_view, MonsterSpeakType> r_info_speak_flags = {

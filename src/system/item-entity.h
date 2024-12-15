@@ -12,7 +12,7 @@
 #include "object-enchant/trc-types.h"
 #include "object/object-mark-types.h"
 #include "system/angband.h"
-#include "system/baseitem-info.h"
+#include "system/baseitem/baseitem-key.h"
 #include "system/system-variables.h"
 #include "util/dice.h"
 #include "util/flag-group.h"
@@ -22,22 +22,25 @@
 
 enum class FixedArtifactId : short;
 enum class ItemKindType : short;
-enum class SmithEffectType : short;
+enum class MonraceId : short;
 enum class QuestId : short;
 enum class RandomArtifactBias : int;
 enum class RandomArtActType : short;
-
+enum class SmithEffectType : short;
 class ActivationType;
 class ArtifactType;
-class BaseitemInfo;
+class BaseitemDefinition;
 class DisplaySymbol;
 class EgoItemDefinition;
-class MonsterRaceInfo;
+class MonraceDefinition;
 class ItemEntity {
 public:
     ItemEntity();
     ItemEntity(short bi_id);
     ItemEntity(const BaseitemKey &bi_key);
+    ItemEntity(ItemEntity &&) = default;
+    ItemEntity &operator=(ItemEntity &&) = default;
+
     short bi_id{}; /*!< ベースアイテムID (0は、不具合調査用の無効アイテム または 何も装備していない箇所のアイテム であることを示す) */
     POSITION iy{}; /*!< Y-position on map, or zero */
     POSITION ix{}; /*!< X-position on map, or zero */
@@ -81,7 +84,7 @@ public:
     RandomArtifactBias artifact_bias{}; /*!< ランダムアーティファクト生成時のバイアスID */
 
     void wipe();
-    void copy_from(const ItemEntity *j_ptr);
+    ItemEntity clone() const;
     void generate(const BaseitemKey &new_bi_key);
     void generate(short new_bi_id);
     bool is(ItemKindType tval) const;
@@ -131,7 +134,7 @@ public:
     bool is_glove_same_temper(const ItemEntity *j_ptr) const;
     bool can_pile(const ItemEntity *j_ptr) const;
     DisplaySymbol get_symbol() const;
-    int get_price() const;
+    int calc_price() const;
     bool is_specific_artifact(FixedArtifactId id) const;
     bool has_unidentified_name() const;
     ItemKindType get_arrow_kind() const;
@@ -151,22 +154,34 @@ public:
     bool has_bias() const;
     bool is_bounty() const;
     bool is_target_of(QuestId quest_id) const;
-    BaseitemInfo &get_baseitem() const;
+    BaseitemDefinition &get_baseitem() const;
     EgoItemDefinition &get_ego() const;
     ArtifactType &get_fixed_artifact() const;
     TrFlags get_flags() const;
     TrFlags get_flags_known() const;
     std::string explain_activation() const;
     bool has_monrace() const;
-    const MonsterRaceInfo &get_monrace() const;
+    const MonraceDefinition &get_monrace() const;
     void track_baseitem() const;
+    bool is_similar(const ItemEntity &other) const;
+    int is_similar_part(const ItemEntity &other) const;
+    bool is_similar_for_store(const ItemEntity &other) const;
+    int get_baseitem_level() const;
+    short get_baseitem_pval() const;
+    bool is_worthless() const;
+    int get_baseitem_cost() const;
+    MonraceId get_monrace_id() const;
 
     void mark_as_known();
     void mark_as_tried() const;
 
     bool try_become_artifact(int dungeon_level);
+    void absorb(ItemEntity &other);
 
 private:
+    ItemEntity(const ItemEntity &) = default;
+    ItemEntity &operator=(const ItemEntity &) = default;
+
     int get_baseitem_price() const;
     int calc_figurine_value() const;
     int calc_capture_value() const;

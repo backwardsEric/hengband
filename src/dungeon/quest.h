@@ -12,7 +12,7 @@
 /*
  * Quest constants
  */
-enum class QuestId : short{
+enum class QuestId : short {
 	NONE = 0, /* クエストなし */
 	THIEF = 1, /*<! 盗賊の隠れ家 */
 	SEWER = 2, /*<! 下水道 */
@@ -98,9 +98,9 @@ enum class QuestKindType : short {
  * @brief クエスト情報の構造体 / Structure for the "quests".
  */
 enum class FixedArtifactId : short;
-enum class MonsterRaceId : int16_t;
+enum class MonraceId : short;
 class ArtifactType;
-class MonsterRaceInfo;
+class MonraceDefinition;
 class QuestType {
 public:
     QuestType() = default;
@@ -110,7 +110,7 @@ public:
 
     std::string name = ""; /*!< クエスト名 / Quest name */
     DEPTH level = 0; /*!< 処理階層 / Dungeon level */
-    MonsterRaceId r_idx{}; /*!< クエスト対象のモンスターID / Monster race */
+    MonraceId r_idx{}; /*!< クエスト対象のモンスターID / Monster race */
 
     MONSTER_NUMBER cur_num = 0; /*!< 撃破したモンスターの数 / Number killed */
     MONSTER_NUMBER max_num = 0; /*!< 求められるモンスターの撃破数 / Number required */
@@ -119,7 +119,7 @@ public:
     MONSTER_NUMBER num_mon = 0; /*!< QuestKindTypeがKILL_NUMBER時の目標撃破数 number of monsters on level */
 
     BIT_FLAGS flags = 0; /*!< クエストに関するフラグビット / quest flags */
-    DUNGEON_IDX dungeon = 0; /*!< クエスト対象のダンジョンID / quest dungeon */
+    int dungeon = 0; /*!< クエスト対象のダンジョンID / quest dungeon */
 
     PLAYER_LEVEL complev = 0; /*!< クリア時プレイヤーレベル / player level (complete) */
     REAL_TIME comptime = 0; /*!< クリア時ゲーム時間 /  quest clear time*/
@@ -127,8 +127,8 @@ public:
     static bool is_fixed(QuestId quest_idx);
     bool has_reward() const;
     ArtifactType &get_reward() const;
-    MonsterRaceInfo &get_bounty();
-    const MonsterRaceInfo &get_bounty() const;
+    MonraceDefinition &get_bounty();
+    const MonraceDefinition &get_bounty() const;
 };
 
 class QuestList final {

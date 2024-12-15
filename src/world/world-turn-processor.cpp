@@ -15,7 +15,6 @@
 #include "inventory/inventory-curse.h"
 #include "inventory/recharge-processor.h"
 #include "io/write-diary.h"
-#include "market/arena.h"
 #include "market/bounty.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-summon.h"
@@ -31,13 +30,14 @@
 #include "store/store.h"
 #include "system/angband-system.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/inner-game-data.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/terrain-type-definition.h"
+#include "system/terrain/terrain-definition.h"
+#include "system/terrain/terrain-list.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "util/bit-flags-calculator.h"
@@ -148,7 +148,7 @@ void WorldTurnProcessor::process_monster_arena()
     for (auto x = 0; x < floor_ptr->width; ++x) {
         for (auto y = 0; y < floor_ptr->height; y++) {
             auto *g_ptr = &floor_ptr->grid_array[y][x];
-            if (g_ptr->has_monster() && (g_ptr->m_idx != this->player_ptr->riding)) {
+            if (g_ptr->has_monster() && !floor_ptr->m_list[g_ptr->m_idx].is_riding()) {
                 number_mon++;
                 win_m_idx = g_ptr->m_idx;
             }
@@ -159,7 +159,8 @@ void WorldTurnProcessor::process_monster_arena()
         msg_print(_("相打ちに終わりました。", "Nothing survived."));
         msg_print(nullptr);
         this->player_ptr->energy_need = 0;
-        update_gambling_monsters(this->player_ptr);
+        auto &melee_arena = MeleeArena::get_instance();
+        melee_arena.update_gladiators(player_ptr);
         return;
     }
 
@@ -178,17 +179,19 @@ void WorldTurnProcessor::process_monster_arena_winner(int win_m_idx)
     msg_format(_("%sが勝利した！", "%s won!"), m_name.data());
     msg_print(nullptr);
 
-    if (win_m_idx == (bet_number + 1)) {
+    auto &melee_arena = MeleeArena::get_instance();
+    if (melee_arena.matches_bet_number(win_m_idx - 1)) {
         msg_print(_("おめでとうございます。", "Congratulations."));
-        msg_format(_("%d＄を受け取った。", "You received %d gold."), battle_odds);
-        this->player_ptr->au += battle_odds;
+        const auto payback = melee_arena.get_payback();
+        msg_format(_("%d＄を受け取った。", "You received %d gold."), payback);
+        this->player_ptr->au += payback;
     } else {
         msg_print(_("残念でした。", "You lost gold."));
     }
 
     msg_print(nullptr);
     this->player_ptr->energy_need = 0;
-    update_gambling_monsters(this->player_ptr);
+    melee_arena.update_gladiators(this->player_ptr);
 }
 
 void WorldTurnProcessor::process_monster_arena_draw()
@@ -199,10 +202,11 @@ void WorldTurnProcessor::process_monster_arena_draw()
     }
 
     msg_print(_("申し訳ありませんが、この勝負は引き分けとさせていただきます。", "Sorry, but this battle ended in a draw."));
-    this->player_ptr->au += wager_melee;
+    this->player_ptr->au += MeleeArena::get_instance().get_payback(true);
     msg_print(nullptr);
     this->player_ptr->energy_need = 0;
-    update_gambling_monsters(this->player_ptr);
+    auto &melee_arena = MeleeArena::get_instance();
+    melee_arena.update_gladiators(player_ptr);
 }
 
 void WorldTurnProcessor::decide_auto_save()
@@ -266,9 +270,9 @@ void WorldTurnProcessor::process_world_monsters()
         return;
     }
 
-    for (auto i = 0; i < MAX_MTIMED; i++) {
-        if (this->player_ptr->current_floor_ptr->mproc_max[i] > 0) {
-            process_monsters_mtimed(this->player_ptr, i);
+    for (const auto mte : MONSTER_TIMED_EFFECT_RANGE) {
+        if (this->player_ptr->current_floor_ptr->mproc_max[mte] > 0) {
+            process_monsters_mtimed(this->player_ptr, mte);
         }
     }
 }

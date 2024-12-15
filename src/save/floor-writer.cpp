@@ -10,9 +10,9 @@
 #include "monster-floor/monster-lite.h"
 #include "monster/monster-compaction.h"
 #include "save/item-writer.h"
-#include "save/monster-writer.h"
+#include "save/monster-entity-writer.h"
 #include "save/save-util.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -148,8 +148,7 @@ void wr_saved_floor(PlayerType *player_ptr, saved_floor_type *sf_ptr)
     /*** Dump the monsters ***/
     wr_u16b(floor.m_max);
     for (int i = 1; i < floor.m_max; i++) {
-        const auto &monster = floor.m_list[i];
-        wr_monster(monster);
+        MonsterEntityWriter(floor.m_list[i]).write_to_savedata();
     }
 }
 
@@ -228,7 +227,7 @@ static bool save_floor_aux(PlayerType *player_ptr, saved_floor_type *sf_ptr)
     compact_objects(player_ptr, 0);
     compact_monsters(player_ptr, 0);
 
-    byte tmp8u = (byte)randint0(256);
+    auto tmp8u = static_cast<uint8_t>(Rand_external(256));
     save_xor_byte = 0;
     wr_byte(tmp8u);
 

@@ -34,7 +34,7 @@ bool artifact_scroll(PlayerType *player_ptr)
         return false;
     }
 
-    const auto item_name = describe_flavor(player_ptr, o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+    const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 #ifdef JP
     msg_format("%s は眩い光を発した！", item_name.data());
 #else
@@ -96,7 +96,7 @@ bool artifact_scroll(PlayerType *player_ptr)
     }
 
     if (record_rand_art) {
-        const auto diary_item_name = describe_flavor(player_ptr, o_ptr, OD_NAME_ONLY);
+        const auto diary_item_name = describe_flavor(player_ptr, *o_ptr, OD_NAME_ONLY);
         exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::ART_SCROLL, 0, diary_item_name);
     }
 
@@ -120,10 +120,9 @@ bool artifact_scroll(PlayerType *player_ptr)
  */
 bool mundane_spell(PlayerType *player_ptr, bool only_equip)
 {
-    std::unique_ptr<ItemTester> item_tester = std::make_unique<AllMatchItemTester>();
-    if (only_equip) {
-        item_tester = std::make_unique<FuncItemTester>(&ItemEntity::is_weapon_armour_ammo);
-    }
+    std::unique_ptr<ItemTester> item_tester =
+        only_equip ? std::make_unique<FuncItemTester>(&ItemEntity::is_weapon_armour_ammo)
+                   : std::make_unique<FuncItemTester>([](const ItemEntity *o_ptr) { return !o_ptr->bi_key.is_monster(); });
 
     constexpr auto q = _("どのアイテムを凡庸化しますか？", "Mundanify which item? ");
     constexpr auto s = _("凡庸化できるアイテムがない。", "You have nothing to mundanify.");
@@ -137,7 +136,7 @@ bool mundane_spell(PlayerType *player_ptr, bool only_equip)
     POSITION iy = item_ptr->iy;
     POSITION ix = item_ptr->ix;
     auto marked = item_ptr->marked;
-    auto inscription = std::move(item_ptr->inscription);
+    auto &&inscription = std::move(item_ptr->inscription);
     item_ptr->generate(item_ptr->bi_id);
     item_ptr->iy = iy;
     item_ptr->ix = ix;

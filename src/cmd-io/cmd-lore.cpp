@@ -5,7 +5,8 @@
 #include "game-option/game-play-options.h"
 #include "io/input-key-acceptor.h"
 #include "lore/lore-util.h"
-#include "system/monster-race-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
@@ -84,7 +85,7 @@ void do_cmd_query_symbol(PlayerType *player_ptr)
     }
 
     prt(buf, 0, 0);
-    std::vector<MonsterRaceId> monrace_ids;
+    std::vector<MonraceId> monrace_ids;
     const auto &monraces = MonraceList::get_instance();
     for (const auto &[monrace_id, monrace] : monraces) {
         if (!cheat_know && !monrace.r_sights) {

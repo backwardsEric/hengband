@@ -22,8 +22,9 @@
 #include "player/player-realm.h"
 #include "player/player-status.h"
 #include "system/angband-system.h"
-#include "system/dungeon-info.h"
-#include "system/floor-type-definition.h"
+#include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/dungeon-record.h"
+#include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -272,14 +273,14 @@ bool report_score(PlayerType *player_ptr)
     personality_desc.append(_(ap_ptr->no ? "の" : "", " "));
 
     PlayerRealm pr(player_ptr);
-    auto realm1_name = PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST) ? get_element_title(player_ptr->element) : pr.realm1().get_name().data();
+    const auto &realm1_name = PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST) ? get_element_title(player_ptr->element) : pr.realm1().get_name().string();
     score_ss << format("name: %s\n", player_ptr->name)
              << format("version: %s\n", AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data())
              << format("score: %ld\n", calc_score(player_ptr))
              << format("level: %d\n", player_ptr->lev)
              << format("depth: %d\n", player_ptr->current_floor_ptr->dun_level)
              << format("maxlv: %d\n", player_ptr->max_plv)
-             << format("maxdp: %d\n", max_dlv[DUNGEON_ANGBAND])
+             << format("maxdp: %d\n", DungeonRecords::get_instance().get_record(DUNGEON_ANGBAND).get_max_level())
              << format("au: %d\n", player_ptr->au);
     const auto &igd = InnerGameData::get_instance();
     score_ss << format("turns: %d\n", igd.get_real_turns(AngbandWorld::get_instance().game_turn))
@@ -287,7 +288,7 @@ bool report_score(PlayerType *player_ptr)
              << format("race: %s\n", rp_ptr->title.data())
              << format("class: %s\n", cp_ptr->title.data())
              << format("seikaku: %s\n", personality_desc.data())
-             << format("realm1: %s\n", realm1_name)
+             << format("realm1: %s\n", realm1_name.data())
              << format("realm2: %s\n", pr.realm2().get_name().data())
              << format("killer: %s\n", player_ptr->died_from.data())
              << "-----charcter dump-----\n";

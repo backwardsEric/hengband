@@ -11,6 +11,7 @@
 #pragma once
 
 #include "system/angband-exceptions.h"
+#include "system/angband-system.h"
 #include "system/h-basic.h"
 #include <initializer_list>
 #include <iterator>
@@ -42,7 +43,7 @@ T randnum0(U initial_max)
     requires(std::is_integral_v<T> || std::is_enum_v<T>) && (std::is_integral_v<U> || std::is_enum_v<U>)
 {
     const auto max = static_cast<int>(initial_max);
-    return max > 0 ? static_cast<T>(rand_range(0, max - 1)) : -static_cast<T>(rand_range(0, -max - 1));
+    return static_cast<T>(max > 0 ? rand_range(0, max - 1) : -rand_range(0, -max - 1));
 }
 
 template <typename T>
@@ -116,6 +117,26 @@ void Rand_state_init();
 int16_t randnor(int mean, int stand);
 int32_t div_round(int32_t n, int32_t d);
 int32_t Rand_external(int32_t m);
+
+// clang-format off
+template <typename T>
+concept DistributionProducer = requires(T &dist) {
+    { dist(std::declval<Xoshiro128StarStar &>()) } -> std::same_as<typename T::result_type>;
+};
+// clang-format on
+
+/*!
+ * @brief 引数で指定した分布生成器とゲームの乱数生成器から乱数を生成する
+ *
+ * @tparam T 分布生成器の型
+ * @param dist 分布生成器
+ * @return 生成した乱数の値を返す
+ */
+template <DistributionProducer T>
+typename T::result_type rand_dist(T &dist)
+{
+    return dist(AngbandSystem::get_instance().get_rng());
+}
 
 template <typename>
 struct is_reference_wrapper : std::false_type {

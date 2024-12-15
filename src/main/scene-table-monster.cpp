@@ -6,17 +6,17 @@
 #include "main/scene-table-monster.h"
 #include "dungeon/quest.h"
 #include "main/music-definitions-table.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "world/world.h"
 
 struct scene_monster_info {
     MONSTER_IDX m_idx;
-    MonsterRaceInfo *ap_r_ptr;
+    MonraceDefinition *ap_r_ptr;
     GAME_TURN last_seen; //!< 最後に対象モンスター見たゲームターン
     uint32_t mute_until; //!< この時間に到達するまでモンスターBGMは設定しない
 };
@@ -28,12 +28,12 @@ inline static bool has_shadower_flag(MonsterEntity *m_ptr)
     return m_ptr->mflag2.has(MonsterConstantFlagType::KAGE);
 }
 
-inline static bool is_unique(MonsterRaceInfo *ap_r_ptr)
+inline static bool is_unique(MonraceDefinition *ap_r_ptr)
 {
     return ap_r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
 }
 
-inline static bool is_unknown_monster(MonsterRaceInfo *ap_r_ptr)
+inline static bool is_unknown_monster(MonraceDefinition *ap_r_ptr)
 {
     return ap_r_ptr->r_tkills == 0;
 }

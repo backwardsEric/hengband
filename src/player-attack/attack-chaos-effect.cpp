@@ -27,10 +27,11 @@
 #include "spell-kind/spells-sight.h"
 #include "spell-kind/spells-teleport.h"
 #include "spell-realm/spells-hex.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
@@ -130,13 +131,13 @@ static void attack_dispel(PlayerType *player_ptr, player_attack_type *pa_ptr)
     }
 
     auto dd = 2;
-    if (pa_ptr->m_ptr->mtimed[MTIMED_SLOW]) {
+    if (pa_ptr->m_ptr->mtimed[MonsterTimedEffect::SLOW]) {
         dd += 1;
     }
-    if (pa_ptr->m_ptr->mtimed[MTIMED_FAST]) {
+    if (pa_ptr->m_ptr->mtimed[MonsterTimedEffect::FAST]) {
         dd += 2;
     }
-    if (pa_ptr->m_ptr->mtimed[MTIMED_INVULNER]) {
+    if (pa_ptr->m_ptr->mtimed[MonsterTimedEffect::INVULNERABILITY]) {
         dd += 3;
     }
 
@@ -253,19 +254,19 @@ static void attack_polymorph(PlayerType *player_ptr, player_attack_type *pa_ptr,
  */
 static void attack_golden_hammer(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    auto *m_ptr = &floor_ptr->m_list[pa_ptr->m_idx];
-    if (m_ptr->hold_o_idx_list.empty()) {
+    auto &floor = *player_ptr->current_floor_ptr;
+    auto &monster = floor.m_list[pa_ptr->m_idx];
+    if (monster.hold_o_idx_list.empty()) {
         return;
     }
 
-    auto *q_ptr = &floor_ptr->o_list[m_ptr->hold_o_idx_list.front()];
-    const auto item_name = describe_flavor(player_ptr, q_ptr, OD_NAME_ONLY);
-    q_ptr->held_m_idx = 0;
-    q_ptr->marked.clear().set(OmType::TOUCHED);
-    m_ptr->hold_o_idx_list.pop_front();
+    auto &item = floor.o_list[monster.hold_o_idx_list.front()];
+    const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
+    item.held_m_idx = 0;
+    item.marked.clear().set(OmType::TOUCHED);
+    monster.hold_o_idx_list.pop_front();
     msg_format(_("%sを奪った。", "You snatched %s."), item_name.data());
-    store_item_to_inventory(player_ptr, q_ptr);
+    store_item_to_inventory(player_ptr, &item);
 }
 
 /*!

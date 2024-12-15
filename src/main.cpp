@@ -29,6 +29,7 @@
 #include "wizard/spoiler-util.h"
 #include "wizard/wizard-spoiler.h"
 #include <string>
+#include <string_view>
 
 /*
  * Available graphic modes
@@ -49,7 +50,7 @@
  *
  * Close down, then fall back into "quit()".
  */
-static void quit_hook(concptr s)
+static void quit_hook(std::string_view s)
 {
     /* Unused */
     (void)s;
@@ -180,7 +181,7 @@ static void display_usage(const char *program)
 #endif /* USE_CAP */
 
     /* Actually abort the process */
-    quit(nullptr);
+    quit("");
 }
 
 /*
@@ -200,7 +201,7 @@ static bool parse_long_opt(const char *opt)
     switch (output_all_spoilers()) {
     case SpoilerOutputResultType::SUCCESSFUL:
         puts("Successfully created a spoiler file.");
-        quit(nullptr);
+        quit("");
         break;
     case SpoilerOutputResultType::FILE_OPEN_FAILED:
         quit("Cannot create spoiler file.");
@@ -227,9 +228,9 @@ int main(int argc, char *argv[])
     auto done = false;
     auto new_game = false;
     auto show_score = 0;
-    concptr mstr = nullptr;
+    std::string mstr;
     auto args = true;
-    argv0 = argv[0];
+    program_name = argv[0];
 
 #ifdef SET_UID
     /* Default permissions on files */
@@ -366,7 +367,7 @@ int main(int argc, char *argv[])
     quit_aux = quit_hook;
 
 #ifdef USE_X11
-    if (!done && (!mstr || (streq(mstr, "x11")))) {
+    if (!done && (mstr.empty() || (mstr == "x11"))) {
         extern errr init_x11(int, char **);
         if (0 == init_x11(argc, argv)) {
             ANGBAND_SYS = "x11";
@@ -376,7 +377,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USE_GCU
-    if (!done && (!mstr || (streq(mstr, "gcu")))) {
+    if (!done && (mstr.empty() || (mstr == "gcu"))) {
         extern errr init_gcu(int, char **);
         if (0 == init_gcu(argc, argv)) {
             ANGBAND_SYS = "gcu";
@@ -386,7 +387,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USE_CAP
-    if (!done && (!mstr || (streq(mstr, "cap")))) {
+    if (!done && (mstr.empty() || (mstr == "cap"))) {
         extern errr init_cap(int, char **);
         if (0 == init_cap(argc, argv)) {
             ANGBAND_SYS = "cap";
@@ -412,7 +413,7 @@ int main(int argc, char *argv[])
     }
 
     play_game(p_ptr, new_game, browsing_movie);
-    quit(nullptr);
+    quit("");
     return 0;
 }
 

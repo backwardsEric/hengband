@@ -13,9 +13,9 @@
 #include "pet/pet-fall-off.h"
 #include "player/player-skill.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -62,7 +62,7 @@ bool rodeo(PlayerType *player_ptr)
         process_fall_off_horse(player_ptr, 1, true);
 
         /* 落馬処理に失敗してもとにかく乗馬解除 */
-        player_ptr->riding = 0;
+        player_ptr->ride_monster(0);
     }
 
     return true;

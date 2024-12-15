@@ -25,10 +25,10 @@
 #include "spell-kind/spells-lite.h"
 #include "spell/summon-types.h"
 #include "status/temporary-resistance.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
@@ -334,7 +334,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
         const Pos2D pos(target_row, target_col);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
         const auto m_idx = grid.m_idx;
-        const auto is_projectable = projectable(player_ptr, player_ptr->y, player_ptr->x, target_row, target_col);
+        const auto is_projectable = projectable(player_ptr, player_ptr->get_position(), pos);
         if ((m_idx == 0) || !grid.has_los() || !is_projectable) {
             break;
         }
@@ -345,7 +345,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
     case MindForceTrainerType::SUMMON_GHOST: {
         bool success = false;
         for (int i = 0; i < 1 + boost / 100; i++) {
-            if (summon_specific(player_ptr, -1, player_ptr->y, player_ptr->x, plev, SUMMON_PHANTOM, PM_FORCE_PET)) {
+            if (summon_specific(player_ptr, player_ptr->y, player_ptr->x, plev, SUMMON_PHANTOM, PM_FORCE_PET)) {
                 success = true;
             }
         }

@@ -21,7 +21,7 @@
 #include "status/base-status.h"
 #include "status/element-resistance.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
@@ -70,51 +70,34 @@ void Chest::open(bool scatter, const Pos2D &pos, short item_idx)
         number = 0;
     }
 
-    /* Drop some objects (non-chests) */
-    ItemEntity forge;
-    ItemEntity *q_ptr;
     for (; number > 0; --number) {
-        q_ptr = &forge;
-        q_ptr->wipe();
-
-        /* Small chests often drop gold */
+        ItemEntity item_inner_chest;
         if (small && one_in_(4)) {
-            /* Make some gold */
-            if (!make_gold(this->player_ptr, q_ptr)) {
-                continue;
-            }
+            item_inner_chest = floor.make_gold();
+        } else if (!make_object(this->player_ptr, &item_inner_chest, mode)) {
+            continue;
         }
 
-        /* Otherwise drop an item */
-        else {
-            /* Make a good object */
-            if (!make_object(this->player_ptr, q_ptr, mode)) {
-                continue;
-            }
+        if (!scatter) {
+            /* Normally, drop object near the chest. */
+            (void)drop_near(this->player_ptr, &item_inner_chest, -1, pos.y, pos.x);
+            continue;
         }
 
         /* If chest scatters its contents, pick any floor square. */
-        if (scatter) {
-            for (auto i = 0; i < 200; i++) {
-                /* Pick a totally random spot. */
-                const auto y = randint0(MAX_HGT);
-                const auto x = randint0(MAX_WID);
+        for (auto i = 0; i < 200; i++) {
+            /* Pick a totally random spot. */
+            const auto y = randint0(MAX_HGT);
+            const auto x = randint0(MAX_WID);
 
-                /* Must be an empty floor. */
-                if (!is_cave_empty_bold(this->player_ptr, y, x)) {
-                    continue;
-                }
-
-                /* Place the object there. */
-                (void)drop_near(this->player_ptr, q_ptr, -1, y, x);
-
-                /* Done. */
-                break;
+            /* Must be an empty floor. */
+            if (!is_cave_empty_bold(this->player_ptr, y, x)) {
+                continue;
             }
-        }
-        /* Normally, drop object near the chest. */
-        else {
-            (void)drop_near(this->player_ptr, q_ptr, -1, pos.y, pos.x);
+
+            /* Place the object there. */
+            (void)drop_near(this->player_ptr, &item_inner_chest, -1, y, x);
+            break;
         }
     }
 
@@ -180,7 +163,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
             if (randint1(100) < this->player_ptr->current_floor_ptr->dun_level) {
                 activate_hi_summon(this->player_ptr, this->player_ptr->y, this->player_ptr->x, false);
             } else {
-                (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+                (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_NONE, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
         }
     }
@@ -189,7 +172,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
     if (trap.has(ChestTrapType::E_SUMMON)) {
         msg_print(_("宝を守るためにエレメンタルが現れた！", "Elemental beings appear to protect their treasures!"));
         for (auto i = 0; i < randint1(3) + 5; i++) {
-            (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_ELEMENTAL, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+            (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_ELEMENTAL, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
         }
     }
 
@@ -202,7 +185,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
         }
 
         for (auto i = 0; i < randint1(5) + o_ptr->pval / 5; i++) {
-            (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_BIRD, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+            (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_BIRD, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
         }
     }
 
@@ -213,7 +196,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
             msg_print(_("炎と硫黄の雲の中に悪魔が姿を現した！", "Demons materialize in clouds of fire and brimstone!"));
             for (auto i = 0; i < randint1(3) + 2; i++) {
                 (void)fire_meteor(this->player_ptr, -1, AttributeType::FIRE, pos.y, pos.x, 10, 5);
-                (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_DEMON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+                (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_DEMON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
         }
 
@@ -221,7 +204,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
         else if (one_in_(3)) {
             msg_print(_("暗闇にドラゴンの影がぼんやりと現れた！", "Draconic forms loom out of the darkness!"));
             for (auto i = 0; i < randint1(3) + 2; i++) {
-                (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+                (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_DRAGON, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
         }
 
@@ -229,7 +212,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
         else if (one_in_(2)) {
             msg_print(_("奇妙な姿の怪物が襲って来た！", "Creatures strange and twisted assault you!"));
             for (auto i = 0; i < randint1(5) + 3; i++) {
-                (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_HYBRID, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+                (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_HYBRID, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
         }
 
@@ -237,7 +220,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
         else {
             msg_print(_("渦巻が合体し、破裂した！", "Vortices coalesce and wreak destruction!"));
             for (auto i = 0; i < randint1(3) + 2; i++) {
-                (void)summon_specific(this->player_ptr, 0, pos.y, pos.x, mon_level, SUMMON_VORTEX, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
+                (void)summon_specific(this->player_ptr, pos.y, pos.x, mon_level, SUMMON_VORTEX, (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
         }
     }

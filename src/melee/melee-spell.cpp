@@ -12,9 +12,9 @@
 #include "player-base/player-class.h"
 #include "player-info/mane-data-type.h"
 #include "spell-realm/spells-hex.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -113,7 +113,7 @@ bool monst_spell_monst(PlayerType *player_ptr, MONSTER_IDX m_idx)
 
     ms_ptr->m_name = monster_desc(player_ptr, ms_ptr->m_ptr, 0x00);
     ms_ptr->thrown_spell = rand_choice(ms_ptr->spells);
-    if (player_ptr->riding && (m_idx == player_ptr->riding)) {
+    if (ms_ptr->m_ptr->is_riding()) {
         disturb(player_ptr, true, true);
     }
 

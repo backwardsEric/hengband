@@ -1,10 +1,13 @@
 #pragma once
 
 #include "monster/monster-flag-types.h"
-#include "monster/monster-timed-effect-types.h"
+#include "monster/monster-timed-effects.h"
 #include "monster/smart-learn-types.h"
 #include "object/object-index-list.h"
+#include "system/angband.h"
 #include "util/flag-group.h"
+#include "util/point-2d.h"
+#include <map>
 #include <string>
 
 /*!
@@ -16,14 +19,19 @@
  */
 constexpr int MONSTER_MAXHP = 30000; //!< モンスターの最大HP
 
-enum class MonsterRaceId : int16_t;
+enum class MonraceId : short;
 class FloorType;
-class MonsterRaceInfo;
+class MonraceDefinition;
+class MonsterEntityWriter;
 class MonsterEntity {
 public:
-    MonsterEntity() = default;
-    MonsterRaceId r_idx{}; /*!< モンスターの実種族ID (これが0の時は死亡扱いになる) / Monster race index 0 = dead. */
-    MonsterRaceId ap_r_idx{}; /*!< モンスターの外見種族ID（あやしい影、たぬき、ジュラル星人誤認などにより変化する）Monster race appearance index */
+    friend class MonsterEntityWriter;
+    MonsterEntity();
+    MonsterEntity(MonsterEntity &&) = default;
+    MonsterEntity &operator=(MonsterEntity &&) = default;
+
+    MonraceId r_idx{}; /*!< モンスターの実種族ID (これが0の時は死亡扱いになる) / Monster race index 0 = dead. */
+    MonraceId ap_r_idx{}; /*!< モンスターの外見種族ID（あやしい影、たぬき、ジュラル星人誤認などにより変化する）Monster race appearance index */
     FloorType *current_floor_ptr{}; /*!< 所在フロアID（現状はFloorType構造体によるオブジェクトは1つしかないためソースコード設計上の意義以外はない）*/
 
 /* Sub-alignment flags for neutral monsters */
@@ -38,7 +46,7 @@ public:
     int maxhp{}; /*!< 現在の最大HP(衰弱効果などにより低下したものの反映) / Max Hit points */
     int max_maxhp{}; /*!< 生成時の初期最大HP / Max Max Hit points */
     int dealt_damage{}; /*!< これまでに蓄積して与えてきたダメージ / Sum of damages dealt by player */
-    TIME_EFFECT mtimed[MAX_MTIMED]{}; /*!< 与えられた時限効果の残りターン / Timed status counter */
+    std::map<MonsterTimedEffect, short> mtimed; /*!< 与えられた時限効果の残りターン / Timed status counter */
     byte mspeed{}; /*!< モンスターの個体加速値 / Monster "speed" */
     ACTION_ENERGY energy_need{}; /*!< モンスター次ターンまでに必要な行動エネルギー / Monster "energy" */
     POSITION cdis{}; /*!< 現在のプレイヤーから距離(逐一計算を避けるためのテンポラリ変数) Current dis from player */
@@ -57,6 +65,8 @@ public:
 
     static bool check_sub_alignments(const byte sub_align1, const byte sub_align2);
 
+    void wipe();
+    MonsterEntity clone() const;
     bool is_friendly() const;
     bool is_pet() const;
     bool is_hostile() const;
@@ -67,10 +77,10 @@ public:
     bool is_original_ap() const;
     bool is_mimicry() const;
     bool is_valid() const;
-    MonsterRaceId get_real_monrace_id() const;
-    MonsterRaceInfo &get_real_monrace() const;
-    MonsterRaceInfo &get_appearance_monrace() const;
-    MonsterRaceInfo &get_monrace() const;
+    MonraceId get_real_monrace_id() const;
+    MonraceDefinition &get_real_monrace() const;
+    MonraceDefinition &get_appearance_monrace() const;
+    MonraceDefinition &get_monrace() const;
     short get_remaining_sleep() const;
     short get_remaining_acceleration() const;
     short get_remaining_deceleration() const;
@@ -96,13 +106,24 @@ public:
     std::optional<std::string> get_pain_message(std::string_view monster_name, int damage) const;
     std::optional<bool> order_pet_whistle(const MonsterEntity &other) const;
     std::optional<bool> order_pet_dismission(const MonsterEntity &other) const;
-    void set_individual_speed(bool force_fixed_speed);
+    bool is_riding() const;
+    Pos2D get_position() const;
+    Pos2D get_target_position() const;
+    bool can_ring_boss_call_nazgul() const;
 
+    void set_individual_speed(bool force_fixed_speed);
+    void set_position(const Pos2D &pos);
     void set_hostile();
     void make_lore_treasure(int num_item, int num_gold) const;
     void reset_chameleon_polymorph();
+    void set_target(POSITION y, POSITION x);
+    void reset_target();
+    void set_friendly();
 
 private:
+    MonsterEntity(const MonsterEntity &) = default;
+    MonsterEntity &operator=(const MonsterEntity &) = default;
+
     std::optional<bool> order_pet_named(const MonsterEntity &other) const;
     std::optional<bool> order_pet_hp(const MonsterEntity &other) const;
 };

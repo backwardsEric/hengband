@@ -23,9 +23,10 @@
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
 #include "system/angband-system.h"
-#include "system/floor-type-definition.h"
+#include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
-#include "system/monster-race-info.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -34,7 +35,7 @@
 #include <string>
 #include <string_view>
 
-static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m_name, const MonsterRaceInfo &monrace)
+static bool process_mod_hallucination(PlayerType *player_ptr, std::string_view m_name, const MonraceDefinition &monrace)
 {
     if (!player_ptr->effects()->hallucination().is_hallucinated()) {
         return false;
