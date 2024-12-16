@@ -11,6 +11,23 @@
     <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | 3.0.0 Changes | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
+        <LI>December 16, 2024.  3.0.1 Beta22 incorporates all of the changes in
+          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta22.  You can
+          find Hengband's notes, in Japanese, on what has changed at
+          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
+          or this fork are:
+          <UL>
+            <LI>Fix https://github.com/backwardsEric/hengband/issues/38 , a
+              regression in 3.0.1 Beta17 that causes the game to crash upon
+              entering the second level of the Tower quest.
+            <LI>Adapt to upstream changes for plog_aux() and quit_aux().
+            <LI>For configure, allow minimum version of macOS to be set via
+              the environment variable, MACOS_MIN.  The minimum version defaults
+              to 10.15 which is what was previously hardwired in
+              src/Makefile.am
+            <LI>This release was built on macOS 12.7.6.  There are no changes
+              to the minimum required version of macOS (still 10.15).
+          </UL>
         <LI>July 15, 2024.  3.0.1 Beta17 incorporates all of the changes in
           Hengband's preliminary 3.0.0 versions up to 3.0.1Beta17.  You can
           find Hengband's notes, in Japanese, on what has changed at
