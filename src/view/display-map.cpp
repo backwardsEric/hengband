@@ -53,7 +53,9 @@ DisplaySymbol image_object()
         return baseitem.symbol_config;
     }
 
-    return { randnum1<uint8_t>(15), rand_choice(image_objects) };
+    const auto color = randnum1<uint8_t>(15);
+    const auto character = rand_choice(image_objects);
+    return { color, character }; //!< @details 乱数引数の評価順を固定する.
 }
 
 /*!
