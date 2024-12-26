@@ -16,23 +16,22 @@
 
 static void rd_hengband_dungeons()
 {
-    const auto &dungeons = DungeonList::get_instance();
-    auto &dungeon_records = DungeonRecords::get_instance();
-    const auto max = rd_byte();
-    for (auto i = 0U; i < max; i++) {
-        auto tmp16s = rd_s16b();
-        if (i >= dungeons.size()) {
+    const int dungeons_size = DungeonList::get_instance().size();
+    const auto &dungeon_records = DungeonRecords::get_instance();
+    const int max = rd_byte();
+    for (auto i = 0; i < max; i++) {
+        int tmp16s = rd_s16b();
+        if (i >= dungeons_size) {
             continue;
         }
 
-        auto &dungeon_record = dungeon_records.get_record(i);
+        const auto &[dungeon_record, dungeon] = dungeon_records.get_dungeon_pair(i);
         if (tmp16s > 0) {
-            dungeon_record.set_max_level(tmp16s);
+            dungeon_record->set_max_level(tmp16s);
         }
 
-        const auto &dungeon = dungeons.get_dungeon(i);
-        if (dungeon_record.get_max_level() > dungeon.maxdepth) {
-            dungeon_record.set_max_level(dungeon.maxdepth);
+        if (dungeon_record->get_max_level() > dungeon->maxdepth) {
+            dungeon_record->set_max_level(dungeon->maxdepth);
         }
     }
 }
@@ -124,7 +123,7 @@ static void rd_world_info(PlayerType *player_ptr)
     }
 
     if (h_older_than(0, 0, 3)) {
-        determine_daily_bounty(player_ptr, true);
+        determine_daily_bounty(player_ptr);
     } else {
         world.today_mon = i2enum<MonraceId>(rd_s16b());
         world.knows_daily_bounty = rd_s16b() != 0; // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
