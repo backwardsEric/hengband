@@ -400,19 +400,10 @@ std::optional<std::string> cave_gen(PlayerType *player_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     reset_lite_area(floor);
-    set_floor_and_wall(floor.dungeon_idx);
-    get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), nullptr);
+    set_floor_and_wall(floor.dungeon_id);
+    get_mon_num_prep(player_ptr, get_monster_hook(player_ptr));
 
-    DungeonData dd;
-    dd.row_rooms = floor.height / BLOCK_HGT;
-    dd.col_rooms = floor.width / BLOCK_WID;
-    for (POSITION y = 0; y < dd.row_rooms; y++) {
-        for (POSITION x = 0; x < dd.col_rooms; x++) {
-            dd.room_map[y][x] = false;
-        }
-    }
-
-    dd.cent_n = 0;
+    DungeonData dd({ floor.height, floor.width });
     auto &dungeon = floor.get_dungeon_definition();
     constexpr auto chance_empty_floor = 24;
     if (ironman_empty_levels || (dungeon.flags.has(DungeonFeatureType::ARENA) && (empty_levels && one_in_(chance_empty_floor)))) {

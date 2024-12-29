@@ -288,7 +288,7 @@ static void generate_fixed_floor(PlayerType *player_ptr)
     if (record_stair) {
         exe_write_diary_quest(player_ptr, DiaryKind::TO_QUEST, floor.quest_number);
     }
-    get_mon_num_prep(player_ptr, get_monster_hook(player_ptr), nullptr);
+    get_mon_num_prep(player_ptr, get_monster_hook(player_ptr));
     init_flags = INIT_CREATE_DUNGEON;
     parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID);
 }
@@ -507,7 +507,7 @@ static bool floor_is_connected(const FloorType *const floor_ptr, const IsWallFun
 void generate_floor(PlayerType *player_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    set_floor_and_wall(floor.dungeon_idx);
+    set_floor_and_wall(floor.dungeon_id);
     const auto is_wild_mode = AngbandWorld::get_instance().is_wild_mode();
     for (int num = 0; true; num++) {
         std::optional<std::string> why;

@@ -33,13 +33,12 @@
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
 #include "system/dungeon/dungeon-definition.h"
-#include "system/dungeon/dungeon-list.h"
-#include "system/dungeon/dungeon-record.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
+#include "system/services/dungeon-service.h"
 #include "system/terrain/terrain-definition.h"
 #include "target/target-getter.h"
 #include "timed-effect/timed-effects.h"
@@ -267,10 +266,9 @@ void do_cmd_go_down(PlayerType *player_ptr)
             return;
         }
 
-        const auto &[dungeon_record, dungeon] = DungeonRecords::get_instance().get_dungeon_pair(dungeon_id);
-        if (!dungeon_record->has_entered()) {
-            const auto mes = dungeon->build_entrance_message();
-            msg_print(mes);
+        const auto mes_entrance = DungeonService::check_first_entrance(dungeon_id);
+        if (mes_entrance) {
+            msg_print(*mes_entrance);
             if (!input_check(_("本当にこのダンジョンに入りますか？", "Do you really get in this dungeon? "))) {
                 return;
             }
@@ -300,13 +298,17 @@ void do_cmd_go_down(PlayerType *player_ptr)
         down_num = dungeon.mindepth;
     }
 
-    if (record_stair) {
+    if (record_stair && !floor.is_in_quest()) {
         const auto note = is_fall_trap ? _("落とし戸に落ちた", "fell through a trap door") : _("階段を下りた", "climbed down the stairs to");
         exe_write_diary(floor, DiaryKind::STAIR, down_num, note);
     }
 
     if (is_fall_trap) {
         msg_print(_("わざと落とし戸に落ちた。", "You deliberately jump through the trap door."));
+        if (floor.is_in_quest()) {
+            msg_print(_("しかし何も起こらなかった。", "But, nothing happens."));
+            return;
+        }
     } else {
         if (dungeon_id > DungeonId::WILDERNESS) {
             msg_format(_("%sへ入った。", "You entered %s."), dungeon.text.data());

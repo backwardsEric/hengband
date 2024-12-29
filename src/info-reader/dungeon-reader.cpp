@@ -131,7 +131,6 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
 
         error_idx = i;
         DungeonDefinition dungeon;
-        dungeon.idx = i;
 #ifdef JP
         dungeon.name = tokens[2];
 #endif
