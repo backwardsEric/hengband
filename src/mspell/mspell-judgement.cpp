@@ -163,7 +163,7 @@ bool breath_direct(PlayerType *player_ptr, POSITION y1, POSITION x1, POSITION y2
         std::array<int, 32> gm{};
         auto gm_rad = rad;
         //!< @todo Clang 15以降はpositions を直接渡せるようになる.
-        breath_shape(player_ptr, grid_g, path_n, &grids, std::span(positions.begin(), positions.size()), gm, &gm_rad, rad, { y1, x1 }, { y, x }, typ);
+        breath_shape(player_ptr, grid_g, path_n, &grids, std::span(positions), gm, &gm_rad, rad, { y1, x1 }, { y, x }, typ);
         for (auto i = 0; i < grids; i++) {
             const Pos2D &pos = positions[i];
             if ((pos.y == y2) && (pos.x == x2)) {

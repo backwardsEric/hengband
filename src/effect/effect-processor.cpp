@@ -209,7 +209,7 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
         if (breath) {
             flag &= ~(PROJECT_HIDE);
             //!< @todo Clang 15以降はpositions を直接渡せるようになる.
-            breath_shape(player_ptr, path_g, path_n, &grids, std::span(positions.begin(), positions.size()), gm, &gm_rad, rad, { y1, x1 }, pos_breath, typ);
+            breath_shape(player_ptr, path_g, path_n, &grids, std::span(positions), gm, &gm_rad, rad, { y1, x1 }, pos_breath, typ);
         } else {
             for (auto dist = 0; dist <= rad; dist++) {
                 for (auto y = pos_breath.y - dist; y <= pos_breath.y + dist; y++) {
