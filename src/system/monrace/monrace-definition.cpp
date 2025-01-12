@@ -171,20 +171,6 @@ std::optional<bool> MonraceDefinition::order_pet(const MonraceDefinition &other)
     return this->order_level(other);
 }
 
-/*!
- * @brief ユニークモンスターの撃破状態を更新する
- * @todo 状態変更はモンスター「定義」ではないので将来的に別クラスへ分離する
- */
-void MonraceDefinition::kill_unique()
-{
-    this->max_num = 0;
-    this->r_pkills++;
-    this->r_akills++;
-    if (this->r_tkills < MAX_SHORT) {
-        this->r_tkills++;
-    }
-}
-
 std::string MonraceDefinition::get_pronoun_of_summoned_kin() const
 {
     if (this->kind_flags.has(MonsterKindType::UNIQUE)) {
@@ -350,6 +336,23 @@ bool MonraceDefinition::can_generate() const
 GridFlow MonraceDefinition::get_grid_flow_type() const
 {
     return this->feature_flags.has(MonsterFeatureType::CAN_FLY) ? GridFlow::CAN_FLY : GridFlow::NORMAL;
+}
+
+/*!
+ * @brief モンスター種族がランダムクエストの討伐対象に成り得るかをチェックする
+ * @return 討伐対象にできるか否か
+ */
+bool MonraceDefinition::is_suitable_for_random_quest() const
+{
+    auto is_suitable = this->kind_flags.has(MonsterKindType::UNIQUE);
+    is_suitable &= this->misc_flags.has_not(MonsterMiscType::NO_QUEST);
+    is_suitable &= this->misc_flags.has_not(MonsterMiscType::QUESTOR);
+    is_suitable &= this->rarity <= 100;
+    is_suitable &= this->wilderness_flags.has_not(MonsterWildernessType::WILD_ONLY);
+    is_suitable &= this->feature_flags.has_not(MonsterFeatureType::AQUATIC);
+    is_suitable &= this->misc_flags.has_not(MonsterMiscType::MULTIPLY);
+    is_suitable &= this->behavior_flags.has_not(MonsterBehaviorType::FRIENDLY);
+    return is_suitable;
 }
 
 void MonraceDefinition::init_sex(uint32_t value)
@@ -555,6 +558,20 @@ bool MonraceDefinition::is_blow_damage_known(int num_blow) const
     return (4 + this->level) * (2 * r_blow) > 80 * max_damage;
 }
 
+/*!
+ * @brief ユニークモンスターの撃破状態を更新する
+ * @todo 状態変更はモンスター「定義」ではないので将来的に別クラスへ分離する
+ */
+void MonraceDefinition::kill_unique()
+{
+    this->max_num = 0;
+}
+
+bool MonraceDefinition::is_dead_unique() const
+{
+    return this->kind_flags.has(MonsterKindType::UNIQUE) && this->max_num == 0;
+}
+
 void MonraceDefinition::reset_current_numbers()
 {
     this->cur_num = 0;
@@ -588,6 +605,27 @@ void MonraceDefinition::reset_max_number()
     }
 
     this->max_num = MAX_MONSTER_NUM;
+}
+
+void MonraceDefinition::increment_akills()
+{
+    if (this->r_akills < MAX_SHORT) {
+        this->r_akills++;
+    }
+}
+
+void MonraceDefinition::increment_pkills()
+{
+    if (this->r_pkills < MAX_SHORT) {
+        this->r_pkills++;
+    }
+}
+
+void MonraceDefinition::increment_tkills()
+{
+    if (this->r_tkills < MAX_SHORT) {
+        this->r_tkills++;
+    }
 }
 
 /*!

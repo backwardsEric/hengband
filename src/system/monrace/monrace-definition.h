@@ -69,6 +69,7 @@ private:
  * MonraceMemory (r_hoge の思い出関係フラグ類)
  * MonraceInfo (max_num/cur_num/floor_id/defeat_level/defeat_time 他、思い出以外でゲームデータ依存の数値類)
  */
+enum class DungeonId;
 enum class GridFlow : int;
 class MonraceDefinition {
 public:
@@ -146,7 +147,6 @@ public:
     std::optional<bool> order_level(const MonraceDefinition &other) const;
     bool order_level_strictly(const MonraceDefinition &other) const;
     std::optional<bool> order_pet(const MonraceDefinition &other) const;
-    void kill_unique();
     std::string get_pronoun_of_summoned_kin() const;
     const MonraceDefinition &get_next() const;
     bool is_bounty(bool unachieved_only) const;
@@ -159,6 +159,7 @@ public:
     const std::vector<Reinforce> &get_reinforces() const;
     bool can_generate() const;
     GridFlow get_grid_flow_type() const;
+    bool is_suitable_for_random_quest() const;
 
     void init_sex(uint32_t value);
     std::optional<std::string> probe_lore();
@@ -171,11 +172,17 @@ public:
     bool should_display(bool is_alive) const;
     bool is_details_known() const;
     bool is_blow_damage_known(int num_blow) const;
+    void kill_unique();
+    bool is_dead_unique() const;
 
     void reset_current_numbers();
     void increment_current_numbers();
     void decrement_current_numbers();
     void reset_max_number();
+
+    void increment_akills();
+    void increment_pkills();
+    void increment_tkills();
 
 private:
     std::vector<DropArtifact> drop_artifacts; //!< 特定アーティファクトドロップリスト

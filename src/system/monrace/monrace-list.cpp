@@ -214,7 +214,6 @@ void MonraceList::kill_unified_unique(const MonraceId r_idx)
 {
     const auto it_unique = unified_uniques.find(r_idx);
     if (it_unique != unified_uniques.end()) {
-        this->get_monrace(it_unique->first).kill_unique();
         for (const auto separate : it_unique->second) {
             this->get_monrace(separate).kill_unique();
         }
@@ -223,9 +222,7 @@ void MonraceList::kill_unified_unique(const MonraceId r_idx)
     }
 
     for (const auto &[unified_unique, separates] : unified_uniques) {
-        const auto it_separate = separates.find(r_idx);
-        if (it_separate != separates.end()) {
-            this->get_monrace(*it_separate).kill_unique();
+        if (separates.contains(r_idx)) {
             this->get_monrace(unified_unique).kill_unique();
             return;
         }
@@ -256,13 +253,13 @@ bool MonraceList::is_selectable(const MonraceId r_idx) const
 void MonraceList::defeat_separated_uniques()
 {
     for (const auto &[unified_unique, separates] : unified_uniques) {
-        if (this->get_monrace(unified_unique).max_num > 0) {
+        if (!this->get_monrace(unified_unique).is_dead_unique()) {
             continue;
         }
 
         for (const auto separate : separates) {
             auto &monrace = this->get_monrace(separate);
-            if (monrace.max_num == 0) {
+            if (monrace.is_dead_unique()) {
                 continue;
             }
 
@@ -323,7 +320,7 @@ bool MonraceList::can_select_separate(const MonraceId monrace_id, const int hp, 
         return false;
     }
 
-    return std::all_of(found_separates.begin(), found_separates.end(), [this](const auto x) { return this->get_monrace(x).max_num > 0; });
+    return std::all_of(found_separates.begin(), found_separates.end(), [this](const auto x) { return !this->get_monrace(x).is_dead_unique(); });
 }
 
 bool MonraceList::order(MonraceId id1, MonraceId id2, bool is_detailed) const
@@ -431,7 +428,7 @@ int MonraceList::calc_defeat_count() const
     auto total = 0;
     for (const auto &[_, monrace] : monraces_info) {
         if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
-            if (monrace.max_num == 0) {
+            if (monrace.is_dead_unique()) {
                 total++;
             }
 
@@ -479,7 +476,7 @@ std::optional<std::string> MonraceList::probe_lore(MonraceId monrace_id)
  */
 void MonraceList::kill_unique_monster(MonraceId monrace_id)
 {
-    this->get_monrace(monrace_id).max_num = 0;
+    this->get_monrace(monrace_id).kill_unique();
     if (this->can_unify_separate(monrace_id)) {
         this->kill_unified_unique(monrace_id);
     }
