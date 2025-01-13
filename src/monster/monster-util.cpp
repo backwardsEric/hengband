@@ -195,11 +195,11 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
 {
     const auto &monrace = MonraceList::get_instance().get_monrace(monrace_id);
     const auto &floor = *player_ptr->current_floor_ptr;
-    const auto is_underground = floor.is_underground();
+    const auto is_suitable_for_dungeon = !floor.is_underground() || DungeonMonraceService::is_suitable_for_dungeon(floor.dungeon_id, monrace_id);
     switch (hook) {
     case MonraceHook::NONE:
     case MonraceHook::DUNGEON:
-        return !is_underground || DungeonMonraceService::is_suitable_for_dungeon(floor.dungeon_id, monrace_id);
+        return is_suitable_for_dungeon;
     case MonraceHook::TOWN:
         return mon_hook_town(player_ptr, monrace_id);
     case MonraceHook::OCEAN:
@@ -248,7 +248,7 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
     case MonraceHook::QUEST:
         return monrace.is_suitable_for_random_quest();
     case MonraceHook::VAULT:
-        return vault_monster_okay(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_special_room();
     case MonraceHook::CLONE:
         return vault_aux_clone(player_ptr, monrace_id);
     case MonraceHook::JELLY:
@@ -306,44 +306,6 @@ MonraceHookTerrain get_monster_hook2(PlayerType *player_ptr, POSITION y, POSITIO
 }
 
 /*!
- * @brief 開門トラップに配置するモンスターの条件フィルタ
- * @details 穴を掘るモンスター、壁を抜けるモンスターは却下
- */
-static bool vault_aux_trapped_pit(PlayerType *player_ptr, MonraceId r_idx)
-{
-    auto *r_ptr = &monraces_info[r_idx];
-    if (!vault_monster_okay(player_ptr, r_idx)) {
-        return false;
-    }
-
-    if (r_ptr->feature_flags.has_any_of({ MonsterFeatureType::PASS_WALL, MonsterFeatureType::KILL_WALL })) {
-        return false;
-    }
-
-    return true;
-}
-
-static bool filter_monrace_hook2(PlayerType *player_ptr, MonraceId monrace_id, MonraceHookTerrain hook)
-{
-    switch (hook) {
-    case MonraceHookTerrain::NONE:
-        return true;
-    case MonraceHookTerrain::FLOOR:
-        return mon_hook_floor(player_ptr, monrace_id);
-    case MonraceHookTerrain::SHALLOW_WATER:
-        return mon_hook_shallow_water(player_ptr, monrace_id);
-    case MonraceHookTerrain::DEEP_WATER:
-        return mon_hook_deep_water(player_ptr, monrace_id);
-    case MonraceHookTerrain::TRAPPED_PIT:
-        return vault_aux_trapped_pit(player_ptr, monrace_id);
-    case MonraceHookTerrain::LAVA:
-        return mon_hook_lava(player_ptr, monrace_id);
-    default:
-        THROW_EXCEPTION(std::logic_error, format("Invalid monrace hook type is specified! %d", enum2i(hook)));
-    }
-}
-
-/*!
  * @brief モンスター生成テーブルの重み修正
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param hook1 生成制約1
@@ -372,7 +334,7 @@ void get_mon_num_prep_enum(PlayerType *player_ptr, MonraceHook hook1, MonraceHoo
             continue;
         }
 
-        if (!filter_monrace_hook2(player_ptr, monrace_id, hook2)) {
+        if (!floor.filter_monrace_terrain(monrace_id, hook2)) {
             continue;
         }
 
@@ -481,7 +443,7 @@ void get_mon_num_prep_escort(PlayerType *player_ptr, MonraceId escorted_monrace_
             continue;
         }
 
-        if (!filter_monrace_hook2(player_ptr, monrace_id, hook)) {
+        if (!floor.filter_monrace_terrain(monrace_id, hook)) {
             continue;
         }
 
@@ -586,7 +548,7 @@ void get_mon_num_prep_summon(PlayerType *player_ptr, const SummonCondition &cond
             continue;
         }
 
-        if (!filter_monrace_hook2(player_ptr, monrace_id, condition.hook)) {
+        if (!floor.filter_monrace_terrain(monrace_id, condition.hook)) {
             continue;
         }
 

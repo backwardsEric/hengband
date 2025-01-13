@@ -328,14 +328,19 @@ const std::vector<Reinforce> &MonraceDefinition::get_reinforces() const
 
 bool MonraceDefinition::can_generate() const
 {
-    auto can_generate = this->kind_flags.has(MonsterKindType::UNIQUE) || this->population_flags.has(MonsterPopulationType::NAZGUL);
-    can_generate &= this->cur_num >= this->max_num;
+    auto can_generate = this->kind_flags.has_not(MonsterKindType::UNIQUE) && this->population_flags.has_not(MonsterPopulationType::NAZGUL);
+    can_generate |= this->cur_num < this->max_num;
     return can_generate;
 }
 
 GridFlow MonraceDefinition::get_grid_flow_type() const
 {
     return this->feature_flags.has(MonsterFeatureType::CAN_FLY) ? GridFlow::CAN_FLY : GridFlow::NORMAL;
+}
+
+bool MonraceDefinition::is_suitable_for_floor() const
+{
+    return this->feature_flags.has_not(MonsterFeatureType::AQUATIC) || this->feature_flags.has(MonsterFeatureType::CAN_FLY);
 }
 
 /*!
@@ -353,6 +358,41 @@ bool MonraceDefinition::is_suitable_for_random_quest() const
     is_suitable &= this->misc_flags.has_not(MonsterMiscType::MULTIPLY);
     is_suitable &= this->behavior_flags.has_not(MonsterBehaviorType::FRIENDLY);
     return is_suitable;
+}
+
+bool MonraceDefinition::is_suitable_for_shallow_water() const
+{
+    return this->aura_flags.has_not(MonsterAuraType::FIRE);
+}
+
+bool MonraceDefinition::is_suitable_for_deep_water() const
+{
+    return this->feature_flags.has(MonsterFeatureType::AQUATIC);
+}
+
+bool MonraceDefinition::is_suitable_for_lava() const
+{
+    auto is_suitable = this->resistance_flags.has_any_of(RFR_EFF_IM_FIRE_MASK) || this->feature_flags.has(MonsterFeatureType::CAN_FLY);
+    is_suitable &= this->aura_flags.has_not(MonsterAuraType::COLD);
+    return is_suitable;
+}
+
+bool MonraceDefinition::is_suitable_for_trapped_pit() const
+{
+    return this->feature_flags.has_none_of({ MonsterFeatureType::PASS_WALL, MonsterFeatureType::KILL_WALL });
+}
+
+/*!
+ * @brief 特殊な部屋へ配置可能かを判定する (Vault/Pit/Nest/ガラス部屋)
+ * @return 配置可不可
+ */
+bool MonraceDefinition::is_suitable_for_special_room() const
+{
+    auto is_valid = this->kind_flags.has_not(MonsterKindType::UNIQUE);
+    is_valid &= this->population_flags.has_not(MonsterPopulationType::ONLY_ONE);
+    is_valid &= this->resistance_flags.has_not(MonsterResistanceType::RESIST_ALL);
+    is_valid &= this->feature_flags.has_not(MonsterFeatureType::AQUATIC);
+    return is_valid;
 }
 
 void MonraceDefinition::init_sex(uint32_t value)
