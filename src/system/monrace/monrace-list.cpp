@@ -13,6 +13,21 @@
 #include "util/string-processor.h"
 #include <algorithm>
 
+namespace {
+const std::set<MonraceId> DARK_ELF_RACES = {
+    MonraceId::D_ELF,
+    MonraceId::D_ELF_MAGE,
+    MonraceId::D_ELF_WARRIOR,
+    MonraceId::D_ELF_PRIEST,
+    MonraceId::D_ELF_LORD,
+    MonraceId::D_ELF_WARLOCK,
+    MonraceId::D_ELF_DRUID,
+    MonraceId::NIGHTBLADE,
+    MonraceId::D_ELF_SORC,
+    MonraceId::D_ELF_SHADE,
+};
+}
+
 std::map<MonraceId, MonraceDefinition> monraces_info;
 
 const std::map<MonraceId, std::set<MonraceId>> MonraceList::unified_uniques = {
@@ -52,6 +67,11 @@ MonraceId MonraceList::empty_id()
 bool MonraceList::is_tsuchinoko(MonraceId monrace_id)
 {
     return monrace_id == MonraceId::TSUCHINOKO;
+}
+
+bool MonraceList::is_dark_elf(MonraceId monrace_id)
+{
+    return DARK_ELF_RACES.contains(monrace_id);
 }
 
 MonraceDefinition &MonraceList::emplace(MonraceId monrace_id)
@@ -436,6 +456,24 @@ int MonraceList::calc_defeat_count() const
     }
 
     return total;
+}
+
+MonraceId MonraceList::select_figurine(int max_level) const
+{
+    while (true) {
+        const auto monrace_id = this->pick_id_at_random();
+        const auto &monrace = this->get_monrace(monrace_id);
+        if (!monrace.is_suitable_for_figurine() || (monrace_id == MonraceId::TSUCHINOKO)) {
+            continue;
+        }
+
+        const auto check = (max_level < monrace.level) ? (monrace.level - max_level) : 0;
+        if ((monrace.rarity > 100) || (randint0(check) > 0)) {
+            continue;
+        }
+
+        return monrace_id;
+    }
 }
 
 /*!

@@ -166,7 +166,8 @@ public:
     bool is_suitable_for_lava() const;
     bool is_suitable_for_trapped_pit() const;
     bool is_suitable_for_special_room() const;
-    bool is_suitable_for_glass() const;
+    bool is_suitable_for_glass_through() const;
+    bool is_suitable_for_glass_breaking() const;
     bool is_suitable_for_town() const;
     bool is_suitable_for_ocean() const;
     bool is_suitable_for_shore() const;
@@ -176,6 +177,17 @@ public:
     bool is_suitable_for_volcano() const;
     bool is_suitable_for_mountain() const;
     bool is_suitable_for_tanuki() const;
+    bool is_suitable_for_figurine() const;
+    bool can_entry_arena() const;
+    bool is_suitable_for_nightmare(int max_level) const;
+    bool is_human() const;
+    bool is_eatable_human() const;
+    bool is_catchable_for_fishing() const;
+    bool is_suitable_for_orc_pit() const;
+    bool is_suitable_for_troll_pit() const;
+    bool is_suitable_for_giant_pit() const;
+    bool is_suitable_for_demon_pit() const;
+    bool is_suitable_for_horror_pit() const;
 
     void init_sex(uint32_t value);
     std::optional<std::string> probe_lore();
@@ -205,5 +217,7 @@ private:
     std::vector<Reinforce> reinforces; //!< 指定護衛リスト
     MonsterSex sex{}; //!< 性別 / Sex
 
+    bool is_suitable_for_arena() const;
+    bool has_blow_with_damage() const;
     const std::string &decide_horror_message() const;
 };

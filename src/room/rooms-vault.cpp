@@ -395,29 +395,29 @@ static void build_vault(
                 place_trap(&floor, pos.y, pos.x);
                 break;
             case 'S':
-                floor.set_terrain_id(pos, feat_black_market);
+                floor.set_terrain_id_at(pos, TerrainTag::BLACK_MARKET);
                 store_init(VALID_TOWNS, StoreSaleType::BLACK);
                 break;
             case 'p':
-                floor.set_terrain_id(pos, feat_pattern_start);
+                floor.set_terrain_id_at(pos, feat_pattern_start);
                 break;
             case 'a':
-                floor.set_terrain_id(pos, feat_pattern_1);
+                floor.set_terrain_id_at(pos, feat_pattern_1);
                 break;
             case 'b':
-                floor.set_terrain_id(pos, feat_pattern_2);
+                floor.set_terrain_id_at(pos, feat_pattern_2);
                 break;
             case 'c':
-                floor.set_terrain_id(pos, feat_pattern_3);
+                floor.set_terrain_id_at(pos, feat_pattern_3);
                 break;
             case 'd':
-                floor.set_terrain_id(pos, feat_pattern_4);
+                floor.set_terrain_id_at(pos, feat_pattern_4);
                 break;
             case 'P':
-                floor.set_terrain_id(pos, feat_pattern_end);
+                floor.set_terrain_id_at(pos, feat_pattern_end);
                 break;
             case 'B':
-                floor.set_terrain_id(pos, feat_pattern_exit);
+                floor.set_terrain_id_at(pos, feat_pattern_exit);
                 break;
             case 'A':
                 floor.object_level = floor.base_level + 12;
@@ -425,40 +425,40 @@ static void build_vault(
                 floor.object_level = floor.base_level;
                 break;
             case '~':
-                floor.set_terrain_id(pos, feat_shallow_water);
+                floor.set_terrain_id_at(pos, TerrainTag::SHALLOW_WATER);
                 break;
             case '=':
-                floor.set_terrain_id(pos, feat_deep_water);
+                floor.set_terrain_id_at(pos, TerrainTag::DEEP_WATER);
                 break;
             case 'v':
-                floor.set_terrain_id(pos, feat_shallow_lava);
+                floor.set_terrain_id_at(pos, TerrainTag::SHALLOW_LAVA);
                 break;
             case 'w':
-                floor.set_terrain_id(pos, feat_deep_lava);
+                floor.set_terrain_id_at(pos, TerrainTag::DEEP_LAVA);
                 break;
             case 'f':
-                floor.set_terrain_id(pos, feat_shallow_acid_puddle);
+                floor.set_terrain_id_at(pos, TerrainTag::SHALLOW_ACID_PUDDLE);
                 break;
             case 'F':
-                floor.set_terrain_id(pos, feat_deep_acid_puddle);
+                floor.set_terrain_id_at(pos, TerrainTag::DEEP_ACID_PUDDLE);
                 break;
             case 'g':
-                floor.set_terrain_id(pos, feat_shallow_poisonous_puddle);
+                floor.set_terrain_id_at(pos, TerrainTag::SHALLOW_POISONOUS_PUDDLE);
                 break;
             case 'G':
-                floor.set_terrain_id(pos, feat_deep_poisonous_puddle);
+                floor.set_terrain_id_at(pos, TerrainTag::DEEP_POISONOUS_PUDDLE);
                 break;
             case 'h':
-                floor.set_terrain_id(pos, feat_cold_zone);
+                floor.set_terrain_id_at(pos, TerrainTag::COLD_ZONE);
                 break;
             case 'H':
-                floor.set_terrain_id(pos, feat_heavy_cold_zone);
+                floor.set_terrain_id_at(pos, TerrainTag::HEAVY_COLD_ZONE);
                 break;
             case 'i':
-                floor.set_terrain_id(pos, feat_electrical_zone);
+                floor.set_terrain_id_at(pos, TerrainTag::ELECTRICAL_ZONE);
                 break;
             case 'I':
-                floor.set_terrain_id(pos, feat_heavy_electrical_zone);
+                floor.set_terrain_id_at(pos, TerrainTag::HEAVY_ELECTRICAL_ZONE);
                 break;
             }
         }

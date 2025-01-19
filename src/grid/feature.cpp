@@ -39,23 +39,7 @@ FEAT_IDX feat_pattern_old;
 FEAT_IDX feat_pattern_exit;
 FEAT_IDX feat_pattern_corrupted;
 
-/* Various */
-FEAT_IDX feat_black_market;
-FEAT_IDX feat_town;
-
 /* Terrains */
-FEAT_IDX feat_deep_water;
-FEAT_IDX feat_shallow_water;
-FEAT_IDX feat_deep_lava;
-FEAT_IDX feat_shallow_lava;
-FEAT_IDX feat_heavy_cold_zone;
-FEAT_IDX feat_cold_zone;
-FEAT_IDX feat_heavy_electrical_zone;
-FEAT_IDX feat_electrical_zone;
-FEAT_IDX feat_deep_acid_puddle;
-FEAT_IDX feat_shallow_acid_puddle;
-FEAT_IDX feat_deep_poisonous_puddle;
-FEAT_IDX feat_shallow_poisonous_puddle;
 FEAT_IDX feat_dirt;
 FEAT_IDX feat_grass;
 FEAT_IDX feat_flower;

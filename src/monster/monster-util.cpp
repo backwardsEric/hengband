@@ -217,17 +217,17 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
     case MonraceHook::MOUNTAIN:
         return monrace.is_suitable_for_mountain();
     case MonraceHook::FIGURINE:
-        return item_monster_okay(player_ptr, monrace_id);
+        return monrace.is_suitable_for_figurine();
     case MonraceHook::ARENA:
-        return monster_can_entry_arena(player_ptr, monrace_id);
+        return monrace.can_entry_arena();
     case MonraceHook::NIGHTMARE:
-        return get_nightmare(player_ptr, monrace_id);
+        return monrace.is_suitable_for_nightmare(player_ptr->lev);
     case MonraceHook::HUMAN:
-        return monster_hook_human(player_ptr, monrace_id);
+        return monrace.is_eatable_human();
     case MonraceHook::GLASS:
-        return is_suitable_for_dungeon && monrace.is_suitable_for_glass();
+        return is_suitable_for_dungeon && monrace.is_suitable_for_glass_through();
     case MonraceHook::SHARDS:
-        return vault_aux_shards(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_glass_breaking();
     case MonraceHook::TANUKI: {
         if (!monrace.is_suitable_for_tanuki()) {
             return false;
@@ -238,7 +238,7 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
         return do_hook(player_ptr, hook_tanuki, monrace_id);
     }
     case MonraceHook::FISHING:
-        return monster_is_fishing_target(player_ptr, monrace_id);
+        return monrace.is_catchable_for_fishing();
     case MonraceHook::QUEST:
         return monrace.is_suitable_for_random_quest();
     case MonraceHook::VAULT:
@@ -253,8 +253,8 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
         return vault_aux_symbol_e(player_ptr, monrace_id);
     case MonraceHook::MIMIC:
         return vault_aux_mimic(player_ptr, monrace_id);
-    case MonraceHook::LOVECRAFTIAN:
-        return vault_aux_cthulhu(player_ptr, monrace_id);
+    case MonraceHook::HORROR:
+        return is_suitable_for_dungeon && monrace.is_suitable_for_horror_pit();
     case MonraceHook::KENNEL:
         return vault_aux_kennel(player_ptr, monrace_id);
     case MonraceHook::ANIMAL:
@@ -264,17 +264,17 @@ static bool do_hook(PlayerType *player_ptr, MonraceHook hook, MonraceId monrace_
     case MonraceHook::UNDEAD:
         return vault_aux_undead(player_ptr, monrace_id);
     case MonraceHook::ORC:
-        return vault_aux_orc(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_orc_pit();
     case MonraceHook::TROLL:
-        return vault_aux_troll(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_troll_pit();
     case MonraceHook::GIANT:
-        return vault_aux_giant(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_giant_pit();
     case MonraceHook::DRAGON:
         return vault_aux_dragon(player_ptr, monrace_id);
     case MonraceHook::DEMON:
-        return vault_aux_demon(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_demon_pit();
     case MonraceHook::DARK_ELF:
-        return vault_aux_dark_elf(player_ptr, monrace_id);
+        return is_suitable_for_dungeon && monrace.is_suitable_for_special_room() && MonraceList::is_dark_elf(monrace_id);
     default:
         THROW_EXCEPTION(std::logic_error, format("Invalid monrace hook type is specified! %d", enum2i(hook)));
     }
@@ -719,10 +719,8 @@ void get_mon_num_prep_bounty(PlayerType *player_ptr)
     const auto dungeon_level = floor.dun_level;
     const auto &system = AngbandSystem::get_instance();
     auto &table = MonraceAllocationTable::get_instance();
-    const auto &dungeon = floor.get_dungeon_definition();
     MonraceFilterDebugInfo mfdi;
     for (auto &entry : table) {
-        const auto monrace_id = entry.index;
         entry.prob2 = 0;
         if (entry.prob1 <= 0) {
             continue;
@@ -739,12 +737,6 @@ void get_mon_num_prep_bounty(PlayerType *player_ptr)
         }
 
         entry.prob2 = entry.prob1;
-        const auto in_random_quest = floor.is_in_quest() && !QuestType::is_fixed(floor.quest_number);
-        const auto cond = !system.is_phase_out() && floor.is_underground() && !in_random_quest;
-        if (cond && !restrict_monster_to_dungeon(dungeon, dungeon_level, monrace_id)) {
-            entry.update_prob2(dungeon.special_div);
-        }
-
         mfdi.update(entry.prob2, entry.level);
     }
 

@@ -31,6 +31,7 @@ public:
     static MonraceList &get_instance();
     static MonraceId empty_id();
     static bool is_tsuchinoko(MonraceId monrace_id);
+    static bool is_dark_elf(MonraceId monrace_id);
     MonraceDefinition &emplace(MonraceId monrace_id);
     std::map<MonraceId, MonraceDefinition> &get_raw_map();
     MonraceDefinition &get_monrace(MonraceId monrace_id);
@@ -54,6 +55,7 @@ public:
     MonraceId pick_id_at_random() const;
     const MonraceDefinition &pick_monrace_at_random() const;
     int calc_defeat_count() const;
+    MonraceId select_figurine(int max_level) const;
 
     void reset_current_numbers();
     void reset_all_visuals();
