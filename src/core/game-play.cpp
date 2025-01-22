@@ -38,7 +38,6 @@
 #include "game-option/input-options.h"
 #include "game-option/play-record-options.h"
 #include "game-option/runtime-arguments.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "info-reader/fixed-map-parser.h"
 #include "io/files-util.h"
@@ -133,7 +132,7 @@ static void send_waiting_record(PlayerType *player_ptr)
     update_creature(player_ptr);
     player_ptr->is_dead = true;
     auto &world = AngbandWorld::get_instance();
-    world.start_time = (uint32_t)time(nullptr);
+    world.play_time.pause();
     signals_ignore_tstp();
     world.character_icky_depth = 1;
     const auto path = path_build(ANGBAND_DIR_APEX, "scores.raw");
@@ -239,7 +238,6 @@ static void reset_world_info(PlayerType *player_ptr)
     world.timewalk_m_idx = 0;
     player_ptr->now_damaged = false;
     now_message = 0;
-    world.start_time = time(nullptr) - 1;
     record_o_name[0] = '\0';
 }
 
@@ -370,6 +368,7 @@ static void process_game_turn(PlayerType *player_ptr)
     auto load_game = true;
     auto &floor = *player_ptr->current_floor_ptr;
     auto &world = AngbandWorld::get_instance();
+    world.play_time.unpause();
     while (true) {
         process_dungeon(player_ptr, load_game);
         world.character_xtra = true;
