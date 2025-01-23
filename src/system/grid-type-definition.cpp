@@ -214,6 +214,11 @@ bool Grid::is_darkened() const
     return match_bits(this->info, CAVE_VIEW | CAVE_LITE | CAVE_MNLT | CAVE_MNDK, CAVE_VIEW | CAVE_MNDK);
 }
 
+bool Grid::has_special_terrain() const
+{
+    return this->get_terrain().flags.has(TerrainCharacteristics::SPECIAL);
+}
+
 void Grid::reset_costs()
 {
     for (const auto gf : GRID_FLOW_RANGE) {
@@ -270,7 +275,7 @@ const TerrainType &Grid::get_terrain(TerrainKind tk) const
 
 void Grid::place_closed_curtain()
 {
-    this->feat = feat_door[DOOR_CURTAIN].closed;
+    this->set_terrain_id(feat_door.at(DoorKind::CURTAIN).closed);
     this->info &= ~(CAVE_MASK);
 }
 

@@ -2,7 +2,6 @@
 #include "game-option/cheat-options.h"
 #include "game-option/cheat-types.h"
 #include "grid/door.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/place-monster-types.h"
@@ -12,6 +11,7 @@
 #include "room/pit-nest-util.h"
 #include "room/space-finder.h"
 #include "system/enums/dungeon/dungeon-id.h"
+#include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
@@ -147,16 +147,16 @@ void place_pit_inner(PlayerType *player_ptr, const Pos2D &center)
 
     switch (randint1(4)) {
     case 1:
-        place_secret_door(player_ptr, rectangle.top_left.y - 1, center.x, DOOR_DEFAULT);
+        place_secret_door(player_ptr, rectangle.top_left.y - 1, center.x, DoorKind::DEFAULT);
         break;
     case 2:
-        place_secret_door(player_ptr, rectangle.bottom_right.y + 1, center.x, DOOR_DEFAULT);
+        place_secret_door(player_ptr, rectangle.bottom_right.y + 1, center.x, DoorKind::DEFAULT);
         break;
     case 3:
-        place_secret_door(player_ptr, center.y, rectangle.top_left.x - 1, DOOR_DEFAULT);
+        place_secret_door(player_ptr, center.y, rectangle.top_left.x - 1, DoorKind::DEFAULT);
         break;
     case 4:
-        place_secret_door(player_ptr, center.y, rectangle.bottom_right.x + 1, DOOR_DEFAULT);
+        place_secret_door(player_ptr, center.y, rectangle.bottom_right.x + 1, DoorKind::DEFAULT);
         break;
     }
 }
@@ -448,7 +448,7 @@ bool build_type13(PlayerType *player_ptr, DungeonData *dd_ptr)
     /* Place the wall open trap */
     auto &grid = floor.get_grid(*center);
     grid.mimic = grid.feat;
-    grid.feat = feat_trap_open;
+    grid.set_terrain_id(TerrainTag::TRAP_OPEN);
     const auto &monraces = MonraceList::get_instance();
     std::stable_sort(whats->begin(), whats->end(), [&monraces](const auto monrace_id1, const auto monrace_id2) {
         return monraces.order_level(monrace_id2, monrace_id1);

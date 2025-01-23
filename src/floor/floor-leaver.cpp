@@ -10,7 +10,6 @@
 #include "floor/wild.h"
 #include "game-option/birth-options.h"
 #include "game-option/play-record-options.h"
-#include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/write-diary.h"
 #include "mind/mind-ninja.h"
@@ -68,9 +67,10 @@ static bool check_pet_preservation_conditions(PlayerType *player_ptr, MonsterEnt
     }
 
     const auto should_preserve = m_ptr->is_named();
-    auto sight_from_player = player_ptr->current_floor_ptr->has_los(m_pos);
+    const auto &floor = *player_ptr->current_floor_ptr;
+    auto sight_from_player = floor.has_los(m_pos);
     sight_from_player &= projectable(player_ptr, p_pos, m_pos);
-    auto sight_from_monster = los(player_ptr, m_ptr->fy, m_ptr->fx, player_ptr->y, player_ptr->x);
+    auto sight_from_monster = los(floor, m_pos, p_pos);
     sight_from_monster &= projectable(player_ptr, m_pos, p_pos);
     if (should_preserve && (sight_from_player || sight_from_monster)) {
         return dis > 3;
@@ -199,7 +199,7 @@ static void locate_connected_stairs(PlayerType *player_ptr, FloorType &floor, sa
     if (num == 0) {
         FloorChangeModesStore::get_instace()->set({ FloorChangeMode::RANDOM_PLACE, FloorChangeMode::NO_RETURN });
         auto &grid = floor.get_grid(player_ptr->get_position());
-        if (!feat_uses_special(grid.feat)) {
+        if (!grid.has_special_terrain()) {
             grid.special = 0;
         }
 
@@ -394,7 +394,7 @@ static void refresh_new_floor_id(PlayerType *player_ptr, Grid *g_ptr)
     }
 
     new_floor_id = get_unused_floor_id(player_ptr);
-    if ((g_ptr != nullptr) && !feat_uses_special(g_ptr->feat)) {
+    if ((g_ptr != nullptr) && !g_ptr->has_special_terrain()) {
         g_ptr->special = new_floor_id;
     }
 }
