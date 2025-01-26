@@ -4,26 +4,19 @@
 #include "grid/door.h"
 #include "grid/grid.h"
 #include "monster-floor/monster-generator.h"
-#include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
-#include "monster/monster-info.h"
-#include "monster/monster-list.h"
 #include "monster/monster-util.h"
-#include "room/door-definition.h"
 #include "room/pit-nest-util.h"
 #include "room/space-finder.h"
-#include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "util/probability-table.h"
 #include "wizard/wizard-messages.h"
+#include <algorithm>
 #include <array>
 #include <optional>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -33,16 +26,16 @@ constexpr auto NUM_NEST_MON_TYPE = 64; //! nestの種別数.
  * @brief 生成するNestの情報テーブル
  */
 const std::map<NestKind, nest_pit_type> nest_types = {
-    { NestKind::CLONE, { _("クローン", "clone"), MonraceHook::CLONE, vault_prep_clone, 5, 3 } },
-    { NestKind::JELLY, { _("ゼリー", "jelly"), MonraceHook::JELLY, std::nullopt, 5, 6 } },
-    { NestKind::SYMBOL_GOOD, { _("シンボル(善)", "symbol good"), MonraceHook::GOOD, vault_prep_symbol, 25, 2 } },
-    { NestKind::SYMBOL_EVIL, { _("シンボル(悪)", "symbol evil"), MonraceHook::EVIL, vault_prep_symbol, 25, 2 } },
-    { NestKind::MIMIC, { _("ミミック", "mimic"), MonraceHook::MIMIC, std::nullopt, 30, 4 } },
-    { NestKind::HORROR, { _("狂気", "lovecraftian"), MonraceHook::HORROR, std::nullopt, 70, 2 } },
-    { NestKind::KENNEL, { _("犬小屋", "kennel"), MonraceHook::KENNEL, std::nullopt, 45, 4 } },
-    { NestKind::ANIMAL, { _("動物園", "animal"), MonraceHook::ANIMAL, std::nullopt, 35, 5 } },
-    { NestKind::CHAPEL, { _("教会", "chapel"), MonraceHook::CHAPEL, std::nullopt, 75, 4 } },
-    { NestKind::UNDEAD, { _("アンデッド", "undead"), MonraceHook::UNDEAD, std::nullopt, 75, 5 } },
+    { NestKind::CLONE, { _("クローン", "clone"), MonraceHook::CLONE, PitNestHook::CLONE, 5, 3 } },
+    { NestKind::JELLY, { _("ゼリー", "jelly"), MonraceHook::JELLY, PitNestHook::NONE, 5, 6 } },
+    { NestKind::SYMBOL_GOOD, { _("シンボル(善)", "symbol good"), MonraceHook::GOOD, PitNestHook::SYMBOL, 25, 2 } },
+    { NestKind::SYMBOL_EVIL, { _("シンボル(悪)", "symbol evil"), MonraceHook::EVIL, PitNestHook::SYMBOL, 25, 2 } },
+    { NestKind::MIMIC, { _("ミミック", "mimic"), MonraceHook::MIMIC, PitNestHook::NONE, 30, 4 } },
+    { NestKind::HORROR, { _("狂気", "lovecraftian"), MonraceHook::HORROR, PitNestHook::NONE, 70, 2 } },
+    { NestKind::KENNEL, { _("犬小屋", "kennel"), MonraceHook::KENNEL, PitNestHook::NONE, 45, 4 } },
+    { NestKind::ANIMAL, { _("動物園", "animal"), MonraceHook::ANIMAL, PitNestHook::NONE, 35, 5 } },
+    { NestKind::CHAPEL, { _("教会", "chapel"), MonraceHook::CHAPEL, PitNestHook::NONE, 75, 4 } },
+    { NestKind::UNDEAD, { _("アンデッド", "undead"), MonraceHook::UNDEAD, PitNestHook::NONE, 75, 5 } },
 };
 
 std::optional<std::array<NestMonsterInfo, NUM_NEST_MON_TYPE>> pick_nest_monraces(PlayerType *player_ptr, MonsterEntity &align)
@@ -208,11 +201,8 @@ bool build_type5(PlayerType *player_ptr, DungeonData *dd_ptr)
     }
 
     const auto &nest = nest_types.at(*nest_type);
-    if (nest.prep_func) {
-        (*nest.prep_func)(player_ptr);
-    }
-
-    get_mon_num_prep_enum(player_ptr, nest.hook);
+    nest.prepare_filter(player_ptr);
+    get_mon_num_prep_enum(player_ptr, nest.monrace_hook);
     MonsterEntity align;
     align.sub_align = SUB_ALIGN_NEUTRAL;
 
@@ -230,7 +220,8 @@ bool build_type5(PlayerType *player_ptr, DungeonData *dd_ptr)
     generate_inner_room(player_ptr, *center, rectangle);
 
     constexpr auto fmt_nest = _("モンスター部屋(nest)(%s%s)を生成します。", "Monster nest (%s%s)");
-    msg_format_wizard(player_ptr, CHEAT_DUNGEON, fmt_nest, nest.name.data(), nest_subtype_string(*nest_type).data());
+    const auto &nest_filter = PitNestFilter::get_instance();
+    msg_format_wizard(player_ptr, CHEAT_DUNGEON, fmt_nest, nest.name.data(), nest_filter.nest_subtype(*nest_type).data());
     place_monsters_in_nest(player_ptr, *center, *nest_mon_info_list);
     output_debug_nest(player_ptr, *nest_mon_info_list);
     return true;

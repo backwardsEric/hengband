@@ -15,24 +15,42 @@
 #include "target/projection-path-calculator.h"
 #include "util/bit-flags-calculator.h"
 
+namespace {
+bool is_prevent_blast(PlayerType *player_ptr, const Pos2D &center, const Pos2D &pos, AttributeType type)
+{
+    const auto &floor = *player_ptr->current_floor_ptr;
+    switch (type) {
+    case AttributeType::LITE:
+    case AttributeType::LITE_WEAK:
+        /* Lights are stopped by opaque terrains */
+        return !los(floor, center, pos);
+    case AttributeType::DISINTEGRATE:
+        /* Disintegration are stopped only by perma-walls */
+        return !in_disintegration_range(floor, center, pos);
+    default:
+        /* Others are stopped by walls */
+        return !projectable(player_ptr, center, pos);
+    }
+}
+}
+
 /*
  * Find the distance from (x, y) to a line.
  */
-POSITION dist_to_line(POSITION y, POSITION x, POSITION y1, POSITION x1, POSITION y2, POSITION x2)
+int dist_to_line(const Pos2D &pos, const Pos2D &pos_line1, const Pos2D &pos_line2)
 {
-    POSITION py = y1 - y;
-    POSITION px = x1 - x;
-    POSITION ny = x2 - x1;
-    POSITION nx = y1 - y2;
-    POSITION pd = Grid::calc_distance({ y1, x1 }, { y, x });
-    POSITION nd = Grid::calc_distance({ y1, x1 }, { y2, x2 });
+    const auto pd = Grid::calc_distance(pos_line1, pos);
+    const auto nd = Grid::calc_distance(pos_line1, pos_line2);
 
     if (pd > nd) {
-        return Grid::calc_distance({ y, x }, { y2, x2 });
+        return Grid::calc_distance(pos, pos_line2);
     }
 
-    nd = ((nd) ? ((py * ny + px * nx) / nd) : 0);
-    return nd >= 0 ? nd : 0 - nd;
+    const auto vec_to_pos_line1 = pos_line1 - pos;
+    // pos_line1からpos_line2の法線ベクトル
+    const auto vec_normal = Pos2DVec(pos_line2.x - pos_line1.x, pos_line1.y - pos_line2.y);
+    const auto dist = (nd > 0) ? std::abs((vec_to_pos_line1.y * vec_normal.y + vec_to_pos_line1.x * vec_normal.x) / nd) : 0;
+    return dist;
 }
 
 /*
@@ -188,21 +206,28 @@ bool in_disintegration_range(const FloorType &floor, const Pos2D &pos_from, cons
     return true;
 }
 
-/*
- * breath shape
+/*!
+ * @brief Create a conical breath attack shape
+ *
+ *       ***
+ *   ********
+ * D********@**
+ *   ********
+ *       ***
  */
-void breath_shape(PlayerType *player_ptr, const ProjectionPath &path, int dist, int *pgrids, std::span<Pos2D> positions, std::span<int> gm, int *pgm_rad, int rad, const Pos2D &pos_source, const Pos2D &pos_target, AttributeType typ)
+std::vector<std::pair<int, Pos2D>> breath_shape(PlayerType *player_ptr, const ProjectionPath &path, int dist, int rad, const Pos2D &pos_source, const Pos2D &pos_target, AttributeType typ)
 {
     const auto brev = rad * rad / dist;
     auto by = pos_source.y;
     auto bx = pos_source.x;
-    auto brad = 0;
-    auto bdis = 0;
     auto path_n = 0;
     const auto mdis = Grid::calc_distance(pos_source, pos_target) + rad;
-    int cdis;
     const auto &floor = *player_ptr->current_floor_ptr;
-    while (bdis <= mdis) {
+    std::vector<std::pair<int, Pos2D>> positions;
+
+    for (auto bdis = 0; bdis <= mdis; ++bdis) {
+        const auto brad = (bdis == 0) ? 0 : rad * (path_n + brev) / (dist + brev);
+
         if ((0 < dist) && (path_n < dist)) {
             const auto &pos_path = path[path_n];
             POSITION nd = Grid::calc_distance(pos_path, pos_source);
@@ -216,7 +241,7 @@ void breath_shape(PlayerType *player_ptr, const ProjectionPath &path, int dist, 
 
         /* Travel from center outward */
         const Pos2D pos_breath(by, bx);
-        for (cdis = 0; cdis <= brad; cdis++) {
+        for (auto cdis = 0; cdis <= brad; cdis++) {
             for (auto y = pos_breath.y - cdis; y <= pos_breath.y + cdis; y++) {
                 for (auto x = pos_breath.x - cdis; x <= pos_breath.x + cdis; x++) {
                     const Pos2D pos(y, x);
@@ -229,39 +254,41 @@ void breath_shape(PlayerType *player_ptr, const ProjectionPath &path, int dist, 
                     if (Grid::calc_distance(pos_breath, pos) != cdis) {
                         continue;
                     }
-
-                    switch (typ) {
-                    case AttributeType::LITE:
-                    case AttributeType::LITE_WEAK:
-                        /* Lights are stopped by opaque terrains */
-                        if (!los(floor, pos_breath, pos)) {
-                            continue;
-                        }
-                        break;
-                    case AttributeType::DISINTEGRATE:
-                        /* Disintegration are stopped only by perma-walls */
-                        if (!in_disintegration_range(floor, pos_breath, pos)) {
-                            continue;
-                        }
-                        break;
-                    default:
-                        /* Ball explosions are stopped by walls */
-                        if (!projectable(player_ptr, pos_breath, pos)) {
-                            continue;
-                        }
-                        break;
+                    if (is_prevent_blast(player_ptr, pos_source, pos, typ)) {
+                        continue;
                     }
 
-                    positions[*pgrids] = pos;
-                    (*pgrids)++;
+                    positions.emplace_back(bdis, pos);
                 }
             }
         }
-
-        gm[bdis + 1] = *pgrids;
-        brad = rad * (path_n + brev) / (dist + brev);
-        bdis++;
     }
 
-    *pgm_rad = bdis;
+    return positions;
+}
+
+std::vector<std::pair<int, Pos2D>> ball_shape(PlayerType *player_ptr, const Pos2D &center, int rad, AttributeType typ)
+{
+    std::vector<std::pair<int, Pos2D>> positions;
+    const auto &floor = *player_ptr->current_floor_ptr;
+    for (auto dist = 0; dist <= rad; dist++) {
+        for (auto y = center.y - dist; y <= center.y + dist; y++) {
+            for (auto x = center.x - dist; x <= center.x + dist; x++) {
+                const Pos2D pos(y, x);
+                if (!in_bounds2(&floor, pos.y, pos.x)) {
+                    continue;
+                }
+                if (Grid::calc_distance(center, pos) != dist) {
+                    continue;
+                }
+                if (is_prevent_blast(player_ptr, center, pos, typ)) {
+                    continue;
+                }
+
+                positions.emplace_back(dist, pos);
+            }
+        }
+    }
+
+    return positions;
 }

@@ -91,7 +91,6 @@ public:
     bool has_monster() const;
     uint8_t get_cost(GridFlow gf) const;
     uint8_t get_distance(GridFlow gf) const;
-    FEAT_IDX get_feat_mimic() const;
     bool has(TerrainCharacteristics tc) const;
     bool is_symbol(const int ch) const;
     bool is_darkened() const;
@@ -106,4 +105,5 @@ public:
     void add_info(int grid_info);
     void set_terrain_id(short terrain_id, TerrainKind tk = TerrainKind::NORMAL);
     void set_terrain_id(TerrainTag tag, TerrainKind tk = TerrainKind::NORMAL);
+    void set_door_id(short terrain_id_random);
 };

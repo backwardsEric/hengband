@@ -913,7 +913,6 @@
     <ClCompile Include="..\..\src\info-reader\fixed-map-parser.cpp" />
     <ClCompile Include="..\..\src\system\dungeon\dungeon-definition.cpp" />
     <ClCompile Include="..\..\src\locale\english.cpp" />
-    <ClCompile Include="..\..\src\grid\feature.cpp" />
     <ClCompile Include="..\..\src\floor\floor-events.cpp" />
     <ClCompile Include="..\..\src\floor\floor-generator.cpp" />
     <ClCompile Include="..\..\src\floor\floor-save.cpp" />
@@ -943,7 +942,6 @@
     <ClCompile Include="..\..\src\monster-floor\monster-dist-offsets.cpp" />
     <ClCompile Include="..\..\src\monster\monster-processor.cpp" />
     <ClCompile Include="..\..\src\monster\monster-status.cpp" />
-    <ClCompile Include="..\..\src\monster-race\monster-race-hook.cpp" />
     <ClCompile Include="..\..\src\monster-attack\monster-attack-processor.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-direction.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-move.cpp" />
@@ -2012,7 +2010,6 @@
     <ClInclude Include="..\..\src\core\speed-table.h" />
     <ClInclude Include="..\..\src\info-reader\fixed-map-parser.h" />
     <ClInclude Include="..\..\src\system\dungeon\dungeon-definition.h" />
-    <ClInclude Include="..\..\src\grid\feature.h" />
     <ClInclude Include="..\..\src\io\files-util.h" />
     <ClInclude Include="..\..\src\floor\floor-events.h" />
     <ClInclude Include="..\..\src\floor\floor-generator.h" />
@@ -2032,7 +2029,6 @@
     <ClInclude Include="..\..\src\monster\monster-processor.h" />
     <ClInclude Include="..\..\src\monster\monster-status.h" />
     <ClInclude Include="..\..\src\system\monster-entity.h" />
-    <ClInclude Include="..\..\src\monster-race\monster-race-hook.h" />
     <ClInclude Include="..\..\src\mutation\mutation-calculator.h" />
     <ClInclude Include="..\..\src\object-enchant\object-boost.h" />
     <ClInclude Include="..\..\src\object-enchant\object-curse.h" />

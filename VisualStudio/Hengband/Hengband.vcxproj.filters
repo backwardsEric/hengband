@@ -434,9 +434,6 @@
     <ClCompile Include="..\..\src\grid\trap.cpp">
       <Filter>grid</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\grid\feature.cpp">
-      <Filter>grid</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\monster\horror-descriptions.cpp">
       <Filter>monster</Filter>
     </ClCompile>
@@ -1009,9 +1006,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\object-enchant\activation-info-table.cpp">
       <Filter>object-enchant</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\monster-race\monster-race-hook.cpp">
-      <Filter>monster-race</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\mind\mind-sniper.cpp">
       <Filter>mind</Filter>
@@ -3017,9 +3011,6 @@
     <ClInclude Include="..\..\src\spell\spells-summon.h">
       <Filter>spell</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\grid\feature.h">
-      <Filter>grid</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\grid\grid.h">
       <Filter>grid</Filter>
     </ClInclude>
@@ -3706,9 +3697,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\object-enchant\activation-info-table.h">
       <Filter>object-enchant</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\monster-race\monster-race-hook.h">
-      <Filter>monster-race</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\mind\drs-types.h">
       <Filter>mind</Filter>

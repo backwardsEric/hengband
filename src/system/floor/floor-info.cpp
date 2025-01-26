@@ -71,7 +71,7 @@ void FloorType::reset_dungeon_index()
     this->set_dungeon_index(DungeonId::WILDERNESS);
 }
 
-DungeonDefinition &FloorType::get_dungeon_definition() const
+const DungeonDefinition &FloorType::get_dungeon_definition() const
 {
     return DungeonList::get_instance().get_dungeon(this->dungeon_id);
 }
@@ -228,7 +228,7 @@ bool FloorType::check_terrain_state(const Pos2D &pos, GridCountKind gck) const
     switch (gck) {
     case GridCountKind::OPEN: {
         const auto is_open_grid = grid.is_open();
-        const auto is_open_dungeon = this->get_dungeon_definition().is_open(grid.get_feat_mimic());
+        const auto is_open_dungeon = this->get_dungeon_definition().is_open(grid.get_terrain_id(TerrainKind::MIMIC));
         return is_open_grid && is_open_dungeon;
     }
     case GridCountKind::CLOSED_DOOR:

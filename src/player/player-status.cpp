@@ -19,7 +19,6 @@
 #include "floor/floor-save.h"
 #include "floor/floor-util.h"
 #include "game-option/birth-options.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "inventory/inventory-object.h"
 #include "io/input-key-acceptor.h"
@@ -31,7 +30,6 @@
 #include "mind/mind-ninja.h"
 #include "monster-floor/monster-lite.h"
 #include "monster-floor/monster-remover.h"
-#include "monster-race/monster-race-hook.h"
 #include "monster/monster-update.h"
 #include "monster/smart-learn-types.h"
 #include "mutation/mutation-calculator.h"
@@ -2754,11 +2752,11 @@ void wreck_the_pattern(PlayerType *player_ptr)
     while (to_ruin--) {
         const auto pos = scatter(player_ptr, p_pos, 4, PROJECT_NONE);
         if (pattern_tile(&floor, pos.y, pos.x) && (floor.get_grid(pos).get_terrain().subtype != PATTERN_TILE_WRECKED)) {
-            cave_set_feat(player_ptr, pos, TerrainTag::PATTERN_CORRUPTED);
+            set_terrain_id_to_grid(player_ptr, pos, TerrainTag::PATTERN_CORRUPTED);
         }
     }
 
-    cave_set_feat(player_ptr, p_pos, TerrainTag::PATTERN_CORRUPTED);
+    set_terrain_id_to_grid(player_ptr, p_pos, TerrainTag::PATTERN_CORRUPTED);
 }
 
 /*!
