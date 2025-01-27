@@ -14,7 +14,6 @@
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
-#include <span>
 
 /*!
  * @brief テキストトークンを走査してフラグを一つ得る(ダンジョン用)
@@ -107,12 +106,12 @@ static bool grab_one_spell_monster_flag(DungeonDefinition &dungeon, std::string_
     return false;
 }
 
-static std::optional<ProbabilityTable<short>> parse_terrain_probability(std::span<const std::string> tokens)
+static std::optional<ProbabilityTable<short>> parse_terrain_probability(std::vector<std::string> tokens, int token_start, int token_limit)
 {
     const auto &terrains = TerrainList::get_instance();
     ProbabilityTable<short> prob_table;
 
-    for (auto i = 0; std::cmp_less(i + 1, tokens.size()); i += 2) {
+    for (auto i = token_start; std::cmp_less(i + 1, token_limit); i += 2) {
         try {
             const auto terrain_id = terrains.get_terrain_id(tokens[i]);
             const auto prob = static_cast<short>(std::stoi(tokens[i + 1]));
@@ -241,7 +240,7 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 
-        auto prob_table = parse_terrain_probability(std::span(tokens.begin() + 1, terrain_probability_num * 2));
+        auto prob_table = parse_terrain_probability(tokens, 1, 1 + terrain_probability_num * 2);
         if (!prob_table) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
         }
@@ -258,7 +257,7 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 
-        auto prob_table = parse_terrain_probability(std::span(tokens.begin() + 1, terrain_probability_num * 2));
+        auto prob_table = parse_terrain_probability(tokens, 1, 1 + terrain_probability_num * 2);
         if (!prob_table) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
         }
