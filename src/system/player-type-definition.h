@@ -186,9 +186,6 @@ public:
     std::string last_message = ""; /* Last message on death or retirement */
     char history[4][60]{}; /* Textual "history" for the Player */
 
-    uint16_t panic_save{}; /* Panic save */
-
-    bool wait_report_score{}; /* Waiting to report score */
     bool is_dead{}; /* Player is dead */
     bool now_damaged{};
     bool ambush_flag{};
@@ -228,9 +225,7 @@ public:
 
     bool monk_notify_aux{};
 
-    bool leaving_dungeon{}; /* True if player is leaving the dungeon */
     bool teleport_town{};
-    bool enter_dungeon{}; /* Just enter the dungeon */
 
     int16_t new_spells{}; /* Number of spells available */
     int16_t old_spells{};
@@ -394,6 +389,7 @@ public:
     Pos2D get_neighbor(int dir) const;
     bool is_located_at_running_destination() const;
     bool is_located_at(const Pos2D &pos) const;
+    void set_position(const Pos2D &pos);
     bool in_saved_floor() const;
     int calc_life_rating() const;
     bool try_resist_eldritch_horror() const;
