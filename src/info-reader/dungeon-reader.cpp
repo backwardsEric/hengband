@@ -14,6 +14,7 @@
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
+#include <span>
 
 /*!
  * @brief テキストトークンを走査してフラグを一つ得る(ダンジョン用)
@@ -106,12 +107,12 @@ static bool grab_one_spell_monster_flag(DungeonDefinition &dungeon, std::string_
     return false;
 }
 
-static std::optional<ProbabilityTable<short>> parse_terrain_probability(std::vector<std::string> tokens, int token_start, int token_limit)
+static std::optional<ProbabilityTable<short>> parse_terrain_probability(std::span<const std::string> tokens)
 {
     const auto &terrains = TerrainList::get_instance();
     ProbabilityTable<short> prob_table;
 
-    for (auto i = token_start; std::cmp_less(i + 1, token_limit); i += 2) {
+    for (auto i = 0; std::cmp_less(i + 1, tokens.size()); i += 2) {
         try {
             const auto terrain_id = terrains.get_terrain_id(tokens[i]);
             const auto prob = static_cast<short>(std::stoi(tokens[i + 1]));
@@ -240,7 +241,7 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 
-        auto prob_table = parse_terrain_probability(tokens, 1, 1 + terrain_probability_num * 2);
+        auto prob_table = parse_terrain_probability(std::span(tokens).subspan(1, terrain_probability_num * 2));
         if (!prob_table) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
         }
@@ -257,18 +258,18 @@ errr parse_dungeons_info(std::string_view buf, angband_header *)
             return PARSE_ERROR_TOO_FEW_ARGUMENTS;
         }
 
-        auto prob_table = parse_terrain_probability(tokens, 1, 1 + terrain_probability_num * 2);
+        auto prob_table = parse_terrain_probability(std::span(tokens).subspan(1, terrain_probability_num * 2));
         if (!prob_table) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
         }
         dungeon->prob_table_wall = std::move(*prob_table);
 
         try {
-            const auto token_start = tokens.begin() + terrain_probability_num * 2 + 1;
-            dungeon->outer_wall = terrains.get_terrain_id(*token_start);
-            dungeon->inner_wall = terrains.get_terrain_id(*(token_start + 1));
-            dungeon->stream1 = terrains.get_terrain_id(*(token_start + 2));
-            dungeon->stream2 = terrains.get_terrain_id(*(token_start + 3));
+            const auto tags = std::span(tokens).subspan(terrain_probability_num * 2 + 1, 4);
+            dungeon->outer_wall = terrains.get_terrain_id(tags[0]);
+            dungeon->inner_wall = terrains.get_terrain_id(tags[1]);
+            dungeon->stream1 = terrains.get_terrain_id(tags[2]);
+            dungeon->stream2 = terrains.get_terrain_id(tags[3]);
             return PARSE_ERROR_NONE;
         } catch (const std::exception &) {
             return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;

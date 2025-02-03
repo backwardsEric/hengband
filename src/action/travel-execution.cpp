@@ -67,10 +67,11 @@ static DIRECTION travel_test(PlayerType *player_ptr, DIRECTION prev_dir)
 
     int cost = travel.cost[player_ptr->y][player_ptr->x];
     DIRECTION new_dir = 0;
-    for (int i = 0; i < 8; ++i) {
-        int dir_cost = travel.cost[player_ptr->y + ddy_ddd[i]][player_ptr->x + ddx_ddd[i]];
+    for (const auto &d : Direction::directions_8()) {
+        const auto pos_neighbor = player_ptr->get_position() + d.vec();
+        int dir_cost = travel.cost[pos_neighbor.y][pos_neighbor.x];
         if (dir_cost < cost) {
-            new_dir = ddd[i];
+            new_dir = d.dir();
             cost = dir_cost;
         }
     }
@@ -126,10 +127,10 @@ void travel_step(PlayerType *player_ptr)
  * @brief トラベル処理の記憶配列を初期化する Hack: forget the "flow" information
  * @param player_ptr	プレイヤーへの参照ポインタ
  */
-void forget_travel_flow(FloorType *floor_ptr)
+void forget_travel_flow(const FloorType &floor)
 {
-    for (POSITION y = 0; y < floor_ptr->height; y++) {
-        for (POSITION x = 0; x < floor_ptr->width; x++) {
+    for (POSITION y = 0; y < floor.height; y++) {
+        for (POSITION x = 0; x < floor.width; x++) {
             travel.cost[y][x] = MAX_SHORT;
         }
     }

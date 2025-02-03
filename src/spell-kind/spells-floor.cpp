@@ -73,8 +73,8 @@ void wiz_lite(PlayerType *player_ptr, bool ninja)
             grid.info |= (CAVE_KNOWN);
 
             /* Scan all neighbors */
-            for (OBJECT_IDX i = 0; i < 9; i++) {
-                const auto pos_neighbor = pos + Pos2DVec(ddy_ddd[i], ddx_ddd[i]);
+            for (const auto &d : Direction::directions()) {
+                const auto pos_neighbor = pos + d.vec();
                 auto &grid_neighbor = floor.get_grid(pos_neighbor);
 
                 /* Feature code (applying "mimic" field) */
@@ -162,7 +162,7 @@ void wiz_dark(PlayerType *player_ptr)
     }
 
     /* Forget travel route when we have forgotten map */
-    forget_travel_flow(player_ptr->current_floor_ptr);
+    forget_travel_flow(*player_ptr->current_floor_ptr);
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
@@ -218,8 +218,8 @@ void map_area(PlayerType *player_ptr, POSITION range)
             }
 
             /* Memorize known walls */
-            for (int i = 0; i < 8; i++) {
-                auto &grid_neighbor = floor.get_grid(pos + Pos2DVec(ddy_ddd[i], ddx_ddd[i]));
+            for (const auto &d : Direction::directions_8()) {
+                auto &grid_neighbor = floor.get_grid(pos + d.vec());
 
                 /* Feature code (applying "mimic" field) */
                 const auto terrain_id = grid_neighbor.get_terrain_id(TerrainKind::MIMIC);
@@ -270,7 +270,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
 
     /* Lose monster light */
     if (!in_generate) {
-        clear_mon_lite(&floor);
+        clear_mon_lite(floor);
     }
 
     /* Big area of affect */
@@ -279,7 +279,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
     for (auto y = (y1 - r); y <= (y1 + r); y++) {
         for (auto x = (x1 - r); x <= (x1 + r); x++) {
             const Pos2D pos(y, x);
-            if (!in_bounds(&floor, pos.y, pos.x)) {
+            if (!in_bounds(floor, pos.y, pos.x)) {
                 continue;
             }
 
@@ -421,7 +421,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
     for (auto y = (y1 - r); y <= (y1 + r); y++) {
         for (auto x = (x1 - r); x <= (x1 + r); x++) {
             const Pos2D pos(y, x);
-            if (!in_bounds(&floor, pos.y, pos.x)) {
+            if (!in_bounds(floor, pos.y, pos.x)) {
                 continue;
             }
 
@@ -441,9 +441,9 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
                 continue;
             }
 
-            for (auto i = 0; i < 9; i++) {
-                const Pos2D pos_neighbor(pos.y + ddy_ddd[i], pos.x + ddx_ddd[i]);
-                if (!in_bounds2(&floor, pos_neighbor.y, pos_neighbor.x)) {
+            for (const auto &d : Direction::directions()) {
+                const auto pos_neighbor = pos + d.vec();
+                if (!in_bounds2(floor, pos_neighbor.y, pos_neighbor.x)) {
                     continue;
                 }
 
@@ -463,7 +463,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
         }
     }
 
-    forget_flow(&floor);
+    forget_flow(floor);
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::UN_VIEW,

@@ -37,7 +37,7 @@ static coordinate_candidate sweep_safe_coordinate(PlayerType *player_ptr, MONSTE
     const auto m_pos = monster.get_position();
     for (const auto &vec : offsets) {
         const auto pos = m_pos + vec;
-        if (!in_bounds(&floor, pos.y, pos.x)) {
+        if (!in_bounds(floor, pos.y, pos.x)) {
             continue;
         }
 
@@ -97,10 +97,7 @@ std::optional<Pos2DVec> find_safety(PlayerType *player_ptr, short m_idx)
 {
     const auto &monster = player_ptr->current_floor_ptr->m_list[m_idx];
     for (auto d = 1; d < 10; d++) {
-        /// @todo clang-15以降は直接DIST_OFFSETS[d]を受け取るコンストラクタが使用できる
-        const auto offsets = std::span(DIST_OFFSETS[d]);
-
-        const auto candidate = sweep_safe_coordinate(player_ptr, m_idx, offsets, d);
+        const auto candidate = sweep_safe_coordinate(player_ptr, m_idx, DIST_OFFSETS[d], d);
         if (candidate.gdis <= 0) {
             continue;
         }
@@ -126,7 +123,7 @@ static void sweep_hiding_candidate(
     const auto m_pos = monster.get_position();
     for (const auto &vec : offsets) {
         const auto pos = m_pos + vec;
-        if (!in_bounds(player_ptr->current_floor_ptr, pos.y, pos.x)) {
+        if (!in_bounds(*player_ptr->current_floor_ptr, pos.y, pos.x)) {
             continue;
         }
         if (!monster_can_enter(player_ptr, pos.y, pos.x, &monrace, 0)) {
@@ -156,10 +153,7 @@ std::optional<Pos2D> find_hiding(PlayerType *player_ptr, short m_idx)
     coordinate_candidate candidate;
     candidate.gdis = 999;
     for (auto d = 1; d < 10; d++) {
-        /// @todo clang-15以降は直接DIST_OFFSETS[d]を受け取るコンストラクタが使用できる
-        const auto offsets = std::span(DIST_OFFSETS[d]);
-
-        sweep_hiding_candidate(player_ptr, monster, offsets, candidate);
+        sweep_hiding_candidate(player_ptr, monster, DIST_OFFSETS[d], candidate);
         if (candidate.gdis >= 999) {
             continue;
         }

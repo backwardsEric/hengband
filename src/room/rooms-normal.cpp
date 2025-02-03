@@ -359,29 +359,23 @@ bool build_type3(PlayerType *player_ptr, DungeonData *dd_ptr)
         }
     }
 
+    const Rect2D rect_inner(y1b, x1a, y2b, x2a);
     /* Special features (3/4) */
     switch (randint0(4)) {
         /* Large solid middle pillar */
     case 1: {
-        for (auto y = y1b; y <= y2b; y++) {
-            for (auto x = x1a; x <= x2a; x++) {
-                place_grid(player_ptr, &floor.get_grid({ y, x }), GB_INNER);
-            }
-        }
+        rect_inner.each_area([&](const auto &pos) {
+            place_grid(player_ptr, &floor.get_grid(pos), GB_INNER);
+        });
         break;
     }
 
     /* Inner treasure vault */
     case 2: {
         /* Build the vault */
-        for (auto y = y1b; y <= y2b; y++) {
-            place_grid(player_ptr, &floor.get_grid({ y, x1a }), GB_INNER);
-            place_grid(player_ptr, &floor.get_grid({ y, x2a }), GB_INNER);
-        }
-        for (auto x = x1a; x <= x2a; x++) {
-            place_grid(player_ptr, &floor.get_grid({ y1b, x }), GB_INNER);
-            place_grid(player_ptr, &floor.get_grid({ y1b, x }), GB_INNER);
-        }
+        rect_inner.each_edge([&](const auto &pos) {
+            place_grid(player_ptr, &floor.get_grid(pos), GB_INNER);
+        });
 
         /* Place a secret door on the inner room */
         switch (randint0(4)) {
@@ -406,7 +400,7 @@ bool build_type3(PlayerType *player_ptr, DungeonData *dd_ptr)
         vault_monsters(player_ptr, center->y, center->x, randint0(2) + 3);
 
         /* Traps naturally */
-        vault_traps(&floor, center->y, center->x, 4, 4, randint0(3) + 2);
+        vault_traps(floor, center->y, center->x, 4, 4, randint0(3) + 2);
 
         break;
     }
@@ -617,7 +611,7 @@ bool build_type4(PlayerType *player_ptr, DungeonData *dd_ptr)
         }
 
         /* Traps to protect the treasure */
-        vault_traps(&floor, center->y, center->x, 4, 10, 2 + randint1(3));
+        vault_traps(floor, center->y, center->x, 4, 10, 2 + randint1(3));
 
         break;
     }
@@ -729,8 +723,8 @@ bool build_type4(PlayerType *player_ptr, DungeonData *dd_ptr)
         vault_monsters(player_ptr, center->y, center->x + 5, randint1(3));
 
         /* Traps make them entertaining. */
-        vault_traps(&floor, center->y, center->x - 3, 2, 8, randint1(3));
-        vault_traps(&floor, center->y, center->x + 3, 2, 8, randint1(3));
+        vault_traps(floor, center->y, center->x - 3, 2, 8, randint1(3));
+        vault_traps(floor, center->y, center->x + 3, 2, 8, randint1(3));
 
         /* Mazes should have some treasure too. */
         vault_objects(player_ptr, center->y, center->x, 3);
@@ -901,7 +895,7 @@ bool build_type12(PlayerType *player_ptr, DungeonData *dd_ptr)
         vault_monsters(player_ptr, center->y, center->x, randint0(2) + 3);
 
         /* Traps naturally */
-        vault_traps(&floor, center->y, center->x, 4, 4, randint0(3) + 2);
+        vault_traps(floor, center->y, center->x, 4, 4, randint0(3) + 2);
     }
 
     return true;

@@ -113,9 +113,9 @@ void search(PlayerType *player_ptr)
         chance = chance / 10;
     }
 
-    for (DIRECTION i = 0; i < 9; ++i) {
+    for (const auto &d : Direction::directions()) {
         if (evaluate_percent(chance)) {
-            discover_hidden_things(player_ptr, { player_ptr->y + ddy_ddd[i], player_ptr->x + ddx_ddd[i] });
+            discover_hidden_things(player_ptr, player_ptr->get_position() + d.vec());
         }
     }
 }
@@ -165,7 +165,7 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
         lite_spot(player_ptr, pos_new.y, pos_new.x);
         verify_panel(player_ptr);
         if (mpe_mode & MPE_FORGET_FLOW) {
-            forget_flow(&floor);
+            forget_flow(floor);
             rfu.set_flag(StatusRecalculatingFlag::UN_VIEW);
             rfu.set_flag(MainWindowRedrawingFlag::MAP);
         }
