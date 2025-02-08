@@ -8,7 +8,6 @@
 #include "core/window-redrawer.h"
 #include "floor/floor-save-util.h"
 #include "floor/floor-util.h"
-#include "floor/wild.h"
 #include "game-option/cheat-options.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/map-screen-options.h"
@@ -42,6 +41,7 @@
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/redrawing-flags-updater.h"
@@ -61,7 +61,7 @@ static void process_fishing(PlayerType *player_ptr)
         bool success = false;
         get_mon_num_prep_enum(player_ptr, MonraceHook::FISHING);
         const auto &floor = *player_ptr->current_floor_ptr;
-        const auto wild_level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
+        const auto wild_level = WildernessGrids::get_instance().get_player_grid().level;
         const auto level = floor.is_underground() ? floor.dun_level : wild_level;
         const auto r_idx = get_mon_num(player_ptr, 0, level, PM_NONE);
         msg_print(nullptr);
@@ -166,7 +166,7 @@ void process_player(PlayerType *player_ptr)
     const auto effects = player_ptr->effects();
     if (player_ptr->riding && !effects->confusion().is_confused() && !effects->blindness().is_blind()) {
         auto *m_ptr = &player_ptr->current_floor_ptr->m_list[player_ptr->riding];
-        auto *r_ptr = &m_ptr->get_monrace();
+        const auto &monrace = m_ptr->get_monrace();
         if (m_ptr->is_asleep()) {
             const auto m_name = monster_desc(player_ptr, m_ptr, 0);
             (void)set_monster_csleep(player_ptr, player_ptr->riding, 0);
@@ -175,7 +175,7 @@ void process_player(PlayerType *player_ptr)
 
         if (m_ptr->is_stunned()) {
             if (set_monster_stunned(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_stun() - 1))) {
+                    (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_stun() - 1))) {
                 const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                 msg_format(_("%s^を朦朧状態から立ち直らせた。", "%s^ is no longer stunned."), m_name.data());
             }
@@ -183,7 +183,7 @@ void process_player(PlayerType *player_ptr)
 
         if (m_ptr->is_confused()) {
             if (set_monster_confused(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_confusion() - 1))) {
+                    (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_confusion() - 1))) {
                 const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                 msg_format(_("%s^を混乱状態から立ち直らせた。", "%s^ is no longer confused."), m_name.data());
             }
@@ -191,7 +191,7 @@ void process_player(PlayerType *player_ptr)
 
         if (m_ptr->is_fearful()) {
             if (set_monster_monfear(player_ptr, player_ptr->riding,
-                    (randint0(r_ptr->level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_fear() - 1))) {
+                    (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (m_ptr->get_remaining_fear() - 1))) {
                 const auto m_name = monster_desc(player_ptr, m_ptr, 0);
                 msg_format(_("%s^を恐怖から立ち直らせた。", "%s^ is no longer fearful."), m_name.data());
             }
@@ -321,17 +321,15 @@ void process_player(PlayerType *player_ptr)
             }
 
             for (MONSTER_IDX m_idx = 1; m_idx < player_ptr->current_floor_ptr->m_max; m_idx++) {
-                MonsterEntity *m_ptr;
-                MonraceDefinition *r_ptr;
-                m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
+                auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
                 if (!m_ptr->is_valid()) {
                     continue;
                 }
 
-                r_ptr = &m_ptr->get_appearance_monrace();
+                const auto &monrace = m_ptr->get_appearance_monrace();
 
                 // モンスターのシンボル/カラーの更新
-                if (m_ptr->ml && r_ptr->visual_flags.has_any_of({ MonsterVisualType::MULTI_COLOR, MonsterVisualType::SHAPECHANGER })) {
+                if (m_ptr->ml && monrace.visual_flags.has_any_of({ MonsterVisualType::MULTI_COLOR, MonsterVisualType::SHAPECHANGER })) {
                     lite_spot(player_ptr, m_ptr->fy, m_ptr->fx);
                 }
 
@@ -342,7 +340,7 @@ void process_player(PlayerType *player_ptr)
 
                 if (m_ptr->mflag.has(MonsterTemporaryFlagType::SANITY_BLAST)) {
                     m_ptr->mflag.reset(MonsterTemporaryFlagType::SANITY_BLAST);
-                    sanity_blast(player_ptr, m_ptr, false);
+                    sanity_blast(player_ptr, m_idx);
                 }
 
                 // 感知中のモンスターのフラグを落とす処理

@@ -294,6 +294,8 @@
     <ClCompile Include="..\..\src\cmd-action\cmd-tunnel.cpp" />
     <ClCompile Include="..\..\src\action\movement-execution.cpp" />
     <ClCompile Include="..\..\src\core\score-util.cpp" />
+    <ClCompile Include="..\..\src\external-lib\fmt\format.cc" />
+    <ClCompile Include="..\..\src\system\floor\wilderness-grid.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-monrace-service.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-service.cpp" />
     <ClCompile Include="..\..\src\system\floor\floor-list.cpp" />
@@ -874,7 +876,7 @@
     <ClCompile Include="..\..\src\cmd-item\cmd-zaprod.cpp" />
     <ClCompile Include="..\..\src\cmd-item\cmd-zapwand.cpp" />
     <ClCompile Include="..\..\src\cmd-io\diary-subtitle-table.cpp" />
-    <ClCompile Include="..\..\src\cmd-io\feeling-table.cpp" />
+    <ClCompile Include="..\..\src\floor\dungeon-feeling.cpp" />
     <ClCompile Include="..\..\src\knowledge\lighting-level-table.cpp" />
     <ClCompile Include="..\..\src\knowledge\monster-group-table.cpp" />
     <ClCompile Include="..\..\src\knowledge\item-group-table.cpp" />
@@ -1015,9 +1017,9 @@
     <ClInclude Include="..\..\src\action\open-util.h" />
     <ClInclude Include="..\..\src\action\run-execution.h" />
     <ClInclude Include="..\..\src\external-lib\include-json.h" />
-    <ClInclude Include="..\..\src\external-lib\json.hpp" />
     <ClInclude Include="..\..\src\system\enums\terrain\terrain-kind.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h" />
+    <ClInclude Include="..\..\src\system\floor\wilderness-grid.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-monrace-service.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-service.h" />
     <ClInclude Include="..\..\src\system\enums\dungeon\dungeon-id.h" />
@@ -1882,7 +1884,7 @@
     <ClInclude Include="..\..\src\cmd-item\cmd-zaprod.h" />
     <ClInclude Include="..\..\src\cmd-item\cmd-zapwand.h" />
     <ClInclude Include="..\..\src\cmd-io\diary-subtitle-table.h" />
-    <ClInclude Include="..\..\src\cmd-io\feeling-table.h" />
+    <ClInclude Include="..\..\src\floor\dungeon-feeling.h" />
     <ClInclude Include="..\..\src\knowledge\lighting-level-table.h" />
     <ClInclude Include="..\..\src\knowledge\monster-group-table.h" />
     <ClInclude Include="..\..\src\knowledge\item-group-table.h" />

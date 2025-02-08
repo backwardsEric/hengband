@@ -66,9 +66,6 @@ public:
 
     int16_t town_num{}; /* Current town number */
 
-    POSITION wilderness_x{}; /* Coordinates in the wilderness */
-    POSITION wilderness_y{};
-
     int mhp{}; /* Max hit pts */
     int chp{}; /* Cur hit pts */
     uint32_t chp_frac{}; /* Cur hit frac (times 2^16) */
@@ -208,9 +205,6 @@ public:
     FLOOR_IDX floor_id{}; /* Current floor location */
 
     bool autopick_autoregister{}; /* auto register is in-use or not */
-
-    byte feeling{}; /* Most recent dungeon feeling */
-    int32_t feeling_turn{}; /* The turn of the last dungeon feeling */
 
     std::shared_ptr<ItemEntity[]> inventory_list{}; /* The player's inventory */
     int16_t inven_cnt{}; /* Number of items in inventory */

@@ -67,7 +67,7 @@ std::optional<Pos2D> mon_scatter(PlayerType *player_ptr, MonraceId monrace_id, c
 
             if (MonraceList::is_valid(monrace_id)) {
                 const auto &monrace = monraces.get_monrace(monrace_id);
-                if (!monster_can_enter(player_ptr, pos_neighbor.y, pos_neighbor.x, &monrace, 0)) {
+                if (!monster_can_enter(player_ptr, pos_neighbor.y, pos_neighbor.x, monrace, 0)) {
                     continue;
                 }
             } else {
@@ -258,7 +258,7 @@ std::optional<MONSTER_IDX> place_specific_monster(PlayerType *player_ptr, POSITI
             continue;
         }
 
-        get_mon_num_prep_escort(player_ptr, r_idx, *m_idx, get_monster_hook2(player_ptr, pos_neighbor.y, pos_neighbor.x));
+        get_mon_num_prep_escort(player_ptr, r_idx, *m_idx, player_ptr->current_floor_ptr->get_monrace_hook_terrain_at(pos_neighbor));
         const auto monrace_id = get_mon_num(player_ptr, 0, monrace.level, 0);
         if (!MonraceList::is_valid(monrace_id)) {
             break;
@@ -282,9 +282,9 @@ std::optional<MONSTER_IDX> place_specific_monster(PlayerType *player_ptr, POSITI
  */
 std::optional<MONSTER_IDX> place_random_monster(PlayerType *player_ptr, POSITION y, POSITION x, BIT_FLAGS mode)
 {
+    const Pos2D pos(y, x);
     const auto &floor = *player_ptr->current_floor_ptr;
-    const Pos2D pos_wilderness(player_ptr->wilderness_y, player_ptr->wilderness_x);
-    get_mon_num_prep_enum(player_ptr, get_monster_hook(pos_wilderness, floor.is_underground()), get_monster_hook2(player_ptr, y, x));
+    get_mon_num_prep_enum(player_ptr, floor.get_monrace_hook(), floor.get_monrace_hook_terrain_at(pos));
     const auto &monraces = MonraceList::get_instance();
     MonraceId monrace_id;
     do {
@@ -340,8 +340,7 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
 {
     Pos2D pos(y, x);
     const auto &floor = *player_ptr->current_floor_ptr;
-    const Pos2D pos_wilderness(player_ptr->wilderness_y, player_ptr->wilderness_x);
-    get_mon_num_prep_enum(player_ptr, get_monster_hook(pos_wilderness, floor.is_underground()), get_monster_hook2(player_ptr, pos.y, pos.x));
+    get_mon_num_prep_enum(player_ptr, floor.get_monrace_hook(), floor.get_monrace_hook_terrain_at(pos));
     const auto monrace_id = select_horde_leader_r_idx(player_ptr);
     if (!monrace_id) {
         return false;
@@ -405,7 +404,7 @@ bool alloc_guardian(PlayerType *player_ptr, bool def_val)
             continue;
         }
 
-        if (!monster_can_cross_terrain(player_ptr, floor.get_grid(pos).feat, &monrace, 0)) {
+        if (!monster_can_cross_terrain(player_ptr, floor.get_grid(pos).feat, monrace, 0)) {
             try_count++;
             continue;
         }

@@ -114,7 +114,6 @@ hengband_SOURCES = \
 	cmd-io/cmd-process-screen.cpp cmd-io/cmd-process-screen.h \
 	cmd-io/cmd-save.cpp cmd-io/cmd-save.h \
 	cmd-io/diary-subtitle-table.cpp cmd-io/diary-subtitle-table.h \
-	cmd-io/feeling-table.cpp cmd-io/feeling-table.h \
 	cmd-io/macro-util.cpp cmd-io/macro-util.h \
 	\
 	cmd-item/cmd-destroy.cpp cmd-item/cmd-destroy.h \
@@ -193,7 +192,7 @@ hengband_SOURCES = \
 	effect/effect-characteristics.h \
 	\
 	external-lib/include-json.h \
-	external-lib/json.hpp \
+	external-lib/include/json.hpp \
 	external-lib/include/std/detail/associated_types.hpp \
 	external-lib/include/std/iterator \
 	external-lib/include/concepts/compare.hpp \
@@ -513,6 +512,21 @@ hengband_SOURCES = \
 	external-lib/include/range/v3/range.hpp \
 	external-lib/include/meta/meta.hpp \
 	external-lib/include/meta/meta_fwd.hpp \
+	external-lib/include/fmt/core.h \
+	external-lib/include/fmt/ranges.h \
+	external-lib/include/fmt/compile.h \
+	external-lib/include/fmt/color.h \
+	external-lib/include/fmt/xchar.h \
+	external-lib/include/fmt/format.h \
+	external-lib/include/fmt/format-inl.h \
+	external-lib/include/fmt/os.h \
+	external-lib/include/fmt/base.h \
+	external-lib/include/fmt/chrono.h \
+	external-lib/include/fmt/args.h \
+	external-lib/include/fmt/std.h \
+	external-lib/include/fmt/printf.h \
+	external-lib/include/fmt/ostream.h \
+	external-lib/fmt/format.cc \
 	\
 	flavor/flag-inscriptions-table.cpp flavor/flag-inscriptions-table.h \
 	flavor/flavor-describer.cpp flavor/flavor-describer.h \
@@ -524,6 +538,7 @@ hengband_SOURCES = \
 	\
 	floor/cave.cpp floor/cave.h \
 	floor/cave-generator.cpp floor/cave-generator.h \
+	floor/dungeon-feeling.cpp floor/dungeon-feeling.h \
 	floor/dungeon-tunnel-util.cpp floor/dungeon-tunnel-util.h \
 	floor/fixed-map-generator.cpp floor/fixed-map-generator.h \
 	floor/floor-allocation-types.h \
@@ -1271,6 +1286,7 @@ hengband_SOURCES = \
 	system/floor/floor-list.cpp system/floor/floor-list.h \
 	system/floor/town-info.cpp system/floor/town-info.h \
 	system/floor/town-list.cpp system/floor/town-list.h \
+	system/floor/wilderness-grid.cpp system/floor/wilderness-grid.h \
 	\
 	system/monrace/monrace-allocation.cpp system/monrace/monrace-allocation.h \
 	system/monrace/monrace-definition.cpp system/monrace/monrace-definition.h \

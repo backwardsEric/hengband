@@ -94,16 +94,16 @@ static MonsterSpellResult spell_RF6_SPECIAL_UNIFICATION(PlayerType *player_ptr, 
         auto unified_hp = 0;
         auto unified_maxhp = 0;
         for (short k = 1; k < floor.m_max; k++) {
-            const auto &monster = floor.m_list[k];
-            if (!separates.contains(monster.r_idx)) {
+            const auto &monster_separate = floor.m_list[k];
+            if (!separates.contains(monster_separate.r_idx)) {
                 continue;
             }
 
-            unified_hp += monster.hp;
-            unified_maxhp += monster.maxhp;
-            if (monster.r_idx != m_ptr->r_idx) {
-                dummy_y = monster.fy;
-                dummy_x = monster.fx;
+            unified_hp += monster_separate.hp;
+            unified_maxhp += monster_separate.maxhp;
+            if (monster_separate.r_idx != m_ptr->r_idx) {
+                dummy_y = monster_separate.fy;
+                dummy_x = monster_separate.fx;
             }
 
             delete_monster_idx(player_ptr, k);
@@ -182,7 +182,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     const auto &floor = *player_ptr->current_floor_ptr;
     const auto *m_ptr = &floor.m_list[m_idx];
     const auto *t_ptr = &floor.m_list[t_idx];
-    MonraceDefinition *tr_ptr = &t_ptr->get_monrace();
+    const auto &monrace_target = t_ptr->get_monrace();
     bool monster_to_player = (target_type == MONSTER_TO_PLAYER);
     bool monster_to_monster = (target_type == MONSTER_TO_MONSTER);
     bool direct = player_ptr->is_located_at({ y, x });
@@ -218,7 +218,7 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
         teleport_monster_to(player_ptr, t_idx, m_ptr->fy, m_ptr->fx, 100, i2enum<teleport_flags>(TELEPORT_NONMAGICAL | TELEPORT_PASSIVE));
     }
 
-    if ((monster_to_player && player_ptr->levitation) || (monster_to_monster && tr_ptr->feature_flags.has(MonsterFeatureType::CAN_FLY))) {
+    if ((monster_to_player && player_ptr->levitation) || (monster_to_monster && monrace_target.feature_flags.has(MonsterFeatureType::CAN_FLY))) {
         msg.to_player = _("あなたは静かに着地した。", "You float gently down to the ground.");
         msg.to_mons = _("%s^は静かに着地した。", "%s^ floats gently down to the ground.");
     } else {

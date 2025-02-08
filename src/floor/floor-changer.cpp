@@ -3,6 +3,7 @@
 #include "dungeon/quest-monster-placer.h"
 #include "dungeon/quest.h"
 #include "effect/effect-characteristics.h"
+#include "floor/dungeon-feeling.h"
 #include "floor/floor-generator.h"
 #include "floor/floor-mode-changer.h"
 #include "floor/floor-object.h"
@@ -96,7 +97,7 @@ static std::pair<short, Pos2D> decide_pet_index(PlayerType *player_ptr, const in
         int j;
         for (j = 1000; j > 0; j--) {
             pos = scatter(player_ptr, p_pos, d, PROJECT_NONE);
-            if (monster_can_enter(player_ptr, pos.y, pos.x, &party_mon[current_monster].get_monrace(), 0)) {
+            if (monster_can_enter(player_ptr, pos.y, pos.x, party_mon[current_monster].get_monrace(), 0)) {
                 break;
             }
         }
@@ -112,20 +113,19 @@ static std::pair<short, Pos2D> decide_pet_index(PlayerType *player_ptr, const in
 
 static MonraceDefinition &set_pet_params(PlayerType *player_ptr, const int current_monster, MONSTER_IDX m_idx, const POSITION cy, const POSITION cx)
 {
-    auto *m_ptr = &player_ptr->current_floor_ptr->m_list[m_idx];
     player_ptr->current_floor_ptr->grid_array[cy][cx].m_idx = m_idx;
-    m_ptr->r_idx = party_mon[current_monster].r_idx;
-    *m_ptr = party_mon[current_monster].clone();
-    m_ptr->fy = cy;
-    m_ptr->fx = cx;
-    m_ptr->current_floor_ptr = player_ptr->current_floor_ptr;
-    m_ptr->ml = true;
-    m_ptr->mtimed[MonsterTimedEffect::SLEEP] = 0;
-    m_ptr->hold_o_idx_list.clear();
-    m_ptr->target_y = 0;
-    auto &r_ref = m_ptr->get_real_monrace();
+    auto &monster = player_ptr->current_floor_ptr->m_list[m_idx];
+    monster = party_mon[current_monster].clone();
+    monster.fy = cy;
+    monster.fx = cx;
+    monster.current_floor_ptr = player_ptr->current_floor_ptr;
+    monster.ml = true;
+    monster.mtimed[MonsterTimedEffect::SLEEP] = 0;
+    monster.hold_o_idx_list.clear();
+    monster.target_y = 0;
+    auto &r_ref = monster.get_real_monrace();
     if (!ironman_nightmare) {
-        m_ptr->mflag.set(MonsterTemporaryFlagType::PREVENT_MAGIC);
+        monster.mflag.set(MonsterTemporaryFlagType::PREVENT_MAGIC);
     }
 
     return r_ref;
@@ -453,17 +453,19 @@ void change_floor(PlayerType *player_ptr)
     player_ptr->ambush_flag = false;
     update_floor(player_ptr);
     place_pet(player_ptr);
-    forget_travel_flow(*player_ptr->current_floor_ptr);
-    update_unique_artifact(*player_ptr->current_floor_ptr, new_floor_id);
+    auto &floor = *player_ptr->current_floor_ptr;
+    forget_travel_flow(floor);
+    update_unique_artifact(floor, new_floor_id);
     player_ptr->floor_id = new_floor_id;
     world.character_dungeon = true;
     if (player_ptr->ppersonality == PERSONALITY_MUNCHKIN) {
         wiz_lite(player_ptr, PlayerClass(player_ptr).equals(PlayerClassType::NINJA));
     }
 
-    player_ptr->current_floor_ptr->generated_turn = world.game_turn;
-    player_ptr->feeling_turn = player_ptr->current_floor_ptr->generated_turn;
-    player_ptr->feeling = 0;
+    floor.generated_turn = world.game_turn;
+    auto &df = DungeonFeeling::get_instance();
+    df.set_turns(floor.generated_turn);
+    df.set_feeling(0);
     auto &fcms = FloorChangeModesStore::get_instace();
     fcms->clear();
     select_floor_music(player_ptr);

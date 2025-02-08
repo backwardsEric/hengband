@@ -704,8 +704,8 @@
     <ClCompile Include="..\..\src\cmd-io\diary-subtitle-table.cpp">
       <Filter>cmd-io</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\cmd-io\feeling-table.cpp">
-      <Filter>cmd-io</Filter>
+    <ClCompile Include="..\..\src\floor\dungeon-feeling.cpp">
+      <Filter>floor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\cmd-action\cmd-attack.cpp">
       <Filter>cmd-action</Filter>
@@ -2550,6 +2550,12 @@
     <ClCompile Include="..\..\src\util\elapsed-time.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\external-lib\fmt\format.cc">
+      <Filter>external-lib\fmt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\floor\wilderness-grid.cpp">
+      <Filter>system\floor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\combat\shoot.h">
@@ -3302,8 +3308,8 @@
     <ClInclude Include="..\..\src\cmd-io\diary-subtitle-table.h">
       <Filter>cmd-io</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\cmd-io\feeling-table.h">
-      <Filter>cmd-io</Filter>
+    <ClInclude Include="..\..\src\floor\dungeon-feeling.h">
+      <Filter>floor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\cmd-action\cmd-attack.h">
       <Filter>cmd-action</Filter>
@@ -5391,9 +5397,6 @@
     <ClInclude Include="..\..\src\util\stack-trace.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\external-lib\json.hpp">
-      <Filter>external-lib</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\external-lib\include-json.h">
       <Filter>external-lib</Filter>
     </ClInclude>
@@ -5540,6 +5543,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h">
       <Filter>system\enums\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\floor\wilderness-grid.h">
+      <Filter>system\floor</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -5837,6 +5843,9 @@
     </Filter>
     <Filter Include="system\enums\dungeon">
       <UniqueIdentifier>{605bab39-a92d-4c11-ae24-56e39e302f36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external-lib\fmt">
+      <UniqueIdentifier>{de5173c3-9151-46e9-a937-8861a5a14c00}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
