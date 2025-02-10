@@ -741,7 +741,7 @@ void wiz_zap_surrounding_monsters(PlayerType *player_ptr)
         }
 
         if (record_named_pet && monster.is_named_pet()) {
-            const auto m_name = monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE);
+            const auto m_name = monster_desc(player_ptr, monster, MD_INDEF_VISIBLE);
             exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_WIZ_ZAP, m_name);
         }
 
@@ -763,7 +763,7 @@ void wiz_zap_floor_monsters(PlayerType *player_ptr)
         }
 
         if (record_named_pet && monster.is_named_pet()) {
-            const auto m_name = monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE);
+            const auto m_name = monster_desc(player_ptr, monster, MD_INDEF_VISIBLE);
             exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_WIZ_ZAP, m_name);
         }
 
@@ -804,17 +804,11 @@ void cheat_death(PlayerType *player_ptr)
 
     floor.reset_dungeon_index();
     auto &wilderness = WildernessGrids::get_instance();
-    if (lite_town || vanilla_town) {
-        wilderness.set_player_position({ 1, 1 });
-        if (vanilla_town) {
-            player_ptr->oldpy = 10;
-            player_ptr->oldpx = 34;
-        } else {
-            player_ptr->oldpy = 33;
-            player_ptr->oldpx = 131;
-        }
+    wilderness.initialize_position();
+    if (vanilla_town) {
+        player_ptr->oldpy = 10;
+        player_ptr->oldpx = 34;
     } else {
-        wilderness.initialize_position();
         player_ptr->oldpy = 33;
         player_ptr->oldpx = 131;
     }

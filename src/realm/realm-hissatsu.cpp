@@ -75,13 +75,13 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
 
     case 1:
         if (cast) {
-            const auto cdir = get_direction_as_cdir(player_ptr);
-            if (!cdir) {
+            const auto dir = get_direction(player_ptr);
+            if (!dir) {
                 return std::nullopt;
             }
 
-            const auto attack_to = [player_ptr](int cdir) {
-                const auto pos = player_ptr->get_position() + Direction::from_cdir(cdir).vec();
+            const auto attack_to = [player_ptr](const Direction &dir) {
+                const auto pos = player_ptr->get_position() + dir.vec();
                 const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
 
                 if (grid.has_monster()) {
@@ -91,9 +91,10 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
                 }
             };
 
-            attack_to(*cdir); // 指定方向
-            attack_to((*cdir + 7) % 8); // 指定方向の右
-            attack_to((*cdir + 1) % 8); // 指定方向の左
+            const auto dir_selected = Direction(*dir);
+            attack_to(dir_selected);
+            attack_to(dir_selected.rotated_45degree(-1));
+            attack_to(dir_selected.rotated_45degree(1));
         }
         break;
 
@@ -250,7 +251,7 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
                 Pos2D origin(pos.y, pos.x);
                 const auto m_idx = grid.m_idx;
                 auto &monster = floor.m_list[m_idx];
-                const auto m_name = monster_desc(player_ptr, &monster, 0);
+                const auto m_name = monster_desc(player_ptr, monster, 0);
                 Pos2D neighbor(pos.y, pos.x);
                 for (auto i = 0; i < 5; i++) {
                     neighbor += Direction(*dir).vec();
@@ -435,7 +436,7 @@ std::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX s
                     continue;
                 }
 
-                const auto m_name = monster_desc(player_ptr, &monster, 0);
+                const auto m_name = monster_desc(player_ptr, monster, 0);
                 msg_format(_("%sには効果がない！", "%s is unharmed!"), m_name.data());
             }
         }

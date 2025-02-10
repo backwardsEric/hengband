@@ -737,7 +737,8 @@ std::pair<parse_error_type, std::optional<Pos2D>> parse_line_wilderness(char *li
             return { PARSE_ERROR_TOO_FEW_ARGUMENTS, std::nullopt };
         }
 
-        wilderness.set_player_position({ std::stoi(zz[0]), std::stoi(zz[1]) });
+        wilderness.set_starting_player_position({ std::stoi(zz[0]), std::stoi(zz[1]) });
+        wilderness.initialize_position();
         if (!wilderness.is_player_in_bounds()) {
             return { PARSE_ERROR_OUT_OF_BOUNDS, std::nullopt };
         }
@@ -837,16 +838,16 @@ bool change_wild_mode(PlayerType *player_ptr, bool encount)
     bool has_pet = false;
     PlayerEnergy energy(player_ptr);
     for (int i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!m_ptr->is_valid()) {
+        const auto &monster = player_ptr->current_floor_ptr->m_list[i];
+        if (!monster.is_valid()) {
             continue;
         }
 
-        if (m_ptr->is_pet() && !m_ptr->is_riding()) {
+        if (monster.is_pet() && !monster.is_riding()) {
             has_pet = true;
         }
 
-        if (m_ptr->is_asleep() || (m_ptr->cdis > MAX_PLAYER_SIGHT) || !m_ptr->is_hostile()) {
+        if (monster.is_asleep() || (monster.cdis > MAX_PLAYER_SIGHT) || !monster.is_hostile()) {
             continue;
         }
 
