@@ -5173,38 +5173,42 @@ static BOOL send_event(NSEvent *event)
                 [NSApp sendEvent:event];
                 break;
             }
-            
-            if (! [[event characters] length]) break;
-            
-            
+
             /* Extract some modifiers */
             int mc = !! (modifiers & NSControlKeyMask);
             int ms = !! (modifiers & NSShiftKeyMask);
             int mo = !! (modifiers & NSAlternateKeyMask);
             int kp = !! (modifiers & NSNumericPadKeyMask);
-            
-            
+
             /* Get the Angband char corresponding to this unichar */
-            unichar c = [[event characters] characterAtIndex:0];
+            unichar c;
             char ch;
-	    /*
-	     * Have anything from the numeric keypad generate a macro
-	     * trigger so that shift or control modifiers can be passed.
-	     */
-	    if (c <= 0x7F && !kp)
-	    {
-		ch = (char) c;
-	    }
-	    else {
-		/*
-		 * The rest of Hengband uses Angband 2.7's or so key handling:
-		 * so for the rest do something like the encoding that
-		 * main-win.c does:  send a macro trigger with the Unicode
-		 * value encoded into printable ASCII characters.
-		 */
-		ch = '\0';
+            if ([[event characters] length]) {
+                c = [[event characters] characterAtIndex:0];
+                /*
+                 * Have anything from the numeric keypad generate a macro
+                 * trigger so that shift or control modifiers can be passed.
+                 */
+                if (c <= 0x7F && !kp) {
+                    ch = (char) c;
+                } else {
+                    /*
+                     * The rest of Hengband uses Angband 2.7's or so key
+                     * handling: so for the rest do something like the
+                     * encoding that main-win.c does:  send a macro trigger
+                     * with the Unicode value encoded into printable ASCII
+                     * characters.
+                     */
+                    ch = '\0';
+                }
+            } else if ([[event charactersIgnoringModifiers] length]) {
+                /* Pass dead key events as macro triggers. */
+                c = [[event charactersIgnoringModifiers] characterAtIndex:0];
+                ch = '\0';
+            } else {
+                break;
             }
-            
+
             /* override special keys */
             switch([event keyCode]) {
                 case kVK_Return: ch = '\r'; break;
