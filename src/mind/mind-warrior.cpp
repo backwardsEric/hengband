@@ -20,7 +20,7 @@ bool hit_and_away(PlayerType *player_ptr)
         return false;
     }
 
-    const auto pos = player_ptr->get_neighbor(*dir);
+    const auto pos = player_ptr->get_neighbor(dir);
     if (player_ptr->current_floor_ptr->get_grid(pos).has_monster()) {
         do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
         if (randint0(player_ptr->skill_dis) < 7) {
@@ -45,7 +45,7 @@ bool sword_dancing(PlayerType *player_ptr)
 {
     for (auto i = 0; i < 6; i++) {
         const auto d = rand_choice(Direction::directions_8());
-        const auto pos = player_ptr->get_position() + d.vec();
+        const auto pos = player_ptr->get_neighbor(d);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
         if (grid.has_monster()) {
             do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);

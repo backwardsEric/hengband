@@ -68,7 +68,7 @@ static bool boundary_floor(const Grid &grid, const TerrainType &terrain, const T
  * @brief 該当地形のトラップがプレイヤーにとって無効かどうかを判定して返す /
  * Move player in the given direction, with the given "pickup" flag.
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param dir 移動方向ID
+ * @param dir 移動方向
  * @param do_pickup 罠解除を試みながらの移動ならばTRUE
  * @param break_trap トラップ粉砕処理を行うならばTRUE
  * @return 実際に移動が行われたならばTRUEを返す。
@@ -79,7 +79,7 @@ static bool boundary_floor(const Grid &grid, const TerrainType &terrain, const T
  * any monster which might be in the destination grid.  Previously,\n
  * moving into walls was "free" and did NOT hit invisible monsters.\n
  */
-void exe_movement(PlayerType *player_ptr, DIRECTION dir, bool do_pickup, bool break_trap)
+void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, bool break_trap)
 {
     const auto pos = player_ptr->get_neighbor(dir);
     auto &floor = *player_ptr->current_floor_ptr;
@@ -305,7 +305,7 @@ void exe_movement(PlayerType *player_ptr, DIRECTION dir, bool do_pickup, bool br
 
         disturb(player_ptr, false, true);
         if (!boundary_floor(grid, terrain, terrain_mimic)) {
-            sound(SOUND_HITWALL);
+            sound(SoundKind::HITWALL);
         }
     }
 

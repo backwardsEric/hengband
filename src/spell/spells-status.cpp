@@ -538,8 +538,8 @@ bool fishing(PlayerType *player_ptr)
         return false;
     }
 
-    const auto pos = player_ptr->get_neighbor(*dir);
-    player_ptr->fishing_dir = *dir;
+    const auto pos = player_ptr->get_neighbor(dir);
+    player_ptr->fishing_dir = dir.dir();
     const auto &floor = *player_ptr->current_floor_ptr;
     if (!floor.has_terrain_characteristics(pos, TerrainCharacteristics::WATER)) {
         msg_print(_("そこは水辺ではない。", "You can't fish here."));
@@ -592,7 +592,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
 
     const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
     msg_format(_("%sを脱ぎ捨てた。", "You cast off %s."), item_name.data());
-    sound(SOUND_TAKE_OFF);
+    sound(SoundKind::TAKE_OFF);
 
     /* Get effects */
     msg_print(_("「燃え上がれ俺の小宇宙！」", "You say, 'Burn up my cosmo!"));

@@ -38,14 +38,14 @@ short chest_check(const FloorType &floor, const Pos2D &pos, bool trapped)
 /*!
  * @brief プレイヤーの周辺9マスに箱のあるマスがいくつあるかを返す
  * @param trapped TRUEならばトラップの存在が判明している箱のみ対象にする
- * @return 該当する地形の数と、該当するマスの中から1つの座標
+ * @return 該当する地形の数と、該当するマスの中から1つの方向
  */
-std::pair<int, Pos2D> count_chests(PlayerType *player_ptr, bool trapped)
+std::pair<int, Direction> count_chests(PlayerType *player_ptr, bool trapped)
 {
-    Pos2D pos(0, 0);
+    auto dir = Direction::none();
     auto count = 0;
     for (const auto &d : Direction::directions()) {
-        const auto pos_neighbor = player_ptr->get_position() + d.vec();
+        const auto pos_neighbor = player_ptr->get_neighbor(d);
         const auto o_idx = chest_check(*player_ptr->current_floor_ptr, pos_neighbor, false);
         if (o_idx == 0) {
             continue;
@@ -61,8 +61,8 @@ std::pair<int, Pos2D> count_chests(PlayerType *player_ptr, bool trapped)
         }
 
         ++count;
-        pos = pos_neighbor;
+        dir = d;
     }
 
-    return { count, pos };
+    return { count, dir };
 }

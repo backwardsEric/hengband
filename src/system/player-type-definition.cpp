@@ -3,6 +3,7 @@
 #include "monster/monster-util.h"
 #include "system/angband-exceptions.h"
 #include "system/floor/floor-info.h"
+#include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -122,6 +123,11 @@ Pos2D PlayerType::get_position() const
     return Pos2D(this->y, this->x);
 }
 
+Pos2D PlayerType::get_old_position() const
+{
+    return Pos2D(this->oldpy, this->oldpx);
+}
+
 /*!
  * @brief 現在地の隣 (瞬時値)または現在地を返す
  * @param dir 隣を表す方向番号
@@ -136,6 +142,16 @@ Pos2D PlayerType::get_neighbor(int dir) const
     return this->get_position() + Direction(dir).vec();
 }
 
+/*!
+ * @brief 現在地の隣 (瞬時値)または現在地を返す
+ * @param dir 隣を表す方向
+ * @attention プレイヤーが移動する前後の文脈で使用すると不整合を起こすので注意
+ */
+Pos2D PlayerType::get_neighbor(const Direction &dir) const
+{
+    return this->get_position() + dir.vec();
+}
+
 bool PlayerType::is_located_at_running_destination() const
 {
     return (this->y == this->run_py) && (this->x == this->run_px);
@@ -144,6 +160,22 @@ bool PlayerType::is_located_at_running_destination() const
 bool PlayerType::is_located_at(const Pos2D &pos) const
 {
     return (this->y == pos.y) && (this->x == pos.x);
+}
+
+/*!
+ * @brief プレイヤーを指定座標に配置する
+ * @param pos 配置先座標
+ * @return 配置に成功したらTRUE
+ */
+bool PlayerType::try_set_position(const Pos2D &pos)
+{
+    if (this->current_floor_ptr->get_grid(pos).has_monster()) {
+        return false;
+    }
+
+    this->y = pos.y;
+    this->x = pos.x;
+    return true;
 }
 
 void PlayerType::set_position(const Pos2D &pos)
@@ -179,20 +211,4 @@ int PlayerType::calc_life_rating() const
 bool PlayerType::try_resist_eldritch_horror() const
 {
     return evaluate_percent(this->skill_sav) || one_in_(2);
-}
-
-/*!
- * @brief プレイヤーから指定の座標がどの方角にあるかを返す
- * @param pos 確認したい座標
- * @return 方向ID
- */
-int PlayerType::point_direction(const Pos2D &pos) const
-{
-    static const std::vector<std::vector<int>> directions = { { 7, 8, 9 }, { 4, 5, 6 }, { 1, 2, 3 } };
-    const auto pos_dir = pos - this->get_position();
-    if ((std::abs(pos_dir.y) > 1) || (std::abs(pos_dir.x) > 1)) {
-        return 0;
-    }
-
-    return directions[pos_dir.y + 1][pos_dir.x + 1];
 }

@@ -25,6 +25,7 @@ enum class MonsterAbilityType;
 enum class PlayerSkillKindType;
 enum class RealmType;
 enum class Virtue : short;
+class Direction;
 class FloorType;
 class ItemEntity;
 class TimedEffects;
@@ -380,14 +381,16 @@ public:
     std::string decrease_ability_random();
     std::string decrease_ability_all();
     Pos2D get_position() const;
+    Pos2D get_old_position() const;
     Pos2D get_neighbor(int dir) const;
+    Pos2D get_neighbor(const Direction &dir) const;
     bool is_located_at_running_destination() const;
     bool is_located_at(const Pos2D &pos) const;
+    bool try_set_position(const Pos2D &pos);
     void set_position(const Pos2D &pos);
     bool in_saved_floor() const;
     int calc_life_rating() const;
     bool try_resist_eldritch_horror() const;
-    int point_direction(const Pos2D &pos) const;
 
 private:
     std::shared_ptr<TimedEffects> timed_effects;

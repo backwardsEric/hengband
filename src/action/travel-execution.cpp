@@ -68,7 +68,7 @@ static DIRECTION travel_test(PlayerType *player_ptr, DIRECTION prev_dir)
     int cost = travel.cost[player_ptr->y][player_ptr->x];
     DIRECTION new_dir = 0;
     for (const auto &d : Direction::directions_8()) {
-        const auto pos_neighbor = player_ptr->get_position() + d.vec();
+        const auto pos_neighbor = player_ptr->get_neighbor(d);
         int dir_cost = travel.cost[pos_neighbor.y][pos_neighbor.x];
         if (dir_cost < cost) {
             new_dir = d.dir();
@@ -112,15 +112,13 @@ void travel_step(PlayerType *player_ptr)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    exe_movement(player_ptr, travel.dir, always_pickup, false);
+    exe_movement(player_ptr, Direction(travel.dir), always_pickup, false);
     if ((player_ptr->y == travel.y) && (player_ptr->x == travel.x)) {
         travel.run = 0;
         travel.y = travel.x = 0;
     } else if (travel.run > 0) {
         travel.run--;
     }
-
-    term_xtra(TERM_XTRA_DELAY, delay_factor);
 }
 
 /*!

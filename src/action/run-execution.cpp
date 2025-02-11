@@ -35,10 +35,10 @@ byte cycle[MAX_RUN_CYCLES] = { 1, 2, 3, 6, 9, 8, 7, 4, 1, 2, 3, 6, 9, 8, 7, 4, 1
 byte chome[MAX_RUN_CHOME] = { 0, 8, 9, 10, 7, 0, 11, 6, 5, 4 };
 
 /* The direction we are running */
-static Direction find_current;
+static Direction find_current = Direction::none();
 
 /* The direction we came from */
-static Direction find_prevdir;
+static Direction find_prevdir = Direction::none();
 
 static bool find_openarea;
 
@@ -110,7 +110,7 @@ static void run_init(PlayerType *player_ptr, const Direction &dir)
     const auto pos = player_ptr->get_position();
     player_ptr->run_py = pos.y;
     player_ptr->run_px = pos.x;
-    const auto pos_neighbor = player_ptr->get_position() + dir.vec();
+    const auto pos_neighbor = player_ptr->get_neighbor(dir);
     ignore_avoid_run = player_ptr->current_floor_ptr->has_terrain_characteristics(pos_neighbor, TerrainCharacteristics::AVOID_RUN);
     const auto dir_left45 = dir.rotated_45degree(1);
     const auto dir_right45 = dir.rotated_45degree(-1);
@@ -215,13 +215,13 @@ static bool run_test(PlayerType *player_ptr)
         }
     }
 
-    Direction check_dir(0);
-    std::optional<Direction> option;
-    std::optional<Direction> option2;
+    Direction check_dir(5);
+    auto option = Direction::none();
+    auto option2 = Direction::none();
     const auto max = prev_dir.is_diagonal() ? 2 : 1;
     for (auto i = -max; i <= max; i++) {
         const auto new_dir = prev_dir.rotated_45degree(i);
-        const auto pos = player_ptr->get_position() + new_dir.vec();
+        const auto pos = player_ptr->get_neighbor(new_dir);
         const auto &grid = floor.get_grid(pos);
         if (grid.has_monster()) {
             const auto &monster = floor.m_list[grid.m_idx];
@@ -260,7 +260,7 @@ static bool run_test(PlayerType *player_ptr)
             inv = false;
         }
 
-        if (!inv && see_wall(player_ptr, Direction(0), pos)) {
+        if (!inv && see_wall(player_ptr, Direction(5), pos)) {
             if (find_openarea) {
                 if (i < 0) {
                     find_breakright = true;
@@ -333,20 +333,20 @@ static bool run_test(PlayerType *player_ptr)
     }
 
     if (!option2) {
-        find_current = *option;
-        find_prevdir = *option;
+        find_current = option;
+        find_prevdir = option;
         return see_wall(player_ptr, find_current, p_pos);
     } else if (!find_cut) {
-        find_current = *option;
-        find_prevdir = *option2;
+        find_current = option;
+        find_prevdir = option2;
         return see_wall(player_ptr, find_current, p_pos);
     }
 
-    const auto pos = player_ptr->get_position() + option->vec();
-    if (!see_wall(player_ptr, *option, pos) || !see_wall(player_ptr, check_dir, pos)) {
-        if (see_nothing(player_ptr, *option, pos) && see_nothing(player_ptr, *option2, pos)) {
-            find_current = *option;
-            find_prevdir = *option2;
+    const auto pos = player_ptr->get_neighbor(option);
+    if (!see_wall(player_ptr, option, pos) || !see_wall(player_ptr, check_dir, pos)) {
+        if (see_nothing(player_ptr, option, pos) && see_nothing(player_ptr, option2, pos)) {
+            find_current = option;
+            find_prevdir = option2;
             return see_wall(player_ptr, find_current, p_pos);
         }
 
@@ -354,13 +354,13 @@ static bool run_test(PlayerType *player_ptr)
     }
 
     if (find_cut) {
-        find_current = *option2;
-        find_prevdir = *option2;
+        find_current = option2;
+        find_prevdir = option2;
         return see_wall(player_ptr, find_current, p_pos);
     }
 
-    find_current = *option;
-    find_prevdir = *option2;
+    find_current = option;
+    find_prevdir = option2;
     return see_wall(player_ptr, find_current, p_pos);
 }
 
@@ -372,10 +372,10 @@ static bool run_test(PlayerType *player_ptr)
  */
 void run_step(PlayerType *player_ptr, const Direction &dir)
 {
-    if (dir.has_direction()) {
+    if (dir) {
         ignore_avoid_run = true;
         if (see_wall(player_ptr, dir, player_ptr->get_position())) {
-            sound(SOUND_HITWALL);
+            sound(SoundKind::HITWALL);
             msg_print(_("その方向には走れません。", "You cannot run in that direction."));
             disturb(player_ptr, false, false);
             return;
@@ -394,7 +394,7 @@ void run_step(PlayerType *player_ptr, const Direction &dir)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    exe_movement(player_ptr, find_current.dir(), false, false);
+    exe_movement(player_ptr, find_current, false, false);
     if (player_ptr->is_located_at_running_destination()) {
         player_ptr->run_py = 0;
         player_ptr->run_px = 0;

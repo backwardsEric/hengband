@@ -404,7 +404,7 @@ static void apply_damage_negative_effect(player_attack_type *pa_ptr, bool is_zan
     }
 
     if (is_zantetsu_nullified) {
-        sound(SOUND_ATTACK_FAILED);
+        sound(SoundKind::ATTACK_FAILED);
         msg_print(_("こんな軟らかいものは切れん！", "You cannot cut such an elastic thing!"));
         pa_ptr->attack_damage = 0;
     }
@@ -468,7 +468,7 @@ static void apply_actual_attack(
     auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
     int vorpal_chance = (o_ptr->is_specific_artifact(FixedArtifactId::VORPAL_BLADE) || o_ptr->is_specific_artifact(FixedArtifactId::CHAINSWORD)) ? 2 : 4;
 
-    sound(SOUND_HIT);
+    sound(SoundKind::HIT);
     print_surprise_attack(pa_ptr);
 
     pa_ptr->flags = o_ptr->get_flags();
@@ -593,7 +593,7 @@ void massacre(PlayerType *player_ptr)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     for (const auto &d : Direction::directions_8()) {
-        const auto pos = player_ptr->get_position() + d.vec();
+        const auto pos = player_ptr->get_neighbor(d);
         const auto &grid = floor.get_grid(pos);
         const auto &monster = floor.m_list[grid.m_idx];
         if (grid.has_monster() && (monster.ml || floor.has_terrain_characteristics(pos, TerrainCharacteristics::PROJECT))) {
