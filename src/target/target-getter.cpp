@@ -19,44 +19,48 @@
 #include "util/finalizer.h"
 #include "view/display-messages.h"
 #include <string>
+#include <string_view>
+#include <unordered_set>
 
-/*
- * Get an "aiming direction" from the user.
- *
- * The "dir" is loaded with 1,2,3,4,6,7,8,9 for "actual direction", and
- * "0" for "current target", and "-1" for "entry aborted".
- *
- * Note that "Force Target", if set, will pre-empt user interaction,
- * if there is a usable target already set.
- *
- * Note that confusion over-rides any (explicit?) user choice.
+/*!
+ * @brief 上下左右および斜め方向、またはターゲットを指定する
+ * @param enable_repeat
+ * true(デフォルト)の場合、前回と同じターゲットの自動指定ができ、繰り返しコマンドの対象となる
+ * falseの場合、かならず方向かターゲットを選択し、繰り返しコマンドの対象とならない。
+ * @return 指定した方向、またはターゲット(座標はグローバル変数target_row/target_colに格納される)
  */
-bool get_aim_dir(PlayerType *player_ptr, int *dp)
+Direction get_aim_dir(PlayerType *player_ptr, bool enable_repeat)
 {
-    auto dir = command_dir ? command_dir.dir() : 0;
-    if (use_old_target && target_okay(player_ptr)) {
-        dir = 5;
-    }
+    auto dir = Direction::none();
+    if (enable_repeat) {
+        dir = command_dir;
+        auto try_old_target = use_old_target;
 
-    short code = 0;
-    if (repeat_pull(&code) && Direction::is_valid_dir(code)) {
-        if (!(code == 5 && !target_okay(player_ptr))) {
-            dir = code;
+        short code = 0;
+        if (repeat_pull(&code) && Direction::is_valid_dir(code)) {
+            if (code == 5) {
+                try_old_target = true;
+            } else {
+                try_old_target = false;
+                dir = Direction(code);
+            }
+        }
+
+        if (try_old_target && target_okay(player_ptr)) {
+            dir = Direction::targetting();
         }
     }
 
-    *dp = code;
-    while (dir == 0) {
-        std::string prompt;
-        if (!target_okay(player_ptr)) {
-            prompt = _("方向 ('*'でターゲット選択, ESCで中断)? ", "Direction ('*' to choose a target, Escape to cancel)? ");
-        } else {
-            prompt = _("方向 ('5'でターゲットへ, '*'でターゲット再選択, ESCで中断)? ", "Direction ('5' for target, '*' to re-target, Escape to cancel)? ");
-        }
+    while (!dir) {
+        const auto prompt =
+            target_okay(player_ptr)
+                ? _("方向 ('5'でターゲットへ, '*'でターゲット再選択, ESCで中断)? ", "Direction ('5' for target, '*' to re-target, Escape to cancel)? ")
+                : _("方向 ('*'でターゲット選択, ESCで中断)? ", "Direction ('*' to choose a target, Escape to cancel)? ");
 
         const auto command_opt = input_command(prompt, true);
         if (!command_opt) {
-            break;
+            project_length = 0;
+            return Direction::none();
         }
 
         auto command = *command_opt;
@@ -64,53 +68,38 @@ bool get_aim_dir(PlayerType *player_ptr, int *dp)
             command = 't';
         }
 
-        switch (command) {
-        case 'T':
-        case 't':
-        case '.':
-        case '5':
-        case '0':
-            dir = 5;
-            break;
-        case '*':
-        case ' ':
-        case '\r':
-            if (target_set(player_ptr, TARGET_KILL)) {
-                dir = 5;
+        static const std::unordered_set select_new_target_commands = { '*', ' ', '\r' };
+        static const std::unordered_set target_commands = { '*', ' ', '\r', 'T', 't', '.', '5', '0', '*' };
+        if (target_commands.contains(command)) {
+            if (select_new_target_commands.contains(command)) {
+                target_set(player_ptr, TARGET_KILL);
             }
-
-            break;
-        default:
-            dir = get_keymap_dir(command);
-            break;
+            if (target_okay(player_ptr)) {
+                dir = Direction::targetting();
+            }
+        } else {
+            dir = Direction(get_keymap_dir(command));
         }
 
-        if ((dir == 5) && !target_okay(player_ptr)) {
-            dir = 0;
-        }
-
-        if (dir == 0) {
+        if (!dir) {
             bell();
         }
     }
 
-    if (dir == 0) {
-        project_length = 0;
-        return false;
-    }
-
-    command_dir = Direction(dir);
+    command_dir = dir;
     if (player_ptr->effects()->confusion().is_confused()) {
-        dir = rand_choice(Direction::directions_8()).dir();
+        dir = rand_choice(Direction::directions_8());
     }
 
-    if (command_dir != Direction(dir)) {
+    if (command_dir != dir) {
         msg_print(_("あなたは混乱している。", "You are confused."));
     }
 
-    *dp = dir;
-    repeat_push((COMMAND_CODE)command_dir.dir());
-    return true;
+    if (enable_repeat) {
+        repeat_push(static_cast<short>(command_dir.dir()));
+    }
+
+    return dir;
 }
 
 /*!
@@ -192,7 +181,7 @@ Direction get_rep_dir(PlayerType *player_ptr, bool under)
         }
 
         if (under && ((command == '5') || (command == '-') || (command == '.'))) {
-            dir = Direction(5);
+            dir = Direction::self();
             break;
         }
 
@@ -202,7 +191,7 @@ Direction get_rep_dir(PlayerType *player_ptr, bool under)
         }
     }
 
-    if (dir == Direction(5) && !under) {
+    if (dir == Direction::self() && !under) {
         return Direction::none();
     }
 
