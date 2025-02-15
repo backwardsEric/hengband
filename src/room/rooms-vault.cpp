@@ -5,12 +5,6 @@
  */
 
 #include "room/rooms-vault.h"
-#include "dungeon/dungeon-flag-types.h"
-#include "floor/cave.h"
-#include "floor/floor-generator-util.h"
-#include "floor/floor-generator.h"
-#include "floor/geometry.h"
-#include "floor/wild.h"
 #include "game-option/cheat-types.h"
 #include "grid/door.h"
 #include "grid/grid.h"
@@ -26,9 +20,7 @@
 #include "room/rooms-maze-vault.h"
 #include "room/space-finder.h"
 #include "room/treasure-deployment.h"
-#include "store/store-util.h"
 #include "store/store.h"
-#include "system/dungeon/dungeon-data-definition.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
@@ -36,7 +28,6 @@
 #include "system/floor/town-list.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
-#include "util/probability-table.h"
 #include "wizard/wizard-messages.h"
 
 /*
@@ -367,14 +358,14 @@ static void build_vault(
                 break;
             case '*':
                 if (evaluate_percent(75)) {
-                    place_object(player_ptr, pos.y, pos.x, 0L);
+                    place_object(player_ptr, pos, 0);
                 } else {
-                    place_trap(floor, pos.y, pos.x);
+                    place_trap(floor, pos);
                 }
 
                 break;
             case '[':
-                place_object(player_ptr, pos.y, pos.x, 0L);
+                place_object(player_ptr, pos, 0);
                 break;
             case ':':
                 grid.set_terrain_id(TerrainTag::TREE);
@@ -393,7 +384,7 @@ static void build_vault(
                 place_secret_door(player_ptr, pos, DoorKind::CURTAIN);
                 break;
             case '^':
-                place_trap(floor, pos.y, pos.x);
+                place_trap(floor, pos);
                 break;
             case 'S':
                 floor.set_terrain_id_at(pos, TerrainTag::BLACK_MARKET);
@@ -422,7 +413,7 @@ static void build_vault(
                 break;
             case 'A':
                 floor.object_level = floor.base_level + 12;
-                place_object(player_ptr, pos.y, pos.x, AM_GOOD | AM_GREAT);
+                place_object(player_ptr, pos, AM_GOOD | AM_GREAT);
                 floor.object_level = floor.base_level;
                 break;
             case '~':
@@ -517,7 +508,7 @@ static void build_vault(
                 place_random_monster(player_ptr, y, x, PM_ALLOW_SLEEP);
                 floor.monster_level = floor.base_level;
                 floor.object_level = floor.base_level + 7;
-                place_object(player_ptr, y, x, AM_GOOD);
+                place_object(player_ptr, { y, x }, AM_GOOD);
                 floor.object_level = floor.base_level;
                 break;
             }
@@ -528,7 +519,7 @@ static void build_vault(
                 place_random_monster(player_ptr, y, x, PM_ALLOW_SLEEP);
                 floor.monster_level = floor.base_level;
                 floor.object_level = floor.base_level + 20;
-                place_object(player_ptr, y, x, AM_GOOD | AM_GREAT);
+                place_object(player_ptr, { y, x }, AM_GOOD | AM_GREAT);
                 floor.object_level = floor.base_level;
                 break;
             }
@@ -542,7 +533,7 @@ static void build_vault(
                 }
                 if (one_in_(2)) {
                     floor.object_level = floor.base_level + 7;
-                    place_object(player_ptr, y, x, 0L);
+                    place_object(player_ptr, { y, x }, 0);
                     floor.object_level = floor.base_level;
                 }
                 break;
@@ -741,7 +732,7 @@ static void build_mini_c_vault(PlayerType *player_ptr, const Pos2D &center, cons
     auto &floor = *player_ptr->current_floor_ptr;
     for (auto x = x1 - 2; x <= x2 + 2; x++) {
         const Pos2D pos(y1 - 2, x);
-        if (!in_bounds(floor, pos.y, pos.x)) {
+        if (!floor.contains(pos)) {
             break;
         }
 
@@ -751,7 +742,7 @@ static void build_mini_c_vault(PlayerType *player_ptr, const Pos2D &center, cons
 
     for (auto x = x1 - 2; x <= x2 + 2; x++) {
         const Pos2D pos(y2 + 2, x);
-        if (!in_bounds(floor, pos.y, pos.x)) {
+        if (!floor.contains(pos)) {
             break;
         }
 
@@ -761,7 +752,7 @@ static void build_mini_c_vault(PlayerType *player_ptr, const Pos2D &center, cons
 
     for (auto y = y1 - 2; y <= y2 + 2; y++) {
         const Pos2D pos(y, x1 - 2);
-        if (!in_bounds(floor, pos.y, pos.x)) {
+        if (!floor.contains(pos)) {
             break;
         }
 
@@ -770,11 +761,11 @@ static void build_mini_c_vault(PlayerType *player_ptr, const Pos2D &center, cons
     }
 
     for (auto y = y1 - 2; y <= y2 + 2; y++) {
-        if (!in_bounds(floor, y, x2 + 2)) {
+        const Pos2D pos(y, x2 + 2);
+        if (!floor.contains(pos)) {
             break;
         }
 
-        const Pos2D pos(y, x2 + 2);
         floor.get_grid(pos).info |= (CAVE_ROOM | CAVE_ICKY);
         place_bold(player_ptr, pos.y, pos.x, GB_OUTER_NOPERM);
     }

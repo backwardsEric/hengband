@@ -1,8 +1,6 @@
 #include "grid/trap.h"
-#include "cmd-io/cmd-dump.h"
 #include "cmd-io/cmd-save.h"
 #include "core/disturbance.h"
-#include "dungeon/quest.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "floor/cave.h"
@@ -10,18 +8,14 @@
 #include "game-option/birth-options.h"
 #include "game-option/special-options.h"
 #include "grid/grid.h"
-#include "io/files-util.h"
 #include "io/write-diary.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-mirror-master.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster/monster-util.h"
-#include "player-info/class-info.h"
 #include "player/eldritch-horror.h"
 #include "player/player-damage.h"
-#include "player/player-personality-types.h"
 #include "player/player-status-flags.h"
 #include "player/player-status.h"
 #include "spell-kind/spells-launcher.h"
@@ -39,10 +33,7 @@
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "target/projection-path-calculator.h"
-#include "timed-effect/timed-effects.h"
-#include "util/enum-converter.h"
 #include "view/display-messages.h"
-#include "world/world.h"
 
 /*!
  * @brief 箱のトラップテーブル
@@ -123,42 +114,38 @@ const std::vector<EnumClassFlagGroup<ChestTrapType>> chest_traps = {
 };
 
 /*!
- * @brief マスに存在する隠しトラップを公開する /
- * Disclose an invisible trap
- * @param player
- * @param y 秘匿したいマスのY座標
- * @param x 秘匿したいマスのX座標
+ * @brief マスに存在する隠しトラップを公開する
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param pos 秘匿したいマスの座標
  */
-void disclose_grid(PlayerType *player_ptr, POSITION y, POSITION x)
+void disclose_grid(PlayerType *player_ptr, const Pos2D &pos)
 {
-    auto &grid = player_ptr->current_floor_ptr->grid_array[y][x];
+    auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
 
     if (grid.has(TerrainCharacteristics::SECRET)) {
         /* No longer hidden */
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::SECRET);
+        cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::SECRET);
     } else if (grid.mimic) {
         /* No longer hidden */
         grid.mimic = 0;
 
-        note_spot(player_ptr, y, x);
-        lite_spot(player_ptr, y, x);
+        note_spot(player_ptr, pos.y, pos.x);
+        lite_spot(player_ptr, pos.y, pos.x);
     }
 }
 
 /*!
  * @brief マスにトラップを配置する
- * @param y 配置したいマスのY座標
- * @param x 配置したいマスのX座標
+ * @param pos 配置したいマスの座標
  */
-void place_trap(FloorType &floor, POSITION y, POSITION x)
+void place_trap(FloorType &floor, const Pos2D &pos)
 {
-    const Pos2D pos(y, x);
     auto &grid = floor.get_grid(pos);
-    if (!in_bounds(floor, y, x)) {
+    if (!floor.contains(pos)) {
         return;
     }
 
-    if (!cave_clean_bold(floor, y, x)) {
+    if (!cave_clean_bold(floor, pos.y, pos.x)) {
         return;
     }
 
@@ -473,7 +460,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
             const auto num = levs[std::min(lev / 10, 9)];
             for (auto i = 0; i < num; i++) {
                 const Pos2D pos(rand_spread(p_pos.y, 5), rand_spread(p_pos.x, 7));
-                if (!in_bounds(floor, pos.y, pos.x)) {
+                if (!floor.contains(pos)) {
                     continue;
                 }
 
