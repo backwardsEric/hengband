@@ -12,14 +12,11 @@
 #include "combat/shoot.h"
 #include "combat/slaying.h"
 #include "core/stuff-handler.h"
-#include "core/window-redrawer.h"
-#include "effect/attribute-types.h"
 #include "effect/spells-effect-util.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/cave.h"
 #include "floor/floor-object.h"
-#include "floor/geometry.h"
 #include "game-option/cheat-types.h"
 #include "grid/grid.h"
 #include "inventory/inventory-object.h"
@@ -28,7 +25,6 @@
 #include "io/screen-util.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "monster-floor/monster-death.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster/monster-damage.h"
@@ -36,13 +32,8 @@
 #include "monster/monster-info.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
-#include "object-enchant/tr-types.h"
-#include "object-hook/hook-expendable.h"
-#include "object-hook/hook-weapon.h"
-#include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "object/object-broken.h"
-#include "object/object-info.h"
 #include "object/object-stack.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
@@ -62,10 +53,7 @@
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "tracking/lore-tracker.h"
-#include "util/bit-flags-calculator.h"
-#include "util/string-processor.h"
 #include "view/display-messages.h"
-#include "view/display-symbol.h"
 #include "view/object-describer.h"
 #include "wizard/wizard-messages.h"
 
@@ -138,13 +126,9 @@ bool ObjectThrowEntity::calc_throw_grid()
         return false;
     }
 
-    const auto vec = dir.vec();
-    this->tx = this->player_ptr->x + 99 * vec.x;
-    this->ty = this->player_ptr->y + 99 * vec.y;
-    if (dir.is_targetting() && target_okay(this->player_ptr)) {
-        this->tx = target_col;
-        this->ty = target_row;
-    }
+    const auto pos_target = dir.get_target_position(this->player_ptr->get_position(), 99);
+    this->tx = pos_target.x;
+    this->ty = pos_target.y;
 
     project_length = 0;
     return true;
@@ -413,7 +397,7 @@ void ObjectThrowEntity::check_racial_target_seen()
     move_cursor_relative(this->ny[this->cur_dis], this->nx[this->cur_dis]);
     term_fresh();
     term_xtra(TERM_XTRA_DELAY, this->msec);
-    lite_spot(this->player_ptr, this->ny[this->cur_dis], this->nx[this->cur_dis]);
+    lite_spot(this->player_ptr, { this->ny[this->cur_dis], this->nx[this->cur_dis] });
     term_fresh();
 }
 
@@ -533,7 +517,7 @@ void ObjectThrowEntity::process_boomerang_throw()
         move_cursor_relative(this->ny[i], this->nx[i]);
         term_fresh();
         term_xtra(TERM_XTRA_DELAY, this->msec);
-        lite_spot(this->player_ptr, this->ny[i], this->nx[i]);
+        lite_spot(this->player_ptr, { this->ny[i], this->nx[i] });
         term_fresh();
     }
 
