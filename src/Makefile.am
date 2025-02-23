@@ -632,6 +632,7 @@ hengband_SOURCES = \
 	io/input-key-processor.cpp io/input-key-processor.h \
 	io/input-key-requester.cpp io/input-key-requester.h \
 	io/interpret-pref-file.cpp io/interpret-pref-file.h \
+	io/macro-configurations-store.cpp io/macro-configurations-store.h \
 	io/mutations-dump.cpp io/mutations-dump.h \
 	io/pref-file-expressor.cpp io/pref-file-expressor.h \
 	io/read-pref-file.cpp io/read-pref-file.h \
@@ -1316,7 +1317,6 @@ hengband_SOURCES = \
 	term/term-color-types.h \
 	term/z-form.cpp term/z-form.h term/z-rand.cpp term/z-rand.h \
 	term/z-term.cpp term/z-term.h term/z-util.cpp term/z-util.h \
-	term/z-virt.cpp term/z-virt.h \
 	\
 	timed-effect/player-acceleration.cpp timed-effect/player-acceleration.h \
 	timed-effect/player-blindness.cpp timed-effect/player-blindness.h \
