@@ -1527,6 +1527,8 @@ appja_DATA = $(cocoa_ja_strings_files) $(cocoa_ja_misc_files) \
 	../THIRD-PARTY-NOTICES.txt
 appjadir = $(APPRES)/ja.lproj
 else
+AM_OBJCXXFLAGS =
+AM_CXXFLAGS =
 EXTRA_hengband_SOURCES += main-cocoa.mm system/grafmode.h system/grafmode.cpp \
 	cocoa/AppDelegate.h
 hengband_LINK = $(CXXLINK)
@@ -1535,26 +1537,39 @@ endif
 # The "-I$(top_builddir)/src/cocoa" is there so can use the same include
 # directives in the cocoa/*.{h,mm} files when building here or rebuilding the
 # nib files in Xcode according to the procedure in cocoa/AppDelegate.m.
-DEFAULT_INCLUDES = -I$(srcdir) -I$(srcdir)/external-lib/include \
+DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(srcdir)/external-lib/include \
 	-I$(top_builddir)/src -I$(top_builddir)/src/external-lib/include \
 	-I$(top_builddir)/src/cocoa
 CPPFLAGS += $(XFT_CFLAGS) $(libcurl_CFLAGS)
 LIBS += $(XFT_LIBS) $(libcurl_LIBS)
-COMPILE = $(srcdir)/gcc-wrap $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-OBJCXXCOMPILE = $(srcdir)/gcc-wrap $(OBJCXX) $(DEFS) $(DEFAULT_INCLUDES) \
-	$(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_OBJCXXFLAGS) $(OBJCXXFLAGS)
-CXXCOMPILE = $(srcdir)/gcc-wrap $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+
+if COMPILER_HAVE_EXEC_CHARSET_EUC_JP_MS
+AM_CXXFLAGS += -fexec-charset=euc-jp-ms
+endif
+
+if USE_NKF
+CXXCOMPILE_WRAPPER = $(srcdir)/gcc-wrap
+DEFAULT_INCLUDES += -I$(top_builddir)/src -I$(top_builddir)/src/external-lib/include
+if COMPILER_IS_CLANG
+AM_OBJCXXFLAGS += -Wno-invalid-source-encoding
+AM_CXXFLAGS += -Wno-invalid-source-encoding
+endif
+if PCH
+PCH_INCLUDES = -include $(top_builddir)/src/stdafx.h
+endif
+else
+if PCH
+PCH_INCLUDES = -include $(srcdir)/stdafx.h
+endif
+endif
+
+OBJCXXCOMPILE = $(strip $(CXXCOMPILE_WRAPPER) $(OBJCXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_OBJCXXFLAGS) $(OBJCXXFLAGS))
+CXXCOMPILE = $(strip $(CXXCOMPILE_WRAPPER) $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(PCH_INCLUDES))
 
 if PCH
-# Would use CPPFLAGS, but that affects both the C++ and Objective-C++
-# preprocessing:  don't want to use the precompiled header for the
-# Objective-C++ code.
-CXXCOMPILE += -include ../src/stdafx.h
 
 stdafx.h.gch: stdafx.h stdafx.cpp Makefile
-	$(CXX) -x c++-header $(CXXFLAGS) $(AM_CXXFLAGS) $(DEFAULT_INCLUDES) $(srcdir)/stdafx.cpp -o $@
+	$(CXX) -x c++-header $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(srcdir)/stdafx.cpp -o $@
 	if test none != "$(PCH_CHECKSUMMER)" ; then \
 		rm -f "$@".sum ; \
 		$(PCH_CHECKSUMMER) $@ > "$@".sum ; \
@@ -1570,12 +1585,6 @@ if SET_GID
 endif
 
 if COCOA
-# Suppress the warnings from the EUC-JP encoded strings used when building
-# the Japanese version.
-AM_CFLAGS += -Wno-invalid-source-encoding
-AM_CXXFLAGS += -Wno-invalid-source-encoding
-AM_OBJCXXFLAGS += -Wno-invalid-source-encoding
-
 # Create lib/info within the application bundle since not currently
 # installing anything to it.  Other relevant lib directories should
 # be created from the Makefiles in the lib directory.

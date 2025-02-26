@@ -841,7 +841,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                             msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), m_name.data());
                         }
 
-                        monster.set_target(player_ptr->y, player_ptr->x);
+                        monster.set_target(player_ptr->get_position());
 
                         /* Sniper */
                         if (snipe_type == SP_RUSH) {
@@ -858,7 +858,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                                 const auto pos_to = mmove2(pos_impact, player_ptr->get_position(), pos_target);
 
                                 /* Stopped by wilderness boundary */
-                                if (!in_bounds2(floor, pos_to.y, pos_to.x)) {
+                                if (!floor.contains(pos_to, FloorBoundary::OUTER_WALL_INCLUSIVE)) {
                                     break;
                                 }
 
