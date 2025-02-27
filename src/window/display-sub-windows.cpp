@@ -302,7 +302,7 @@ void fix_pet_list(PlayerType *player_ptr)
  */
 static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tester)
 {
-    if (!player_ptr || !player_ptr->inventory) {
+    if (!player_ptr || player_ptr->inventory.empty()) {
         return;
     }
 
@@ -314,7 +314,7 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
             break;
         }
 
-        const auto &item = player_ptr->inventory[i];
+        const auto &item = *player_ptr->inventory[i];
         auto do_disp = player_ptr->select_ring_slot ? is_ring_slot(i) : item_tester.okay(&item);
         std::string tmp_val = "   ";
 
@@ -589,7 +589,7 @@ static void display_floor_item_list(PlayerType *player_ptr, const Pos2D &pos)
     // (y,x) のアイテムを1行に1個ずつ書く。
     TERM_LEN term_y = 1;
     for (const auto o_idx : grid.o_idx_list) {
-        const auto &item = floor.o_list[o_idx];
+        const auto &item = *floor.o_list[o_idx];
         const auto tval = item.bi_key.tval();
         if (item.marked.has_not(OmType::FOUND) || tval == ItemKindType::GOLD) {
             continue;
@@ -645,13 +645,13 @@ static void display_found_item_list(PlayerType *player_ptr)
     // OM_FOUNDフラグが立っていない
     // ItemKindTypeがGOLD
     std::vector<const ItemEntity *> found_item_list;
-    for (auto &item : floor.o_list) {
+    for (auto &item_ptr : floor.o_list) {
         const auto is_item_to_display =
-            item.is_valid() && (item.number > 0) &&
-            item.marked.has(OmType::FOUND) && (item.bi_key.tval() != ItemKindType::GOLD);
+            item_ptr->is_valid() && (item_ptr->number > 0) &&
+            item_ptr->marked.has(OmType::FOUND) && (item_ptr->bi_key.tval() != ItemKindType::GOLD);
 
         if (is_item_to_display) {
-            found_item_list.push_back(&item);
+            found_item_list.push_back(item_ptr.get());
         }
     }
 

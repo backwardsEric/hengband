@@ -56,7 +56,7 @@ auto collect_known_fixed_artifacts(PlayerType *player_ptr)
         for (auto x = 0; x < floor.width; x++) {
             const auto &grid = floor.get_grid({ y, x });
             for (const auto this_o_idx : grid.o_idx_list) {
-                const auto &item = floor.o_list[this_o_idx];
+                const auto &item = *floor.o_list[this_o_idx];
                 if (!item.is_fixed_artifact() || item.is_known()) {
                     continue;
                 }
@@ -67,7 +67,7 @@ auto collect_known_fixed_artifacts(PlayerType *player_ptr)
     }
 
     for (auto i = 0; i < INVEN_TOTAL; i++) {
-        const auto &item = player_ptr->inventory[i];
+        const auto &item = *player_ptr->inventory[i];
         if (!item.is_valid()) {
             continue;
         }

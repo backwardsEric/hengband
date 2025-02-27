@@ -48,7 +48,7 @@
 bool can_get_item(PlayerType *player_ptr, const ItemTester &item_tester)
 {
     for (int j = 0; j < INVEN_TOTAL; j++) {
-        if (item_tester.okay(&player_ptr->inventory[j])) {
+        if (item_tester.okay(player_ptr->inventory[j].get())) {
             return true;
         }
     }
@@ -94,7 +94,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     for (auto it = o_idx_list.begin(); it != o_idx_list.end();) {
         const OBJECT_IDX this_o_idx = *it++;
-        auto &item = player_ptr->current_floor_ptr->o_list[this_o_idx];
+        auto &item = *player_ptr->current_floor_ptr->o_list[this_o_idx];
         const auto item_name = describe_flavor(player_ptr, item, 0);
         disturb(player_ptr, false, false);
         if (item.bi_key.tval() == ItemKindType::GOLD) {
@@ -125,7 +125,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
 
     if (!pickup) {
         if (floor_num == 1) {
-            const auto &item = player_ptr->current_floor_ptr->o_list[floor_o_idx];
+            const auto &item = *player_ptr->current_floor_ptr->o_list[floor_o_idx];
             const auto item_name = describe_flavor(player_ptr, item, 0);
             msg_format(_("%sがある。", "You see %s."), item_name.data());
         } else {
@@ -137,7 +137,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
 
     if (!can_pickup) {
         if (floor_num == 1) {
-            const auto &item = player_ptr->current_floor_ptr->o_list[floor_o_idx];
+            const auto &item = *player_ptr->current_floor_ptr->o_list[floor_o_idx];
             const auto item_name = describe_flavor(player_ptr, item, 0);
             msg_format(_("ザックには%sを入れる隙間がない。", "You have no room for %s."), item_name.data());
         } else {
@@ -162,7 +162,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
         return;
     }
 
-    const auto &item = player_ptr->current_floor_ptr->o_list[floor_o_idx];
+    const auto &item = *player_ptr->current_floor_ptr->o_list[floor_o_idx];
     const auto item_name = describe_flavor(player_ptr, item, 0);
     const auto prompt = format(_("%sを拾いますか? ", "Pick up %s? "), item_name.data());
     if (!input_check(prompt)) {
@@ -187,7 +187,7 @@ void py_pickup_floor(PlayerType *player_ptr, bool pickup)
  */
 void describe_pickup_item(PlayerType *player_ptr, OBJECT_IDX o_idx)
 {
-    auto *o_ptr = &player_ptr->current_floor_ptr->o_list[o_idx];
+    auto *o_ptr = player_ptr->current_floor_ptr->o_list[o_idx].get();
 #ifdef JP
     const auto old_item_name = describe_flavor(player_ptr, *o_ptr, OD_NAME_ONLY);
     const auto picked_count_str = describe_count_with_counter_suffix(*o_ptr);
@@ -197,7 +197,7 @@ void describe_pickup_item(PlayerType *player_ptr, OBJECT_IDX o_idx)
 #endif
 
     auto slot = store_item_to_inventory(player_ptr, o_ptr);
-    o_ptr = &player_ptr->inventory[slot];
+    o_ptr = player_ptr->inventory[slot].get();
     delete_object_idx(player_ptr, o_idx);
     if (player_ptr->ppersonality == PERSONALITY_MUNCHKIN) {
         bool old_known = identify_item(player_ptr, o_ptr);
@@ -256,7 +256,7 @@ void carry(PlayerType *player_ptr, bool pickup)
 
     for (auto it = grid.o_idx_list.begin(); it != grid.o_idx_list.end();) {
         const OBJECT_IDX this_o_idx = *it++;
-        auto &item = player_ptr->current_floor_ptr->o_list[this_o_idx];
+        auto &item = *player_ptr->current_floor_ptr->o_list[this_o_idx];
         const auto item_name = describe_flavor(player_ptr, item, 0);
         disturb(player_ptr, false, false);
         if (item.bi_key.tval() == ItemKindType::GOLD) {

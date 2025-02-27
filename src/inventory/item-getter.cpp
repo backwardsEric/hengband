@@ -65,7 +65,7 @@ static bool check_item_tag_aux(PlayerType *player_ptr, item_selection_type *item
 
     ItemEntity *o_ptr;
     item_selection_ptr->k = 0 - (*item_selection_ptr->cp);
-    o_ptr = &player_ptr->current_floor_ptr->o_list[item_selection_ptr->k];
+    o_ptr = player_ptr->current_floor_ptr->o_list[item_selection_ptr->k].get();
     if (!item_tester.okay(o_ptr) && ((item_selection_ptr->mode & USE_FULL) == 0)) {
         return false;
     }
@@ -161,7 +161,7 @@ static void test_inventory(PlayerType *player_ptr, item_selection_type *item_sel
     }
 
     for (int j = 0; j < INVEN_PACK; j++) {
-        if (item_tester.okay(&player_ptr->inventory[j]) || (item_selection_ptr->mode & USE_FULL)) {
+        if (item_tester.okay(player_ptr->inventory[j].get()) || (item_selection_ptr->mode & USE_FULL)) {
             item_selection_ptr->max_inven++;
         }
     }
@@ -185,7 +185,7 @@ static void test_equipment(PlayerType *player_ptr, item_selection_type *item_sel
 
     for (int j = INVEN_MAIN_HAND; j < INVEN_TOTAL; j++) {
         if (player_ptr->select_ring_slot ? is_ring_slot(j)
-                                         : item_tester.okay(&player_ptr->inventory[j]) || (item_selection_ptr->mode & USE_FULL)) {
+                                         : item_tester.okay(player_ptr->inventory[j].get()) || (item_selection_ptr->mode & USE_FULL)) {
             item_selection_ptr->max_equip++;
         }
     }
@@ -258,7 +258,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
     if (item_selection_ptr->floor) {
         for (const auto this_o_idx : player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list) {
             ItemEntity *o_ptr;
-            o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
+            o_ptr = player_ptr->current_floor_ptr->o_list[this_o_idx].get();
             if ((item_tester.okay(o_ptr) || (item_selection_ptr->mode & USE_FULL)) && o_ptr->marked.has(OmType::FOUND)) {
                 item_selection_ptr->allow_floor = true;
             }
@@ -506,7 +506,7 @@ bool get_item(PlayerType *player_ptr, OBJECT_IDX *cp, concptr pmt, concptr str, 
             if (item_selection_ptr->allow_floor) {
                 for (const auto this_o_idx : player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].o_idx_list) {
                     ItemEntity *o_ptr;
-                    o_ptr = &player_ptr->current_floor_ptr->o_list[this_o_idx];
+                    o_ptr = player_ptr->current_floor_ptr->o_list[this_o_idx].get();
                     if (!item_tester.okay(o_ptr) && !(item_selection_ptr->mode & USE_FULL)) {
                         continue;
                     }
