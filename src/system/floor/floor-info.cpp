@@ -29,6 +29,7 @@
 #include "system/terrain/terrain-list.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-range.h"
+#include "util/point-2d.h"
 #include "world/world.h"
 #include <range/v3/algorithm.hpp>
 
@@ -59,6 +60,18 @@ Grid &FloorType::get_grid(const Pos2D pos)
 const Grid &FloorType::get_grid(const Pos2D pos) const
 {
     return this->grid_array[pos.y][pos.x];
+}
+
+Rect2D FloorType::get_area(FloorBoundary fb) const
+{
+    switch (fb) {
+    case FloorBoundary::OUTER_WALL_EXCLUSIVE:
+        return Rect2D(1, 1, this->height - 2, this->width - 2);
+    case FloorBoundary::OUTER_WALL_INCLUSIVE:
+        return Rect2D(0, 0, this->height - 1, this->width - 1);
+    default:
+        THROW_EXCEPTION(std::logic_error, fmt::format("Invalid FloorBoundary is specified!: {}", enum2i(fb)));
+    }
 }
 
 bool FloorType::is_entering_dungeon() const
@@ -160,9 +173,14 @@ QuestId FloorType::get_quest_id(const int bonus) const
  * @param pos 座標
  * @return LOSフラグを持つか否か
  */
-bool FloorType::has_los(const Pos2D &pos) const
+bool FloorType::has_los_at(const Pos2D &pos) const
 {
     return this->get_grid(pos).has_los();
+}
+
+bool FloorType::has_los_terain_at(const Pos2D &pos) const
+{
+    return this->get_grid(pos).has_los_terrain();
 }
 
 bool FloorType::has_terrain_characteristics(const Pos2D &pos, TerrainCharacteristics tc) const
@@ -317,6 +335,21 @@ bool FloorType::is_empty_at(const Pos2D &pos) const
     auto is_empty_grid = this->has_terrain_characteristics(pos, TerrainCharacteristics::PLACE);
     is_empty_grid &= !this->get_grid(pos).has_monster();
     return is_empty_grid;
+}
+
+bool FloorType::can_generate_monster_at(const Pos2D &pos) const
+{
+    auto is_empty_grid = this->is_empty_at(pos);
+    is_empty_grid &= AngbandWorld::get_instance().character_dungeon || !this->has_terrain_characteristics(pos, TerrainCharacteristics::TREE);
+    return is_empty_grid;
+}
+
+bool FloorType::can_block_disintegration_at(const Pos2D &pos) const
+{
+    const auto can_reach = this->has_terrain_characteristics(pos, TerrainCharacteristics::PROJECT);
+    auto can_disintegrate = this->has_terrain_characteristics(pos, TerrainCharacteristics::HURT_DISI);
+    can_disintegrate &= !this->has_terrain_characteristics(pos, TerrainCharacteristics::PERMANENT);
+    return !can_reach || !can_disintegrate;
 }
 
 /*!
@@ -572,20 +605,9 @@ short FloorType::pop_empty_index_monster()
  */
 short FloorType::pop_empty_index_item()
 {
-    if (this->o_max < MAX_FLOOR_ITEMS) {
-        const auto i = this->o_max;
-        this->o_max++;
-        this->o_cnt++;
-        return i;
-    }
-
-    for (short i = 1; i < this->o_max; i++) {
-        if (this->o_list[i]->is_valid()) {
-            continue;
-        }
-
-        this->o_cnt++;
-        return i;
+    if (this->o_list.size() < MAX_FLOOR_ITEMS) {
+        this->o_list.push_back(std::make_shared<ItemEntity>());
+        return static_cast<short>(this->o_list.size() - 1);
     }
 
     if (AngbandWorld::get_instance().character_dungeon) {

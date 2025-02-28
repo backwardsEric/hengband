@@ -162,7 +162,7 @@ static void monster_pickup_object(PlayerType *player_ptr, turn_flags *turn_flags
     }
 
     turn_flags_ptr->did_kill_item = true;
-    if (floor.has_los({ ny, nx })) {
+    if (floor.has_los_at({ ny, nx })) {
         msg_format(_("%s^が%sを破壊した。", "%s^ destroys %s."), m_name.data(), o_name.data());
     }
 
@@ -214,13 +214,14 @@ void update_object_by_monster_movement(PlayerType *player_ptr, turn_flags *turn_
  */
 void monster_drop_carried_objects(PlayerType *player_ptr, MonsterEntity &monster)
 {
-    for (auto it = monster.hold_o_idx_list.begin(); it != monster.hold_o_idx_list.end();) {
-        const OBJECT_IDX this_o_idx = *it++;
+    std::vector<OBJECT_IDX> delete_i_idx_list;
+    for (const auto this_o_idx : monster.hold_o_idx_list) {
         auto drop_item = player_ptr->current_floor_ptr->o_list[this_o_idx]->clone();
         drop_item.held_m_idx = 0;
-        delete_object_idx(player_ptr, this_o_idx);
+        delete_i_idx_list.push_back(this_o_idx);
         (void)drop_near(player_ptr, &drop_item, monster.get_position());
     }
+    delete_items(player_ptr, std::move(delete_i_idx_list));
 
     monster.hold_o_idx_list.clear();
 }
