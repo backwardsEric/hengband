@@ -133,7 +133,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
         tm_idx = floor.get_grid(pos_target).m_idx;
     }
 
-    ProjectionPath path_g(player_ptr, project_length, player_ptr->get_position(), pos_target, PROJECT_STOP | PROJECT_KILL);
+    ProjectionPath path_g(floor, project_length, p_pos, p_pos, pos_target, PROJECT_STOP | PROJECT_KILL);
     project_length = 0;
     if (path_g.path_num() == 0) {
         return true;
@@ -278,7 +278,7 @@ bool hayagake(PlayerType *player_ptr)
 
     const auto &grid = player_ptr->current_floor_ptr->get_grid(player_ptr->get_position());
     const auto &terrain = grid.get_terrain();
-    if (terrain.flags.has_not(TerrainCharacteristics::PROJECT) || (!player_ptr->levitation && terrain.flags.has(TerrainCharacteristics::DEEP))) {
+    if (terrain.flags.has_not(TerrainCharacteristics::PROJECTION) || (!player_ptr->levitation && terrain.flags.has(TerrainCharacteristics::DEEP))) {
         msg_print(_("ここでは素早く動けない。", "You cannot run in here."));
     } else {
         set_action(player_ptr, ACTION_HAYAGAKE);
