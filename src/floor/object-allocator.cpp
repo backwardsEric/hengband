@@ -1,11 +1,9 @@
 #include "floor/object-allocator.h"
 #include "dungeon/quest.h"
-#include "floor/cave.h"
 #include "floor/floor-generator-util.h"
 #include "game-option/birth-options.h"
 #include "game-option/cheat-types.h"
 #include "grid/object-placer.h"
-#include "grid/trap.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
@@ -46,7 +44,7 @@ static bool alloc_stairs_aux(PlayerType *player_ptr, const Pos2D &pos, int walls
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     const auto &grid = floor.get_grid(pos);
-    if (!grid.is_floor() || pattern_tile(floor, pos.y, pos.x) || !grid.o_idx_list.empty() || grid.has_monster() || next_to_walls(floor, pos) < walls) {
+    if (!grid.is_floor() || grid.has(TerrainCharacteristics::PATTERN) || !grid.o_idx_list.empty() || grid.has_monster() || next_to_walls(floor, pos) < walls) {
         return false;
     }
 
@@ -171,7 +169,7 @@ void alloc_object(PlayerType *player_ptr, dap_type set, dungeon_allocation_type 
             floor.get_grid(pos).info &= ~(CAVE_FLOOR);
             break;
         case ALLOC_TYP_TRAP:
-            place_trap(floor, pos);
+            floor.place_trap_at(pos);
             floor.get_grid(pos).info &= ~(CAVE_FLOOR);
             break;
         case ALLOC_TYP_GOLD:

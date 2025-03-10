@@ -46,9 +46,12 @@ AC_SUBST(DEFAULT_VAR_PATH)
 dnl Checks for programs.
 AC_LANG(C++)
 AC_PROG_CXX
+saved_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-Werror//g')
 dnl Note that the -std= option for Objective-C++ is hardwired in
 dnl src/Makefile.am so that should be changed if this is.
 AX_CXX_COMPILE_STDCXX(20, [noext], [mandatory])
+CXXFLAGS="$saved_CXXFLAGS"
 PKG_PROG_PKG_CONFIG
 
 AC_MSG_CHECKING([whether the compiler is Clang])

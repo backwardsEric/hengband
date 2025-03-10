@@ -337,6 +337,11 @@ bool FloorType::is_empty_at(const Pos2D &pos) const
     return is_empty_grid;
 }
 
+bool FloorType::is_clean_at(const Pos2D &pos) const
+{
+    return this->get_grid(pos).is_clean();
+}
+
 bool FloorType::can_generate_monster_at(const Pos2D &pos) const
 {
     auto is_empty_grid = this->is_empty_at(pos);
@@ -350,6 +355,11 @@ bool FloorType::can_block_disintegration_at(const Pos2D &pos) const
     auto can_disintegrate = this->has_terrain_characteristics(pos, TerrainCharacteristics::HURT_DISI);
     can_disintegrate &= !this->has_terrain_characteristics(pos, TerrainCharacteristics::PERMANENT);
     return !can_reach || !can_disintegrate;
+}
+
+bool FloorType::can_drop_item_at(const Pos2D &pos) const
+{
+    return this->get_grid(pos).can_drop_item();
 }
 
 /*!
@@ -687,6 +697,25 @@ void FloorType::set_terrain_id_at(const Pos2D &pos, TerrainTag tag, TerrainKind 
 void FloorType::set_terrain_id_at(const Pos2D &pos, short terrain_id, TerrainKind tk)
 {
     this->get_grid(pos).set_terrain_id(terrain_id, tk);
+}
+
+/*!
+ * @brief マスにトラップを配置する
+ * @param pos 配置したいマスの座標
+ */
+void FloorType::place_trap_at(const Pos2D &pos)
+{
+    auto &grid = this->get_grid(pos);
+    if (!this->contains(pos)) {
+        return;
+    }
+
+    if (!this->is_clean_at(pos)) {
+        return;
+    }
+
+    grid.mimic = grid.feat;
+    grid.set_terrain_id(this->select_random_trap());
 }
 
 /*!

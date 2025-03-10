@@ -3,7 +3,6 @@
 #include "core/disturbance.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
-#include "floor/cave.h"
 #include "floor/floor-mode-changer.h"
 #include "game-option/birth-options.h"
 #include "game-option/special-options.h"
@@ -132,25 +131,6 @@ void disclose_grid(PlayerType *player_ptr, const Pos2D &pos)
         note_spot(player_ptr, pos);
         lite_spot(player_ptr, pos);
     }
-}
-
-/*!
- * @brief マスにトラップを配置する
- * @param pos 配置したいマスの座標
- */
-void place_trap(FloorType &floor, const Pos2D &pos)
-{
-    auto &grid = floor.get_grid(pos);
-    if (!floor.contains(pos)) {
-        return;
-    }
-
-    if (!cave_clean_bold(floor, pos.y, pos.x)) {
-        return;
-    }
-
-    grid.mimic = grid.feat;
-    grid.set_terrain_id(floor.select_random_trap());
 }
 
 /*!
