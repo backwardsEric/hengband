@@ -1,6 +1,7 @@
 #pragma once
 
 #include "locale/localized-string.h"
+#include "monrace-message.h"
 #include "monster-race/monster-aura-types.h"
 #include "monster-race/race-ability-flags.h"
 #include "monster-race/race-behavior-flags.h"
@@ -21,6 +22,7 @@
 #include "view/display-symbol.h"
 #include <string>
 #include <string_view>
+#include <tl/optional.hpp>
 #include <vector>
 
 /*! モンスターが1ターンに攻撃する最大回数 (射撃を含む) / The maximum number of times a monster can attack in a turn (including SHOOT) */
@@ -160,6 +162,7 @@ public:
     int calc_capture_value() const;
     std::string build_eldritch_horror_message(std::string_view description) const;
     bool has_reinforce() const;
+    tl::optional<const MonsterMessage &> get_message(const MonsterMessageType message_type) const;
     const std::vector<DropArtifact> &get_drop_artifacts() const;
     const std::vector<Reinforce> &get_reinforces() const;
     bool can_generate() const;
@@ -206,6 +209,7 @@ public:
     void init_sex(uint32_t value);
     std::optional<std::string> probe_lore();
     void make_lore_treasure(int num_item, int num_drop);
+    void set_message(MonsterMessageType message_type, int chance, std::string message);
     void emplace_drop_artifact(FixedArtifactId fa_id, int percentage);
     void emplace_reinforce(MonraceId monrace_id, const Dice &dice);
 

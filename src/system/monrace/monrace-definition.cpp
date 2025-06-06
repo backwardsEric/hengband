@@ -8,6 +8,7 @@
 #include "system/enums/grid-flow.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/monrace/monrace-list.h"
+#include "system/monrace/monrace-message.h"
 #include "system/system-variables.h"
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
@@ -329,6 +330,16 @@ bool MonraceDefinition::has_reinforce() const
     const auto it = std::find_if(this->reinforces.begin(), end,
         [](const auto &reinforce) { return reinforce.is_valid(); });
     return it != end;
+}
+
+tl::optional<const MonsterMessage &> MonraceDefinition::get_message(const MonsterMessageType message_type) const
+{
+    auto message = MonraceMessageList::get_instance().get_message((int)this->idx, message_type);
+
+    if (message) {
+        return message;
+    }
+    return tl::nullopt;
 }
 
 const std::vector<DropArtifact> &MonraceDefinition::get_drop_artifacts() const
