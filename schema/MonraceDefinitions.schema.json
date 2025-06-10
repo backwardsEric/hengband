@@ -717,7 +717,8 @@
                                         "WALK_CLOSERANGE",
                                         "WALK_MIDDLERANGE",
                                         "WALK_LONGRANGE",
-                                        "MESSAGE_STALKER"
+                                        "MESSAGE_STALKER",
+                                        "MESSAGE_REFLECT"
                                     ]
                                 },
                                 "chance": {
@@ -725,6 +726,10 @@
                                     "description": "メッセージ発生率。1/chanceで機能する。",
                                     "minimum": 1,
                                     "maximum": 100
+                                },
+                                "use_name": {
+                                    "type": "boolean",
+                                    "description": "メッセージの先頭にモンスター名を表示する。"
                                 },
                                 "message": {
                                     "type": "object",

@@ -50479,6 +50479,7 @@
         {
           "action": "WALK_CLOSERANGE",
           "chance": 20,
+          "use_name" : false,
           "message": {
             "ja": "近くで重厚な足音が聞こえた。",
             "en": "You hear heavy steps nearby."
@@ -50487,6 +50488,7 @@
         {
           "action": "WALK_MIDDLERANGE",
           "chance": 20,
+          "use_name" : false,
           "message": {
             "ja": "重厚な足音が聞こえた。",
             "en": "You hear heavy steps."
@@ -50495,6 +50497,7 @@
         {
           "action": "WALK_LONGRANGE",
           "chance": 40,
+          "use_name" : false,
           "message": {
             "ja": "遠くで重厚な足音が聞こえた。",
             "en": "You hear heavy steps in the distance."
@@ -55897,7 +55900,17 @@
       "flavor": {
         "ja": "石仮面の力で不死の吸血鬼となったディオは冒険者を餌としか見ていない。『ザ・ワールド』に気をつけろ！「奴のスタンドの正体は分からないが、至近距離でしか使えないことは確かだッ」",
         "en": "Dio, who became an immortal vampire with the help of a stone mask, looks only at the adventurer.  Watch out for The World, Dio's stand or visual manifestation of his life energy:  \"I don't know what his stand is, but it is certain that it can only be used at close range.\""
-      }
+      },
+      "message": [
+        {
+          "action": "MESSAGE_REFLECT",
+          "chance": 1,
+          "message": {
+            "ja": "は指一本で攻撃を弾き返した！",
+            "en": "deflected the attack with just one finger!"
+          }
+        }
+      ]
     },
     {
       "id": 879,
@@ -59847,7 +59860,18 @@
       "flavor": {
         "ja": "一子相伝とされる北斗神拳の伝承者だ。力が全てを支配すると思われた時代にあって愛に生き、愛のために戦っている。",
         "en": "He is the rightful master of the martial art, Hokuto Shinken.  At a time when power seems to be everything, he lives in love and fights for love."
-      }
+      },
+      "message": [
+        {
+          "action": "MESSAGE_REFLECT",
+          "chance": 1,
+          "use_name" : false,
+          "message": {
+            "ja": "「北斗神拳奥義・二指真空把！」",
+            "en": "The twofingergrasp of nil space!"
+          }
+        }
+      ]
     },
     {
       "id": 937,
@@ -65056,7 +65080,18 @@
       "flavor": {
         "ja": "ラオウは北斗神拳伝承者ケンシロウの義兄であり北斗神拳の使い手である。激動の闇の時代に、己の信念で新たな時代を築こうとした。",
         "en": "Raou is the eldest of four honorary brothers, another being Kenshirou, who were trained by the master of Hokuto Shinken, a martial art.  Headstrong, Raou tries to forge a new order through conquest in a turbulent dark era."
-      }
+      },
+      "message": [
+        {
+          "action": "MESSAGE_REFLECT",
+          "chance": 1,
+          "use_name" : false,
+          "message": {
+            "ja": "「北斗神拳奥義・二指真空把！」",
+            "en": "The twofingergrasp of nil space!"
+          }
+        }
+      ]
     },
     //#
     //# ジュリアンのやつのコピー。名前？
@@ -88584,7 +88619,6 @@
         "UNIQUE",
         "FORCE_MAXHP",
         "WILD_TOWN",
-        "SPEAK_BATTLE",
         "ONLY_GOLD",
         "DROP_4D2",
         "EMPTY_MIND",
@@ -88604,6 +88638,7 @@
         {
           "action": "MESSAGE_STALKER",
           "chance": 1,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、あなたの後ろに居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm behind you.'"
@@ -88612,6 +88647,7 @@
         {
           "action": "WALK_CLOSERANGE",
           "chance": 10,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、あなたの家の前に居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm in front of your house.'"
@@ -88620,6 +88656,7 @@
         {
           "action": "WALK_MIDDLERANGE",
           "chance": 10,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、雑貨屋の前に居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm in front of the general store.'"
@@ -88628,6 +88665,7 @@
         {
           "action": "WALK_MIDDLERANGE",
           "chance": 10,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、宿屋の前に居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm in front of the inn.'"
@@ -88636,6 +88674,7 @@
         {
           "action": "WALK_LONGRANGE",
           "chance": 20,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、ゴミ捨て場に居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm at garbage dump.'"
@@ -88644,6 +88683,7 @@
         {
           "action": "WALK_LONGRANGE",
           "chance": 20,
+          "use_name" : false,
           "message": {
             "ja": "電話だ。「わたしメリーさん。今、街の入口に居るの。」",
             "en": "You get a call. 'I'm Mary. Now I'm at the entrance to the town.'"
