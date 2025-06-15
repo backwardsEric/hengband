@@ -114,7 +114,7 @@ static void load_player_world(PlayerType *player_ptr)
     rd_base_info(player_ptr);
     rd_player_info(player_ptr);
     preserve_mode = rd_bool();
-    player_ptr->wait_report_score = rd_bool();
+    AngbandSystem::get_instance().set_awaiting_report_score(rd_bool());
     rd_dummy2();
     rd_global_configurations(player_ptr);
     rd_extra(player_ptr);
@@ -242,12 +242,7 @@ static errr exe_reading_savefile(PlayerType *player_ptr)
     }
 
     if (!h_older_than(1, 0, 9)) {
-        std::vector<char> buf(SCREEN_BUF_MAX_SIZE);
-        const auto dump_str = rd_string();
-        dump_str.copy(buf.data(), SCREEN_BUF_MAX_SIZE - 1);
-        if (buf[0]) {
-            screen_dump = string_make(buf.data());
-        }
+        screen_dump = rd_string();
     }
 
     auto restore_dungeon_result = restore_dungeon(player_ptr);
@@ -315,14 +310,14 @@ static bool on_read_save_data_not_supported(PlayerType *player_ptr, bool *new_ga
     auto mes_not_play = _("このセーブデータの続きをプレイすることはできません。", "You can't play the rest of the game from this save data.");
     auto mes_check_restart = _("最初からプレイを始めますか？(モンスターの思い出は引き継がれます)", "Play from the beginning? (Monster recalls will be inherited.) ");
     msg_print(mes_not_play);
-    msg_print(nullptr);
+    msg_erase();
     if (!input_check(mes_check_restart)) {
         msg_print(_("ゲームを終了します。", "Exit the game."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
-    player_ptr->wait_report_score = false;
+    AngbandSystem::get_instance().set_awaiting_report_score(false);
     return reset_save_data(player_ptr, new_game);
 }
 
@@ -361,7 +356,7 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
 #ifndef WINDOWS
     if (access(savefile_str.data(), 0) < 0) {
         msg_print(_("セーブファイルがありません。", "Savefile does not exist."));
-        msg_print(nullptr);
+        msg_erase();
         *new_game = true;
         return true;
     }
@@ -420,7 +415,7 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
 
     if (err) {
         msg_format("%s: %s", what, savefile_str.data());
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -453,7 +448,7 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
         auto &system = AngbandSystem::get_instance();
         constexpr auto fmt = _("エラー(%s)がバージョン %s 用セーブファイル読み込み中に発生。", "Error (%s) reading %s savefile.");
         msg_format(fmt, what, system.build_version_expression(VersionExpression::WITH_EXTRA).data());
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -471,7 +466,7 @@ bool load_savedata(PlayerType *player_ptr, bool *new_game)
         player_ptr->count = tmp;
     }
 
-    const auto play_time = world.play_time;
+    const auto play_time = world.play_time.elapsed_sec();
     if (counts_read(player_ptr, 0) > play_time || counts_read(player_ptr, 1) == play_time) {
         counts_write(player_ptr, 2, ++player_ptr->count);
     }

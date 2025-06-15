@@ -10,27 +10,14 @@
  */
 
 #include "monster/monster-list.h"
-#include "core/speed-table.h"
-#include "dungeon/dungeon-flag-types.h"
-#include "floor/cave.h"
-#include "floor/floor-object.h"
-#include "floor/geometry.h"
-#include "floor/wild.h"
 #include "game-option/birth-options.h"
 #include "game-option/cheat-options.h"
-#include "grid/grid.h"
-#include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-kind-mask.h"
-#include "monster/monster-describer.h"
-#include "monster/monster-info.h"
-#include "monster/monster-update.h"
 #include "monster/monster-util.h"
-#include "pet/pet-fall-off.h"
-#include "player/player-status.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-allocation.h"
 #include "system/monrace/monrace-definition.h"
@@ -39,8 +26,6 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "system/system-variables.h"
-#include "util/bit-flags-calculator.h"
-#include "util/probability-table.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <cmath>
@@ -54,7 +39,7 @@
  * @return 選択されたモンスター生成種族
  * @details nasty生成 (ゲーム内経過日数に応じて、現在フロアより深いフロアのモンスターを出現させる仕様)は
  */
-MonraceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, BIT_FLAGS mode)
+MonraceId get_mon_num(PlayerType *player_ptr, int min_level, int max_level, uint32_t mode)
 {
     /* town max_level : same delay as 10F, no nasty mons till day18 */
     auto delay = static_cast<int>(std::sqrt(max_level * 10000)) + (max_level * 5);
@@ -104,7 +89,7 @@ MonraceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, 
         }
     }
 
-    ProbabilityTable<int> prob_table;
+    ProbabilityTable<MonraceId> prob_table;
 
     /* Process probabilities */
     const auto &monraces = MonraceList::get_instance();
@@ -117,10 +102,15 @@ MonraceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, 
         if (max_level < entry.level) {
             break;
         } // sorted by depth array,
-        const auto monrace_id = entry.index;
-        auto &monrace = monraces.get_monrace(monrace_id);
+
+        auto monrace_id = entry.index;
         if (none_bits(mode, PM_ARENA | PM_CHAMELEON)) {
-            if (monrace.can_generate() && none_bits(mode, PM_CLONE)) {
+            if (monraces.is_unified(monrace_id) && monraces.get_monrace(monrace_id).is_dead_unique()) {
+                monrace_id = monraces.select_random_separated_unique_of(monrace_id);
+            }
+
+            auto &monrace = monraces.get_monrace(monrace_id);
+            if (!monrace.can_generate() && none_bits(mode, PM_CLONE)) {
                 continue;
             }
 
@@ -137,12 +127,12 @@ MonraceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, 
             }
         }
 
-        prob_table.entry_item(i, entry.prob2);
+        prob_table.entry_item(monrace_id, entry.prob2);
     }
 
     if (cheat_hear) {
-        msg_format(_("モンスター第3次候補数:%lu(%d-%dF)%d ", "monster third selection:%lu(%d-%dF)%d "), prob_table.item_count(), min_level, max_level,
-            prob_table.total_prob());
+        constexpr auto fmt = _("モンスター第3次候補数:{}({}-{}F){} ", "monster third selection:{}({}-{}F){} ");
+        msg_print(fmt, prob_table.item_count(), min_level, max_level, prob_table.total_prob());
     }
 
     if (prob_table.empty()) {
@@ -160,128 +150,26 @@ MonraceId get_mon_num(PlayerType *player_ptr, DEPTH min_level, DEPTH max_level, 
         n++;
     }
 
-    std::vector<int> result;
-    ProbabilityTable<int>::lottery(std::back_inserter(result), prob_table, n);
+    std::vector<MonraceId> result;
+    ProbabilityTable<MonraceId>::lottery(std::back_inserter(result), prob_table, n);
     const auto it = std::max_element(result.begin(), result.end(),
-        [&table](int a, int b) { return table.get_entry(a).level < table.get_entry(b).level; });
-    return table.get_entry(*it).index;
+        [&monraces](MonraceId id1, MonraceId id2) { return monraces.get_monrace(id1).level < monraces.get_monrace(id2).level; });
+    return *it;
 }
 
-/*!
- * @brief カメレオンの王の変身対象となるモンスターかどうか判定する
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param r_idx モンスター種族ID
- * @param m_idx 変身するモンスターのモンスターID
- * @param grid カメレオンの足元の地形
- * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
- * @return 対象にできるならtrueを返す
- */
-static bool monster_hook_chameleon_lord(PlayerType *player_ptr, MonraceId r_idx, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
-{
-    const auto &monraces = MonraceList::get_instance();
-    const auto &monrace = monraces.get_monrace(r_idx);
-    if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
-        return false;
-    }
-
-    if (monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY) || monrace.misc_flags.has(MonsterMiscType::CHAMELEON)) {
-        return false;
-    }
-
-    if (std::abs(monrace.level - monraces.get_monrace(MonraceId::CHAMELEON_K).level) > 5) {
-        return false;
-    }
-
-    if (monrace.is_explodable()) {
-        return false;
-    }
-
-    if (!monster_can_cross_terrain(player_ptr, grid.feat, &monrace, 0)) {
-        return false;
-    }
-
-    const auto &floor = *player_ptr->current_floor_ptr;
-    const auto &monster = floor.m_list[m_idx];
-    const auto &old_monrace = monster.get_monrace();
-    if (old_monrace.misc_flags.has_not(MonsterMiscType::CHAMELEON)) {
-        return !monster_has_hostile_align(player_ptr, &monster, 0, 0, &monrace);
-    }
-
-    return !summoner_m_idx || !monster_has_hostile_align(player_ptr, &floor.m_list[*summoner_m_idx], 0, 0, &monrace);
-}
-
-/*!
- * @brief カメレオンの変身対象となるモンスターかどうか判定する
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param r_idx モンスター種族ID
- * @param m_idx 変身するモンスターのモンスターID
- * @param grid カメレオンの足元の地形
- * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
- * @return 対象にできるならtrueを返す
- * @todo グローバル変数対策の上 monster_hook.cへ移す。
- */
-static bool monster_hook_chameleon(PlayerType *player_ptr, MonraceId r_idx, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
-{
-    const auto &monrace = MonraceList::get_instance().get_monrace(r_idx);
-    if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
-        return false;
-    }
-
-    if (monrace.misc_flags.has(MonsterMiscType::MULTIPLY)) {
-        return false;
-    }
-
-    if (monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY) || (monrace.misc_flags.has(MonsterMiscType::CHAMELEON))) {
-        return false;
-    }
-
-    if (monrace.is_explodable()) {
-        return false;
-    }
-
-    if (!monster_can_cross_terrain(player_ptr, grid.feat, &monrace, 0)) {
-        return false;
-    }
-
-    const auto &floor = *player_ptr->current_floor_ptr;
-    const auto &monster = floor.m_list[m_idx];
-    const auto &old_monrace = monster.get_monrace();
-    if (old_monrace.misc_flags.has_not(MonsterMiscType::CHAMELEON)) {
-        if (old_monrace.kind_flags.has(MonsterKindType::GOOD) && monrace.kind_flags.has_not(MonsterKindType::GOOD)) {
-            return false;
-        }
-
-        if (old_monrace.kind_flags.has(MonsterKindType::EVIL) && monrace.kind_flags.has_not(MonsterKindType::EVIL)) {
-            return false;
-        }
-
-        if (old_monrace.kind_flags.has_none_of(alignment_mask)) {
-            return false;
-        }
-    } else if (summoner_m_idx && monster_has_hostile_align(player_ptr, &floor.m_list[*summoner_m_idx], 0, 0, &monrace)) {
-        return false;
-    }
-
-    auto hook_pf = get_monster_hook(player_ptr);
-    return hook_pf(player_ptr, r_idx);
-}
-
-static std::optional<MonraceId> polymorph_of_chameleon(PlayerType *player_ptr, MONSTER_IDX m_idx, const Grid &grid, const std::optional<MONSTER_IDX> summoner_m_idx)
+static tl::optional<MonraceId> polymorph_of_chameleon(PlayerType *player_ptr, short m_idx, short terrain_id, tl::optional<short> summoner_m_idx)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     auto &monster = floor.m_list[m_idx];
     const auto old_unique = monster.get_monrace().kind_flags.has(MonsterKindType::UNIQUE);
-    auto hook_fp = old_unique ? monster_hook_chameleon_lord : monster_hook_chameleon;
-    auto hook = [m_idx, grid, summoner_m_idx, hook_fp](PlayerType *player_ptr, MonraceId r_idx) {
-        return hook_fp(player_ptr, r_idx, m_idx, grid, summoner_m_idx);
-    };
-    get_mon_num_prep_chameleon(player_ptr, std::move(hook));
+    ChameleonTransformation ct(m_idx, terrain_id, old_unique, std::move(summoner_m_idx));
+    get_mon_num_prep_chameleon(player_ptr, ct);
 
     int level;
     if (old_unique) {
         level = MonraceList::get_instance().get_monrace(MonraceId::CHAMELEON_K).level;
-    } else if (!floor.is_in_underground()) {
-        level = wilderness[player_ptr->wilderness_y][player_ptr->wilderness_x].level;
+    } else if (!floor.is_underground()) {
+        level = WildernessGrids::get_instance().get_player_grid().get_level();
     } else {
         level = floor.dun_level;
     }
@@ -292,7 +180,7 @@ static std::optional<MonraceId> polymorph_of_chameleon(PlayerType *player_ptr, M
 
     const auto new_monrace_id = get_mon_num(player_ptr, 0, level, PM_CHAMELEON);
     if (!MonraceList::is_valid(new_monrace_id)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     return new_monrace_id;
@@ -305,12 +193,11 @@ static std::optional<MonraceId> polymorph_of_chameleon(PlayerType *player_ptr, M
  * @param grid カメレオンの足元の地形
  * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
  */
-void choose_chameleon_polymorph(PlayerType *player_ptr, MONSTER_IDX m_idx, const Grid &grid, std::optional<MONSTER_IDX> summoner_m_idx)
+void choose_chameleon_polymorph(PlayerType *player_ptr, short m_idx, short terrain_id, tl::optional<short> summoner_m_idx)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     auto &monster = floor.m_list[m_idx];
-
-    auto new_monrace_id = polymorph_of_chameleon(player_ptr, m_idx, grid, summoner_m_idx);
+    auto new_monrace_id = polymorph_of_chameleon(player_ptr, m_idx, terrain_id, summoner_m_idx);
     if (!new_monrace_id) {
         return;
     }
@@ -326,20 +213,18 @@ void choose_chameleon_polymorph(PlayerType *player_ptr, MONSTER_IDX m_idx, const
  * @param m_idx 隣接数を調べたいモンスターのID
  * @return 隣接しているモンスターの数
  */
-int get_monster_crowd_number(FloorType *floor_ptr, MONSTER_IDX m_idx)
+int get_monster_crowd_number(const FloorType &floor, short m_idx)
 {
-    auto *m_ptr = &floor_ptr->m_list[m_idx];
-    POSITION my = m_ptr->fy;
-    POSITION mx = m_ptr->fx;
-    int count = 0;
-    for (int i = 0; i < 7; i++) {
-        int ay = my + ddy_ddd[i];
-        int ax = mx + ddx_ddd[i];
-
-        if (!in_bounds(floor_ptr, ay, ax)) {
+    const auto &monster = floor.m_list[m_idx];
+    const auto m_pos = monster.get_position();
+    auto count = 0;
+    for (const auto &d : Direction::directions_8()) {
+        const auto pos = m_pos + d.vec();
+        if (!floor.contains(pos)) {
             continue;
         }
-        if (floor_ptr->grid_array[ay][ax].has_monster()) {
+
+        if (floor.get_grid(pos).has_monster()) {
             count++;
         }
     }

@@ -8,7 +8,6 @@
 #include "io/report.h"
 #include "core/asking-player.h"
 #include "core/stuff-handler.h"
-#include "core/turn-compensator.h"
 #include "core/visuals-reseter.h"
 #include "game-option/special-options.h"
 #include "io-dump/character-dump.h"
@@ -24,6 +23,7 @@
 #include "system/angband-system.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
@@ -31,11 +31,11 @@
 #include "system/system-variables.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
-#include "term/z-form.h"
 #include "util/angband-files.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <fstream>
 #include <span>
 #include <sstream>
@@ -43,9 +43,9 @@
 #include <string_view>
 #include <vector>
 
-#ifdef WORLD_SCORE
+std::string screen_dump;
 
-concptr screen_dump = nullptr;
+#ifdef WORLD_SCORE
 
 #ifdef JP
 constexpr auto SCORE_POST_URL = "http://mars.kmc.gr.jp/~dis/heng_score/register_score.php"; /*!< スコア開示URL */
@@ -114,7 +114,7 @@ static errr make_dump(PlayerType *player_ptr, std::ostream &stream)
 #else
         msg_format("Failed to create temporary file %s.", file_name);
 #endif
-        msg_print(nullptr);
+        msg_erase();
         return 1;
     }
 
@@ -138,7 +138,7 @@ static errr make_dump(PlayerType *player_ptr, std::ostream &stream)
  * @brief スクリーンダンプを作成する/ Make screen dump to buffer
  * @return 作成したスクリーンダンプの参照ポインタ
  */
-concptr make_screen_dump(PlayerType *player_ptr)
+std::string make_screen_dump(PlayerType *player_ptr)
 {
     constexpr auto html_head =
         "<html>\n<body text=\"#ffffff\" bgcolor=\"#000000\">\n"
@@ -154,7 +154,7 @@ concptr make_screen_dump(PlayerType *player_ptr)
     bool old_use_graphics = use_graphics;
     if (old_use_graphics) {
         /* Clear -more- prompt first */
-        msg_print(nullptr);
+        msg_erase();
 
         use_graphics = false;
         reset_visuals(player_ptr);
@@ -180,15 +180,14 @@ concptr make_screen_dump(PlayerType *player_ptr)
         }
 
         /* Dump each row */
-        TERM_COLOR a = 0, old_a = 0;
-        auto c = ' ';
+        uint8_t old_a = 0;
+        DisplaySymbol ds(0, ' ');
         for (int x = 0; x < wid - 1; x++) {
             int rv, gv, bv;
             concptr cc = nullptr;
-            /* Get the attr/char */
-            (void)(term_what(x, y, &a, &c));
+            ds = term_what(x, y, ds);
 
-            switch (c) {
+            switch (ds.character) {
             case '&':
                 cc = "&amp;";
                 break;
@@ -206,27 +205,27 @@ concptr make_screen_dump(PlayerType *player_ptr)
                 break;
 #ifdef WINDOWS
             case 0x1f:
-                c = '.';
+                ds.character = '.';
                 break;
             case 0x7f:
-                c = (a == 0x09) ? '%' : '#';
+                ds.character = (ds.color == 0x09) ? '%' : '#';
                 break;
 #endif
             }
 
-            a = a & 0x0F;
-            if ((y == 0 && x == 0) || a != old_a) {
-                rv = angband_color_table[a][1];
-                gv = angband_color_table[a][2];
-                bv = angband_color_table[a][3];
+            ds.color = ds.color & 0x0F;
+            if (((y == 0) && (x == 0)) || (ds.color != old_a)) {
+                rv = angband_color_table[ds.color][1];
+                gv = angband_color_table[ds.color][2];
+                bv = angband_color_table[ds.color][3];
                 screen_ss << format("%s<font color=\"#%02x%02x%02x\">", ((y == 0 && x == 0) ? "" : "</font>"), rv, gv, bv);
-                old_a = a;
+                old_a = ds.color;
             }
 
             if (cc) {
                 screen_ss << cc;
             } else {
-                screen_ss << c;
+                screen_ss << ds.character;
             }
         }
     }
@@ -235,12 +234,10 @@ concptr make_screen_dump(PlayerType *player_ptr)
 
     screen_ss << html_foot;
 
-    concptr ret;
+    std::string ret;
     if (const auto screen_dump_size = screen_ss.tellp();
         (0 <= screen_dump_size) && (screen_dump_size < SCREEN_BUF_MAX_SIZE)) {
-        ret = string_make(screen_ss.str().data());
-    } else {
-        ret = nullptr;
+        ret = screen_ss.str();
     }
 
     if (!old_use_graphics) {
@@ -273,28 +270,28 @@ bool report_score(PlayerType *player_ptr)
     personality_desc.append(_(ap_ptr->no ? "の" : "", " "));
 
     PlayerRealm pr(player_ptr);
-    const auto &realm1_name = PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST) ? get_element_title(player_ptr->element) : pr.realm1().get_name().string();
-    score_ss << format("name: %s\n", player_ptr->name)
-             << format("version: %s\n", AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL).data())
-             << format("score: %ld\n", calc_score(player_ptr))
-             << format("level: %d\n", player_ptr->lev)
-             << format("depth: %d\n", player_ptr->current_floor_ptr->dun_level)
-             << format("maxlv: %d\n", player_ptr->max_plv)
-             << format("maxdp: %d\n", DungeonRecords::get_instance().get_record(DUNGEON_ANGBAND).get_max_level())
-             << format("au: %d\n", player_ptr->au);
+    const auto &realm1_name = PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST) ? get_element_title(player_ptr->element_realm) : pr.realm1().get_name().string();
+    score_ss << fmt::format("name: {}\n", player_ptr->name)
+             << fmt::format("version: {}\n", AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL))
+             << fmt::format("score: {}\n", calc_score(player_ptr))
+             << fmt::format("level: {}\n", player_ptr->lev)
+             << fmt::format("depth: {}\n", player_ptr->current_floor_ptr->dun_level)
+             << fmt::format("maxlv: {}\n", player_ptr->max_plv)
+             << fmt::format("maxdp: {}\n", DungeonRecords::get_instance().get_record(DungeonId::ANGBAND).get_max_level())
+             << fmt::format("au: {}\n", player_ptr->au);
     const auto &igd = InnerGameData::get_instance();
-    score_ss << format("turns: %d\n", igd.get_real_turns(AngbandWorld::get_instance().game_turn))
-             << format("sex: %d\n", player_ptr->psex)
-             << format("race: %s\n", rp_ptr->title.data())
-             << format("class: %s\n", cp_ptr->title.data())
-             << format("seikaku: %s\n", personality_desc.data())
-             << format("realm1: %s\n", realm1_name.data())
-             << format("realm2: %s\n", pr.realm2().get_name().data())
-             << format("killer: %s\n", player_ptr->died_from.data())
+    score_ss << fmt::format("turns: {}\n", igd.get_real_turns(AngbandWorld::get_instance().game_turn))
+             << fmt::format("sex: {}\n", enum2i(player_ptr->psex))
+             << fmt::format("race: {}\n", rp_ptr->title)
+             << fmt::format("class: {}\n", cp_ptr->title)
+             << fmt::format("seikaku: {}\n", personality_desc)
+             << fmt::format("realm1: {}\n", realm1_name)
+             << fmt::format("realm2: {}\n", pr.realm2().get_name())
+             << fmt::format("killer: {}\n", player_ptr->died_from)
              << "-----charcter dump-----\n";
 
     make_dump(player_ptr, score_ss);
-    if (screen_dump) {
+    if (!screen_dump.empty()) {
         score_ss << "-----screen shot-----\n"
                  << screen_dump;
     }
@@ -302,5 +299,4 @@ bool report_score(PlayerType *player_ptr)
     return post_score_to_score_server(player_ptr, score_ss.str());
 }
 #else
-concptr screen_dump = nullptr;
 #endif /* WORLD_SCORE */

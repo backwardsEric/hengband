@@ -1,13 +1,15 @@
 #pragma once
 
 #include "floor/floor-base-definitions.h"
+#include "floor/geometry.h"
 #include "system/angband.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
+#include "system/enums/terrain/terrain-kind.h"
 #include "util/point-2d.h"
 #include <array>
 #include <map>
-#include <optional>
+#include <tl/optional.hpp>
 #include <utility>
 #include <vector>
 
@@ -37,9 +39,19 @@ constexpr auto VIEW_MAX = 1536;
  */
 constexpr auto REDRAW_MAX = 2298;
 
+enum class FloorBoundary {
+    OUTER_WALL_EXCLUSIVE,
+    OUTER_WALL_INCLUSIVE,
+};
+
+enum class DungeonId;
 enum class GridCountKind;
 enum class MonsterTimedEffect : int;
+enum class MonraceHook;
+enum class MonraceHookTerrain;
+enum class MonraceId : short;
 enum class QuestId : short;
+enum class TerrainCharacteristics;
 enum class TerrainTag;
 class DungeonDefinition;
 class Grid;
@@ -48,7 +60,7 @@ class ItemEntity;
 class FloorType {
 public:
     FloorType();
-    int dungeon_idx = 0;
+    DungeonId dungeon_id{};
     std::vector<std::vector<Grid>> grid_array;
     DEPTH dun_level = 0; /*!< 現在の実ダンジョン階層 base_level の参照元となる / Current dungeon level */
     DEPTH base_level = 0; /*!< 基本生成レベル、後述のobject_level, monster_levelの参照元となる / Base dungeon level */
@@ -60,9 +72,7 @@ public:
 
     GAME_TURN generated_turn = 0; /* Turn when level began */
 
-    std::vector<ItemEntity> o_list; /*!< The array of dungeon items [max_o_idx] */
-    OBJECT_IDX o_max = 0; /* Number of allocated objects */
-    OBJECT_IDX o_cnt = 0; /* Number of live objects */
+    std::vector<std::shared_ptr<ItemEntity>> o_list; /*!< The array of dungeon items [max_o_idx] */
 
     std::vector<MonsterEntity> m_list; /*!< The array of dungeon monsters [max_m_idx] */
     MONSTER_IDX m_max = 0; /* Number of allocated monsters */
@@ -91,33 +101,50 @@ public:
     QuestId quest_number;
     bool inside_arena = false; /* Is character inside on_defeat_arena_monster? */
 
+    int get_level() const;
     Grid &get_grid(const Pos2D pos);
     const Grid &get_grid(const Pos2D pos) const;
-    bool is_in_underground() const;
+    Rect2D get_area(FloorBoundary fb = FloorBoundary::OUTER_WALL_INCLUSIVE) const;
+    bool is_entering_dungeon() const;
+    bool is_leaving_dungeon() const;
+    bool is_underground() const;
     bool is_in_quest() const;
-    void set_dungeon_index(int dungeon_idx_); /*!< @todo 後でenum class にする */
+    void set_dungeon_index(DungeonId id);
     void reset_dungeon_index();
-    DungeonDefinition &get_dungeon_definition() const;
-    QuestId get_random_quest_id(std::optional<int> level_opt = std::nullopt) const;
+    const DungeonDefinition &get_dungeon_definition() const; //!< @details 定義データなので非const 版の使用は禁止.
+    QuestId get_random_quest_id(tl::optional<int> level_opt = tl::nullopt) const;
     QuestId get_quest_id(const int bonus = 0) const;
-    bool has_los(const Pos2D &pos) const;
+    bool has_los_at(const Pos2D &pos) const;
+    bool has_los_terrain_at(const Pos2D &pos) const;
+    bool has_terrain_characteristics(const Pos2D &pos, TerrainCharacteristics tc) const;
     bool is_special() const;
     bool can_teleport_level(bool to_player = false) const;
-    bool is_mark(const Pos2D &pos) const;
-    bool is_closed_door(const Pos2D &pos, bool is_mimic = false) const;
-    bool is_trap(const Pos2D &pos) const;
-    std::pair<int, Pos2D> count_doors_traps(const Pos2D &p_pos, GridCountKind gck, bool under) const;
+    bool has_marked_grid_at(const Pos2D &pos) const;
+    bool has_closed_door_at(const Pos2D &pos, bool is_mimic = false) const;
+    bool has_trap_at(const Pos2D &pos) const;
+    std::pair<int, Direction> count_doors_traps(const Pos2D &p_pos, GridCountKind gck, bool under) const;
     bool check_terrain_state(const Pos2D &pos, GridCountKind gck) const;
     bool order_pet_whistle(short index1, short index2) const;
     bool order_pet_dismission(short index1, short index2, short riding_index) const;
+    bool contains(const Pos2D &pos, FloorBoundary fb = FloorBoundary::OUTER_WALL_EXCLUSIVE) const;
+    bool is_empty_at(const Pos2D &pos) const;
+    bool can_generate_monster_at(const Pos2D &pos) const;
+    bool can_block_disintegration_at(const Pos2D &pos) const;
+    bool can_drop_item_at(const Pos2D &pos) const;
 
-    ItemEntity make_gold(std::optional<BaseitemKey> bi_key = std::nullopt) const;
-    std::optional<ItemEntity> try_make_instant_artifact() const;
+    ItemEntity make_gold(tl::optional<BaseitemKey> bi_key = tl::nullopt) const;
+    tl::optional<ItemEntity> try_make_instant_artifact() const;
     short select_baseitem_id(int level_initial, uint32_t mode) const;
+    bool filter_monrace_terrain(MonraceId monrace_id, MonraceHookTerrain hook) const;
+    TerrainTag select_random_trap() const;
+    MonraceHook get_monrace_hook() const;
+    MonraceHookTerrain get_monrace_hook_terrain_at(const Pos2D &pos) const;
 
+    void enter_dungeon(bool state);
+    void leave_dungeon(bool state);
     void reset_mproc();
     void reset_mproc_max();
-    std::optional<int> get_mproc_index(short m_idx, MonsterTimedEffect mte);
+    tl::optional<int> get_mproc_index(short m_idx, MonsterTimedEffect mte);
     void add_mproc(short m_idx, MonsterTimedEffect mte);
     void remove_mproc(short m_idx, MonsterTimedEffect mte);
 
@@ -125,9 +152,13 @@ public:
     short pop_empty_index_item();
     bool is_grid_changeable(const Pos2D &pos) const;
     void place_random_stairs(const Pos2D &pos);
-    void set_terrain_id(const Pos2D &pos, TerrainTag tag);
-    void set_terrain_id(const Pos2D &pos, short terrain_id);
+    void set_terrain_id_at(const Pos2D &pos, TerrainTag tag, TerrainKind tk = TerrainKind::NORMAL);
+    void set_terrain_id_at(const Pos2D &pos, short terrain_id, TerrainKind tk = TerrainKind::NORMAL);
+    void place_trap_at(const Pos2D &pos);
 
 private:
     static int decide_selection_count();
+
+    bool entering_dungeon = false;
+    bool leaving_dungeon = false;
 };

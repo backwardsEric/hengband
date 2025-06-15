@@ -74,6 +74,9 @@ static ProcessResult is_affective(EffectMonster *em_ptr)
     if (em_ptr->m_ptr->hp < 0) {
         return ProcessResult::PROCESS_FALSE;
     }
+    if (em_ptr->m_ptr->mflag.has_not(MonsterTemporaryFlagType::PRESENT_AT_TURN_START)) {
+        return ProcessResult::PROCESS_FALSE;
+    }
     if (em_ptr->is_monster() || !em_ptr->m_ptr->is_riding()) {
         return ProcessResult::PROCESS_TRUE;
     }
@@ -106,8 +109,8 @@ static ProcessResult is_affective(EffectMonster *em_ptr)
 static void make_description_of_affecred_monster(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     em_ptr->dam = (em_ptr->dam + em_ptr->r) / (em_ptr->r + 1);
-    angband_strcpy(em_ptr->m_name, monster_desc(player_ptr, em_ptr->m_ptr, 0), sizeof(em_ptr->m_name));
-    angband_strcpy(em_ptr->m_poss, monster_desc(player_ptr, em_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE), sizeof(em_ptr->m_poss));
+    angband_strcpy(em_ptr->m_name, monster_desc(player_ptr, *em_ptr->m_ptr, 0), sizeof(em_ptr->m_name));
+    angband_strcpy(em_ptr->m_poss, monster_desc(player_ptr, *em_ptr->m_ptr, MD_PRON_VISIBLE | MD_POSSESSIVE), sizeof(em_ptr->m_poss));
 }
 
 /*!
@@ -119,7 +122,7 @@ static void make_description_of_affecred_monster(PlayerType *player_ptr, EffectM
  * 完全な耐性を持っていたら、一部属性を除いて影響は及ぼさない
  * デバッグ属性、モンスター打撃、モンスター射撃であれば貫通する
  */
-static ProcessResult exe_affect_monster_by_effect(PlayerType *player_ptr, EffectMonster *em_ptr, std::optional<CapturedMonsterType *> cap_mon_ptr)
+static ProcessResult exe_affect_monster_by_effect(PlayerType *player_ptr, EffectMonster *em_ptr, tl::optional<CapturedMonsterType *> cap_mon_ptr)
 {
     const std::vector<AttributeType> effect_arrtibute = {
         AttributeType::OLD_CLONE,
@@ -159,7 +162,7 @@ static ProcessResult exe_affect_monster_by_effect(PlayerType *player_ptr, Effect
 
     em_ptr->note = _("には完全な耐性がある！", " is immune.");
     em_ptr->dam = 0;
-    if (is_original_ap_and_seen(player_ptr, em_ptr->m_ptr)) {
+    if (is_original_ap_and_seen(player_ptr, *em_ptr->m_ptr)) {
         em_ptr->r_ptr->r_resistance_flags.set(MonsterResistanceType::RESIST_ALL);
     }
 
@@ -179,7 +182,7 @@ static void effect_damage_killed_pet(PlayerType *player_ptr, EffectMonster *em_p
 {
     bool sad = em_ptr->m_ptr->is_pet() && !(em_ptr->m_ptr->ml);
     if (em_ptr->known && !em_ptr->note.empty()) {
-        angband_strcpy(em_ptr->m_name, monster_desc(player_ptr, em_ptr->m_ptr, MD_TRUE_NAME), sizeof(em_ptr->m_name));
+        angband_strcpy(em_ptr->m_name, monster_desc(player_ptr, *em_ptr->m_ptr, MD_TRUE_NAME), sizeof(em_ptr->m_name));
         if (em_ptr->see_s_msg) {
             msg_format("%s^%s", em_ptr->m_name, em_ptr->note.data());
         } else {
@@ -208,7 +211,7 @@ static void effect_damage_makes_sleep(PlayerType *player_ptr, EffectMonster *em_
     if (!em_ptr->note.empty() && em_ptr->seen_msg) {
         msg_format("%s^%s", em_ptr->m_name, em_ptr->note.data());
     } else if (em_ptr->see_s_msg) {
-        const auto m_name = monster_desc(player_ptr, em_ptr->m_ptr, 0);
+        const auto m_name = monster_desc(player_ptr, *em_ptr->m_ptr, 0);
         const auto pain_message = em_ptr->m_ptr->get_pain_message(m_name, em_ptr->dam);
         if (pain_message) {
             msg_print(*pain_message);
@@ -269,7 +272,7 @@ static bool heal_leaper(PlayerType *player_ptr, EffectMonster *em_ptr)
     }
 
     if (record_named_pet && em_ptr->m_ptr->is_named_pet()) {
-        const auto m2_name = monster_desc(player_ptr, em_ptr->m_ptr, MD_INDEF_VISIBLE);
+        const auto m2_name = monster_desc(player_ptr, *em_ptr->m_ptr, MD_INDEF_VISIBLE);
         exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::NAMED_PET, RECORD_NAMED_PET_HEAL_LEPER, m2_name);
     }
 
@@ -294,13 +297,13 @@ static bool deal_effect_damage_from_player(PlayerType *player_ptr, EffectMonster
     }
 
     if (em_ptr->do_sleep) {
-        anger_monster(player_ptr, em_ptr->m_ptr);
+        anger_monster(player_ptr, *em_ptr->m_ptr);
     }
 
     if (!em_ptr->note.empty() && em_ptr->seen) {
         msg_format(_("%s%s", "%s^%s"), em_ptr->m_name, em_ptr->note.data());
     } else if (em_ptr->known && (em_ptr->dam || !em_ptr->do_fear)) {
-        const auto m_name = monster_desc(player_ptr, em_ptr->m_ptr, 0);
+        const auto m_name = monster_desc(player_ptr, *em_ptr->m_ptr, 0);
         const auto pain_message = em_ptr->m_ptr->get_pain_message(m_name, em_ptr->dam);
         if (pain_message) {
             msg_print(*pain_message);
@@ -308,11 +311,11 @@ static bool deal_effect_damage_from_player(PlayerType *player_ptr, EffectMonster
     }
 
     if (((em_ptr->dam > 0) || em_ptr->get_angry) && !em_ptr->do_sleep) {
-        anger_monster(player_ptr, em_ptr->m_ptr);
+        anger_monster(player_ptr, *em_ptr->m_ptr);
     }
 
     if ((fear || em_ptr->do_fear) && em_ptr->seen) {
-        sound(SOUND_FLEE);
+        sound(SoundKind::FLEE);
         msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), em_ptr->m_name);
     }
 
@@ -380,17 +383,17 @@ static void effect_makes_change_virtues(PlayerType *player_ptr, EffectMonster *e
  */
 static void affected_monster_prevents_bad_status(EffectMonster *em_ptr)
 {
-    const auto *r_ptr = em_ptr->r_ptr;
-    auto can_avoid_polymorph = r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    can_avoid_polymorph |= r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
+    const auto &monrace = *em_ptr->r_ptr;
+    auto can_avoid_polymorph = monrace.kind_flags.has(MonsterKindType::UNIQUE);
+    can_avoid_polymorph |= monrace.misc_flags.has(MonsterMiscType::QUESTOR);
     can_avoid_polymorph |= em_ptr->m_ptr->is_riding();
     if (can_avoid_polymorph) {
         em_ptr->do_polymorph = false;
     }
 
-    auto should_alive = r_ptr->kind_flags.has(MonsterKindType::UNIQUE);
-    should_alive |= r_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
-    should_alive |= r_ptr->population_flags.has(MonsterPopulationType::NAZGUL);
+    auto should_alive = monrace.kind_flags.has(MonsterKindType::UNIQUE);
+    should_alive |= monrace.misc_flags.has(MonsterMiscType::QUESTOR);
+    should_alive |= monrace.population_flags.has(MonsterPopulationType::NAZGUL);
     if (should_alive && !AngbandSystem::get_instance().is_phase_out() && em_ptr->is_monster() && (em_ptr->dam > em_ptr->m_ptr->hp)) {
         em_ptr->dam = em_ptr->m_ptr->hp;
     }
@@ -404,10 +407,9 @@ static void affected_monster_prevents_bad_status(EffectMonster *em_ptr)
  */
 static void effect_damage_piles_stun(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    const auto *r_ptr = em_ptr->r_ptr;
+    const auto &monrace = *em_ptr->r_ptr;
     auto can_avoid_stun = em_ptr->do_stun == 0;
-    can_avoid_stun |= r_ptr->resistance_flags.has_any_of({ MonsterResistanceType::RESIST_SOUND, MonsterResistanceType::RESIST_FORCE });
-    can_avoid_stun |= r_ptr->resistance_flags.has(MonsterResistanceType::NO_STUN);
+    can_avoid_stun |= monrace.resistance_flags.has(MonsterResistanceType::NO_STUN);
     if (can_avoid_stun) {
         return;
     }
@@ -437,7 +439,7 @@ static void effect_damage_piles_stun(PlayerType *player_ptr, EffectMonster *em_p
  */
 static void effect_damage_piles_confusion(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if ((em_ptr->do_conf == 0) || (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF)) || em_ptr->r_ptr->resistance_flags.has_any_of(RFR_EFF_RESIST_CHAOS_MASK)) {
+    if ((em_ptr->do_conf == 0) || (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF))) {
         return;
     }
 
@@ -571,7 +573,7 @@ static void effect_damage_makes_teleport(PlayerType *player_ptr, EffectMonster *
 static void effect_damage_gives_bad_status(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
     int tmp_damage = em_ptr->dam;
-    em_ptr->dam = mon_damage_mod(player_ptr, em_ptr->m_ptr, em_ptr->dam, (bool)(em_ptr->attribute == AttributeType::PSY_SPEAR));
+    em_ptr->dam = mon_damage_mod(player_ptr, *em_ptr->m_ptr, em_ptr->dam, (bool)(em_ptr->attribute == AttributeType::PSY_SPEAR));
     if ((tmp_damage > 0) && (em_ptr->dam == 0) && em_ptr->seen) {
         em_ptr->note = _("はダメージを受けていない。", " is unharmed.");
     }
@@ -633,22 +635,22 @@ static void update_phase_out_stat(PlayerType *player_ptr, EffectMonster *em_ptr)
  */
 static void postprocess_by_effected_pet(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    auto *m_ptr = em_ptr->m_ptr;
-    if ((em_ptr->dam <= 0) || m_ptr->is_pet() || m_ptr->is_friendly()) {
+    auto &monster = *em_ptr->m_ptr;
+    if ((em_ptr->dam <= 0) || monster.is_pet() || monster.is_friendly()) {
         return;
     }
 
     if (em_ptr->is_player()) {
         if (!(em_ptr->flag & PROJECT_NO_HANGEKI)) {
-            m_ptr->set_target(monster_target_y, monster_target_x);
+            monster.set_target({ monster_target_y, monster_target_x });
         }
 
         return;
     }
 
-    const auto &m_caster_ref = *em_ptr->m_caster_ptr;
-    if (em_ptr->is_monster() && m_caster_ref.is_pet() && !player_ptr->is_located_at({ m_ptr->target_y, m_ptr->target_x })) {
-        m_ptr->set_target(m_caster_ref.fy, m_caster_ref.fx);
+    const auto &caster = *em_ptr->m_caster_ptr;
+    if (em_ptr->is_monster() && caster.is_pet() && !player_ptr->is_located_at(monster.get_target_position())) {
+        monster.set_target(caster.get_position());
     }
 }
 
@@ -687,7 +689,7 @@ static void postprocess_by_taking_photo(PlayerType *player_ptr, EffectMonster *e
     ItemEntity item({ ItemKindType::STATUE, SV_PHOTO });
     item.pval = em_ptr->photo;
     item.ident |= (IDENT_FULL_KNOWN);
-    (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
+    (void)drop_near(player_ptr, &item, player_ptr->get_position());
 }
 
 /*!
@@ -725,7 +727,7 @@ static void exe_affect_monster_postprocess(PlayerType *player_ptr, EffectMonster
  */
 bool affect_monster(
     PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POSITION y, POSITION x, int dam, AttributeType attribute, BIT_FLAGS flag, bool see_s_msg,
-    std::optional<CapturedMonsterType *> cap_mon_ptr, FallOffHorseEffect *fall_off_horse_effect)
+    tl::optional<CapturedMonsterType *> cap_mon_ptr, FallOffHorseEffect *fall_off_horse_effect)
 {
     EffectMonster tmp_effect(player_ptr, src_idx, r, y, x, dam, attribute, flag, see_s_msg);
     auto *em_ptr = &tmp_effect;
@@ -754,7 +756,7 @@ bool affect_monster(
         update_monster(player_ptr, target_m_idx, false);
     }
 
-    lite_spot(player_ptr, em_ptr->y, em_ptr->x);
+    lite_spot(player_ptr, em_ptr->get_position());
     if (LoreTracker::get_instance().is_tracking(em_ptr->m_ptr->r_idx) && (em_ptr->seen || !monster_is_valid)) {
         RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MONSTER_LORE);
     }

@@ -14,7 +14,6 @@
 #include "effect/effect-processor.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
 #include "inventory/inventory-slot-types.h"
@@ -60,9 +59,9 @@
  * @brief 呪術領域魔法の各処理を行う
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST / SPELL_CONT / SpellProcessType::STOP)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST / SPELL_CONT / SpellProcessType::STOP 時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST / SPELL_CONT / SpellProcessType::STOP 時は tl::nullopt を返す。
  */
-std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type spell, SpellProcessType mode)
+tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type spell, SpellProcessType mode)
 {
     auto info = mode == SpellProcessType::INFO;
     auto cast = mode == SpellProcessType::CAST;
@@ -216,7 +215,7 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
 
             if (spell_hex.get_revenge_turn() > 0) {
                 msg_print(_("すでに我慢をしている。", "You are already biding your time for vengeance."));
-                return std::nullopt;
+                return tl::nullopt;
             }
 
             spell_hex.set_revenge_type(SpellHexRevengeType::PATIENCE);
@@ -367,7 +366,7 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
         }
         if (cast) {
             if (!recharge(player_ptr, power)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
             should_continue = false;
         }
@@ -392,7 +391,7 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
                 return "";
             }
 
-            o_ptr = &player_ptr->inventory_list[i_idx];
+            o_ptr = player_ptr->inventory[i_idx].get();
             const auto item_name = describe_flavor(player_ptr, *o_ptr, OD_NAME_ONLY);
             if (!input_check(format(_("本当に %s を呪いますか？", "Do you curse %s, really?"), item_name.data()))) {
                 return "";
@@ -456,20 +455,20 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
     }
     case HEX_SHADOW_CLOAK: {
         if (cast) {
-            auto *o_ptr = &player_ptr->inventory_list[INVEN_OUTER];
+            auto *o_ptr = player_ptr->inventory[INVEN_OUTER].get();
 
             if (!o_ptr->is_valid()) {
                 msg_print(_("クロークを身につけていない！", "You are not wearing a cloak."));
-                return std::nullopt;
+                return tl::nullopt;
             } else if (!o_ptr->is_cursed()) {
                 msg_print(_("クロークは呪われていない！", "Your cloak is not cursed."));
-                return std::nullopt;
+                return tl::nullopt;
             } else {
                 msg_print(_("影のオーラを身にまとった。", "You are enveloped by a shadowy aura!"));
             }
         }
         if (continuation) {
-            auto *o_ptr = &player_ptr->inventory_list[INVEN_OUTER];
+            auto *o_ptr = player_ptr->inventory[INVEN_OUTER].get();
 
             if ((!o_ptr->is_valid()) || (!o_ptr->is_cursed())) {
                 exe_spell(player_ptr, RealmType::HEX, spell, SpellProcessType::STOP);
@@ -636,41 +635,37 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
         }
         break;
     }
-    case HEX_SHADOW_MOVE: {
+    case HEX_SHADOW_MOVE:
         if (cast) {
-            int i, dir;
-            POSITION y, x;
+            tl::optional<Pos2D> pos_target;
             bool flag;
-
-            for (i = 0; i < 3; i++) {
-                if (!tgt_pt(player_ptr, &x, &y)) {
+            for (auto i = 0; i < 3; i++) {
+                pos_target = point_target(player_ptr);
+                if (!pos_target) {
                     return "";
                 }
 
                 flag = false;
-
-                const auto *floor_ptr = player_ptr->current_floor_ptr;
-                for (dir = 0; dir < 8; dir++) {
-                    int dy = y + ddy_ddd[dir];
-                    int dx = x + ddx_ddd[dir];
-                    if (dir == 5) {
-                        continue;
-                    }
-                    if (floor_ptr->grid_array[dy][dx].has_monster()) {
+                const auto &floor = *player_ptr->current_floor_ptr;
+                for (const auto &d : Direction::directions_8()) {
+                    const auto pos_neighbor = *pos_target + d.vec();
+                    if (floor.get_grid(pos_neighbor).has_monster()) {
                         flag = true;
                     }
                 }
 
-                const auto dist = distance(y, x, player_ptr->y, player_ptr->x);
-                if (!is_cave_empty_bold(player_ptr, y, x) || floor_ptr->grid_array[y][x].is_icky() || (dist > player_ptr->lev + 2)) {
+                const auto p_pos = player_ptr->get_position();
+                const auto dist = Grid::calc_distance(*pos_target, p_pos);
+                if (!floor.is_empty_at(*pos_target) || (*pos_target == p_pos) || floor.get_grid(*pos_target).is_icky() || (dist > player_ptr->lev + 2)) {
                     msg_print(_("そこには移動できない。", "Can not teleport to there."));
                     continue;
                 }
+
                 break;
             }
 
             if (flag && randint0(player_ptr->lev * player_ptr->lev / 2)) {
-                teleport_player_to(player_ptr, y, x, TELEPORT_SPONTANEOUS);
+                teleport_player_to(player_ptr, pos_target->y, pos_target->x, TELEPORT_SPONTANEOUS);
             } else {
                 msg_print(_("おっと！", "Oops!"));
                 teleport_player(player_ptr, 30, TELEPORT_SPONTANEOUS);
@@ -678,8 +673,8 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
 
             should_continue = false;
         }
+
         break;
-    }
     case HEX_ANTI_MAGIC: {
         power = player_ptr->lev * 3 / 2;
         if (info) {
@@ -704,7 +699,7 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
 
             if (spell_hex.get_revenge_turn() > 0) {
                 msg_print(_("すでに復讐は宣告済みだ。", "You've already declared your revenge."));
-                return std::nullopt;
+                return tl::nullopt;
             }
 
             spell_hex.set_revenge_type(SpellHexRevengeType::REVENGE);
@@ -716,14 +711,14 @@ std::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type s
         if (continuation) {
             spell_hex.set_revenge_turn(1, false);
             if (spell_hex.get_revenge_turn() == 0) {
-                DIRECTION dir;
-
                 if (power) {
-                    command_dir = 0;
+                    command_dir = Direction::none();
 
+                    auto dir = Direction::none();
                     do {
                         msg_print(_("復讐の時だ！", "Time for revenge!"));
-                    } while (!get_aim_dir(player_ptr, &dir));
+                        dir = get_aim_dir(player_ptr);
+                    } while (!dir);
 
                     fire_ball(player_ptr, AttributeType::HELL_FIRE, dir, power, 1);
 

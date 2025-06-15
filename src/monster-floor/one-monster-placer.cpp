@@ -7,67 +7,35 @@
 #include "monster-floor/one-monster-placer.h"
 #include "core/speed-table.h"
 #include "dungeon/quest.h"
-#include "effect/attribute-types.h"
-#include "effect/effect-characteristics.h"
-#include "effect/effect-processor.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
-#include "floor/cave.h"
 #include "floor/floor-save-util.h"
 #include "game-option/birth-options.h"
 #include "game-option/cheat-types.h"
 #include "grid/grid.h"
-#include "monster-attack/monster-attack-table.h"
 #include "monster-floor/monster-move.h"
-#include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/race-brightness-mask.h"
-#include "monster-race/race-misc-flags.h"
-#include "monster/monster-flag-types.h"
 #include "monster/monster-info.h"
 #include "monster/monster-list.h"
 #include "monster/monster-status-setter.h"
-#include "monster/monster-status.h"
 #include "monster/monster-update.h"
 #include "monster/monster-util.h"
 #include "object/warning.h"
 #include "player/player-status.h"
-#include "system/angband-system.h"
 #include "system/enums/monrace/monrace-id.h"
+#include "system/enums/terrain/terrain-characteristics.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
 #include "world/world.h"
-
-/*!
- * @brief たぬきの変身対象となるモンスターかどうか判定する / Hook for Tanuki
- * @param monrace_id モンスター種族ID
- * @return 対象にできるならtrueを返す
- * @todo グローバル変数対策の上 monster_hook.cへ移す。
- */
-static bool monster_hook_tanuki(PlayerType *player_ptr, MonraceId monrace_id)
-{
-    const auto &monrace = MonraceList::get_instance().get_monrace(monrace_id);
-    bool unselectable = monrace.kind_flags.has(MonsterKindType::UNIQUE);
-    unselectable |= monrace.misc_flags.has(MonsterMiscType::MULTIPLY);
-    unselectable |= monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY);
-    unselectable |= monrace.feature_flags.has(MonsterFeatureType::AQUATIC);
-    unselectable |= monrace.misc_flags.has(MonsterMiscType::CHAMELEON);
-    unselectable |= monrace.is_explodable();
-    if (unselectable) {
-        return false;
-    }
-
-    auto hook_pf = get_monster_hook(player_ptr);
-    return hook_pf(player_ptr, monrace_id);
-}
+#include <range/v3/algorithm.hpp>
 
 /*!
  * @param player_ptr プレイヤーへの参照ポインタ
@@ -86,7 +54,7 @@ static MonraceId initial_monrace_appearance(PlayerType *player_ptr, MonraceId mo
         return monrace_id;
     }
 
-    get_mon_num_prep(player_ptr, monster_hook_tanuki, nullptr);
+    get_mon_num_prep_enum(player_ptr, MonraceHook::TANUKI);
     auto attempts = 1000;
     const auto &floor = *player_ptr->current_floor_ptr;
     auto min = std::min(floor.base_level - 5, 50);
@@ -157,16 +125,11 @@ static bool check_quest_placeable(const FloorType &floor, MonraceId r_idx)
     if (r_idx != quest.r_idx) {
         return true;
     }
-    int number_mon = 0;
-    for (int i2 = 0; i2 < floor.width; ++i2) {
-        for (int j2 = 0; j2 < floor.height; j2++) {
-            auto quest_monster = floor.grid_array[j2][i2].has_monster();
-            quest_monster &= (floor.m_list[floor.grid_array[j2][i2].m_idx].r_idx == quest.r_idx);
-            if (quest_monster) {
-                number_mon++;
-            }
-        }
-    }
+    const auto has_quest_monrace = [&](const Pos2D &pos) {
+        const auto &grid = floor.get_grid(pos);
+        return grid.has_monster() && (floor.m_list[grid.m_idx].r_idx == quest.r_idx);
+    };
+    const auto number_mon = ranges::count_if(floor.get_area(), has_quest_monrace);
 
     if (number_mon + quest.cur_num >= quest.max_num) {
         return false;
@@ -200,7 +163,7 @@ static bool check_procection_rune(PlayerType *player_ptr, MonraceId monrace_id, 
     reset_bits(grid.info, CAVE_MARK);
     reset_bits(grid.info, CAVE_OBJECT);
     grid.mimic = 0;
-    note_spot(player_ptr, pos.y, pos.x);
+    note_spot(player_ptr, pos);
     return true;
 }
 
@@ -247,25 +210,25 @@ static void warn_unique_generation(PlayerType *player_ptr, MonraceId r_idx)
  * @param r_idx 生成モンスター種族
  * @param mode 生成オプション
  * @param summoner_m_idx モンスターの召喚による場合、召喚主のモンスターID
- * @return 生成に成功したらモンスターID、失敗したらstd::nullopt
+ * @return 生成に成功したらモンスターID、失敗したらtl::nullopt
  */
-std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y, POSITION x, MonraceId r_idx, BIT_FLAGS mode, std::optional<MONSTER_IDX> summoner_m_idx)
+tl::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y, POSITION x, MonraceId r_idx, BIT_FLAGS mode, tl::optional<MONSTER_IDX> summoner_m_idx)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     const Pos2D pos(y, x);
     auto &grid = floor.get_grid(pos);
     auto &monrace = MonraceList::get_instance().get_monrace(r_idx);
     const auto &world = AngbandWorld::get_instance();
-    if (world.is_wild_mode() || !in_bounds(&floor, pos.y, pos.x) || !MonraceList::is_valid(r_idx)) {
-        return std::nullopt;
+    if (world.is_wild_mode() || !floor.contains(pos) || !MonraceList::is_valid(r_idx)) {
+        return tl::nullopt;
     }
 
-    if (none_bits(mode, PM_IGNORE_TERRAIN) && (pattern_tile(&floor, pos.y, pos.x) || !monster_can_enter(player_ptr, pos.y, pos.x, &monrace, 0))) {
-        return std::nullopt;
+    if (none_bits(mode, PM_IGNORE_TERRAIN) && (grid.has(TerrainCharacteristics::PATTERN) || !monster_can_enter(player_ptr, pos.y, pos.x, monrace, 0))) {
+        return tl::nullopt;
     }
 
     if (!check_unique_placeable(floor, r_idx, mode) || !check_quest_placeable(floor, r_idx) || !check_procection_rune(player_ptr, r_idx, pos)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     msg_format_wizard(player_ptr, CHEAT_MONSTER, _("%s(Lv%d)を生成しました。", "%s(Lv%d) was generated."), monrace.name.data(), monrace.level);
@@ -276,7 +239,7 @@ std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y,
     const auto m_idx = floor.pop_empty_index_monster();
     grid.m_idx = m_idx;
     if (!grid.has_monster()) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     auto &monster = floor.m_list[grid.m_idx];
@@ -284,7 +247,7 @@ std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y,
     monster.mflag2.clear();
     if (monrace.misc_flags.has(MonsterMiscType::CHAMELEON)) {
         monster.r_idx = r_idx;
-        choose_chameleon_polymorph(player_ptr, grid.m_idx, grid, summoner_m_idx);
+        choose_chameleon_polymorph(player_ptr, grid.m_idx, grid.get_terrain_id(), summoner_m_idx);
         monster.mflag2.set(MonsterConstantFlagType::CHAMELEON);
     } else {
         monster.r_idx = r_idx;
@@ -355,12 +318,12 @@ std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y,
 
     monster.ml = false;
     if (any_bits(mode, PM_FORCE_PET)) {
-        set_pet(player_ptr, &monster);
+        set_pet(player_ptr, monster);
     } else {
         auto should_be_friendly = !is_summoned && new_monrace.behavior_flags.has(MonsterBehaviorType::FRIENDLY);
         should_be_friendly |= is_summoned && summoner.is_friendly();
         should_be_friendly |= any_bits(mode, PM_FORCE_FRIENDLY);
-        auto force_hostile = monster_has_hostile_align(player_ptr, nullptr, 0, -1, &new_monrace);
+        auto force_hostile = monster_has_hostile_to_player(player_ptr, 0, -1, new_monrace);
         force_hostile |= player_ptr->current_floor_ptr->inside_arena;
         if (should_be_friendly && !force_hostile) {
             monster.set_friendly();
@@ -432,5 +395,5 @@ std::optional<MONSTER_IDX> place_monster_one(PlayerType *player_ptr, POSITION y,
 
     warn_unique_generation(player_ptr, r_idx);
     activate_explosive_rune(player_ptr, pos, new_monrace);
-    return monster.is_valid() ? std::make_optional(grid.m_idx) : std::nullopt;
+    return monster.is_valid() ? tl::make_optional(grid.m_idx) : tl::nullopt;
 }

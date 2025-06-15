@@ -1,13 +1,11 @@
 #include "store/purchase-order.h"
 #include "autopick/autopick-finder.h"
 #include "autopick/autopick-util.h"
-#include "autopick/autopick.h"
 #include "avatar/avatar.h"
 #include "core/asking-player.h"
 #include "core/stuff-handler.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
-#include "game-option/birth-options.h"
 #include "game-option/play-record-options.h"
 #include "inventory/inventory-object.h"
 #include "io/write-diary.h"
@@ -17,28 +15,25 @@
 #include "object-enchant/special-object-flags.h"
 #include "object/object-info.h"
 #include "object/object-stack.h"
-#include "object/object-value.h"
 #include "perception/object-perception.h"
 #include "player/race-info-table.h"
 #include "store/home.h"
 #include "store/pricing.h"
 #include "store/say-comments.h"
 #include "store/store-owners.h"
-#include "store/store-util.h"
 #include "store/store.h"
-#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
 #include "term/screen-processor.h"
-#include "util/enum-converter.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "view/display-store.h"
 #include "world/world.h"
-#include <optional>
+#include <fmt/format.h>
 #include <string>
+#include <tl/optional.hpp>
 
 /*!
  * @brief プレイヤーが購入する時の値切り処理メインルーチン /
@@ -49,17 +44,17 @@
  * @return プレイヤーの価格に対して店主が不服ならばTRUEを返す /
  * Return TRUE if purchase is NOT successful
  */
-static std::optional<PRICE> prompt_to_buy(PlayerType *player_ptr, ItemEntity *o_ptr, StoreSaleType store_num)
+static tl::optional<PRICE> prompt_to_buy(PlayerType *player_ptr, ItemEntity *o_ptr, StoreSaleType store_num)
 {
     auto price_ask = price_item(player_ptr, o_ptr->calc_price(), ot_ptr->inflate, false, store_num);
 
     price_ask *= o_ptr->number;
-    const auto s = format(_("買値 $%ld で買いますか？", "Do you buy for $%ld? "), static_cast<long>(price_ask));
+    const auto s = fmt::format(_("買値 ${} で買いますか？", "Do you buy for ${}? "), price_ask);
     if (input_check_strict(player_ptr, s, UserCheck::DEFAULT_Y)) {
         return price_ask;
     }
 
-    return std::nullopt;
+    return tl::nullopt;
 }
 
 /*!
@@ -67,7 +62,7 @@ static std::optional<PRICE> prompt_to_buy(PlayerType *player_ptr, ItemEntity *o_
  * @param i 店舗インベントリストック数
  * @return 選択したらtrue、しなかったらfalse
  */
-static std::optional<short> show_store_select_item(const int i, StoreSaleType store_num)
+static tl::optional<short> show_store_select_item(const int i, StoreSaleType store_num)
 {
     std::string prompt;
     switch (store_num) {
@@ -98,7 +93,7 @@ static void take_item_from_home(PlayerType *player_ptr, ItemEntity &item_home, I
     distribute_charges(&item_home, &item_inventory, amt);
 
     const auto item_new = store_item_to_inventory(player_ptr, &item_inventory);
-    const auto item_name = describe_flavor(player_ptr, player_ptr->inventory_list[item_new], 0);
+    const auto item_name = describe_flavor(player_ptr, *player_ptr->inventory[item_new], 0);
     handle_stuff(player_ptr);
     msg_format(_("%s(%c)を取った。", "You have %s (%c)."), item_name.data(), index_to_label(item_new));
 
@@ -245,7 +240,7 @@ void store_purchase(PlayerType *player_ptr, StoreSaleType store_num)
     COMMAND_CODE item_new;
     const auto purchased_item_name = describe_flavor(player_ptr, item, 0);
     msg_format(_("%s(%c)を購入する。", "Buying %s (%c)."), purchased_item_name.data(), I2A(item_num));
-    msg_print(nullptr);
+    msg_erase();
 
     const auto &world = AngbandWorld::get_instance();
     auto res = prompt_to_buy(player_ptr, &item, store_num);
@@ -271,13 +266,13 @@ void store_purchase(PlayerType *player_ptr, StoreSaleType store_num)
         chg_virtue(player_ptr, Virtue::NATURE, -1);
     }
 
-    sound(SOUND_BUY);
+    sound(SoundKind::BUY);
     player_ptr->au -= price;
-    store_prt_gold(player_ptr);
+    store_prt_gold(player_ptr->au);
     object_aware(player_ptr, item);
 
-    msg_format(_("%sを $%ldで購入しました。", "You bought %s for %ld gold."), purchased_item_name.data(), (long)price);
-    angband_strcpy(record_o_name, purchased_item_name, MAX_NLEN);
+    msg_print(_("{}を ${}で購入しました。", "You bought {} for {} gold."), purchased_item_name, price);
+    record_item_name = purchased_item_name;
     record_turn = world.game_turn;
     const auto &floor = *player_ptr->current_floor_ptr;
     if (record_buy) {
@@ -299,7 +294,7 @@ void store_purchase(PlayerType *player_ptr, StoreSaleType store_num)
     item_new = store_item_to_inventory(player_ptr, &item);
     handle_stuff(player_ptr);
 
-    const auto got_item_name = describe_flavor(player_ptr, player_ptr->inventory_list[item_new], 0);
+    const auto got_item_name = describe_flavor(player_ptr, *player_ptr->inventory[item_new], 0);
     msg_format(_("%s(%c)を手に入れた。", "You have %s (%c)."), got_item_name.data(), index_to_label(item_new));
 
     if (item_store.is_wand_rod()) {

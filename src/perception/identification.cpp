@@ -106,48 +106,24 @@ bool screen_object(PlayerType *player_ptr, const ItemEntity &item, BIT_FLAGS mod
         info[i++] = _("それは全く光らない。", "It provides no light.");
     }
 
-    POSITION rad = 0;
-    if (flags.has(TR_LITE_1) && flags.has_not(TR_DARK_SOURCE)) {
-        rad += 1;
-    }
-    if (flags.has(TR_LITE_2) && flags.has_not(TR_DARK_SOURCE)) {
-        rad += 2;
-    }
-    if (flags.has(TR_LITE_3) && flags.has_not(TR_DARK_SOURCE)) {
-        rad += 3;
-    }
-    if (flags.has(TR_LITE_M1)) {
-        rad -= 1;
-    }
-    if (flags.has(TR_LITE_M2)) {
-        rad -= 2;
-    }
-    if (flags.has(TR_LITE_M3)) {
-        rad -= 3;
-    }
-
-    if (item.ego_idx == EgoType::LITE_SHINE) {
-        rad++;
-    }
+    const auto radius = item.get_lite_radius();
 
     std::string desc;
-    if (flags.has(TR_LITE_FUEL) && flags.has_not(TR_DARK_SOURCE)) {
-        if (rad > 0) {
-            desc = _("それは燃料補給によって明かり(半径 ", "It provides light (radius ");
-            desc.append(std::to_string((int)rad)).append(_(")を授ける。", ") when fueled."));
-        }
-    } else {
-        if (rad > 0) {
-            desc = _("それは永遠なる明かり(半径 ", "It provides light (radius ");
-            desc.append(std::to_string((int)rad)).append(_(")を授ける。", ") forever."));
-        }
-        if (rad < 0) {
-            desc = _("それは明かりの半径を狭める(半径に-", "It decreases the radius of your light by ");
-            desc.append(std::to_string((int)-rad)).append(_(")。", "."));
-        }
-    }
+    if (radius > 0) {
+        if (flags.has(TR_LITE_FUEL)) {
 
-    if (rad != 0) {
+            desc = _("それは燃料補給によって明かり(半径 ", "It provides light (radius ");
+            desc.append(std::to_string(radius)).append(_(")を授ける。", ") when fueled."));
+
+        } else {
+            desc = _("それは永遠なる明かり(半径 ", "It provides light (radius ");
+            desc.append(std::to_string(radius)).append(_(")を授ける。", ") forever."));
+        }
+        info[i++] = desc.data();
+    }
+    if (radius < 0) {
+        desc = _("それは明かりの半径を狭める(半径に-", "It decreases the radius of your light by ");
+        desc.append(std::to_string(-radius)).append(_(")。", "."));
         info[i++] = desc.data();
     }
 
@@ -401,7 +377,7 @@ bool screen_object(PlayerType *player_ptr, const ItemEntity &item, BIT_FLAGS mod
     }
 
     if (flags.has(TR_VUL_LITE)) {
-        info[i++] = _("それは閃光に対する弱点を授ける。", "It provides vulnerability to cold.");
+        info[i++] = _("それは閃光に対する弱点を授ける。", "It provides vulnerability to light.");
     }
 
     if (flags.has(TR_THROW)) {
@@ -420,19 +396,19 @@ bool screen_object(PlayerType *player_ptr, const ItemEntity &item, BIT_FLAGS mod
         info[i++] = _("それは恐怖への完全な耐性を授ける。", "It makes you completely fearless.");
     }
 
-    if (flags.has(TR_RES_ACID)) {
+    if (flags.has(TR_RES_ACID) && flags.has_not(TR_IM_ACID) && flags.has_not(TR_VUL_ACID)) {
         info[i++] = _("それは酸への耐性を授ける。", "It provides resistance to acid.");
     }
 
-    if (flags.has(TR_RES_ELEC)) {
+    if (flags.has(TR_RES_ELEC) && flags.has_not(TR_IM_ELEC) && flags.has_not(TR_VUL_ELEC)) {
         info[i++] = _("それは電撃への耐性を授ける。", "It provides resistance to electricity.");
     }
 
-    if (flags.has(TR_RES_FIRE)) {
+    if (flags.has(TR_RES_FIRE) && flags.has_not(TR_IM_FIRE) && flags.has_not(TR_VUL_FIRE)) {
         info[i++] = _("それは火への耐性を授ける。", "It provides resistance to fire.");
     }
 
-    if (flags.has(TR_RES_COLD)) {
+    if (flags.has(TR_RES_COLD) && flags.has_not(TR_IM_COLD) && flags.has_not(TR_VUL_COLD)) {
         info[i++] = _("それは寒さへの耐性を授ける。", "It provides resistance to cold.");
     }
 
@@ -440,11 +416,11 @@ bool screen_object(PlayerType *player_ptr, const ItemEntity &item, BIT_FLAGS mod
         info[i++] = _("それは毒への耐性を授ける。", "It provides resistance to poison.");
     }
 
-    if (flags.has(TR_RES_LITE)) {
+    if (flags.has(TR_RES_LITE) && flags.has_not(TR_VUL_LITE)) {
         info[i++] = _("それは閃光への耐性を授ける。", "It provides resistance to light.");
     }
 
-    if (flags.has(TR_RES_DARK)) {
+    if (flags.has(TR_RES_DARK) && flags.has_not(TR_IM_DARK)) {
         info[i++] = _("それは暗黒への耐性を授ける。", "It provides resistance to dark.");
     }
 
@@ -564,7 +540,7 @@ bool screen_object(PlayerType *player_ptr, const ItemEntity &item, BIT_FLAGS mod
         info[i++] = _("それは矢の呪文を反射する。", "It reflects bolt spells.");
     }
 
-    if (flags.has(TR_RES_CURSE)) {
+    if (flags.has(TR_RES_CURSE) && flags.has_not(TR_VUL_CURSE)) {
         info[i++] = _("それは呪いへの抵抗力を高める。", "It increases your resistance to curses.");
     }
 

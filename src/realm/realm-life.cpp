@@ -30,14 +30,13 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は tl::nullopt を返す。
  */
-std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+tl::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool info = mode == SpellProcessType::INFO;
     bool cast = mode == SpellProcessType::CAST;
 
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
 
     switch (spell) {
@@ -72,8 +71,9 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball_hide(player_ptr, AttributeType::WOUNDS, dir, dice.roll(), 0);
         }
@@ -144,8 +144,9 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball_hide(player_ptr, AttributeType::WOUNDS, dir, dice.roll(), 0);
         }
@@ -219,7 +220,7 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
     case 17: {
         if (cast) {
             if (!ident_spell(player_ptr, false)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -256,8 +257,9 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball_hide(player_ptr, AttributeType::WOUNDS, dir, dice.roll(), 0);
         }
@@ -273,7 +275,7 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
 
         if (cast) {
             if (!recall_player(player_ptr, dice.roll() + base)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -360,7 +362,7 @@ std::optional<std::string> do_life_spell(PlayerType *player_ptr, SPELL_IDX spell
     case 30: {
         if (cast) {
             if (!identify_fully(player_ptr, false)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;

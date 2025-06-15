@@ -3,7 +3,6 @@
 #include "autopick/autopick.h"
 #include "core/asking-player.h"
 #include "flavor/flavor-describer.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
 #include "grid/grid.h"
@@ -36,9 +35,9 @@ enum ammo_creation_type {
 
 static bool select_ammo_creation_type(ammo_creation_type &type, PLAYER_LEVEL plev)
 {
-    COMMAND_CODE code;
-    if (repeat_pull(&code)) {
-        type = i2enum<ammo_creation_type>(code);
+    const auto code = repeat_pull();
+    if (code) {
+        type = i2enum<ammo_creation_type>(*code);
         switch (type) {
         case AMMO_SHOT:
         case AMMO_ARROW:
@@ -104,19 +103,19 @@ bool create_ammo(PlayerType *player_ptr)
 
     switch (ext) {
     case AMMO_SHOT: {
-        int dir;
-        if (!get_rep_dir(player_ptr, &dir)) {
+        const auto dir = get_rep_dir(player_ptr);
+        if (!dir) {
             return false;
         }
 
         const auto pos = player_ptr->get_neighbor(dir);
         const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
-        if (grid.get_terrain_mimic().flags.has_not(TerrainCharacteristics::CAN_DIG)) {
+        if (grid.get_terrain(TerrainKind::MIMIC).flags.has_not(TerrainCharacteristics::CAN_DIG)) {
             msg_print(_("そこには岩石がない。", "You need a pile of rubble."));
             return false;
         }
 
-        if (!grid.cave_has_flag(TerrainCharacteristics::CAN_DIG) || !grid.cave_has_flag(TerrainCharacteristics::HURT_ROCK)) {
+        if (!grid.has(TerrainCharacteristics::CAN_DIG) || !grid.has(TerrainCharacteristics::HURT_ROCK)) {
             msg_print(_("硬すぎて崩せなかった。", "You failed to make ammo."));
             return true;
         }

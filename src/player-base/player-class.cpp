@@ -533,9 +533,9 @@ void PlayerClass::init_specific_data()
 
 bool PlayerClass::has_ninja_speed() const
 {
-    auto has_ninja_speed_main = !this->player_ptr->inventory_list[INVEN_MAIN_HAND].is_valid();
+    auto has_ninja_speed_main = !this->player_ptr->inventory[INVEN_MAIN_HAND]->is_valid();
     has_ninja_speed_main |= can_attack_with_main_hand(this->player_ptr);
-    auto has_ninja_speed_sub = !this->player_ptr->inventory_list[INVEN_SUB_HAND].is_valid();
+    auto has_ninja_speed_sub = !this->player_ptr->inventory[INVEN_SUB_HAND]->is_valid();
     has_ninja_speed_sub |= can_attack_with_sub_hand(this->player_ptr);
     return has_ninja_speed_main && has_ninja_speed_sub;
 }
@@ -550,7 +550,7 @@ bool PlayerClass::has_ninja_speed() const
  */
 std::span<const std::string> PlayerClass::get_subtitle_candidates() const
 {
-    static const std::span<const std::string> candidates(diary_subtitles);
+    const std::span candidates(diary_subtitles);
     const auto max = diary_subtitles.size();
     if (this->is_tough()) {
         return candidates.subspan(0, max - 1);

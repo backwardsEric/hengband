@@ -1,13 +1,10 @@
 #include "spell-kind/spells-grid.h"
 #include "dungeon/quest.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/floor-save-util.h"
 #include "floor/floor-save.h"
 #include "game-option/birth-options.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
-#include "system/angband-system.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
@@ -15,7 +12,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
 /*!
@@ -27,16 +23,16 @@ bool create_rune_protection_one(PlayerType *player_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     const auto p_pos = player_ptr->get_position();
-    if (!cave_clean_bold(&floor, p_pos.y, p_pos.x)) {
+    auto &grid = floor.get_grid(p_pos);
+    if (!grid.is_clean()) {
         msg_print(_("床上のアイテムが呪文を跳ね返した。", "The object resists the spell."));
         return false;
     }
 
-    auto &grid = floor.get_grid(p_pos);
     grid.info |= CAVE_OBJECT;
-    grid.set_mimic_terrain_id(TerrainTag::RUNE_PROTECTION);
-    note_spot(player_ptr, p_pos.y, p_pos.x);
-    lite_spot(player_ptr, p_pos.y, p_pos.x);
+    grid.set_terrain_id(TerrainTag::RUNE_PROTECTION, TerrainKind::MIMIC);
+    note_spot(player_ptr, p_pos);
+    lite_spot(player_ptr, p_pos);
     return true;
 }
 
@@ -52,16 +48,16 @@ bool create_rune_explosion(PlayerType *player_ptr, POSITION y, POSITION x)
 {
     const Pos2D pos(y, x);
     auto &floor = *player_ptr->current_floor_ptr;
-    if (!cave_clean_bold(&floor, pos.y, pos.x)) {
+    auto &grid = floor.get_grid(pos);
+    if (!grid.is_clean()) {
         msg_print(_("床上のアイテムが呪文を跳ね返した。", "The object resists the spell."));
         return false;
     }
 
-    auto &grid = floor.get_grid(pos);
     grid.info |= CAVE_OBJECT;
-    grid.set_mimic_terrain_id(TerrainTag::RUNE_EXPLOSION);
-    note_spot(player_ptr, pos.y, pos.x);
-    lite_spot(player_ptr, pos.y, pos.x);
+    grid.set_terrain_id(TerrainTag::RUNE_EXPLOSION, TerrainKind::MIMIC);
+    note_spot(player_ptr, pos);
+    lite_spot(player_ptr, pos);
     return true;
 }
 
@@ -74,7 +70,7 @@ void stair_creation(PlayerType *player_ptr)
     auto up = !ironman_downward;
     auto &floor = *player_ptr->current_floor_ptr;
     auto down = !inside_quest(floor.get_quest_id()) && (floor.dun_level < floor.get_dungeon_definition().maxdepth);
-    if (!floor.dun_level || (!up && !down) || (floor.is_in_quest() && QuestType::is_fixed(floor.quest_number)) || floor.inside_arena || AngbandSystem::get_instance().is_phase_out()) {
+    if (!floor.is_underground() || (!up && !down) || (floor.is_in_quest() && QuestType::is_fixed(floor.quest_number)) || floor.inside_arena || AngbandSystem::get_instance().is_phase_out()) {
         msg_print(_("効果がありません！", "There is no effect!"));
         return;
     }
@@ -85,7 +81,7 @@ void stair_creation(PlayerType *player_ptr)
         return;
     }
 
-    delete_all_items_from_floor(player_ptr, player_ptr->y, player_ptr->x);
+    delete_all_items_from_floor(player_ptr, player_ptr->get_position());
     auto *sf_ptr = get_sf_ptr(player_ptr->floor_id);
     if (!sf_ptr) {
         player_ptr->floor_id = get_unused_floor_id(player_ptr);
@@ -111,26 +107,25 @@ void stair_creation(PlayerType *player_ptr)
         }
     }
 
+    const auto &dungeon = floor.get_dungeon_definition();
     if (dest_floor_id) {
-        for (auto y = 0; y < floor.height; y++) {
-            for (auto x = 0; x < floor.width; x++) {
-                auto &grid = floor.get_grid({ y, x });
-                if (!grid.special) {
-                    continue;
-                }
-
-                if (feat_uses_special(grid.feat)) {
-                    continue;
-                }
-
-                if (grid.special != dest_floor_id) {
-                    continue;
-                }
-
-                /* Remove old stairs */
-                grid.special = 0;
-                cave_set_feat(player_ptr, y, x, rand_choice(feat_ground_type));
+        for (const auto &pos : floor.get_area()) {
+            auto &grid = floor.get_grid(pos);
+            if (!grid.special) {
+                continue;
             }
+
+            if (grid.has_special_terrain()) {
+                continue;
+            }
+
+            if (grid.special != dest_floor_id) {
+                continue;
+            }
+
+            /* Remove old stairs */
+            grid.special = 0;
+            set_terrain_id_to_grid(player_ptr, pos, dungeon.select_floor_terrain_id());
         }
     } else {
         dest_floor_id = get_unused_floor_id(player_ptr);
@@ -142,7 +137,6 @@ void stair_creation(PlayerType *player_ptr)
     }
 
     const auto *dest_sf_ptr = get_sf_ptr(dest_floor_id);
-    const auto &dungeon = floor.get_dungeon_definition();
     const auto &terrains = TerrainList::get_instance();
     if (up) {
         const auto is_shallow = dest_sf_ptr->dun_level <= floor.dun_level - 2;
@@ -150,14 +144,14 @@ void stair_creation(PlayerType *player_ptr)
         const auto should_convert = (dest_sf_ptr->last_visit > 0) && is_shallow;
         const auto converted_terrain_id = dungeon.convert_terrain_id(terrain_up_stair, TerrainCharacteristics::SHAFT);
         const auto terrain_id = should_convert ? converted_terrain_id : terrain_up_stair;
-        cave_set_feat(player_ptr, player_ptr->y, player_ptr->x, terrain_id);
+        set_terrain_id_to_grid(player_ptr, player_ptr->get_position(), terrain_id);
     } else {
         const auto is_deep = dest_sf_ptr->dun_level >= floor.dun_level + 2;
         const auto terrain_down_stair = terrains.get_terrain_id(TerrainTag::DOWN_STAIR);
         const auto should_convert = (dest_sf_ptr->last_visit > 0) && is_deep;
         const auto converted_terrain_id = dungeon.convert_terrain_id(terrain_down_stair, TerrainCharacteristics::SHAFT);
         const auto terrain_id = should_convert ? converted_terrain_id : terrain_down_stair;
-        cave_set_feat(player_ptr, player_ptr->y, player_ptr->x, terrain_id);
+        set_terrain_id_to_grid(player_ptr, player_ptr->get_position(), terrain_id);
     }
 
     floor.get_grid(player_ptr->get_position()).special = dest_floor_id;

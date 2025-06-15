@@ -17,14 +17,16 @@
 #include <map>
 #include <string>
 
+enum class DungeonId;
+enum class ElementRealmType;
 enum class ItemKindType : short;
-enum class PlayerSkillKindType;
 enum class MimicKindType;
-enum class MonsterAbilityType;
 enum class MonraceId : short;
-enum class Virtue : short;
+enum class MonsterAbilityType;
+enum class PlayerSkillKindType;
 enum class RealmType;
-
+enum class Virtue : short;
+class Direction;
 class FloorType;
 class ItemEntity;
 class TimedEffects;
@@ -42,7 +44,7 @@ public:
     player_personality_type ppersonality{}; /* Personality index */
     RealmType realm1{}; /* First magic realm */
     RealmType realm2{}; /* Second magic realm */
-    int16_t element{}; //!< 元素使い領域番号 / Elementalist system index
+    ElementRealmType element_realm{}; //!< 元素使い領域
 
     Dice hit_dice{}; /* Hit dice */
     uint16_t expfact{}; /* Experience factor
@@ -65,9 +67,6 @@ public:
     PLAYER_LEVEL lev{}; /* Level */
 
     int16_t town_num{}; /* Current town number */
-
-    POSITION wilderness_x{}; /* Coordinates in the wilderness */
-    POSITION wilderness_y{};
 
     int mhp{}; /* Max hit pts */
     int chp{}; /* Cur hit pts */
@@ -147,7 +146,7 @@ public:
 
     TIME_EFFECT word_recall{}; /* Word of recall counter */
     TIME_EFFECT alter_reality{}; /* Alter reality counter */
-    int recall_dungeon{}; /* Dungeon set to be recalled */
+    DungeonId recall_dungeon{}; /* Dungeon set to be recalled */
 
     ENERGY energy_need{}; /* Energy needed for next move */
     ENERGY enchant_energy_need{}; /* Energy needed for next upkeep effect	 */
@@ -186,9 +185,6 @@ public:
     std::string last_message = ""; /* Last message on death or retirement */
     char history[4][60]{}; /* Textual "history" for the Player */
 
-    uint16_t panic_save{}; /* Panic save */
-
-    bool wait_report_score{}; /* Waiting to report score */
     bool is_dead{}; /* Player is dead */
     bool now_damaged{};
     bool ambush_flag{};
@@ -212,10 +208,7 @@ public:
 
     bool autopick_autoregister{}; /* auto register is in-use or not */
 
-    byte feeling{}; /* Most recent dungeon feeling */
-    int32_t feeling_turn{}; /* The turn of the last dungeon feeling */
-
-    std::shared_ptr<ItemEntity[]> inventory_list{}; /* The player's inventory */
+    std::vector<std::shared_ptr<ItemEntity>> inventory{}; /* The player's inventory */
     int16_t inven_cnt{}; /* Number of items in inventory */
     int16_t equip_cnt{}; /* Number of items in equipment */
 
@@ -228,9 +221,7 @@ public:
 
     bool monk_notify_aux{};
 
-    bool leaving_dungeon{}; /* True if player is leaving the dungeon */
     bool teleport_town{};
-    bool enter_dungeon{}; /* Just enter the dungeon */
 
     int16_t new_spells{}; /* Number of spells available */
     int16_t old_spells{};
@@ -391,9 +382,13 @@ public:
     std::string decrease_ability_random();
     std::string decrease_ability_all();
     Pos2D get_position() const;
+    Pos2D get_old_position() const;
     Pos2D get_neighbor(int dir) const;
+    Pos2D get_neighbor(const Direction &dir) const;
     bool is_located_at_running_destination() const;
     bool is_located_at(const Pos2D &pos) const;
+    bool try_set_position(const Pos2D &pos);
+    void set_position(const Pos2D &pos);
     bool in_saved_floor() const;
     int calc_life_rating() const;
     bool try_resist_eldritch_horror() const;

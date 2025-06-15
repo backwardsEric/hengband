@@ -1,5 +1,5 @@
 #include "load/world-loader.h"
-#include "floor/wild.h"
+#include "floor/dungeon-feeling.h"
 #include "load/angband-version-comparer.h"
 #include "load/load-util.h"
 #include "load/load-zangband.h"
@@ -9,30 +9,34 @@
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "world/world.h"
 
 static void rd_hengband_dungeons()
 {
+    const int dungeons_size = DungeonList::get_instance().size();
     const auto &dungeons = DungeonList::get_instance();
-    auto &dungeon_records = DungeonRecords::get_instance();
-    const auto max = rd_byte();
-    for (auto i = 0U; i < max; i++) {
-        auto tmp16s = rd_s16b();
-        if (i >= dungeons.size()) {
+    auto &records = DungeonRecords::get_instance();
+    const int max = rd_byte();
+    for (auto i = 0; i < max; i++) {
+        int tmp16s = rd_s16b();
+        if (i >= dungeons_size) {
             continue;
         }
 
-        auto &dungeon_record = dungeon_records.get_record(i);
+        const auto dungeon_id = i2enum<DungeonId>(i);
+        const auto &dungeon = dungeons.get_dungeon(dungeon_id);
+        auto &record = records.get_record(dungeon_id);
         if (tmp16s > 0) {
-            dungeon_record.set_max_level(tmp16s);
+            record.set_max_level(tmp16s);
         }
 
-        const auto &dungeon = dungeons.get_dungeon(i);
-        if (dungeon_record.get_max_level() > dungeon.maxdepth) {
-            dungeon_record.set_max_level(dungeon.maxdepth);
+        if (record.get_max_level() > dungeon.maxdepth) {
+            record.set_max_level(dungeon.maxdepth);
         }
     }
 }
@@ -57,9 +61,9 @@ void rd_dungeons(PlayerType *player_ptr)
 void rd_alter_reality(PlayerType *player_ptr)
 {
     if (h_older_than(0, 3, 8)) {
-        player_ptr->recall_dungeon = DUNGEON_ANGBAND;
+        player_ptr->recall_dungeon = DungeonId::ANGBAND;
     } else {
-        player_ptr->recall_dungeon = rd_s16b();
+        player_ptr->recall_dungeon = i2enum<DungeonId>(rd_s16b());
     }
 
     if (h_older_than(1, 5, 0, 0)) {
@@ -99,11 +103,13 @@ static void rd_world_info(PlayerType *player_ptr)
     igd.init_turn_limit();
     auto &world = AngbandWorld::get_instance();
     world.dungeon_turn_limit = TURNS_PER_TICK * TOWN_DAWN * (MAX_DAYS - 1) + TURNS_PER_TICK * TOWN_DAWN * 3 / 4;
-    player_ptr->current_floor_ptr->generated_turn = rd_s32b();
+    auto &floor = *player_ptr->current_floor_ptr;
+    floor.generated_turn = rd_s32b();
+    auto &df = DungeonFeeling::get_instance();
     if (h_older_than(1, 7, 0, 4)) {
-        player_ptr->feeling_turn = player_ptr->current_floor_ptr->generated_turn;
+        df.set_feeling(floor.generated_turn);
     } else {
-        player_ptr->feeling_turn = rd_s32b();
+        df.set_feeling(rd_s32b());
     }
 
     world.game_turn = rd_s32b();
@@ -124,7 +130,7 @@ static void rd_world_info(PlayerType *player_ptr)
     }
 
     if (h_older_than(0, 0, 3)) {
-        determine_daily_bounty(player_ptr, true);
+        determine_daily_bounty(player_ptr);
     } else {
         world.today_mon = i2enum<MonraceId>(rd_s16b());
         world.knows_daily_bounty = rd_s16b() != 0; // 現在bool型だが、かつてモンスター種族IDを保存していた仕様に合わせる
@@ -151,25 +157,25 @@ void rd_global_configurations(PlayerType *player_ptr)
     auto &system = AngbandSystem::get_instance();
     system.set_seed_flavor(rd_u32b());
     system.set_seed_town(rd_u32b());
-
-    player_ptr->panic_save = rd_u16b();
+    system.set_panic_save(rd_u16b() > 0);
     auto &world = AngbandWorld::get_instance();
     world.total_winner = rd_u16b();
     world.noscore = rd_u16b();
 
     player_ptr->is_dead = rd_bool();
 
-    player_ptr->feeling = rd_byte();
+    DungeonFeeling::get_instance().set_feeling(rd_byte());
     rd_world_info(player_ptr);
 }
 
 void load_wilderness_info(PlayerType *player_ptr)
 {
-    player_ptr->wilderness_x = rd_s32b();
-    player_ptr->wilderness_y = rd_s32b();
+    const auto x = rd_s32b();
+    const auto y = rd_s32b();
+    auto &wilderness = WildernessGrids::get_instance();
+    wilderness.set_player_position({ y, x });
     if (h_older_than(0, 3, 13)) {
-        player_ptr->wilderness_x = 5;
-        player_ptr->wilderness_y = 48;
+        wilderness.initialize_position();
     }
 
     auto &world = AngbandWorld::get_instance();
@@ -190,15 +196,16 @@ errr analyze_wilderness(void)
 {
     const auto wild_x_size = rd_s32b();
     const auto wild_y_size = rd_s32b();
-    auto &world = AngbandWorld::get_instance();
-    if ((wild_x_size > world.max_wild_x) || (wild_y_size > world.max_wild_y)) {
-        load_note(format(_("荒野が大きすぎる(%u/%u)！", "Wilderness is too big (%u/%u)!"), wild_x_size, wild_y_size));
+    auto &wilderness = WildernessGrids::get_instance();
+    const auto &area = wilderness.get_area();
+    if ((wild_y_size > area.height()) || (wild_x_size > area.width())) {
+        load_note(format(_("荒野が大きすぎる(%d/%d)！", "Wilderness is too big (%d/%d)!"), wild_x_size, wild_y_size));
         return 23;
     }
 
-    for (int i = 0; i < wild_x_size; i++) {
-        for (int j = 0; j < wild_y_size; j++) {
-            wilderness[j][i].seed = rd_u32b();
+    for (auto x = 0; x < wild_x_size; x++) {
+        for (auto y = 0; y < wild_y_size; y++) {
+            wilderness.get_grid({ y, x }).set_seed(rd_u32b());
         }
     }
 

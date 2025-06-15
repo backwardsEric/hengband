@@ -329,7 +329,7 @@ std::string MonsterEntity::get_died_message() const
  * @brief モンスターにダメージを与えた際の述語メッセージを返す
  * @return ダメージを受けたモンスターの述語
  */
-std::optional<std::string> MonsterEntity::get_pain_message(std::string_view monster_name, int damage) const
+tl::optional<std::string> MonsterEntity::get_pain_message(std::string_view monster_name, int damage) const
 {
     auto &monrace = this->get_monrace();
     return MonsterPainDescriber(monrace.idx, monrace.symbol_definition.character, monster_name).describe(this->hp, damage, this->ml);
@@ -365,7 +365,7 @@ std::pair<TERM_COLOR, int> MonsterEntity::get_hp_bar_data() const
     return { TERM_RED, len };
 }
 
-std::optional<bool> MonsterEntity::order_pet_whistle(const MonsterEntity &other) const
+tl::optional<bool> MonsterEntity::order_pet_whistle(const MonsterEntity &other) const
 {
     const auto is_ordered_name = this->order_pet_named(other);
     if (is_ordered_name) {
@@ -382,7 +382,7 @@ std::optional<bool> MonsterEntity::order_pet_whistle(const MonsterEntity &other)
     return this->order_pet_hp(other);
 }
 
-std::optional<bool> MonsterEntity::order_pet_dismission(const MonsterEntity &other) const
+tl::optional<bool> MonsterEntity::order_pet_dismission(const MonsterEntity &other) const
 {
     const auto is_ordered_name = this->order_pet_named(other);
     if (is_ordered_name) {
@@ -476,7 +476,7 @@ void MonsterEntity::make_lore_treasure(int num_item, int num_gold) const
     }
 }
 
-std::optional<bool> MonsterEntity::order_pet_named(const MonsterEntity &other) const
+tl::optional<bool> MonsterEntity::order_pet_named(const MonsterEntity &other) const
 {
     if (this->is_named() && !other.is_named()) {
         return true;
@@ -486,10 +486,10 @@ std::optional<bool> MonsterEntity::order_pet_named(const MonsterEntity &other) c
         return false;
     }
 
-    return std::nullopt;
+    return tl::nullopt;
 }
 
-std::optional<bool> MonsterEntity::order_pet_hp(const MonsterEntity &other) const
+tl::optional<bool> MonsterEntity::order_pet_hp(const MonsterEntity &other) const
 {
     if (this->hp > other.hp) {
         return true;
@@ -499,26 +499,25 @@ std::optional<bool> MonsterEntity::order_pet_hp(const MonsterEntity &other) cons
         return false;
     }
 
-    return std::nullopt;
+    return tl::nullopt;
 }
 
 /*!
- * @brief モンスターの目標地点をセットする / Set the target of counter attack
- * @param y 目標y座標
- * @param x 目標x座標
+ * @brief モンスターの目標地点をセットする
+ * @param pos 目標座標
  */
-void MonsterEntity::set_target(POSITION y, POSITION x)
+void MonsterEntity::set_target(const Pos2D &pos)
 {
-    this->target_y = y;
-    this->target_x = x;
+    this->target_y = pos.y;
+    this->target_x = pos.x;
 }
 
 /*!
- * @brief モンスターの目標地点をリセットする / Reset the target of counter attack
+ * @brief モンスターの目標地点をリセットする
  */
 void MonsterEntity::reset_target()
 {
-    this->set_target(0, 0);
+    this->set_target({ 0, 0 });
 }
 
 /*!
@@ -552,4 +551,59 @@ bool MonsterEntity::can_ring_boss_call_nazgul() const
     const auto &nazgul = MonraceList::get_instance().get_monrace(MonraceId::NAZGUL);
     const auto is_nazgul_alive = (nazgul.cur_num + 2) < nazgul.max_num;
     return is_boss && is_nazgul_alive;
+}
+
+std::string MonsterEntity::build_looking_description(bool needs_attitude) const
+{
+    const auto description = this->build_damage_description();
+    const auto attitude = needs_attitude ? this->build_attitude_description() : "";
+    const std::string clone(this->mflag2.has(MonsterConstantFlagType::CLONED) ? ", clone" : "");
+    const auto &apparent_monrace = this->get_appearance_monrace();
+    if ((apparent_monrace.r_tkills > 0) && this->mflag2.has_not(MonsterConstantFlagType::KAGE)) {
+        constexpr auto fmt = _("レベル%d, %s%s%s", "Level %d, %s%s%s");
+        return format(fmt, apparent_monrace.level, description.data(), attitude.data(), clone.data());
+    }
+
+    constexpr auto fmt = _("レベル???, %s%s%s", "Level ???, %s%s%s");
+    return format(fmt, description.data(), attitude.data(), clone.data());
+}
+
+std::string MonsterEntity::build_damage_description() const
+{
+    const auto is_living = this->has_living_flag(true);
+    const auto damage_ratio = this->maxhp > 0 ? 100L * this->hp / this->maxhp : 0;
+    if (!this->ml) {
+        return _("損傷具合不明", "damage unknown");
+    }
+
+    if (this->hp >= this->maxhp) {
+        return is_living ? _("無傷", "unhurt") : _("無ダメージ", "undamaged");
+    }
+
+    if (damage_ratio >= 60) {
+        return is_living ? _("軽傷", "somewhat wounded") : _("小ダメージ", "somewhat damaged");
+    }
+
+    if (damage_ratio >= 25) {
+        return is_living ? _("負傷", "wounded") : _("中ダメージ", "damaged");
+    }
+
+    if (damage_ratio >= 10) {
+        return is_living ? _("重傷", "badly wounded") : _("大ダメージ", "badly damaged");
+    }
+
+    return is_living ? _("半死半生", "almost dead") : _("倒れかけ", "almost destroyed");
+}
+
+std::string MonsterEntity::build_attitude_description() const
+{
+    if (this->is_pet()) {
+        return _(", ペット", ", pet");
+    }
+
+    if (this->is_friendly()) {
+        return _(", 友好的", ", friendly");
+    }
+
+    return "";
 }

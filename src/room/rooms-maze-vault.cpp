@@ -116,11 +116,11 @@ void build_maze_vault(PlayerType *player_ptr, const Pos2D &center, const Pos2DVe
                 grid.info |= CAVE_ICKY;
             }
             if ((x == x1 - 1) || (x == x2 + 1) || (y == y1 - 1) || (y == y2 + 1)) {
-                place_grid(player_ptr, &grid, GB_OUTER);
+                place_grid(player_ptr, grid, GB_OUTER);
             } else if (!is_vault) {
-                place_grid(player_ptr, &grid, GB_EXTRA);
+                place_grid(player_ptr, grid, GB_EXTRA);
             } else {
-                place_grid(player_ptr, &grid, GB_INNER);
+                place_grid(player_ptr, grid, GB_INNER);
             }
 
             if (light) {
@@ -135,6 +135,6 @@ void build_maze_vault(PlayerType *player_ptr, const Pos2D &center, const Pos2DVe
     std::vector<int> visited(num_vertices);
     r_visit(player_ptr, y1, x1, y2, x2, randint0(num_vertices), 0, visited.data());
     if (is_vault) {
-        fill_treasure(player_ptr, x1, x2, y1, y2, randint1(5));
+        fill_treasure(player_ptr, { y1, x1, y2, x2 }, randint1(5));
     }
 }

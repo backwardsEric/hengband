@@ -9,15 +9,11 @@
 #include "game-option/cheat-options.h"
 #include "hpmp/hp-mp-processor.h"
 #include "inventory/inventory-slot-types.h"
-#include "monster-race/monster-race-hook.h"
-#include "object-enchant/tr-types.h"
 #include "player-attack/player-attack.h"
-#include "realm/realm-hex-numbers.h"
 #include "spell-realm/spells-hex.h"
 #include "system/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
 /*!
@@ -65,7 +61,7 @@ static void drain_muramasa(PlayerType *player_ptr, player_attack_type *pa_ptr, c
         return;
     }
 
-    auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
+    auto *o_ptr = player_ptr->inventory[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand].get();
     HIT_PROB to_h = o_ptr->to_h;
     int to_d = o_ptr->to_d;
     bool flag = true;
@@ -157,7 +153,7 @@ void process_drain(PlayerType *player_ptr, player_attack_type *pa_ptr, const boo
         return;
     }
 
-    auto *o_ptr = &player_ptr->inventory_list[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand];
+    auto *o_ptr = player_ptr->inventory[enum2i(INVEN_MAIN_HAND) + pa_ptr->hand].get();
     if (o_ptr->is_specific_artifact(FixedArtifactId::MURAMASA)) {
         drain_muramasa(player_ptr, pa_ptr, is_human);
     } else {

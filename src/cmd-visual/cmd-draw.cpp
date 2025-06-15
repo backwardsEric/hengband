@@ -21,7 +21,7 @@
 #include "view/display-messages.h"
 #include "view/display-player.h"
 #include "world/world.h"
-#include <optional>
+#include <tl/optional.hpp>
 
 /*!
  * @brief 画面を再描画するコマンドのメインルーチン
@@ -79,7 +79,7 @@ void do_cmd_redraw(PlayerType *player_ptr)
         SubWindowRedrawingFlag::ITEM_KNOWLEDGE,
     };
     rfu.set_flags(flags_swrf);
-    AngbandWorld::get_instance().update_playtime();
+    AngbandWorld::get_instance().play_time.update();
     handle_stuff(player_ptr);
     if (PlayerRace(player_ptr).equals(PlayerRaceType::ANDROID)) {
         calc_android_exp(player_ptr);
@@ -98,7 +98,7 @@ void do_cmd_redraw(PlayerType *player_ptr)
     }
 }
 
-static std::optional<int> input_status_command(PlayerType *player_ptr, int page)
+static tl::optional<int> input_status_command(PlayerType *player_ptr, int page)
 {
     auto c = inkey();
     switch (c) {
@@ -115,7 +115,7 @@ static std::optional<int> input_status_command(PlayerType *player_ptr, int page)
 
         const auto &filename = str_ltrim(*input_filename);
         if (!filename.empty()) {
-            AngbandWorld::get_instance().update_playtime();
+            AngbandWorld::get_instance().play_time.update();
             file_character(player_ptr, filename);
         }
 
@@ -124,7 +124,7 @@ static std::optional<int> input_status_command(PlayerType *player_ptr, int page)
     case 'h':
         return page + 1;
     case ESCAPE:
-        return std::nullopt;
+        return tl::nullopt;
     default:
         bell();
         return page;
@@ -143,7 +143,7 @@ void do_cmd_player_status(PlayerType *player_ptr)
     while (true) {
         TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
 
-        world.update_playtime();
+        world.play_time.update();
         (void)display_player(player_ptr, page);
         if (page == 5) {
             page = 0;
@@ -362,10 +362,10 @@ void do_cmd_messages(int num_now)
 
             break;
         }
-        case SKEY_TOP:
+        case SKEY_HOME:
             base_msg_num = oldest_base_msg_num;
             break;
-        case SKEY_BOTTOM:
+        case SKEY_END:
             base_msg_num = 0;
             break;
         case '8':

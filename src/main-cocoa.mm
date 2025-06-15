@@ -20,26 +20,6 @@
 /* This is not included in angband.h in Hengband. */
 #include "system/grafmode.h"
 
-#ifdef MACH_O_COCOA
-
-/* Default creator signature */
-#ifndef ANGBAND_CREATOR
-# define ANGBAND_CREATOR 'H300'
-#endif
-
-/* Mac headers */
-#import "cocoa/AppDelegate.h"
-#import "cocoa/SoundAndMusic.h"
-#import "cocoa/AngbandAudio.h"
-//#include <Carbon/Carbon.h> /* For keycodes */
-/* Hack - keycodes to enable compiling in macOS 10.14 */
-#define kVK_Return 0x24
-#define kVK_Tab    0x30
-#define kVK_Delete 0x33
-#define kVK_Escape 0x35
-#define kVK_ANSI_KeypadEnter 0x4C
-#endif /* MACH_O_COCOA */
-
 #include "cmd-visual/cmd-draw.h"
 #include "cmd-io/cmd-save.h"
 #include "core/asking-player.h"
@@ -69,6 +49,24 @@
 #include "window/main-window-util.h"
 
 #ifdef MACH_O_COCOA
+
+/* Default creator signature */
+#ifndef ANGBAND_CREATOR
+# define ANGBAND_CREATOR 'H300'
+#endif
+
+/* Mac headers */
+#import "cocoa/AppDelegate.h"
+#import "cocoa/SoundAndMusic.h"
+#import "cocoa/AngbandAudio.h"
+//#include <Carbon/Carbon.h> /* For keycodes */
+/* Hack - keycodes to enable compiling in macOS 10.14 */
+#define kVK_Return 0x24
+#define kVK_Tab    0x30
+#define kVK_Delete 0x33
+#define kVK_Escape 0x35
+#define kVK_ANSI_KeypadEnter 0x4C
+
 static NSString * const FallbackFontName = @_("HiraMaruProN-W4", "Menlo");
 static float FallbackFontSizeMain = 13.0f;
 static float FallbackFontSizeSub = 10.0f;
@@ -5007,38 +5005,42 @@ static BOOL send_event(NSEvent *event)
                 [NSApp sendEvent:event];
                 break;
             }
-            
-            if (! [[event characters] length]) break;
-            
-            
+
             /* Extract some modifiers */
             int mc = !! (modifiers & NSEventModifierFlagControl);
             int ms = !! (modifiers & NSEventModifierFlagShift);
             int mo = !! (modifiers & NSEventModifierFlagOption);
             int kp = !! (modifiers & NSEventModifierFlagNumericPad);
-            
-            
+
             /* Get the Angband char corresponding to this unichar */
-            unichar c = [[event characters] characterAtIndex:0];
+            unichar c;
             char ch;
-	    /*
-	     * Have anything from the numeric keypad generate a macro
-	     * trigger so that shift or control modifiers can be passed.
-	     */
-	    if (c <= 0x7F && !kp)
-	    {
-		ch = (char) c;
-	    }
-	    else {
-		/*
-		 * The rest of Hengband uses Angband 2.7's or so key handling:
-		 * so for the rest do something like the encoding that
-		 * main-win.c does:  send a macro trigger with the Unicode
-		 * value encoded into printable ASCII characters.
-		 */
-		ch = '\0';
+            if ([[event characters] length]) {
+                c = [[event characters] characterAtIndex:0];
+                /*
+                 * Have anything from the numeric keypad generate a macro
+                 * trigger so that shift or control modifiers can be passed.
+                 */
+                if (c <= 0x7F && !kp) {
+                    ch = (char) c;
+                } else {
+                    /*
+                     * The rest of Hengband uses Angband 2.7's or so key
+                     * handling: so for the rest do something like the
+                     * encoding that main-win.c does:  send a macro trigger
+                     * with the Unicode value encoded into printable ASCII
+                     * characters.
+                     */
+                    ch = '\0';
+                }
+            } else if ([[event charactersIgnoringModifiers] length]) {
+                /* Pass dead key events as macro triggers. */
+                c = [[event charactersIgnoringModifiers] characterAtIndex:0];
+                ch = '\0';
+            } else {
+                break;
             }
-            
+
             /* override special keys */
             switch([event keyCode]) {
                 case kVK_Return: ch = '\r'; break;

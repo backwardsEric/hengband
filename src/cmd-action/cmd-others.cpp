@@ -62,14 +62,14 @@ void do_cmd_search(PlayerType *player_ptr)
 
 static bool exe_alter(PlayerType *player_ptr)
 {
-    DIRECTION dir;
-    if (!get_rep_dir(player_ptr, &dir, true)) {
+    const auto dir = get_rep_dir(player_ptr, true);
+    if (!dir) {
         return false;
     }
 
     const auto pos = player_ptr->get_neighbor(dir);
     const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
-    const auto &terrain = grid.get_terrain_mimic();
+    const auto &terrain = grid.get_terrain(TerrainKind::MIMIC);
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     if (grid.has_monster()) {
         do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NONE);
@@ -144,7 +144,7 @@ static void accept_winner_message(PlayerType *player_ptr)
     }
 
     play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_WINNER);
-    std::optional<std::string> buf;
+    tl::optional<std::string> buf;
     while (true) {
         buf = input_string(_("*勝利*メッセージ: ", "*Winning* message: "), 1024);
         if (!buf) {

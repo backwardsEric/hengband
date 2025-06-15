@@ -59,7 +59,7 @@ bool ScrollReadExecutor::is_identified() const
 bool ScrollReadExecutor::read()
 {
     auto used_up = true;
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
+    const auto &floor = *this->player_ptr->current_floor_ptr;
     switch (*this->o_ptr->bi_key.sval()) {
     case SV_SCROLL_DARKNESS:
         if (!has_resist_blind(this->player_ptr) && !has_resist_dark(this->player_ptr)) {
@@ -93,7 +93,7 @@ bool ScrollReadExecutor::read()
             k = INVEN_SUB_HAND;
         }
 
-        if (k && curse_weapon_object(this->player_ptr, false, &this->player_ptr->inventory_list[k])) {
+        if (k && curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[k].get())) {
             this->ident = true;
         }
 
@@ -101,7 +101,7 @@ bool ScrollReadExecutor::read()
     }
     case SV_SCROLL_SUMMON_MONSTER:
         for (auto k = 0; k < randint1(3); k++) {
-            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE,
+            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_NONE,
                     PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET)) {
                 this->ident = true;
             }
@@ -110,7 +110,7 @@ bool ScrollReadExecutor::read()
         break;
     case SV_SCROLL_SUMMON_UNDEAD:
         for (auto k = 0; k < randint1(3); k++) {
-            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_UNDEAD,
+            if (summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_UNDEAD,
                     PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET)) {
                 this->ident = true;
             }
@@ -119,7 +119,7 @@ bool ScrollReadExecutor::read()
         break;
     case SV_SCROLL_SUMMON_PET:
         if (summon_specific(
-                this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE, PM_ALLOW_GROUP | PM_FORCE_PET)) {
+                this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_NONE, PM_ALLOW_GROUP | PM_FORCE_PET)) {
             this->ident = true;
         }
 
@@ -241,12 +241,16 @@ bool ScrollReadExecutor::read()
         map_area(this->player_ptr, DETECT_RAD_MAP);
         this->ident = true;
         break;
-    case SV_SCROLL_DETECT_GOLD:
-        if (detect_treasure(this->player_ptr, DETECT_RAD_DEFAULT) || detect_objects_gold(this->player_ptr, DETECT_RAD_DEFAULT)) {
+    case SV_SCROLL_DETECT_GOLD: {
+        const auto detected_treasure = detect_treasure(this->player_ptr, DETECT_RAD_DEFAULT);
+        const auto detected_gold = detect_objects_gold(this->player_ptr, DETECT_RAD_DEFAULT);
+
+        if (detected_treasure || detected_gold) {
             this->ident = true;
         }
 
         break;
+    }
     case SV_SCROLL_DETECT_ITEM:
         if (detect_objects_normal(this->player_ptr, DETECT_RAD_DEFAULT)) {
             this->ident = true;
@@ -259,12 +263,16 @@ bool ScrollReadExecutor::read()
         }
 
         break;
-    case SV_SCROLL_DETECT_DOOR:
-        if (detect_doors(this->player_ptr, DETECT_RAD_DEFAULT) || detect_stairs(this->player_ptr, DETECT_RAD_DEFAULT)) {
+    case SV_SCROLL_DETECT_DOOR: {
+        const auto detected_doors = detect_doors(this->player_ptr, DETECT_RAD_DEFAULT);
+        const auto detected_stairs = detect_stairs(this->player_ptr, DETECT_RAD_DEFAULT);
+
+        if (detected_doors || detected_stairs) {
             this->ident = true;
         }
 
         break;
+    }
     case SV_SCROLL_DETECT_INVIS:
         if (detect_monsters_invis(this->player_ptr, DETECT_RAD_DEFAULT)) {
             this->ident = true;
@@ -366,7 +374,7 @@ bool ScrollReadExecutor::read()
         this->ident = true;
         break;
     case SV_SCROLL_FIRE:
-        fire_ball(this->player_ptr, AttributeType::FIRE, 0, 666, 4);
+        fire_ball(this->player_ptr, AttributeType::FIRE, Direction::self(), 666, 4);
         if (!(is_oppose_fire(this->player_ptr) || has_resist_fire(this->player_ptr) || has_immune_fire(this->player_ptr))) {
             take_hit(this->player_ptr, DAMAGE_NOESCAPE, 50 + randint1(50), _("炎の巻物", "a Scroll of Fire"));
         }
@@ -374,7 +382,7 @@ bool ScrollReadExecutor::read()
         this->ident = true;
         break;
     case SV_SCROLL_ICE:
-        fire_ball(this->player_ptr, AttributeType::ICE, 0, 777, 4);
+        fire_ball(this->player_ptr, AttributeType::ICE, Direction::self(), 777, 4);
         if (!(is_oppose_cold(this->player_ptr) || has_resist_cold(this->player_ptr) || has_immune_cold(this->player_ptr))) {
             take_hit(this->player_ptr, DAMAGE_NOESCAPE, 100 + randint1(100), _("氷の巻物", "a Scroll of Ice"));
         }
@@ -382,7 +390,7 @@ bool ScrollReadExecutor::read()
         this->ident = true;
         break;
     case SV_SCROLL_CHAOS:
-        fire_ball(this->player_ptr, AttributeType::CHAOS, 0, 1000, 4);
+        fire_ball(this->player_ptr, AttributeType::CHAOS, Direction::self(), 1000, 4);
         if (!has_resist_chaos(this->player_ptr)) {
             take_hit(this->player_ptr, DAMAGE_NOESCAPE, 111 + randint1(111), _("ログルスの巻物", "a Scroll of Logrus"));
         }
@@ -391,9 +399,9 @@ bool ScrollReadExecutor::read()
         break;
     case SV_SCROLL_RUMOR:
         msg_print(_("巻物にはメッセージが書かれている:", "There is message on the scroll. It says:"));
-        msg_print(nullptr);
+        msg_erase();
         display_rumor(this->player_ptr, true);
-        msg_print(nullptr);
+        msg_erase();
         msg_print(_("巻物は煙を立てて消え去った！", "The scroll disappears in a puff of smoke!"));
         this->ident = true;
         break;

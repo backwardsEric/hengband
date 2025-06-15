@@ -11,7 +11,6 @@
 #include "market/bounty-prize-table.h"
 #include "market/building-util.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
 #include "object-enchant/item-apply-magic.h"
@@ -19,20 +18,15 @@
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "sv-definition/sv-other-types.h"
-#include "system/dungeon/dungeon-definition.h"
-#include "system/dungeon/dungeon-list.h"
-#include "system/dungeon/dungeon-record.h"
-#include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
 #include "system/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
+#include "system/services/dungeon-service.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
-#include "term/z-form.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <algorithm>
@@ -49,7 +43,7 @@ bool exchange_cash(PlayerType *player_ptr)
     constexpr auto fmt_convert = _("%s を換金しますか？", "Convert %s into money? ");
     constexpr auto fmt_reward = _("賞金 %d＄を手に入れた。", "You get %dgp.");
     for (INVENTORY_IDX i = 0; i <= INVEN_SUB_HAND; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         if (item.bi_key.tval() != ItemKindType::CAPTURE) {
             continue;
         }
@@ -72,7 +66,7 @@ bool exchange_cash(PlayerType *player_ptr)
     }
 
     for (INVENTORY_IDX i = 0; i < INVEN_PACK; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         if (!item.is_corpse()) {
             continue;
         }
@@ -95,7 +89,7 @@ bool exchange_cash(PlayerType *player_ptr)
     }
 
     for (INVENTORY_IDX i = 0; i < INVEN_PACK; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         if (item.bi_key != BaseitemKey(ItemKindType::MONSTER_REMAINS, SV_SKELETON)) {
             continue;
         }
@@ -119,7 +113,7 @@ bool exchange_cash(PlayerType *player_ptr)
 
     auto &world = AngbandWorld::get_instance();
     for (INVENTORY_IDX i = 0; i < INVEN_PACK; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         const auto &monrace = world.get_today_bounty();
         if (!item.is_corpse() || (item.get_monrace().name != monrace.name)) {
             continue;
@@ -139,7 +133,7 @@ bool exchange_cash(PlayerType *player_ptr)
     }
 
     for (INVENTORY_IDX i = 0; i < INVEN_PACK; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         const auto &monrace = world.get_today_bounty();
         if ((item.bi_key != BaseitemKey(ItemKindType::MONSTER_REMAINS, SV_SKELETON)) || (item.get_monrace().name != monrace.name)) {
             continue;
@@ -164,7 +158,7 @@ bool exchange_cash(PlayerType *player_ptr)
         }
 
         for (INVENTORY_IDX i = INVEN_PACK - 1; i >= 0; i--) {
-            auto &item = player_ptr->inventory_list[i];
+            auto &item = *player_ptr->inventory[i];
             if ((item.bi_key.tval() != ItemKindType::MONSTER_REMAINS) || (item.get_monrace().idx != monrace_id)) {
                 continue;
             }
@@ -209,7 +203,7 @@ bool exchange_cash(PlayerType *player_ptr)
     }
 
     msg_print(_("賞金を得られそうなものは持っていなかった。", "You have nothing."));
-    msg_print(nullptr);
+    msg_erase();
     return false;
 }
 
@@ -271,33 +265,16 @@ void show_bounty(void)
 }
 
 /*!
- * @brief 今日の賞金首を確定する / Determine today's bounty monster
+ * @brief 今日の賞金首を確定する
  * @param PlayerType プレイヤーへの参照ポインタ
- * @note conv_old is used if loaded 0.0.3 or older save file
  */
-void determine_daily_bounty(PlayerType *player_ptr, bool conv_old)
+void determine_daily_bounty(PlayerType *player_ptr)
 {
-    const auto &dungeon_records = DungeonRecords::get_instance();
-    auto max_dl = 3;
-    if (!conv_old) {
-        for (const auto &[dungeon_id, dungeon] : DungeonList::get_instance()) {
-            const auto max_level = dungeon_records.get_record(dungeon_id).get_max_level();
-            if (max_level < dungeon.mindepth) {
-                continue;
-            }
-
-            if (max_dl < max_level) {
-                max_dl = max_level;
-            }
-        }
-    } else {
-        max_dl = std::max(dungeon_records.get_record(DUNGEON_ANGBAND).get_max_level(), 3);
-    }
-
+    const auto max_dungeon_level = std::max(DungeonService::find_max_level(), 3);
     get_mon_num_prep_bounty(player_ptr);
     auto &world = AngbandWorld::get_instance();
     while (true) {
-        world.today_mon = get_mon_num(player_ptr, std::min(max_dl / 2, 40), max_dl, PM_ARENA);
+        world.today_mon = get_mon_num(player_ptr, std::min(max_dungeon_level / 2, 40), max_dungeon_level, PM_ARENA);
         const auto &monrace = world.get_today_bounty();
         if (cheat_hear) {
             msg_format(_("日替わり候補: %s ", "Today's candidate: %s "), monrace.name.data());
@@ -323,10 +300,9 @@ void determine_daily_bounty(PlayerType *player_ptr, bool conv_old)
             continue;
         }
 
-        break;
+        world.knows_daily_bounty = false;
+        return;
     }
-
-    world.knows_daily_bounty = false;
 }
 
 /*!

@@ -14,13 +14,9 @@
 #include "io-dump/dump-util.h"
 #include "io/input-key-acceptor.h"
 #include "knowledge/monster-group-table.h"
-#include "locale/english.h"
 #include "lore/lore-util.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
-#include "monster/monster-info.h"
-#include "monster/monster-status.h"
-#include "monster/smart-learn-types.h"
 #include "pet/pet-util.h"
 #include "system/floor/floor-info.h"
 #include "system/monrace/monrace-definition.h"
@@ -29,16 +25,17 @@
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
-#include "term/term-color-types.h"
-#include "term/z-form.h"
 #include "tracking/lore-tracker.h"
 #include "util/angband-files.h"
-#include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-lore.h"
-#include "view/display-monster-status.h"
 #include "world/world.h"
+#include <fmt/format.h>
+#ifdef JP
+#else
+#include "locale/english.h"
+#endif
 
 /*!
  * @brief 特定の与えられた条件に応じてモンスターのIDリストを作成する / Build a list of monster indexes in the given group.
@@ -113,17 +110,16 @@ void do_cmd_knowledge_pets(PlayerType *player_ptr)
         return;
     }
 
-    MonsterEntity *m_ptr;
     int t_friends = 0;
     for (int i = player_ptr->current_floor_ptr->m_max - 1; i >= 1; i--) {
-        m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!m_ptr->is_valid() || !m_ptr->is_pet()) {
+        const auto &monster = player_ptr->current_floor_ptr->m_list[i];
+        if (!monster.is_valid() || !monster.is_pet()) {
             continue;
         }
 
         t_friends++;
-        const auto pet_name = monster_desc(player_ptr, m_ptr, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE);
-        fprintf(fff, "%s (%s)\n", pet_name.data(), look_mon_desc(m_ptr, 0x00).data());
+        const auto pet_name = monster_desc(player_ptr, monster, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE);
+        fprintf(fff, "%s (%s)\n", pet_name.data(), monster.build_looking_description(false).data());
     }
 
     int show_upkeep = calculate_upkeep(player_ptr);
@@ -172,7 +168,7 @@ void do_cmd_knowledge_kill_count(PlayerType *player_ptr)
     for (const auto monrace_id : monrace_ids) {
         const auto &monrace = monraces.get_monrace(monrace_id);
         if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
-            if (monrace.max_num == 0) {
+            if (monrace.is_dead_unique()) {
                 std::string details;
                 if (monrace.defeat_level && monrace.defeat_time) {
                     details = format(_(" - レベル%2d - %d:%02d:%02d", " - level %2d - %d:%02d:%02d"), monrace.defeat_level, monrace.defeat_time / (60 * 60),
@@ -234,7 +230,7 @@ static void display_monster_list(int col, int row, int per_page, const std::vect
         c_prt(color, (monrace.name.data()), row + i, col);
         const auto &symbol_config = monrace.symbol_config;
         if (per_page == 1) {
-            c_prt(color, format("%02x/%02x", symbol_config.color, symbol_config.character), row + i, (is_wizard || visual_only) ? 56 : 61);
+            c_prt(color, format("%02x/%02x", symbol_config.color, static_cast<uint8_t>(symbol_config.character)), row + i, (is_wizard || visual_only) ? 56 : 61);
         }
 
         if (is_wizard || visual_only) {
@@ -247,7 +243,8 @@ static void display_monster_list(int col, int row, int per_page, const std::vect
             if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
                 put_str(format("%5d", monrace.r_pkills), row + i, 73);
             } else {
-                c_put_str((monrace.max_num == 0 ? TERM_L_DARK : TERM_WHITE), (monrace.max_num == 0 ? _("死亡", " dead") : _("生存", "alive")), row + i, 74);
+                const auto is_dead = monrace.is_dead_unique();
+                c_put_str((is_dead ? TERM_L_DARK : TERM_WHITE), (is_dead ? _("死亡", " dead") : _("生存", "alive")), row + i, 74);
             }
         }
     }
@@ -265,9 +262,9 @@ static void display_monster_list(int col, int row, int per_page, const std::vect
  * @param direct_r_idx モンスターID
  * @todo 引数の詳細について加筆求む
  */
-void do_cmd_knowledge_monsters(PlayerType *player_ptr, bool *need_redraw, bool visual_only, std::optional<MonraceId> direct_r_idx)
+void do_cmd_knowledge_monsters(PlayerType *player_ptr, bool *need_redraw, bool visual_only, tl::optional<MonraceId> direct_r_idx)
 {
-    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, tl::nullopt);
 
     const auto &[wid, hgt] = term_get_size();
     std::vector<MonraceId> monrace_ids;
@@ -371,7 +368,7 @@ void do_cmd_knowledge_monsters(PlayerType *player_ptr, bool *need_redraw, bool v
             display_visual_list(max + 3, 7, browser_rows - 1, wid - (max + 3), color_top, character_left);
         }
 
-        prt(format(_("%lu 種", "%lu Races"), monrace_ids.size()), 3, 26);
+        prt(fmt::format(_("{} 種", "{} Races"), monrace_ids.size()), 3, 26);
         prt(format(_("<方向>%s%s%s, ESC", "<dir>%s%s%s, ESC"), (!visual_list && !visual_only) ? _(", 'r'で思い出を見る", ", 'r' to recall") : "",
                 visual_list ? _(", ENTERで決定", ", ENTER to accept") : _(", 'v'でシンボル変更", ", 'v' for visuals"),
                 (symbols_cb.symbol != DisplaySymbol()) ? _(", 'c', 'p'でペースト", ", 'c', 'p' to paste") : _(", 'c'でコピー", ", 'c' to copy")),

@@ -71,7 +71,7 @@ static bool display_player_info(PlayerType *player_ptr, int mode)
     }
 
     if (mode == 5) {
-        TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
+        TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, tl::nullopt);
         do_cmd_knowledge_mutations(player_ptr);
         return true;
     }
@@ -98,12 +98,12 @@ static void display_player_basic_info(PlayerType *player_ptr)
 static void display_magic_realms(PlayerType *player_ptr)
 {
     PlayerRealm pr(player_ptr);
-    if (!pr.realm1().is_available() && player_ptr->element == 0) {
+    if (!pr.realm1().is_available() && player_ptr->element_realm == ElementRealmType::NONE) {
         return;
     }
 
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
-        display_player_one_line(ENTRY_REALM, get_element_title(player_ptr->element), TERM_L_BLUE);
+        display_player_one_line(ENTRY_REALM, get_element_title(player_ptr->element_realm), TERM_L_BLUE);
         return;
     }
 
@@ -168,11 +168,11 @@ static void display_player_stats(PlayerType *player_ptr)
  * @param statmsg メッセージバッファ
  * @return 生きていたらFALSE、死んでいたらTRUE
  */
-static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
+static tl::optional<std::string> search_death_cause(PlayerType *player_ptr)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     if (!player_ptr->is_dead) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     if (AngbandWorld::get_instance().total_winner) {
@@ -180,7 +180,7 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
             streq(player_ptr->died_from, "Seppuku") ? _("切腹", "committed seppuku") : _("引退", "retired from the adventure"));
     }
 
-    if (!floor.is_in_underground()) {
+    if (!floor.is_underground()) {
         constexpr auto killed_monster = _("…あなたは%sで%sに殺された。", "...You were killed by %s in %s.");
 #ifdef JP
         return format(killed_monster, map_name(player_ptr).data(), player_ptr->died_from.data());
@@ -220,11 +220,11 @@ static std::optional<std::string> search_death_cause(PlayerType *player_ptr)
  * @param statmsg メッセージバッファ
  * @return クエスト内であればTRUE、いなければFALSE
  */
-static std::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
+static tl::optional<std::string> decide_death_in_quest(PlayerType *player_ptr)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     if (!floor.is_in_quest() || !QuestType::is_fixed(floor.quest_number)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     quest_text_lines.clear();
@@ -248,7 +248,7 @@ static std::string decide_current_floor(PlayerType *player_ptr)
     }
 
     const auto &floor = *player_ptr->current_floor_ptr;
-    if (!floor.is_in_underground()) {
+    if (!floor.is_underground()) {
         return format(_("…あなたは現在、 %s にいる。", "...Now, you are in %s."), map_name(player_ptr).data());
     }
 
@@ -279,7 +279,7 @@ static std::string decide_current_floor(PlayerType *player_ptr)
  * Mode 4 = mutations.
  * Mode 5 = ??? (コード上の定義より6で割った余りは5になりうるが元のコメントに記載なし).
  */
-std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
+tl::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
 {
     auto has_any_mutation = (player_ptr->muta.any() || has_good_luck(player_ptr)) && display_mutations;
     auto mode = has_any_mutation ? tmp_mode % 6 : tmp_mode % 5;
@@ -288,7 +288,7 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
         clear_from(0);
     }
     if (display_player_info(player_ptr, mode)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     display_player_basic_info(player_ptr);
@@ -302,7 +302,7 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
     if (mode == 0) {
         display_player_middle(player_ptr);
         display_player_various(player_ptr);
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     put_str(_("(キャラクターの生い立ち)", "(Character Background)"), 11, 25);
@@ -312,7 +312,7 @@ std::optional<int> display_player(PlayerType *player_ptr, const int tmp_mode)
 
     auto statmsg = decide_current_floor(player_ptr);
     if (statmsg.empty()) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     constexpr auto chars_per_line = 60;
@@ -332,7 +332,7 @@ void display_player_equippy(PlayerType *player_ptr, TERM_LEN y, TERM_LEN x, BIT_
 {
     const auto max_i = (mode & DP_WP) ? INVEN_BOW + 1 : INVEN_TOTAL;
     for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         auto symbol = item.get_symbol();
         if (!equippy_chars || !item.is_valid()) {
             symbol.color = TERM_DARK;

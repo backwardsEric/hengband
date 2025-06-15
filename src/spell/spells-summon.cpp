@@ -255,19 +255,19 @@ bool summon_kin_player(PlayerType *player_ptr, DEPTH level, POSITION y, POSITION
  * @param summoner_m_idx モンスターの召喚による場合、召喚者のモンスターID
  * @return 作用が実際にあった場合TRUEを返す
  */
-int summon_cyber(PlayerType *player_ptr, POSITION y, POSITION x, std::optional<MONSTER_IDX> summoner_m_idx)
+int summon_cyber(PlayerType *player_ptr, POSITION y, POSITION x, tl::optional<MONSTER_IDX> summoner_m_idx)
 {
     /* Summoned by a monster */
     BIT_FLAGS mode = PM_ALLOW_GROUP;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
+    const auto &floor = *player_ptr->current_floor_ptr;
     if (summoner_m_idx) {
-        auto *m_ptr = &floor_ptr->m_list[*summoner_m_idx];
-        if (m_ptr->is_pet()) {
+        const auto &monster = floor.m_list[*summoner_m_idx];
+        if (monster.is_pet()) {
             mode |= PM_FORCE_PET;
         }
     }
 
-    int max_cyber = (floor_ptr->dun_level / 50) + randint1(2);
+    int max_cyber = (floor.dun_level / 50) + randint1(2);
     if (max_cyber > 4) {
         max_cyber = 4;
     }
@@ -309,10 +309,10 @@ void mitokohmon(PlayerType *player_ptr)
             }
 
             const auto m_pos = monster.get_position();
-            if (!los(player_ptr, m_pos.y, m_pos.x, p_pos.y, p_pos.x)) {
+            if (!los(floor, m_pos, p_pos)) {
                 continue;
             }
-            if (!projectable(player_ptr, m_pos, p_pos)) {
+            if (!projectable(floor, p_pos, m_pos, p_pos)) {
                 continue;
             }
             count++;
@@ -445,7 +445,7 @@ int activate_hi_summon(PlayerType *player_ptr, POSITION y, POSITION x, bool can_
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param dir 方向ID
  */
-void cast_invoke_spirits(PlayerType *player_ptr, DIRECTION dir)
+void cast_invoke_spirits(PlayerType *player_ptr, const Direction &dir)
 {
     PLAYER_LEVEL plev = player_ptr->lev;
     int die = randint1(100) + plev / 5;
@@ -516,7 +516,7 @@ void cast_invoke_spirits(PlayerType *player_ptr, DIRECTION dir)
     } else if (die < 101) {
         hypodynamic_bolt(player_ptr, dir, 100 + plev);
     } else if (die < 104) {
-        earthquake(player_ptr, player_ptr->y, player_ptr->x, 12, 0);
+        earthquake(player_ptr, player_ptr->get_position(), 12);
     } else if (die < 106) {
         (void)destroy_area(player_ptr, player_ptr->y, player_ptr->x, 13 + randint0(5), false);
     } else if (die < 108) {

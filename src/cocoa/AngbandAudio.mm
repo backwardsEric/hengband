@@ -581,10 +581,10 @@ static AngbandAudioManager *_sharedManager = nil;
 		/* Lines are always of the form "name = sample [sample ...]". */
 		while (1) {
 			const auto line_str = angband_fgets(fff);
+			SoundKind match = SoundKind::MAX;
 			NSMutableArray *soundSamples;
 			std::string msg_name;
 			std::string sample_names;
-			int match;
 			size_t skip1, skip2, search;
 
 			if (!line_str) {
@@ -619,23 +619,23 @@ static AngbandAudioManager *_sharedManager = nil;
 			}
 
 			/* Make sure this is a valid event name. */
-			for (match = SOUND_MAX - 1; match >= 0; --match) {
-				if (!strcmp(msg_name.data(),
-						angband_sound_name[match])) {
+			for (const auto& [key, value] : sound_names) {
+				if (!msg_name.compare(value)) {
+					match = key;
 					break;
 				}
 			}
-			if (match < 0) {
+			if (match == SoundKind::MAX) {
 				continue;
 			}
 
 			soundSamples = [arraysByEvent
-				objectForKey:[NSNumber numberWithInteger:match]];
+				objectForKey:[NSNumber numberWithInteger:static_cast<int>(match)]];
 			if (!soundSamples) {
 				soundSamples = [[NSMutableArray alloc] init];
 				[arraysByEvent
 					setObject:soundSamples
-					forKey:[NSNumber numberWithInteger:match]];
+					forKey:[NSNumber numberWithInteger:static_cast<int>(match)]];
 			}
 
 			/*

@@ -22,8 +22,8 @@
 
 bool android_inside_weapon(PlayerType *player_ptr)
 {
-    DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir)) {
+    const auto dir = get_aim_dir(player_ptr);
+    if (!dir) {
         return false;
     }
 
@@ -64,7 +64,7 @@ void calc_android_exp(PlayerType *player_ptr)
     }
 
     for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        auto *o_ptr = &player_ptr->inventory_list[i];
+        auto *o_ptr = player_ptr->inventory[i].get();
         uint32_t value, exp;
         DEPTH level = std::max(o_ptr->get_baseitem_level() - 8, 1);
 

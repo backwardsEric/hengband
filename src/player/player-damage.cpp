@@ -94,7 +94,7 @@ static bool acid_minus_ac(PlayerType *player_ptr)
     };
 
     const auto slot = rand_choice(candidates);
-    auto &item = player_ptr->inventory_list[slot];
+    auto &item = *player_ptr->inventory[slot];
     if (!item.is_valid() || !item.is_protector()) {
         return false;
     }
@@ -367,7 +367,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
             msg_print(_("セーブ失敗！", "death save failed!"));
         }
 
-        sound(SOUND_DEATH);
+        sound(SoundKind::DEATH);
         chg_virtue(player_ptr, Virtue::SACRIFICE, 10);
         handle_stuff(player_ptr);
         player_ptr->leaving = true;
@@ -380,7 +380,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
             entries.set_defeated_entry();
             const auto &m_name = entries.get_monrace().name;
             msg_format(_("あなたは%sの前に敗れ去った。", "You are beaten by %s."), m_name.data());
-            msg_print(nullptr);
+            msg_erase();
             if (record_arena) {
                 exe_write_diary(floor, DiaryKind::ARENA, 0, m_name);
             }
@@ -411,6 +411,15 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 #ifdef JP
                 player_ptr->died_from = format("%s%s%s", paralysis_state, hallucintion_state, hit_from.data());
 #else
+                if (is_hallucinated) {
+                    if (hit_from.starts_with("a ") || hit_from.starts_with("A ")) {
+                        hit_from.remove_prefix(2);
+                    } else if (hit_from.starts_with("an ") || hit_from.starts_with("An ")) {
+                        hit_from.remove_prefix(3);
+                    } else if (hit_from.starts_with("the ") || hit_from.starts_with("The ")) {
+                        hit_from.remove_prefix(4);
+                    }
+                }
                 player_ptr->died_from = format("%s%s%s", hallucintion_state, hit_from.data(), paralysis_state);
 #endif
             }
@@ -424,7 +433,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 
                 if (floor.inside_arena) {
                     place = _("アリーナ", "in the Arena");
-                } else if (!floor.is_in_underground()) {
+                } else if (!floor.is_underground()) {
                     place = _("地上", "on the surface");
                 } else if (inside_quest(q_idx) && (QuestType::is_fixed(q_idx) && !((q_idx == QuestId::OBERON) || (q_idx == QuestId::SERPENT)))) {
                     place = _("クエスト", "in a quest");
@@ -456,9 +465,9 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
                 msg_print(android ? "You are broken." : "You die.");
 #endif
 
-                msg_print(nullptr);
+                msg_erase();
             } else {
-                std::optional<std::string> death_message_opt;
+                tl::optional<std::string> death_message_opt;
                 if (winning_seppuku) {
                     death_message_opt = get_random_line(_("seppuku_j.txt", "seppuku.txt"), 0);
                 } else {
@@ -492,7 +501,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 
 #ifdef JP
                 if (winning_seppuku) {
-                    int i, len;
+                    int i;
                     int w = game_term->wid;
                     int h = game_term->hgt;
                     int msg_pos_x[9] = { 5, 7, 9, 12, 14, 17, 19, 21, 23 };
@@ -517,12 +526,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
                     i = 0;
                     while (i < 9) {
                         str2 = angband_strstr(str, " ");
-                        if (str2 == nullptr) {
-                            len = strlen(str);
-                        } else {
-                            len = str2 - str;
-                        }
-
+                        size_t len = (str2 == nullptr) ? strlen(str) : str2 - str;
                         if (len != 0) {
                             term_putstr_v(w * 3 / 4 - 2 - msg_pos_x[i] * 2, msg_pos_y[i], len, TERM_WHITE, str);
                             if (str2 == nullptr) {
@@ -557,7 +561,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
             bell();
         }
 
-        sound(SOUND_WARN);
+        sound(SoundKind::WARN);
         if (record_danger && (old_chp > warning)) {
             if (player_ptr->effects()->hallucination().is_hallucinated() && damage_type == DAMAGE_ATTACK) {
                 hit_from = _("何か", "something");
@@ -575,7 +579,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
         }
 
         msg_print(_("*** 警告:低ヒット・ポイント！ ***", "*** LOW HITPOINT WARNING! ***"));
-        msg_print(nullptr);
+        msg_erase();
         flush();
     }
 
@@ -596,18 +600,18 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
  * @param dam_func ダメージ処理を行う関数の参照ポインタ
  * @param message オーラダメージを受けた際のメッセージ
  */
-static void process_aura_damage(MonsterEntity *m_ptr, PlayerType *player_ptr, bool immune, MonsterAuraType aura_flag, dam_func dam_func, concptr message)
+static void process_aura_damage(const MonsterEntity &monster, PlayerType *player_ptr, bool immune, MonsterAuraType aura_flag, dam_func dam_func, concptr message)
 {
-    auto *r_ptr = &m_ptr->get_monrace();
-    if (r_ptr->aura_flags.has_not(aura_flag) || immune) {
+    auto &monrace = monster.get_monrace();
+    if (monrace.aura_flags.has_not(aura_flag) || immune) {
         return;
     }
 
-    int aura_damage = Dice::roll(1 + (r_ptr->level / 26), 1 + (r_ptr->level / 17));
+    int aura_damage = Dice::roll(1 + (monrace.level / 26), 1 + (monrace.level / 17));
     msg_print(message);
-    (*dam_func)(player_ptr, aura_damage, monster_desc(player_ptr, m_ptr, MD_WRONGDOER_NAME).data(), true);
-    if (is_original_ap_and_seen(player_ptr, m_ptr)) {
-        r_ptr->r_aura_flags.set(aura_flag);
+    (*dam_func)(player_ptr, aura_damage, monster_desc(player_ptr, monster, MD_WRONGDOER_NAME).data(), true);
+    if (is_original_ap_and_seen(player_ptr, monster)) {
+        monrace.r_aura_flags.set(aura_flag);
     }
 
     handle_stuff(player_ptr);
@@ -618,12 +622,12 @@ static void process_aura_damage(MonsterEntity *m_ptr, PlayerType *player_ptr, bo
  * @param m_ptr オーラを持つモンスターの構造体参照ポインタ
  * @param player_ptr プレイヤーへの参照ポインタ
  */
-void touch_zap_player(MonsterEntity *m_ptr, PlayerType *player_ptr)
+void touch_zap_player(const MonsterEntity &monster, PlayerType *player_ptr)
 {
     constexpr auto fire_mes = _("突然とても熱くなった！", "You are suddenly very hot!");
     constexpr auto cold_mes = _("突然とても寒くなった！", "You are suddenly very cold!");
     constexpr auto elec_mes = _("電撃をくらった！", "You get zapped!");
-    process_aura_damage(m_ptr, player_ptr, has_immune_fire(player_ptr) != 0, MonsterAuraType::FIRE, fire_dam, fire_mes);
-    process_aura_damage(m_ptr, player_ptr, has_immune_cold(player_ptr) != 0, MonsterAuraType::COLD, cold_dam, cold_mes);
-    process_aura_damage(m_ptr, player_ptr, has_immune_elec(player_ptr) != 0, MonsterAuraType::ELEC, elec_dam, elec_mes);
+    process_aura_damage(monster, player_ptr, has_immune_fire(player_ptr) != 0, MonsterAuraType::FIRE, fire_dam, fire_mes);
+    process_aura_damage(monster, player_ptr, has_immune_cold(player_ptr) != 0, MonsterAuraType::COLD, cold_dam, cold_mes);
+    process_aura_damage(monster, player_ptr, has_immune_elec(player_ptr) != 0, MonsterAuraType::ELEC, elec_dam, elec_mes);
 }

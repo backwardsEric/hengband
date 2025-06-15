@@ -1,30 +1,18 @@
 #include "dungeon/quest.h"
 #include "artifact/fixed-art-types.h"
-#include "cmd-io/cmd-dump.h"
 #include "core/asking-player.h"
-#include "floor/cave.h"
-#include "floor/floor-events.h"
 #include "floor/floor-mode-changer.h"
-#include "floor/floor-object.h"
 #include "game-option/play-record-options.h"
 #include "info-reader/fixed-map-parser.h"
 #include "io/write-diary.h"
-#include "locale/english.h"
 #include "main/music-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
-#include "monster/monster-info.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
-#include "monster/smart-learn-types.h"
-#include "object-enchant/item-apply-magic.h"
-#include "object-enchant/trg-types.h"
 #include "player-status/player-energy.h"
-#include "player/player-personality-types.h"
 #include "player/player-status.h"
 #include "system/artifact-type-definition.h"
-#include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h" // @todo 相互参照、将来的に削除する.
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
@@ -32,11 +20,12 @@
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world.h"
-#include <sstream>
-#include <stdexcept>
+#ifdef JP
+#else
+#include "locale/english.h"
+#endif
 
 std::vector<std::string> quest_text_lines; /*!< Quest text */
 QuestId leaving_quest = QuestId::NONE;
@@ -118,7 +107,7 @@ void QuestList::initialize()
         std::stringstream ss;
         ss << _("ファイル読み込みエラー: ", "File loading error: ") << r.what();
         msg_print(ss.str());
-        msg_print(nullptr);
+        msg_erase();
         quit(_("クエスト初期化エラー", "Error of quests initializing"));
     }
 }
@@ -131,61 +120,6 @@ QuestType &QuestList::get_quest(QuestId id)
 const QuestType &QuestList::get_quest(QuestId id) const
 {
     return this->quests.at(id);
-}
-
-std::map<QuestId, QuestType>::iterator QuestList::begin()
-{
-    return this->quests.begin();
-}
-
-std::map<QuestId, QuestType>::const_iterator QuestList::begin() const
-{
-    return this->quests.cbegin();
-}
-
-std::map<QuestId, QuestType>::iterator QuestList::end()
-{
-    return this->quests.end();
-}
-
-std::map<QuestId, QuestType>::const_iterator QuestList::end() const
-{
-    return this->quests.cend();
-}
-
-std::map<QuestId, QuestType>::reverse_iterator QuestList::rbegin()
-{
-    return this->quests.rbegin();
-}
-
-std::map<QuestId, QuestType>::const_reverse_iterator QuestList::rbegin() const
-{
-    return this->quests.crbegin();
-}
-
-std::map<QuestId, QuestType>::reverse_iterator QuestList::rend()
-{
-    return this->quests.rend();
-}
-
-std::map<QuestId, QuestType>::const_reverse_iterator QuestList::rend() const
-{
-    return this->quests.crend();
-}
-
-std::map<QuestId, QuestType>::iterator QuestList::find(QuestId id)
-{
-    return this->quests.find(id);
-}
-
-std::map<QuestId, QuestType>::const_iterator QuestList::find(QuestId id) const
-{
-    return this->quests.find(id);
-}
-
-size_t QuestList::size() const
-{
-    return this->quests.size();
 }
 
 std::vector<QuestId> QuestList::get_sorted_quest_ids() const
@@ -209,7 +143,7 @@ bool QuestList::order_completed(QuestId id1, QuestId id2) const
  */
 void determine_random_questor(PlayerType *player_ptr, QuestType &quest)
 {
-    get_mon_num_prep(player_ptr, mon_hook_quest, nullptr);
+    get_mon_num_prep_enum(player_ptr, MonraceHook::QUEST);
     const auto &monraces = MonraceList::get_instance();
     MonraceId r_idx;
     while (true) {
@@ -238,8 +172,8 @@ void record_quest_final_status(QuestType *q_ptr, PLAYER_LEVEL lev, QuestStatusTy
     q_ptr->status = stat;
     q_ptr->complev = lev;
     auto &world = AngbandWorld::get_instance();
-    world.update_playtime();
-    q_ptr->comptime = world.play_time;
+    world.play_time.update();
+    q_ptr->comptime = world.play_time.elapsed_sec();
 }
 
 /*!
@@ -271,7 +205,7 @@ void complete_quest(PlayerType *player_ptr, QuestId quest_id)
 
     play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_QUEST_CLEAR);
     msg_print(_("クエストを達成した！", "You just completed your quest!"));
-    msg_print(nullptr);
+    msg_erase();
 }
 
 /*!
@@ -315,15 +249,13 @@ void quest_discovery(QuestId quest_id)
 #endif
 
     msg_print(rand_choice(quest_entered_messages));
-    msg_print(nullptr);
+    msg_erase();
     if (num_subjugation != 1) {
         msg_format(_("注意しろ！この階は%d体の%sによって守られている！", "Be warned, this level is guarded by %d %s!"), num_subjugation, name.data());
         return;
     }
 
-    auto is_random_quest_skipped = monrace.kind_flags.has(MonsterKindType::UNIQUE);
-    is_random_quest_skipped &= monrace.max_num == 0;
-    if (!is_random_quest_skipped) {
+    if (!monrace.is_dead_unique()) {
         msg_format(_("注意せよ！この階は%sによって守られている！", "Beware, this level is protected by %s!"), name.data());
         return;
     }
@@ -403,8 +335,8 @@ void leave_tower_check(PlayerType *player_ptr)
     tower1.status = QuestStatusType::FAILED;
     tower1.complev = player_ptr->lev;
     auto &world = AngbandWorld::get_instance();
-    world.update_playtime();
-    tower1.comptime = world.play_time;
+    world.play_time.update();
+    tower1.comptime = world.play_time.elapsed_sec();
 }
 
 /*!
@@ -432,7 +364,7 @@ void do_cmd_quest(PlayerType *player_ptr)
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     const auto &floor = *player_ptr->current_floor_ptr;
-    if (!cave_has_flag_bold(&floor, player_ptr->y, player_ptr->x, TerrainCharacteristics::QUEST_ENTER)) {
+    if (!floor.has_terrain_characteristics(player_ptr->get_position(), TerrainCharacteristics::QUEST_ENTER)) {
         msg_print(_("ここにはクエストの入口はない。", "You see no quest level here."));
         return;
     }

@@ -1,17 +1,13 @@
 #include "market/building-recharger.h"
 #include "autopick/autopick.h"
 #include "core/asking-player.h"
-#include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "inventory/inventory-slot-types.h"
 #include "market/building-util.h"
 #include "object-enchant/special-object-flags.h"
-#include "object-hook/hook-magic.h"
-#include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
-#include "perception/object-perception.h"
 #include "spell-kind/spells-perception.h"
 #include "system/item-entity.h"
 #include "system/player-type-definition.h"
@@ -49,14 +45,14 @@ void building_recharge(PlayerType *player_ptr)
      */
     if (!o_ptr->is_known()) {
         msg_format(_("充填する前に鑑定されている必要があります！", "The item must be identified first!"));
-        msg_print(nullptr);
+        msg_erase();
         if ((player_ptr->au >= 50) && input_check(_("＄50で鑑定しますか？ ", "Identify for 50 gold? "))) {
             player_ptr->au -= 50;
             identify_item(player_ptr, o_ptr);
             const auto item_name = describe_flavor(player_ptr, *o_ptr, 0);
             msg_format(_("%s です。", "You have: %s."), item_name.data());
             autopick_alter_item(player_ptr, i_idx, false);
-            building_prt_gold(player_ptr);
+            building_prt_gold(player_ptr->au);
         }
 
         return;
@@ -182,7 +178,7 @@ void building_recharge_all(PlayerType *player_ptr)
     auto price = 0;
     auto total_cost = 0;
     for (short i = 0; i < INVEN_PACK; i++) {
-        const auto &item = player_ptr->inventory_list[i];
+        const auto &item = *player_ptr->inventory[i];
         if (!item.can_recharge()) {
             continue;
         }
@@ -219,13 +215,13 @@ void building_recharge_all(PlayerType *player_ptr)
 
     if (!total_cost) {
         msg_print(_("充填する必要はありません。", "No need to recharge."));
-        msg_print(nullptr);
+        msg_erase();
         return;
     }
 
     if (player_ptr->au < total_cost) {
         msg_format(_("すべてのアイテムを再充填するには＄%d 必要です！", "You need %d gold to recharge all items!"), total_cost);
-        msg_print(nullptr);
+        msg_erase();
         return;
     }
 
@@ -234,7 +230,7 @@ void building_recharge_all(PlayerType *player_ptr)
     }
 
     for (short i = 0; i < INVEN_PACK; i++) {
-        auto *o_ptr = &player_ptr->inventory_list[i];
+        auto *o_ptr = player_ptr->inventory[i].get();
         if (!o_ptr->can_recharge()) {
             continue;
         }
@@ -269,7 +265,7 @@ void building_recharge_all(PlayerType *player_ptr)
     }
 
     msg_format(_("＄%d で再充填しました。", "You pay %d gold."), total_cost);
-    msg_print(nullptr);
+    msg_erase();
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags = {
         StatusRecalculatingFlag::COMBINATION,

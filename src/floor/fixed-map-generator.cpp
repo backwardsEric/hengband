@@ -4,24 +4,17 @@
 #include "dungeon/quest.h"
 #include "floor/floor-object.h"
 #include "floor/wild.h"
-#include "grid/feature.h"
-#include "grid/grid.h"
 #include "grid/object-placer.h"
-#include "grid/trap.h"
 #include "info-reader/general-parser.h"
 #include "info-reader/parse-error-types.h"
 #include "info-reader/random-grid-effect-types.h"
 #include "io/tokenizer.h"
 #include "monster-floor/monster-generator.h"
+#include "monster-floor/monster-remover.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster/monster-util.h"
-#include "monster/smart-learn-types.h"
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
-#include "object-enchant/object-ego.h"
-#include "object-enchant/trg-types.h"
-#include "object/object-info.h"
-#include "room/rooms-vault.h"
 #include "sv-definition/sv-scroll-types.h"
 #include "system/artifact-type-definition.h"
 #include "system/baseitem/baseitem-definition.h"
@@ -36,7 +29,6 @@
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "window/main-window-util.h"
-#include "world/world.h"
 
 // PARSE_ERROR_MAXが既にあり扱い辛いのでここでconst宣言.
 static const int PARSE_CONTINUE = 255;
@@ -64,13 +56,13 @@ qtwg_type *initialize_quest_generator_type(qtwg_type *qtwg_ptr, int ymin, int xm
 static void drop_here(FloorType &floor, ItemEntity &&item, POSITION y, POSITION x)
 {
     const auto item_idx = floor.pop_empty_index_item();
-    auto &dropped_item = floor.o_list[item_idx];
+    auto &dropped_item = *floor.o_list[item_idx];
     dropped_item = std::move(item);
     dropped_item.iy = y;
     dropped_item.ix = x;
     dropped_item.held_m_idx = 0;
-    auto *g_ptr = &floor.grid_array[y][x];
-    g_ptr->o_idx_list.add(&floor, item_idx);
+    auto &grid = floor.grid_array[y][x];
+    grid.o_idx_list.add(floor, item_idx);
 }
 
 static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId a_idx)
@@ -146,26 +138,29 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
              * Random trap and random treasure defined
              * 25% chance for trap and 75% chance for object
              */
+            const Pos2D pos(*qtwg_ptr->y, *qtwg_ptr->x);
             if (evaluate_percent(75)) {
-                place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, 0L);
+                place_object(player_ptr, pos, 0);
             } else {
-                place_trap(&floor, *qtwg_ptr->y, *qtwg_ptr->x);
+                floor.place_trap_at(pos);
             }
 
             floor.object_level = floor.base_level;
         } else if (random & RANDOM_OBJECT) {
             floor.object_level = floor.base_level + item_index;
+            const Pos2D pos(*qtwg_ptr->y, *qtwg_ptr->x);
             if (evaluate_percent(75)) {
-                place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, 0L);
+                place_object(player_ptr, pos, 0);
             } else if (evaluate_percent(80)) {
-                place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, AM_GOOD);
+                place_object(player_ptr, pos, AM_GOOD);
             } else {
-                place_object(player_ptr, *qtwg_ptr->y, *qtwg_ptr->x, AM_GOOD | AM_GREAT);
+                place_object(player_ptr, pos, AM_GOOD | AM_GREAT);
             }
 
             floor.object_level = floor.base_level;
         } else if (random & RANDOM_TRAP) {
-            place_trap(&floor, *qtwg_ptr->y, *qtwg_ptr->x);
+            const Pos2D pos(*qtwg_ptr->y, *qtwg_ptr->x);
+            floor.place_trap_at(pos);
         } else if (letter[idx].trap) {
             grid.mimic = grid.feat;
             grid.feat = dungeon.convert_terrain_id(letter[idx].trap);
@@ -206,7 +201,7 @@ static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
     q_ptr->r_idx = i2enum<MonraceId>(atoi(zz[7]));
     const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[8]));
     q_ptr->reward_fa_id = fa_id;
-    q_ptr->dungeon = std::atoi(zz[9]);
+    q_ptr->dungeon = i2enum<DungeonId>(std::atoi(zz[9]));
 
     if (num > 10) {
         q_ptr->flags = atoi(zz[10]);
@@ -343,22 +338,22 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
         panels_y++;
     }
 
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    floor_ptr->height = panels_y * SCREEN_HGT;
+    auto &floor = *player_ptr->current_floor_ptr;
+    floor.height = panels_y * SCREEN_HGT;
     int panels_x = (*qtwg_ptr->x / SCREEN_WID);
     if (*qtwg_ptr->x % SCREEN_WID) {
         panels_x++;
     }
 
-    floor_ptr->width = panels_x * SCREEN_WID;
-    panel_row_min = floor_ptr->height;
-    panel_col_min = floor_ptr->width;
-    if (floor_ptr->is_in_quest()) {
+    floor.width = panels_x * SCREEN_WID;
+    panel_row_min = floor.height;
+    panel_col_min = floor.width;
+    if (floor.is_in_quest()) {
         POSITION py = atoi(zz[0]);
         POSITION px = atoi(zz[1]);
         player_ptr->y = py;
         player_ptr->x = px;
-        delete_monster(player_ptr, player_ptr->y, player_ptr->x);
+        delete_monster(player_ptr, player_ptr->get_position());
         return true;
     }
 
@@ -409,7 +404,7 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
 
     /* Process "F:<letter>:<terrain>:<cave_info>:<monster>:<object>:<ego>:<artifact>:<trap>:<special>" -- info for dungeon grid */
     if (qtwg_ptr->buf[0] == 'F') {
-        return parse_line_feature(player_ptr->current_floor_ptr, qtwg_ptr->buf);
+        return parse_line_feature(*player_ptr->current_floor_ptr, qtwg_ptr->buf);
     }
 
     if (qtwg_ptr->buf[0] == 'D') {
@@ -429,7 +424,14 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
     }
 
     if (qtwg_ptr->buf[0] == 'W') {
-        return parse_line_wilderness(player_ptr, qtwg_ptr->buf, qtwg_ptr->xmin, qtwg_ptr->xmax, qtwg_ptr->y, qtwg_ptr->x);
+        const Pos2D pos_initial(*qtwg_ptr->y, *qtwg_ptr->x);
+        const auto pos = parse_line_wilderness(qtwg_ptr->buf, qtwg_ptr->xmin, qtwg_ptr->xmax, pos_initial);
+        if (pos) {
+            *qtwg_ptr->y = pos->y;
+            *qtwg_ptr->x = pos->x;
+        }
+
+        return pos.error_or(PARSE_ERROR_NONE);
     }
 
     if (parse_qtw_P(player_ptr, qtwg_ptr, zz)) {

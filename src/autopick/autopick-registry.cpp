@@ -26,9 +26,9 @@ static const char autoregister_header[] = "?:$AUTOREGISTER";
 /*!
  * @brief Clear auto registered lines in the picktype.prf .
  */
-static bool clear_auto_register(PlayerType *player_ptr)
+static bool clear_auto_register(std::string_view player_base_name)
 {
-    const auto path_pref = search_pickpref_path(player_ptr);
+    const auto path_pref = search_pickpref_path(player_base_name);
     if (path_pref.empty()) {
         return true;
     }
@@ -42,7 +42,7 @@ static bool clear_auto_register(PlayerType *player_ptr)
     if (!tmp_fff) {
         fclose(pref_fff);
         msg_format(_("一時ファイル %s を作成できませんでした。", "Failed to create temporary file %s."), tmp_file);
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -134,12 +134,12 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
     }
 
     if (!player_ptr->autopick_autoregister) {
-        if (!clear_auto_register(player_ptr)) {
+        if (!clear_auto_register(player_ptr->base_name)) {
             return false;
         }
     }
 
-    const auto path_pref = search_pickpref_path(player_ptr);
+    const auto path_pref = search_pickpref_path(player_ptr->base_name);
     auto *pref_fff = !path_pref.empty() ? angband_fopen(path_pref, FileOpenMode::READ) : nullptr;
 
     if (pref_fff) {
@@ -169,7 +169,7 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
     if (!pref_fff) {
         const auto filename_pref = path_pref.string();
         msg_format(_("%s を開くことができませんでした。", "Failed to open %s."), filename_pref.data());
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -187,9 +187,8 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
     entry->action = DO_AUTODESTROY;
     autopick_list.push_back(*entry);
 
-    concptr tmp = autopick_line_from_entry(*entry);
-    fprintf(pref_fff, "%s\n", tmp);
-    string_free(tmp);
+    const auto line = autopick_line_from_entry(*entry);
+    fprintf(pref_fff, "%s\n", line.data());
     fclose(pref_fff);
     return true;
 }

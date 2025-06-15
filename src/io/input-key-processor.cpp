@@ -94,8 +94,8 @@
 #include "window/display-sub-windows.h"
 #include "wizard/cmd-wizard.h"
 #include "world/world.h"
-#include <optional>
 #include <string>
+#include <tl/optional.hpp>
 
 /*!
  * @brief ウィザードモードへの導入処理
@@ -114,7 +114,7 @@ bool enter_wizard_mode(const FloorType &floor)
 
         msg_print(_("ウィザードモードはデバッグと実験のためのモードです。 ", "Wizard mode is for debugging and experimenting."));
         msg_print(_("一度ウィザードモードに入るとスコアは記録されません。", "The game will not be scored if you enter wizard mode."));
-        msg_print(nullptr);
+        msg_erase();
         if (!input_check(_("本当にウィザードモードに入りたいのですか? ", "Are you sure you want to enter wizard mode? "))) {
             return false;
         }
@@ -144,7 +144,7 @@ static bool enter_debug_mode(const FloorType &floor)
 
         msg_print(_("デバッグ・コマンドはデバッグと実験のためのコマンドです。 ", "The debug commands are for debugging and experimenting."));
         msg_print(_("デバッグ・コマンドを使うとスコアは記録されません。", "The game will not be scored if you use debug commands."));
-        msg_print(nullptr);
+        msg_erase();
         if (!input_check(_("本当にデバッグ・コマンドを使いますか? ", "Are you sure you want to use debug commands? "))) {
             return false;
         }
@@ -313,7 +313,7 @@ void process_command(PlayerType *player_ptr)
         break;
     }
     case '<': {
-        if (!is_wild_mode && !floor.dun_level && !floor.inside_arena && !floor.is_in_quest()) {
+        if (!is_wild_mode && !floor.is_underground() && !floor.inside_arena && !floor.is_in_quest()) {
             if (vanilla_town) {
                 break;
             }
@@ -410,9 +410,9 @@ void process_command(PlayerType *player_ptr)
         const auto &dungeon = floor.get_dungeon_definition();
         auto non_magic_class = pc.equals(PlayerClassType::BERSERKER);
         non_magic_class |= pc.equals(PlayerClassType::SMITH);
-        if (floor.is_in_underground() && dungeon.flags.has(DungeonFeatureType::NO_MAGIC) && !non_magic_class) {
+        if (floor.is_underground() && dungeon.flags.has(DungeonFeatureType::NO_MAGIC) && !non_magic_class) {
             msg_print(_("ダンジョンが魔法を吸収した！", "The dungeon absorbs all attempted magic!"));
-            msg_print(nullptr);
+            msg_erase();
             break;
         }
 
@@ -571,10 +571,9 @@ void process_command(PlayerType *player_ptr)
         do_cmd_player_status(player_ptr);
         break;
     }
-    case '!': {
-        (void)term_user(0);
+    case '!':
+        term_user();
         break;
-    }
     case '"': {
         do_cmd_pref(player_ptr);
         break;
@@ -690,7 +689,7 @@ void process_command(PlayerType *player_ptr)
             flush();
         }
         if (one_in_(2)) {
-            sound(SOUND_ILLEGAL);
+            sound(SoundKind::ILLEGAL);
             const auto error_mes = get_random_line(_("error_j.txt", "error.txt"), 0);
             if (error_mes) {
                 msg_print(*error_mes);

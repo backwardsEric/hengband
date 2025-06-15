@@ -15,6 +15,7 @@
 #include "info-reader/general-parser.h"
 #include "info-reader/info-reader-util.h"
 #include "info-reader/magic-reader.h"
+#include "info-reader/message-reader.h"
 #include "info-reader/race-reader.h"
 #include "info-reader/skill-reader.h"
 #include "info-reader/vault-reader.h"
@@ -32,6 +33,7 @@
 #include "system/baseitem/baseitem-list.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -41,7 +43,6 @@
 #include "util/angband-files.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
-#include "world/world.h"
 #include <fstream>
 #include <functional>
 #include <string>
@@ -104,7 +105,7 @@ static void init_info(std::string_view filename, angband_header &head, InfoType 
 #endif
         msg_format(_("レコード %d は '%s' エラーがあります。", "Record %d contains a '%s' error."), error_idx, oops);
         msg_format(_("構文 '%s'。", "Parsing '%s'."), buf);
-        msg_print(nullptr);
+        msg_erase();
         quit_fmt(_("'%s'ファイルにエラー", "Error in '%s' file."), filename.data());
     }
 
@@ -146,7 +147,7 @@ static void init_json(std::string_view filename, std::string_view keyname, angba
     for (auto &element : json_object[keyname]) {
         const auto error_code = parser(element, &head);
         if (error_code != PARSE_ERROR_NONE) {
-            msg_print(nullptr);
+            msg_erase();
             quit_fmt(_("'%s'ファイルにエラー", "Error in '%s' file."), filename.data());
         }
     }
@@ -204,7 +205,7 @@ void init_dungeons_info()
 {
     init_header(&dungeons_header);
     auto &dungeons = DungeonList::get_instance();
-    init_info("DungeonDefinitions.txt", dungeons_header, dungeons, parse_dungeons_info, retouch_dungeons_info);
+    init_info("DungeonDefinitions.txt", dungeons_header, dungeons, parse_dungeons_info, [&dungeons] { dungeons.retouch(); });
 }
 
 /*!
@@ -233,7 +234,16 @@ void init_terrains_info()
 void init_monrace_definitions()
 {
     init_header(&monraces_header);
-    init_json("MonraceDefinitions.jsonc", "monsters", monraces_header, MonraceList::get_instance().get_raw_map(), parse_monraces_info);
+    init_json("MonraceDefinitions.jsonc", "monsters", monraces_header, MonraceList::get_instance(), parse_monraces_info);
+}
+
+/*!
+ * @brief モンスターメッセージ読み込みのメインルーチン
+ */
+void init_monster_message_definitions()
+{
+    init_header(&monster_messages_header);
+    init_json("MonsterMessages.jsonc", "groups", monster_messages_header, MonraceMessageList::get_instance(), parse_monster_messages_info);
 }
 
 /*!
@@ -264,7 +274,7 @@ void init_vaults_info()
 
 static bool read_wilderness_definition(std::ifstream &ifs)
 {
-    auto &world = AngbandWorld::get_instance();
+    auto &wilderness = WildernessGrids::get_instance();
     std::string line;
     while (!ifs.eof()) {
         if (!std::getline(ifs, line)) {
@@ -281,16 +291,16 @@ static bool read_wilderness_definition(std::ifstream &ifs)
         }
 
         if (splits[1] == "WX") {
-            world.max_wild_x = std::stoi(splits[2]);
+            wilderness.initialize_width(std::stoi(splits[2]));
         } else if (splits[1] == "WY") {
-            world.max_wild_y = std::stoi(splits[2]);
+            wilderness.initialize_height(std::stoi(splits[2]));
         } else {
             return false;
         }
 
-        if ((world.max_wild_x > 0) && (world.max_wild_y > 0)) {
-            wilderness.assign(world.max_wild_y, std::vector<wilderness_type>(world.max_wild_x));
-            init_wilderness_encounter();
+        if (wilderness.is_height_initialized() && wilderness.is_width_initialized()) {
+            wilderness.initialize_grids();
+            wilderness.set_ambushes(false);
             return true;
         }
     }

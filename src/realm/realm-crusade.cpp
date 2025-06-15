@@ -3,7 +3,6 @@
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
-#include "floor/cave.h"
 #include "floor/floor-util.h"
 #include "hpmp/hp-mp-processor.h"
 #include "monster-floor/monster-summon.h"
@@ -27,6 +26,7 @@
 #include "status/body-improvement.h"
 #include "status/buff-setter.h"
 #include "status/sight-setter.h"
+#include "system/floor/floor-info.h"
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "util/dice.h"
@@ -38,14 +38,13 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は tl::nullopt を返す。
  */
-std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+tl::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool info = mode == SpellProcessType::INFO;
     bool cast = mode == SpellProcessType::CAST;
 
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
 
     switch (spell) {
@@ -55,8 +54,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
             return info_damage(dice);
         }
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::ELEC, dir, dice.roll());
         }
@@ -84,8 +84,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
             return info_power(power);
         }
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fear_monster(player_ptr, dir, power);
         }
@@ -117,8 +118,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
             return info_multi_damage_dice(dice);
         }
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_blast(player_ptr, AttributeType::LITE, dir, dice, 10, 3);
         }
@@ -140,8 +142,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
             return info_power(power);
         }
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball(player_ptr, AttributeType::AWAY_EVIL, dir, power, 0);
         }
@@ -163,8 +166,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::HOLY_FIRE, dir, dice.roll() + base, rad);
@@ -224,8 +228,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_bolt(player_ptr, AttributeType::ELEC, dir, dam);
         }
@@ -252,8 +257,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
     }
     case 16: {
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             destroy_door(player_ptr, dir);
@@ -268,8 +274,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             stasis_evil(player_ptr, dir);
         }
@@ -328,8 +335,9 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::LITE, dir, dam, rad);
@@ -425,7 +433,7 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
 
         if (cast) {
             if (!cast_wrath_of_the_god(player_ptr, dam, rad)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -457,12 +465,14 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
             auto sp_sides = 20 + plev;
             auto sp_base = plev;
             crusade(player_ptr);
+            const auto &floor = *player_ptr->current_floor_ptr;
+            const auto p_pos = player_ptr->get_position();
             for (auto i = 0; i < 12; i++) {
                 auto attempt = 10;
-                POSITION my = 0, mx = 0;
+                Pos2D pos(0, 0);
                 while (attempt--) {
-                    scatter(player_ptr, &my, &mx, player_ptr->y, player_ptr->x, 4, PROJECT_NONE);
-                    if (is_cave_empty_bold2(player_ptr, my, mx)) {
+                    pos = scatter(player_ptr, p_pos, 4, PROJECT_NONE);
+                    if (floor.can_generate_monster_at(pos) && (p_pos != pos)) {
                         break;
                     }
                 }
@@ -471,7 +481,7 @@ std::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX sp
                     continue;
                 }
 
-                summon_specific(player_ptr, my, mx, plev, SUMMON_KNIGHTS, PM_ALLOW_GROUP | PM_FORCE_PET | PM_HASTE);
+                summon_specific(player_ptr, pos.y, pos.x, plev, SUMMON_KNIGHTS, PM_ALLOW_GROUP | PM_FORCE_PET | PM_HASTE);
             }
 
             set_hero(player_ptr, randint1(base) + base, false);

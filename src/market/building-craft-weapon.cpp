@@ -307,7 +307,7 @@ PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
 
     screen_save();
     clear_bldg(0, 22);
-    auto *i_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND];
+    auto *i_ptr = player_ptr->inventory[INVEN_MAIN_HAND].get();
     auto orig_weapon = i_ptr->clone();
 
     constexpr auto first_q = _("第一の武器は？", "What is your first weapon? ");
@@ -363,7 +363,7 @@ PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
 
         if (total + cost > player_ptr->au) {
             msg_print(_("お金が足りません！", "You don't have enough money!"));
-            msg_print(nullptr);
+            msg_erase();
             continue;
         }
 
@@ -377,7 +377,7 @@ PRICE compare_weapons(PlayerType *player_ptr, PRICE bcost)
 
         if (i2_ptr == o_ptr[0] || (n == 2 && i2_ptr == o_ptr[1])) {
             msg_print(_("表示中の武器は選べません！", "Select a different weapon than those displayed."));
-            msg_print(nullptr);
+            msg_erase();
             continue;
         }
 

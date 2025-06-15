@@ -5,39 +5,31 @@
 #include "core/player-processor.h"
 #include "core/stuff-handler.h"
 #include "core/turn-compensator.h"
-#include "core/window-redrawer.h"
 #include "dungeon/quest.h"
 #include "floor/floor-leaver.h"
-#include "floor/floor-save-util.h"
-#include "floor/floor-save.h"
-#include "floor/wild.h"
-#include "game-option/cheat-options.h"
 #include "game-option/map-screen-options.h"
 #include "game-option/play-record-options.h"
 #include "hpmp/hp-mp-regenerator.h"
 #include "io/cursor.h"
 #include "io/input-key-requester.h"
 #include "io/write-diary.h"
+#include "locale/language-switcher.h"
 #include "mind/mind-ninja.h"
 #include "monster/monster-compaction.h"
 #include "monster/monster-processor.h"
-#include "monster/monster-util.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
-#include "player/special-defense-types.h"
 #include "realm/realm-song-numbers.h"
-#include "realm/realm-song.h"
 #include "spell-realm/spells-song.h"
-#include "system/angband-system.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/monrace/monrace-definition.h"
-#include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "world/world-turn-processor.h"
 #include "world/world.h"
@@ -108,9 +100,9 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     command_cmd = 0;
     command_rep = 0;
     command_arg = 0;
-    command_dir = 0;
+    command_dir = Direction::none();
 
-    target_who = 0;
+    Target::clear_last_target();
     player_ptr->pet_t_m_idx = 0;
     player_ptr->riding_t_m_idx = 0;
     player_ptr->ambush_flag = false;
@@ -128,7 +120,7 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         player_ptr->max_plv = player_ptr->lev;
     }
 
-    auto &dungeon_record = DungeonRecords::get_instance().get_record(floor.dungeon_idx);
+    auto &dungeon_record = DungeonRecords::get_instance().get_record(floor.dungeon_id);
     if ((dungeon_record.get_max_level() < floor.dun_level) && !floor.is_in_quest()) {
         dungeon_record.set_max_level(floor.dun_level);
         if (record_maxdepth) {
@@ -169,7 +161,7 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
             melee_arena.update_gladiators(player_ptr);
         } else {
             msg_print(_("試合開始！", "Ready..Fight!"));
-            msg_print(nullptr);
+            msg_erase();
         }
     }
 
@@ -181,16 +173,16 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         return;
     }
 
-    if (!floor.is_in_quest() && (floor.dungeon_idx == DUNGEON_ANGBAND)) {
+    if (!floor.is_in_quest() && (floor.dungeon_id == DungeonId::ANGBAND)) {
         const auto random_quest_id = floor.get_random_quest_id();
         quest_discovery(random_quest_id);
         floor.quest_number = random_quest_id;
     }
 
     const auto &dungeon = floor.get_dungeon_definition();
-    if ((floor.dun_level == dungeon.maxdepth) && dungeon.is_dungeon()) {
+    if (dungeon.has_guardian() && (floor.dun_level == dungeon.maxdepth)) {
         const auto &monrace = dungeon.get_guardian();
-        if (monrace.max_num > 0) {
+        if (!monrace.is_dead_unique()) {
 #ifdef JP
             msg_format("この階には%sの主である%sが棲んでいる。", dungeon.name.data(), monrace.name.data());
 #else
@@ -206,11 +198,11 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
     floor.monster_level = floor.base_level;
     floor.object_level = floor.base_level;
     world.is_loading_now = true;
-    if (player_ptr->energy_need > 0 && !is_watching && (floor.is_in_underground() || player_ptr->leaving_dungeon || floor.inside_arena)) {
+    if (player_ptr->energy_need > 0 && !is_watching && (floor.is_underground() || floor.is_leaving_dungeon() || floor.inside_arena)) {
         player_ptr->energy_need = 0;
     }
 
-    player_ptr->leaving_dungeon = false;
+    floor.leave_dungeon(false);
     floor.reset_mproc();
 
     while (true) {
@@ -222,12 +214,8 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
             compact_monsters(player_ptr, 0);
         }
 
-        if (floor.o_cnt + 32 > MAX_FLOOR_ITEMS) {
+        if (floor.o_list.size() + 32 > MAX_FLOOR_ITEMS) {
             compact_objects(player_ptr, 64);
-        }
-
-        if (floor.o_cnt + 32 < floor.o_max) {
-            compact_objects(player_ptr, 0);
         }
 
         process_player(player_ptr);
@@ -298,7 +286,7 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
          * floor, then prepare next floor
          */
         leave_floor(player_ptr);
-        reinit_wilderness = false;
+        WildernessGrids::get_instance().set_reinitialization(false);
     }
 
     write_level = true;

@@ -5,20 +5,15 @@
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
-#include "object-enchant/object-ego.h"
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
-#include "player-info/race-types.h"
-#include "player/player-personality-types.h"
 #include "player/player-realm.h"
-#include "realm/realm-types.h"
 #include "sv-definition/sv-bow-types.h"
 #include "sv-definition/sv-food-types.h"
 #include "sv-definition/sv-lite-types.h"
@@ -29,12 +24,8 @@
 #include "sv-definition/sv-staff-types.h"
 #include "sv-definition/sv-wand-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/item-entity.h"
-#include "system/player-type-definition.h"
-#include "util/enum-converter.h"
-#include "util/enum-range.h"
 #include <tuple>
 
 /*!
@@ -45,7 +36,7 @@ void wield_all(PlayerType *player_ptr)
     ItemEntity ObjectType_body;
     for (INVENTORY_IDX i_idx = INVEN_PACK - 1; i_idx >= 0; i_idx--) {
         ItemEntity *o_ptr;
-        o_ptr = &player_ptr->inventory_list[i_idx];
+        o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }
@@ -58,7 +49,7 @@ void wield_all(PlayerType *player_ptr)
             continue;
         }
 
-        auto &wield_slot_item = player_ptr->inventory_list[slot];
+        auto &wield_slot_item = *player_ptr->inventory[slot];
         if (wield_slot_item.is_valid()) {
             continue;
         }
@@ -101,7 +92,7 @@ static void decide_initial_items(PlayerType *player_ptr)
         return;
     case PlayerRaceType::BALROG:
         /* Demon can drain vitality from humanoid corpse */
-        get_mon_num_prep(player_ptr, monster_hook_human, nullptr);
+        get_mon_num_prep_enum(player_ptr, MonraceHook::HUMAN);
         for (int i = rand_range(3, 4); i > 0; i--) {
             ItemEntity item({ ItemKindType::MONSTER_REMAINS, SV_CORPSE });
             item.pval = enum2i(get_mon_num(player_ptr, 0, 2, PM_NONE));

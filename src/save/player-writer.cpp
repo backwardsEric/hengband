@@ -1,4 +1,5 @@
 #include "save/player-writer.h"
+#include "floor/dungeon-feeling.h"
 #include "game-option/birth-options.h"
 #include "market/arena-entry.h"
 #include "object/tval-types.h"
@@ -28,7 +29,7 @@ static void wr_relams(PlayerType *player_ptr)
 {
     PlayerRealm pr(player_ptr);
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
-        wr_byte((byte)player_ptr->element);
+        wr_byte((byte)player_ptr->element_realm);
     } else {
         wr_byte((byte)pr.realm1().to_enum());
     }
@@ -151,7 +152,7 @@ void wr_player(PlayerType *player_ptr)
     auto tmp8u = static_cast<uint8_t>(dungeon_records.size());
     wr_byte(tmp8u);
     for (const auto &[_, dungeon_record] : dungeon_records) {
-        wr_s16b(static_cast<int16_t>(dungeon_record.get_max_level()));
+        wr_s16b(static_cast<int16_t>(dungeon_record->get_max_level()));
     }
 
     wr_s16b(0);
@@ -230,6 +231,7 @@ void wr_player(PlayerType *player_ptr)
         wr_s16b(enum2i(player_ptr->vir_types[i]));
     }
 
+    const auto &system = AngbandSystem::get_instance();
     wr_s16b(player_ptr->ele_attack);
     wr_u32b(player_ptr->special_attack);
     wr_s16b(player_ptr->ele_immune);
@@ -240,7 +242,7 @@ void wr_player(PlayerType *player_ptr)
     wr_byte((byte)player_ptr->action);
     wr_byte(0);
     wr_bool(preserve_mode);
-    wr_bool(player_ptr->wait_report_score);
+    wr_bool(system.is_awaiting_report_status());
 
     for (int i = 0; i < 12; i++) {
         wr_u32b(0L);
@@ -251,16 +253,16 @@ void wr_player(PlayerType *player_ptr)
     wr_u32b(0L);
     wr_u32b(0L);
 
-    const auto &system = AngbandSystem::get_instance();
     wr_u32b(system.get_seed_flavor());
     wr_u32b(system.get_seed_town());
-    wr_u16b(player_ptr->panic_save);
+    wr_u16b(system.is_panic_save_executed() ? 1 : 0);
     wr_u16b(world.total_winner);
     wr_u16b(world.noscore);
     wr_bool(player_ptr->is_dead);
-    wr_byte(player_ptr->feeling);
+    const auto &df = DungeonFeeling::get_instance();
+    wr_byte(static_cast<uint8_t>(df.get_feeling()));
     wr_s32b(player_ptr->current_floor_ptr->generated_turn);
-    wr_s32b(player_ptr->feeling_turn);
+    wr_s32b(df.get_turns());
     wr_s32b(world.game_turn);
     wr_s32b(world.dungeon_turn);
     wr_s32b(world.arena_start_turn);
@@ -271,7 +273,7 @@ void wr_player(PlayerType *player_ptr)
 
     /* Save temporary preserved pets (obsolated) */
     wr_s16b(0);
-    wr_u32b(world.play_time);
+    wr_u32b(world.play_time.elapsed_sec());
     wr_s32b(player_ptr->visit);
     wr_u32b(player_ptr->count);
 }

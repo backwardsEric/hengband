@@ -35,14 +35,13 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は tl::nullopt を返す。
  */
-std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+tl::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool info = mode == SpellProcessType::INFO;
     bool cast = mode == SpellProcessType::CAST;
 
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
 
     switch (spell) {
@@ -54,8 +53,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::MISSILE, dir, dice.roll());
@@ -108,8 +108,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr), AttributeType::FIRE, dir, dice.roll());
@@ -140,8 +141,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::NETHER, dir, dice.roll() + base, rad);
@@ -192,8 +194,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr), AttributeType::PLASMA, dir, dice.roll());
@@ -209,8 +212,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::FIRE, dir, dam, rad);
@@ -245,8 +249,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_bolt(player_ptr, AttributeType::ABYSS, dir, dam);
         }
@@ -298,8 +303,8 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            fire_ball(player_ptr, AttributeType::FIRE, 0, dam, rad);
-            fire_ball_hide(player_ptr, AttributeType::LAVA_FLOW, 0, 2 + randint1(2), rad);
+            fire_ball(player_ptr, AttributeType::FIRE, Direction::self(), dam, rad);
+            fire_ball_hide(player_ptr, AttributeType::LAVA_FLOW, Direction::self(), 2 + randint1(2), rad);
         }
     } break;
 
@@ -312,8 +317,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::PLASMA, dir, dam, rad);
@@ -342,8 +348,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball(player_ptr, AttributeType::FIRE, dir, dam, rad);
         }
@@ -358,8 +365,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball(player_ptr, AttributeType::NEXUS, dir, dam, rad);
         }
@@ -367,8 +375,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
 
     case 23: {
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             } else {
                 msg_print(_("<破滅の手>を放った！", "You invoke the Hand of Doom!"));
             }
@@ -400,9 +409,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            fire_ball(player_ptr, AttributeType::CHAOS, 0, dam, rad);
-            fire_ball(player_ptr, AttributeType::CONFUSION, 0, dam, rad);
-            fire_ball(player_ptr, AttributeType::CHARM, 0, power, rad);
+            fire_ball(player_ptr, AttributeType::CHAOS, Direction::self(), dam, rad);
+            fire_ball(player_ptr, AttributeType::CONFUSION, Direction::self(), dam, rad);
+            fire_ball(player_ptr, AttributeType::CHARM, Direction::self(), power, rad);
         }
     } break;
 
@@ -415,7 +424,7 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
     case 27: {
         if (cast) {
             if (!cast_summon_greater_demon(player_ptr)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -429,8 +438,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::FIRE, dir, dam, rad);
@@ -446,8 +456,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::NETHER, dir, dam, rad);
@@ -463,8 +474,9 @@ std::optional<std::string> do_daemon_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball_hide(player_ptr, AttributeType::ABYSS, dir, dam, rad);

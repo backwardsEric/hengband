@@ -39,12 +39,13 @@ static void compact_monsters_aux(PlayerType *player_ptr, MONSTER_IDX i1, MONSTER
 
     for (const auto this_o_idx : monster.hold_o_idx_list) {
         ItemEntity *o_ptr;
-        o_ptr = &floor.o_list[this_o_idx];
+        o_ptr = floor.o_list[this_o_idx].get();
         o_ptr->held_m_idx = i2;
     }
 
-    if (target_who == i1) {
-        target_who = i2;
+    const auto target_m_idx = Target::get_last_target().get_m_idx();
+    if (target_m_idx == i1) {
+        Target::set_last_target(Target::create_monster_target(player_ptr, i2));
     }
 
     if (player_ptr->pet_t_m_idx == i1) {
@@ -137,7 +138,7 @@ void compact_monsters(PlayerType *player_ptr, int size)
             }
 
             if (record_named_pet && monster.is_named_pet()) {
-                const auto m_name = monster_desc(player_ptr, &monster, MD_INDEF_VISIBLE);
+                const auto m_name = monster_desc(player_ptr, monster, MD_INDEF_VISIBLE);
                 exe_write_diary(floor, DiaryKind::NAMED_PET, RECORD_NAMED_PET_COMPACT, m_name);
             }
 

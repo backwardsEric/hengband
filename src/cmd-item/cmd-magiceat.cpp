@@ -83,14 +83,14 @@
 #include "view/display-messages.h"
 #include "view/display-util.h"
 #include <algorithm>
-#include <optional>
+#include <tl/optional.hpp>
 
 /*!
  * @brief 魔道具術師の取り込んだ魔力一覧から選択/閲覧する /
  * @param only_browse 閲覧するだけならばTRUE
  * @return 選択したアイテムのベースアイテムキー、キャンセルならばnullopt
  */
-static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool only_browse)
+static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool only_browse)
 {
     bool flag, request_list;
     auto tval = ItemKindType::NONE;
@@ -128,7 +128,7 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
             case 'z':
             case 'Z':
                 screen_load();
-                return std::nullopt;
+                return tl::nullopt;
             case '2':
             case 'j':
             case 'J':
@@ -160,7 +160,7 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
         while (true) {
             const auto choice = input_command(_("[A] 杖, [B] 魔法棒, [C] ロッド:", "[A] staff, [B] wand, [C] rod:"), true);
             if (!choice) {
-                return std::nullopt;
+                return tl::nullopt;
             }
 
             if (choice == 'A' || choice == 'a') {
@@ -186,7 +186,7 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
             [](const auto &item) { return item.count > 0; });
         it == item_group.end()) {
         msg_print(_("その種類の魔法は覚えていない！", "You don't have that type of magic!"));
-        return std::nullopt;
+        return tl::nullopt;
     } else {
         if (use_menu) {
             menu_line = 1 + std::distance(std::begin(item_group), it);
@@ -316,7 +316,7 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
             switch (*choice) {
             case '0': {
                 screen_load();
-                return std::nullopt;
+                return tl::nullopt;
             }
 
             case '8':
@@ -426,13 +426,13 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
                 const auto &baseitem = baseitems.lookup_baseitem({ tval, sval });
                 if (item.charge > baseitem.pval * (item.count - 1) * EATER_ROD_CHARGE) {
                     msg_print(_("その魔法はまだ充填している最中だ。", "The magic is still charging."));
-                    msg_print(nullptr);
+                    msg_erase();
                     continue;
                 }
             } else {
                 if (item.charge < EATER_CHARGE) {
                     msg_print(_("その魔法は使用回数が切れている。", "The magic has no charges left."));
-                    msg_print(nullptr);
+                    msg_erase();
                     continue;
                 }
             }
@@ -456,7 +456,7 @@ static std::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, boo
     screen_load();
 
     if (!flag) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     COMMAND_CODE base = 0;
@@ -525,7 +525,7 @@ bool do_cmd_magic_eater(PlayerType *player_ptr, bool only_browse, bool powerful)
         }
 
         msg_print(_("呪文をうまく唱えられなかった！", "You failed to get the magic off!"));
-        sound(SOUND_FAIL);
+        sound(SoundKind::FAIL);
         if (randint1(100) >= chance) {
             chg_virtue(player_ptr, Virtue::CHANCE, -1);
         }
@@ -533,8 +533,6 @@ bool do_cmd_magic_eater(PlayerType *player_ptr, bool only_browse, bool powerful)
 
         return true;
     } else {
-        DIRECTION dir = 0;
-
         switch (bi_key->tval()) {
         case ItemKindType::ROD: {
             const auto sval = bi_key->sval();
@@ -542,8 +540,12 @@ bool do_cmd_magic_eater(PlayerType *player_ptr, bool only_browse, bool powerful)
                 return false;
             }
 
-            if (bi_key->is_aiming_rod() && !get_aim_dir(player_ptr, &dir)) {
-                return false;
+            auto dir = Direction::none();
+            if (bi_key->is_aiming_rod()) {
+                dir = get_aim_dir(player_ptr);
+                if (!dir) {
+                    return false;
+                }
             }
 
             (void)rod_effect(player_ptr, *sval, dir, &use_charge, powerful);
@@ -559,7 +561,8 @@ bool do_cmd_magic_eater(PlayerType *player_ptr, bool only_browse, bool powerful)
                 return false;
             }
 
-            if (!get_aim_dir(player_ptr, &dir)) {
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
                 return false;
             }
 

@@ -37,6 +37,7 @@
 #include "util/string-processor.h"
 #include "world/world.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <sstream>
 
 ItemEntity::ItemEntity()
@@ -479,7 +480,7 @@ bool ItemEntity::is_offerable() const
         return false;
     }
 
-    return this->get_monrace().symbol_char_is_any_of("pht");
+    return this->get_monrace().is_human();
 }
 
 /*!
@@ -757,7 +758,7 @@ bool ItemEntity::is_corpse() const
 
 bool ItemEntity::is_inscribed() const
 {
-    return this->inscription != std::nullopt;
+    return this->inscription != tl::nullopt;
 }
 
 /*!
@@ -949,7 +950,8 @@ bool ItemEntity::has_monrace() const
 const MonraceDefinition &ItemEntity::get_monrace() const
 {
     if (!this->has_monrace()) {
-        THROW_EXCEPTION(std::logic_error, "This item is not related to monrace!");
+        const auto msg = fmt::format("This item is not related to monrace!: {}", this->build_item_info_for_debug());
+        THROW_EXCEPTION(std::logic_error, msg);
     }
 
     const auto monrace_id = this->get_monrace_id();
@@ -1226,10 +1228,46 @@ int ItemEntity::get_baseitem_cost() const
 MonraceId ItemEntity::get_monrace_id() const
 {
     if (!this->has_monrace()) {
-        THROW_EXCEPTION(std::logic_error, "This item is not related to monrace!");
+        const auto msg = fmt::format("This item is not related to monrace!: {}", this->build_item_info_for_debug());
+        THROW_EXCEPTION(std::logic_error, msg);
     }
 
     return i2enum<MonraceId>(this->pval);
+}
+
+int ItemEntity::get_lite_radius() const
+{
+    const auto flags = this->get_flags();
+    auto radius = 0;
+
+    if (flags.has(TR_LITE_1) && flags.has_not(TR_DARK_SOURCE)) {
+        radius += 1;
+    }
+    if (flags.has(TR_LITE_2) && flags.has_not(TR_DARK_SOURCE)) {
+        radius += 2;
+    }
+    if (flags.has(TR_LITE_3) && flags.has_not(TR_DARK_SOURCE)) {
+        radius += 3;
+    }
+    if (flags.has(TR_LITE_M1)) {
+        radius -= 1;
+    }
+    if (flags.has(TR_LITE_M2)) {
+        radius -= 2;
+    }
+    if (flags.has(TR_LITE_M3)) {
+        radius -= 3;
+    }
+
+    if (this->ego_idx == EgoType::LITE_SHINE) {
+        radius++;
+    }
+    return radius;
+}
+
+Pos2D ItemEntity::get_position() const
+{
+    return { this->iy, this->ix };
 }
 
 std::string ItemEntity::build_timeout_description(const ActivationType &act) const
@@ -1291,6 +1329,12 @@ void ItemEntity::mark_as_known()
 void ItemEntity::mark_as_tried() const
 {
     this->get_baseitem().mark_trial(true);
+}
+
+void ItemEntity::set_position(const Pos2D &pos)
+{
+    this->iy = pos.y;
+    this->ix = pos.x;
 }
 
 /*!
@@ -1542,4 +1586,10 @@ char ItemEntity::get_character() const
     const auto &baseitem = this->get_baseitem();
     const auto flavor = baseitem.flavor;
     return flavor ? BaseitemList::get_instance().get_baseitem(flavor).symbol_config.character : baseitem.symbol_config.character;
+}
+
+std::string ItemEntity::build_item_info_for_debug() const
+{
+    // とりあえず例外送出の原因となる可能性のあるフィールドのみ出力
+    return fmt::format("tval = {}, sval = {}, pval = {}", enum2i(this->bi_key.tval()), this->bi_key.sval().value_or(-1), this->pval);
 }

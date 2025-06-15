@@ -38,7 +38,7 @@ void flush(void)
  */
 void screen_save()
 {
-    msg_print(nullptr);
+    msg_erase();
 
     term_save();
 
@@ -53,7 +53,7 @@ void screen_save()
  */
 void screen_load(ScreenLoadOptType opt)
 {
-    msg_print(nullptr);
+    msg_erase();
     auto &world = AngbandWorld::get_instance();
     switch (opt) {
     case ScreenLoadOptType::ONE:
@@ -122,30 +122,28 @@ static std::vector<DisplaySymbol> c_roff_wrap(int x, int y, int w, const char *s
         /* 現在が全角文字の場合 */
         /* 行頭が行頭禁則文字になるときは、その１つ前の語で改行 */
         if (is_kinsoku({ s, 2 })) {
-            TERM_COLOR a;
-            char c;
-            term_what(x - 2, y, &a, &c);
-            wrap_chars.emplace_back(a, c);
-            term_what(x - 1, y, &a, &c);
-            wrap_chars.emplace_back(a, c);
+            DisplaySymbol ds;
+            ds = term_what(x - 2, y, ds);
+            wrap_chars.push_back(ds);
+            ds = term_what(x - 1, y, ds);
+            wrap_chars.push_back(ds);
             wrap_col = x - 2;
         }
     } else {
         /* 現在が半角文字の場合 */
         for (auto i = 0; i < x; i++) {
-            TERM_COLOR a;
-            char c;
-            term_what(i, y, &a, &c);
+            DisplaySymbol ds;
+            ds = term_what(i, y, ds);
 
-            if (c == ' ') {
+            if (ds.character == ' ') {
                 wrap_col = i + 1;
                 wrap_chars.clear();
-            } else if (_(iskanji(c), false)) {
+            } else if (_(iskanji(ds.character), false)) {
                 wrap_col = i + 2;
                 i++;
                 wrap_chars.clear();
             } else {
-                wrap_chars.emplace_back(a, c);
+                wrap_chars.push_back(ds);
             }
         }
     }
@@ -171,9 +169,7 @@ static std::vector<DisplaySymbol> c_roff_wrap(int x, int y, int w, const char *s
 void c_roff(TERM_COLOR a, std::string_view str)
 {
     const auto &[wid, hgt] = term_get_size();
-    int x, y;
-    (void)term_locate(&x, &y);
-
+    auto [x, y] = term_locate();
     if (y == hgt - 1 && x > wid - 3) {
         return;
     }
@@ -234,7 +230,7 @@ void roff(std::string_view str)
 void clear_from(int row)
 {
     for (int y = row; y < game_term->hgt; y++) {
-        TermOffsetSetter tos(0, std::nullopt);
+        TermOffsetSetter tos(0, tl::nullopt);
         term_erase(0, y);
     }
 }

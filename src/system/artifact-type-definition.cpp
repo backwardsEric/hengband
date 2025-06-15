@@ -38,22 +38,22 @@ bool ArtifactType::can_generate(const BaseitemKey &generaing_bi_key) const
  * @param fa_id 固定アーティファクトID
  * @return 生成に成功したらそのアイテム、失敗したらnullopt
  */
-std::optional<BaseitemKey> ArtifactType::try_make_instant_artifact(int making_level) const
+tl::optional<BaseitemKey> ArtifactType::try_make_instant_artifact(int making_level) const
 {
     if (!this->can_make_instant_artifact()) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     if (!this->evaluate_shallow_instant_artifact(making_level)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     if (!this->evaluate_rarity()) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     if (!this->evaluate_shallow_baseitem(making_level)) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     return this->bi_key;
@@ -120,46 +120,6 @@ ArtifactList &ArtifactList::get_instance()
     return instance;
 }
 
-std::map<FixedArtifactId, ArtifactType>::iterator ArtifactList::begin()
-{
-    return this->artifacts.begin();
-}
-
-std::map<FixedArtifactId, ArtifactType>::iterator ArtifactList::end()
-{
-    return this->artifacts.end();
-}
-
-std::map<FixedArtifactId, ArtifactType>::const_iterator ArtifactList::begin() const
-{
-    return this->artifacts.cbegin();
-}
-
-std::map<FixedArtifactId, ArtifactType>::const_iterator ArtifactList::end() const
-{
-    return this->artifacts.cend();
-}
-
-std::map<FixedArtifactId, ArtifactType>::reverse_iterator ArtifactList::rbegin()
-{
-    return this->artifacts.rbegin();
-}
-
-std::map<FixedArtifactId, ArtifactType>::reverse_iterator ArtifactList::rend()
-{
-    return this->artifacts.rend();
-}
-
-std::map<FixedArtifactId, ArtifactType>::const_reverse_iterator ArtifactList::rbegin() const
-{
-    return this->artifacts.crbegin();
-}
-
-std::map<FixedArtifactId, ArtifactType>::const_reverse_iterator ArtifactList::rend() const
-{
-    return this->artifacts.crend();
-}
-
 const ArtifactType &ArtifactList::get_artifact(const FixedArtifactId fa_id) const
 {
     if (fa_id == FixedArtifactId::NONE) {
@@ -201,9 +161,9 @@ bool ArtifactList::order(const FixedArtifactId id1, const FixedArtifactId id2) c
     return id1 < id2;
 }
 
-void ArtifactList::emplace(const FixedArtifactId fa_id, const ArtifactType &artifact)
+void ArtifactList::emplace(const FixedArtifactId fa_id, ArtifactType &&artifact)
 {
-    this->artifacts.emplace(fa_id, artifact);
+    this->artifacts.emplace(fa_id, std::move(artifact));
 }
 
 void ArtifactList::reset_generated_flags()
@@ -213,7 +173,7 @@ void ArtifactList::reset_generated_flags()
     }
 }
 
-std::optional<ItemEntity> ArtifactList::try_make_instant_artifact(int making_level) const
+tl::optional<ItemEntity> ArtifactList::try_make_instant_artifact(int making_level) const
 {
     for (const auto &[fa_id, artifact] : this->artifacts) {
         const auto bi_key = artifact.try_make_instant_artifact(making_level);
@@ -224,5 +184,5 @@ std::optional<ItemEntity> ArtifactList::try_make_instant_artifact(int making_lev
         }
     }
 
-    return std::nullopt;
+    return tl::nullopt;
 }

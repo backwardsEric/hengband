@@ -10,6 +10,7 @@
 #include "floor/floor-util.h"
 #include "game-option/option-flags.h"
 #include "game-option/option-types-table.h"
+#include "io/macro-configurations-store.h"
 #include "system/baseitem/baseitem-allocation.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
@@ -52,8 +53,7 @@ static void init_gf_colors()
 void init_other(PlayerType *player_ptr)
 {
     auto &floor_data = FloorList::get_instance();
-    auto *floor_ptr = &floor_data.get_floor(0);
-    player_ptr->current_floor_ptr = floor_ptr; // TODO:本当はこんなところで初期化したくない ← FloorTypeの方で初期化するべき？
+    player_ptr->current_floor_ptr = &floor_data.get_floor(0); // TODO:本当はこんなところで初期化したくない ← FloorTypeの方で初期化するべき？
 
     init_gf_colors();
 

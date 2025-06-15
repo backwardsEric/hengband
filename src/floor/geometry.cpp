@@ -1,7 +1,5 @@
 #include "floor/geometry.h"
-#include "floor/cave.h"
 #include "game-option/text-display-options.h"
-#include "grid/feature.h"
 #include "grid/grid.h"
 #include "system/angband-system.h"
 #include "system/floor/floor-info.h"
@@ -11,69 +9,6 @@
 #include "target/projection-path-calculator.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
-
-/*!
- * @brief 2点間の距離をニュートン・ラプソン法で算出する / Distance between two points via Newton-Raphson technique
- * @param y1 1点目のy座標
- * @param x1 1点目のx座標
- * @param y2 2点目のy座標
- * @param x2 2点目のx座標
- * @return 2点間の距離
- */
-POSITION distance(POSITION y1, POSITION x1, POSITION y2, POSITION x2)
-{
-    POSITION dy = (y1 > y2) ? (y1 - y2) : (y2 - y1);
-    POSITION dx = (x1 > x2) ? (x1 - x2) : (x2 - x1);
-
-    /* Squared distance */
-    POSITION target = (dy * dy) + (dx * dx);
-
-    /* Approximate distance: hypot(dy,dx) = max(dy,dx) + min(dy,dx) / 2 */
-    POSITION d = (dy > dx) ? (dy + (dx >> 1)) : (dx + (dy >> 1));
-
-    POSITION err;
-
-    /* Simple case */
-    if (!dy || !dx) {
-        return d;
-    }
-
-    while (true) {
-        /* Approximate error */
-        err = (target - d * d) / (2 * d);
-
-        /* No error - we are done */
-        if (!err) {
-            break;
-        }
-
-        /* Adjust distance */
-        d += err;
-    }
-
-    return d;
-}
-
-/*!
- * @brief プレイヤーから指定の座標がどの方角にあるかを返す /
- * Convert an adjacent location to a direction.
- * @param y 方角を確認したY座標
- * @param x 方角を確認したX座標
- * @return 方向ID
- */
-DIRECTION coords_to_dir(PlayerType *player_ptr, POSITION y, POSITION x)
-{
-    DIRECTION d[3][3] = { { 7, 4, 1 }, { 8, 5, 2 }, { 9, 6, 3 } };
-    POSITION dy, dx;
-
-    dy = y - player_ptr->y;
-    dx = x - player_ptr->x;
-    if (std::abs(dx) > 1 || std::abs(dy) > 1) {
-        return 0;
-    }
-
-    return d[dx + 1][dy + 1];
-}
 
 /*!
  * @brief 指定された座標をプレイヤーが視覚に収められるかを返す。 / Can the player "see" the given grid in detail?
@@ -142,7 +77,7 @@ bool player_can_see_bold(PlayerType *player_ptr, POSITION y, POSITION x)
 
     /* Feature code (applying "mimic" field) */
     /* Floors are simple */
-    if (feat_supports_los(grid.get_feat_mimic())) {
+    if (grid.has_los_terrain(TerrainKind::MIMIC)) {
         return true;
     }
 
@@ -200,11 +135,12 @@ Pos2D mmove2(const Pos2D &pos_orig, const Pos2D &pos1, const Pos2D &pos2)
  * @return 個々のモンスターがプレイヤーが見えたらTRUE
  * @todo is_seen() の関数マクロをバラそうとしたがインクルード関係のコンパイルエラーで失敗
  */
-bool is_seen(PlayerType *player_ptr, MonsterEntity *m_ptr)
+bool is_seen(PlayerType *player_ptr, const MonsterEntity &monster)
 {
     auto is_inside_view = !ignore_unview;
     is_inside_view |= AngbandSystem::get_instance().is_phase_out();
-    const auto m_pos = m_ptr->get_position();
-    is_inside_view |= player_can_see_bold(player_ptr, m_pos.y, m_pos.x) && projectable(player_ptr, player_ptr->get_position(), m_pos);
-    return m_ptr->ml && is_inside_view;
+    const auto p_pos = player_ptr->get_position();
+    const auto m_pos = monster.get_position();
+    is_inside_view |= player_can_see_bold(player_ptr, m_pos.y, m_pos.x) && projectable(*player_ptr->current_floor_ptr, p_pos, p_pos, m_pos);
+    return monster.ml && is_inside_view;
 }

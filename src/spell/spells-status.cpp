@@ -14,7 +14,6 @@
 #include "effect/effect-characteristics.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
 #include "hpmp/hp-mp-processor.h"
@@ -61,7 +60,7 @@
  * @param dam 威力
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool heal_monster(PlayerType *player_ptr, DIRECTION dir, int dam)
+bool heal_monster(PlayerType *player_ptr, const Direction &dir, int dam)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_HEAL, dir, dam, flg);
@@ -74,7 +73,7 @@ bool heal_monster(PlayerType *player_ptr, DIRECTION dir, int dam)
  * @param power 効力
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool speed_monster(PlayerType *player_ptr, DIRECTION dir, int power)
+bool speed_monster(PlayerType *player_ptr, const Direction &dir, int power)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_SPEED, dir, power, flg);
@@ -87,7 +86,7 @@ bool speed_monster(PlayerType *player_ptr, DIRECTION dir, int power)
  * @param power 効力
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool slow_monster(PlayerType *player_ptr, DIRECTION dir, int power)
+bool slow_monster(PlayerType *player_ptr, const Direction &dir, int power)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_SLOW, dir, power, flg);
@@ -100,7 +99,7 @@ bool slow_monster(PlayerType *player_ptr, DIRECTION dir, int power)
  * @param power 効力
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool sleep_monster(PlayerType *player_ptr, DIRECTION dir, int power)
+bool sleep_monster(PlayerType *player_ptr, const Direction &dir, int power)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_SLEEP, dir, power, flg);
@@ -113,7 +112,7 @@ bool sleep_monster(PlayerType *player_ptr, DIRECTION dir, int power)
  * @return 作用が実際にあった場合TRUEを返す
  * @details 威力はプレイヤーレベル*2に固定
  */
-bool stasis_monster(PlayerType *player_ptr, DIRECTION dir)
+bool stasis_monster(PlayerType *player_ptr, const Direction &dir)
 {
     return fire_ball_hide(player_ptr, AttributeType::STASIS, dir, player_ptr->lev * 2, 0);
 }
@@ -125,7 +124,7 @@ bool stasis_monster(PlayerType *player_ptr, DIRECTION dir)
  * @return 作用が実際にあった場合TRUEを返す
  * @details 威力はプレイヤーレベル*2に固定
  */
-bool stasis_evil(PlayerType *player_ptr, DIRECTION dir)
+bool stasis_evil(PlayerType *player_ptr, const Direction &dir)
 {
     return fire_ball_hide(player_ptr, AttributeType::STASIS_EVIL, dir, player_ptr->lev * 2, 0);
 }
@@ -137,7 +136,7 @@ bool stasis_evil(PlayerType *player_ptr, DIRECTION dir)
  * @param plev プレイヤーレベル(=効力)
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool confuse_monster(PlayerType *player_ptr, DIRECTION dir, PLAYER_LEVEL plev)
+bool confuse_monster(PlayerType *player_ptr, const Direction &dir, PLAYER_LEVEL plev)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_CONF, dir, plev, flg);
@@ -150,7 +149,7 @@ bool confuse_monster(PlayerType *player_ptr, DIRECTION dir, PLAYER_LEVEL plev)
  * @param plev プレイヤーレベル(=効力)
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool stun_monster(PlayerType *player_ptr, DIRECTION dir, PLAYER_LEVEL plev)
+bool stun_monster(PlayerType *player_ptr, const Direction &dir, PLAYER_LEVEL plev)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::STUN, dir, plev, flg);
@@ -163,7 +162,7 @@ bool stun_monster(PlayerType *player_ptr, DIRECTION dir, PLAYER_LEVEL plev)
  * @param power 効力
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool poly_monster(PlayerType *player_ptr, DIRECTION dir, int power)
+bool poly_monster(PlayerType *player_ptr, const Direction &dir, int power)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     bool tester = (project_hook(player_ptr, AttributeType::OLD_POLY, dir, power, flg));
@@ -179,7 +178,7 @@ bool poly_monster(PlayerType *player_ptr, DIRECTION dir, int power)
  * @param dir 方向(5ならばグローバル変数 target_col/target_row の座標を目標にする)
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool clone_monster(PlayerType *player_ptr, DIRECTION dir)
+bool clone_monster(PlayerType *player_ptr, const Direction &dir)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::OLD_CLONE, dir, 0, flg);
@@ -192,7 +191,7 @@ bool clone_monster(PlayerType *player_ptr, DIRECTION dir)
  * @param plev プレイヤーレベル(=効力)
  * @return 作用が実際にあった場合TRUEを返す
  */
-bool fear_monster(PlayerType *player_ptr, DIRECTION dir, PLAYER_LEVEL plev)
+bool fear_monster(PlayerType *player_ptr, const Direction &dir, PLAYER_LEVEL plev)
 {
     BIT_FLAGS flg = PROJECT_STOP | PROJECT_KILL | PROJECT_REFLECTABLE;
     return project_hook(player_ptr, AttributeType::TURN_ALL, dir, plev, flg);
@@ -208,7 +207,7 @@ bool time_walk(PlayerType *player_ptr)
     player_ptr->timewalk = true;
     msg_print(_("「時よ！」", "You yell 'Time!'"));
     //	msg_print(_("「『ザ・ワールド』！時は止まった！」", "You yell 'The World! Time has stopped!'"));
-    msg_print(nullptr);
+    msg_erase();
 
     player_ptr->energy_need -= 1000 + (100 + player_ptr->csp - 50) * TURNS_PER_TICK / 10;
     auto &rfu = RedrawingFlagsUpdater::get_instance();
@@ -538,17 +537,17 @@ bool fishing(PlayerType *player_ptr)
         return false;
     }
 
-    const auto pos = player_ptr->get_neighbor(*dir);
-    player_ptr->fishing_dir = *dir;
+    const auto pos = player_ptr->get_neighbor(dir);
+    player_ptr->fishing_dir = dir.dir();
     const auto &floor = *player_ptr->current_floor_ptr;
-    if (!cave_has_flag_bold(&floor, pos.y, pos.x, TerrainCharacteristics::WATER)) {
+    if (!floor.has_terrain_characteristics(pos, TerrainCharacteristics::WATER)) {
         msg_print(_("そこは水辺ではない。", "You can't fish here."));
         return false;
     }
 
     const auto &grid = floor.get_grid(pos);
     if (grid.has_monster()) {
-        const auto m_name = monster_desc(player_ptr, &floor.m_list[grid.m_idx], 0);
+        const auto m_name = monster_desc(player_ptr, floor.m_list[grid.m_idx], 0);
         msg_format(_("%sが邪魔だ！", "%s^ is standing in your way."), m_name.data());
         PlayerEnergy(player_ptr).reset_player_turn();
         return false;
@@ -574,7 +573,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
     /* Cast off activated item */
     INVENTORY_IDX slot;
     for (slot = INVEN_MAIN_HAND; slot <= INVEN_FEET; slot++) {
-        if (o_ptr == &player_ptr->inventory_list[slot]) {
+        if (o_ptr == player_ptr->inventory[slot].get()) {
             break;
         }
     }
@@ -587,12 +586,12 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
     inven_item_increase(player_ptr, slot, (0 - o_ptr->number));
     inven_item_optimize(player_ptr, slot);
 
-    OBJECT_IDX old_o_idx = drop_near(player_ptr, &item, 0, player_ptr->y, player_ptr->x);
-    *o_ptr_ptr = &player_ptr->current_floor_ptr->o_list[old_o_idx];
+    const auto old_o_idx = drop_near(player_ptr, &item, player_ptr->get_position());
+    *o_ptr_ptr = player_ptr->current_floor_ptr->o_list[old_o_idx].get();
 
     const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
     msg_format(_("%sを脱ぎ捨てた。", "You cast off %s."), item_name.data());
-    sound(SOUND_TAKE_OFF);
+    sound(SoundKind::TAKE_OFF);
 
     /* Get effects */
     msg_print(_("「燃え上がれ俺の小宇宙！」", "You say, 'Burn up my cosmo!"));
@@ -618,7 +617,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
  * @brief プレイヤーの因果混乱処理 / Apply Nexus
  * @param m_ptr 因果混乱をプレイヤーに与えたモンスターの情報参照ポインタ
  */
-void apply_nexus(MonsterEntity *m_ptr, PlayerType *player_ptr)
+void apply_nexus(const MonsterEntity &monster, PlayerType *player_ptr)
 {
     switch (randint1(7)) {
     case 1:
@@ -630,7 +629,7 @@ void apply_nexus(MonsterEntity *m_ptr, PlayerType *player_ptr)
 
     case 4:
     case 5: {
-        teleport_player_to(player_ptr, m_ptr->fy, m_ptr->fx, TELEPORT_PASSIVE);
+        teleport_player_to(player_ptr, monster.fy, monster.fx, TELEPORT_PASSIVE);
         break;
     }
 

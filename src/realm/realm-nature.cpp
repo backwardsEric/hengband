@@ -47,14 +47,13 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は tl::nullopt を返す。
  */
-std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+tl::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool info = mode == SpellProcessType::INFO;
     bool cast = mode == SpellProcessType::CAST;
 
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
 
     switch (spell) {
@@ -81,8 +80,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         if (cast) {
             project_length = range;
 
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_beam(player_ptr, AttributeType::ELEC, dir, dice.roll());
@@ -107,7 +107,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         if (cast) {
             msg_print(_("食料を生成した。", "A food ration is produced."));
             ItemEntity item({ ItemKindType::FOOD, SV_FOOD_RATION });
-            (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
+            (void)drop_near(player_ptr, &item, player_ptr->get_position());
         }
     } break;
 
@@ -138,8 +138,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             charm_animal(player_ptr, dir, plev);
@@ -185,8 +186,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             wall_to_mud(player_ptr, dir, base + dice.roll());
@@ -201,8 +203,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::COLD, dir, dice.roll());
         }
@@ -233,8 +236,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_bolt_or_beam(player_ptr, beam_chance(player_ptr) - 10, AttributeType::FIRE, dir, dice.roll());
         }
@@ -248,8 +252,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             msg_print(_("太陽光線が現れた。", "A line of sunlight appears."));
             lite_line(player_ptr, dir, dice.roll());
@@ -340,7 +345,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
     case 21: {
         if (cast) {
             if (!identify_fully(player_ptr, false)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -354,7 +359,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
     case 23: {
         if (cast) {
             if (!rustproof(player_ptr)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -367,7 +372,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            earthquake(player_ptr, player_ptr->y, player_ptr->x, rad, 0);
+            earthquake(player_ptr, player_ptr->get_position(), rad);
         }
     } break;
 
@@ -386,8 +391,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_ball(player_ptr, AttributeType::COLD, dir, dam, rad);
@@ -403,8 +409,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball(player_ptr, AttributeType::ELEC, dir, dam, rad);
             break;
@@ -420,8 +427,9 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
             fire_ball(player_ptr, AttributeType::WATER, dir, dam, rad);
         }
@@ -436,7 +444,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
         }
 
         if (cast) {
-            fire_ball(player_ptr, AttributeType::LITE, 0, dam, rad);
+            fire_ball(player_ptr, AttributeType::LITE, Direction::self(), dam, rad);
             chg_virtue(player_ptr, Virtue::KNOWLEDGE, 1);
             chg_virtue(player_ptr, Virtue::ENLIGHTEN, 1);
             wiz_lite(player_ptr, false);
@@ -467,7 +475,7 @@ std::optional<std::string> do_nature_spell(PlayerType *player_ptr, SPELL_IDX spe
 
         if (cast) {
             dispel_monsters(player_ptr, d_dam);
-            earthquake(player_ptr, player_ptr->y, player_ptr->x, q_rad, 0);
+            earthquake(player_ptr, player_ptr->get_position(), q_rad);
             project(player_ptr, 0, b_rad, player_ptr->y, player_ptr->x, b_dam, AttributeType::DISINTEGRATE, PROJECT_KILL | PROJECT_ITEM);
         }
     } break;

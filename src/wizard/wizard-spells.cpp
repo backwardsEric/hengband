@@ -9,10 +9,10 @@
 #include "core/asking-player.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
-#include "floor/cave.h"
 #include "floor/floor-util.h"
 #include "floor/pattern-walk.h"
 #include "io/gf-descriptions.h"
+#include "io/input-key-acceptor.h"
 #include "mind/mind-blue-mage.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-summon.h"
@@ -32,20 +32,24 @@
 #include "spell/summon-types.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
+#include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
 #include "target/grid-selector.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
+#include "util/candidate-selector.h"
 #include "util/enum-converter.h"
 #include "util/flag-group.h"
+#include "util/int-char-converter.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
 #include <string_view>
 #include <vector>
 
-static const std::vector<debug_spell_command> debug_spell_commands_list = {
+namespace {
+const std::vector<debug_spell_command> debug_spell_commands_list = {
     { 2, "vanish dungeon", { .spell2 = { vanish_dungeon } } },
     { 2, "unique detection", { .spell2 = { activate_unique_detection } } },
     { 3, "true healing", { .spell3 = { true_healing } } },
@@ -54,13 +58,53 @@ static const std::vector<debug_spell_command> debug_spell_commands_list = {
     { 5, "pattern teleport", { .spell5 = { pattern_teleport } } },
 };
 
-static std::optional<MonraceId> input_monster_race_id(const MonraceId monrace_id)
+std::vector<MonraceId> wiz_collect_monster_candidates(char symbol)
+{
+    const auto &monraces = MonraceList::get_instance();
+
+    if (symbol == KTRL('M')) {
+        const auto monster_name = input_string("Monster name: ", MAX_MONSTER_NAME);
+        if (!monster_name || monster_name->empty()) {
+            return {};
+        }
+
+        return monraces.search_by_name(*monster_name, false);
+    }
+
+    return monraces.search_by_symbol(symbol, false);
+}
+
+tl::optional<MonraceId> wiz_select_summon_monrace_id(MonraceId monrace_id)
 {
     if (MonraceList::is_valid(monrace_id)) {
         return monrace_id;
     }
 
-    return input_numerics("MonsterID", 1, MonraceList::get_instance().size() - 1, MonraceId::FILTHY_URCHIN);
+    prt("Enter monster symbol character(^M:Search by name, ^I:Input MonsterID): ", 0, 0);
+    const auto skey = inkey_special(false);
+    prt("", 0, 0);
+    if ((skey & SKEY_MASK) || skey == ESCAPE) {
+        return tl::nullopt;
+    }
+
+    const auto &monraces = MonraceList::get_instance();
+    if (skey == KTRL('I')) {
+        return input_numerics("MonsterID", 1, monraces.size() - 1, MonraceId::FILTHY_URCHIN);
+    }
+
+    const auto monrace_ids = wiz_collect_monster_candidates(static_cast<char>(skey));
+    if (monrace_ids.empty()) {
+        return tl::nullopt;
+    }
+
+    auto describer = [&](MonraceId id) {
+        return monraces.get_monrace(id).name.string();
+    };
+    CandidateSelector cs("Witch monster: ", 15);
+    const auto choice = cs.select(monrace_ids, describer);
+
+    return (choice != monrace_ids.end()) ? tl::make_optional(*choice) : tl::nullopt;
+}
 }
 
 /*!
@@ -113,12 +157,12 @@ void wiz_debug_spell(PlayerType *player_ptr)
  */
 void wiz_dimension_door(PlayerType *player_ptr)
 {
-    POSITION x = 0, y = 0;
-    if (!tgt_pt(player_ptr, &x, &y)) {
+    const auto pos = point_target(player_ptr);
+    if (!pos) {
         return;
     }
 
-    teleport_player_to(player_ptr, y, x, TELEPORT_NONMAGICAL);
+    teleport_player_to(player_ptr, pos->y, pos->x, TELEPORT_NONMAGICAL);
 }
 
 /*!
@@ -127,17 +171,18 @@ void wiz_dimension_door(PlayerType *player_ptr)
  */
 void wiz_summon_horde(PlayerType *player_ptr)
 {
-    POSITION wy = player_ptr->y, wx = player_ptr->x;
-    int attempts = 1000;
-
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto p_pos = player_ptr->get_position();
+    auto pos = p_pos;
+    auto attempts = 1000;
     while (--attempts) {
-        scatter(player_ptr, &wy, &wx, player_ptr->y, player_ptr->x, 3, PROJECT_NONE);
-        if (is_cave_empty_bold(player_ptr, wy, wx)) {
+        pos = scatter(player_ptr, p_pos, 3, PROJECT_NONE);
+        if (floor.is_empty_at(pos) && (pos != p_pos)) {
             break;
         }
     }
 
-    (void)alloc_horde(player_ptr, wy, wx, summon_specific);
+    (void)alloc_horde(player_ptr, pos.y, pos.x, summon_specific);
 }
 
 /*!
@@ -145,11 +190,13 @@ void wiz_summon_horde(PlayerType *player_ptr)
  */
 void wiz_teleport_back(PlayerType *player_ptr)
 {
-    if (!target_who) {
+    const auto target = Target::get_last_target();
+    const auto pos = target.get_position();
+    if (!pos || !target.get_m_idx()) {
         return;
     }
 
-    teleport_player_to(player_ptr, target_row, target_col, TELEPORT_NONMAGICAL);
+    teleport_player_to(player_ptr, pos->y, pos->x, TELEPORT_NONMAGICAL);
 }
 
 /*!
@@ -231,7 +278,7 @@ void wiz_summon_random_monster(PlayerType *player_ptr, int num)
  */
 void wiz_summon_specific_monster(PlayerType *player_ptr, const MonraceId r_idx)
 {
-    const auto new_monrace_id = input_monster_race_id(r_idx);
+    const auto new_monrace_id = wiz_select_summon_monrace_id(r_idx);
     if (!new_monrace_id) {
         return;
     }
@@ -248,7 +295,7 @@ void wiz_summon_specific_monster(PlayerType *player_ptr, const MonraceId r_idx)
  */
 void wiz_summon_pet(PlayerType *player_ptr, const MonraceId r_idx)
 {
-    const auto new_monrace_id = input_monster_race_id(r_idx);
+    const auto new_monrace_id = wiz_select_summon_monrace_id(r_idx);
     if (!new_monrace_id) {
         return;
     }
@@ -263,7 +310,7 @@ void wiz_summon_pet(PlayerType *player_ptr, const MonraceId r_idx)
  */
 void wiz_summon_clone(PlayerType *player_ptr, const MonraceId r_idx)
 {
-    const auto new_monrace_id = input_monster_race_id(r_idx);
+    const auto new_monrace_id = wiz_select_summon_monrace_id(r_idx);
     if (!new_monrace_id) {
         return;
     }
@@ -319,8 +366,8 @@ void wiz_kill_target(PlayerType *player_ptr, int initial_dam, AttributeType effe
         return;
     }
 
-    DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir)) {
+    const auto dir = get_aim_dir(player_ptr);
+    if (!dir) {
         return;
     }
     fire_ball(player_ptr, idx, dir, dam, 0);

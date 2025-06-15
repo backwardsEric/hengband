@@ -12,6 +12,7 @@
 #include "main-win/wav-reader.h"
 #include "main/sound-definitions-table.h"
 #include "util/angband-files.h"
+#include "util/enum-converter.h"
 #include <memory>
 #include <mmsystem.h>
 #include <queue>
@@ -25,7 +26,7 @@ std::filesystem::path ANGBAND_DIR_XTRA_SOUND;
 /*
  * "sound.cfg" data
  */
-std::optional<CfgData> sound_cfg_data;
+tl::optional<CfgData> sound_cfg_data;
 
 /*!
  * 効果音データ
@@ -187,13 +188,14 @@ static bool play_sound_impl(const std::filesystem::path &path, int volume)
  * @param buf 使用しない
  * @return 対応するキー名を返す
  */
-static std::optional<std::string> sound_key_at(int index)
+static tl::optional<std::string> sound_key_at(int index)
 {
-    if (index >= SOUND_MAX) {
-        return std::nullopt;
+    const auto sk = i2enum<SoundKind>(index);
+    if (sk >= SoundKind::MAX) {
+        return tl::nullopt;
     }
 
-    return angband_sound_name[index];
+    return sound_names.at(sk);
 }
 
 /*!
@@ -220,7 +222,7 @@ void finalize_sound(void)
 
 /*!
  * @brief 指定の効果音を鳴らす。
- * @param val see sound_type
+ * @param val see SoundKind
  * @retval 0 正常終了
  * @retval 1 設定なし
  * @retval -1 PlaySoundの戻り値が正常終了以外

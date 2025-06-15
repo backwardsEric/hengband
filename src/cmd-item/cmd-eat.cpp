@@ -194,9 +194,9 @@ static bool exe_eat_charge_of_magic_device(PlayerType *player_ptr, ItemEntity *o
     }
 
     if (i_idx >= 0) {
-        inven_item_charges(player_ptr->inventory_list[i_idx]);
+        inven_item_charges(*player_ptr->inventory[i_idx]);
     } else {
-        floor_item_charges(player_ptr->current_floor_ptr, 0 - i_idx);
+        floor_item_charges(*player_ptr->current_floor_ptr, 0 - i_idx);
     }
 
     static constexpr auto flags = {
@@ -224,7 +224,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX i_idx)
 
     auto *o_ptr = ref_item(player_ptr, i_idx);
 
-    sound(SOUND_EAT);
+    sound(SoundKind::EAT);
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     const auto level = o_ptr->get_baseitem_level();
@@ -283,7 +283,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX i_idx)
 
     /* Balrogs change humanoid corpses to energy */
     if (food_type == PlayerRaceFoodType::CORPSE) {
-        if (o_ptr->is_corpse() && o_ptr->get_monrace().symbol_char_is_any_of("pht")) {
+        if (o_ptr->is_corpse() && o_ptr->get_monrace().is_human()) {
             const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
             msg_format(_("%sは燃え上り灰になった。精力を吸収した気がする。", "%s^ is burnt to ashes.  You absorb its vitality!"), item_name.data());
             (void)set_food(player_ptr, PY_FOOD_MAX - 1);
@@ -301,7 +301,7 @@ void exe_eat_food(PlayerType *player_ptr, INVENTORY_IDX i_idx)
             msg_print(_("食べ物がアゴを素通りして落ちた！", "The food falls through your jaws!"));
 
             /* Drop the object from heaven */
-            (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
+            (void)drop_near(player_ptr, &item, player_ptr->get_position());
         } else {
             msg_print(_("食べ物がアゴを素通りして落ち、消えた！", "The food falls through your jaws and vanishes!"));
         }

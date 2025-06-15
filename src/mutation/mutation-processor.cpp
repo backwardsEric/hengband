@@ -48,75 +48,13 @@
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
+#include "target/target-getter.h"
 #include "target/target-setter.h"
 #include "target/target-types.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include "world/world.h"
-
-static int get_hack_dir(PlayerType *player_ptr)
-{
-    auto dir = 0;
-    while (dir == 0) {
-        const auto p = target_okay(player_ptr)
-                           ? _("方向 ('5'でターゲットへ, '*'でターゲット再選択, ESCで中断)? ", "Direction ('5' for target, '*' to re-target, Escape to cancel)? ")
-                           : _("方向 ('*'でターゲット選択, ESCで中断)? ", "Direction ('*' to choose a target, Escape to cancel)? ");
-        const auto command_opt = input_command(p, true);
-        if (!command_opt) {
-            break;
-        }
-
-        auto command = *command_opt;
-        if (use_menu && (command == '\r')) {
-            command = 't';
-        }
-
-        switch (command) {
-        case 'T':
-        case 't':
-        case '.':
-        case '5':
-        case '0':
-            dir = 5;
-            break;
-        case '*':
-        case ' ':
-        case '\r':
-            if (target_set(player_ptr, TARGET_KILL)) {
-                dir = 5;
-            }
-
-            break;
-        default:
-            dir = get_keymap_dir(command);
-            break;
-        }
-
-        if ((dir == 5) && !target_okay(player_ptr)) {
-            dir = 0;
-        }
-
-        if (dir == 0) {
-            bell();
-        }
-    }
-
-    if (dir == 0) {
-        return 0;
-    }
-
-    command_dir = dir;
-    if (player_ptr->effects()->confusion().is_confused()) {
-        dir = ddd[randint0(8)];
-    }
-
-    if (command_dir != dir) {
-        msg_print(_("あなたは混乱している。", "You are confused."));
-    }
-
-    return dir;
-}
 
 /*!
  * @brief 10ゲームターンが進行するごとに突然変異の発動判定を行う処理
@@ -149,7 +87,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         if (!has_resist_nexus(player_ptr) && player_ptr->muta.has_not(PlayerMutationType::VTELEPORT) && !player_ptr->anti_tele) {
             disturb(player_ptr, false, true);
             msg_print(_("あなたの位置は突然ひじょうに不確定になった...", "Your position suddenly seems very uncertain..."));
-            msg_print(nullptr);
+            msg_erase();
             teleport_player(player_ptr, 40, TELEPORT_PASSIVE);
         }
     }
@@ -167,7 +105,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
 
         if (!has_resist_chaos(player_ptr)) {
             if (one_in_(20)) {
-                msg_print(nullptr);
+                msg_erase();
                 if (one_in_(3)) {
                     lose_all_info(player_ptr);
                 } else {
@@ -197,8 +135,8 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     if (player_ptr->muta.has(PlayerMutationType::FLATULENT) && (randint1(3000) == 13)) {
         disturb(player_ptr, false, true);
         msg_print(_("ブゥーーッ！おっと。", "BRRAAAP! Oops."));
-        msg_print(nullptr);
-        fire_ball(player_ptr, AttributeType::POIS, 0, player_ptr->lev, 3);
+        msg_erase();
+        fire_ball(player_ptr, AttributeType::POIS, Direction::self(), player_ptr->lev, 3);
     }
 
     if (player_ptr->muta.has(PlayerMutationType::PROD_MANA) && !player_ptr->anti_magic && one_in_(9000)) {
@@ -207,9 +145,9 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             "Magical energy flows through you! You must release it!"));
 
         flush();
-        msg_print(nullptr);
-        const auto dir = get_hack_dir(player_ptr);
-        fire_ball(player_ptr, AttributeType::MANA, dir, player_ptr->lev * 2, 3);
+        msg_erase();
+        const auto dir = get_aim_dir(player_ptr, false);
+        fire_ball(player_ptr, AttributeType::MANA, dir ? dir : Direction::self(), player_ptr->lev * 2, 3);
     }
 
     if (player_ptr->muta.has(PlayerMutationType::ATT_DEMON) && !player_ptr->anti_magic && (randint1(6666) == 666)) {
@@ -246,7 +184,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             }
         }
 
-        msg_print(nullptr);
+        msg_erase();
     }
 
     if (player_ptr->muta.has(PlayerMutationType::BANISH_ALL) && one_in_(9000)) {
@@ -254,7 +192,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         msg_print(_("突然ほとんど孤独になった気がする。", "You suddenly feel almost lonely."));
 
         banish_monsters(player_ptr, 100);
-        if (!player_ptr->current_floor_ptr->is_in_underground() && player_ptr->town_num) {
+        if (!player_ptr->current_floor_ptr->is_underground() && player_ptr->town_num) {
             StoreSaleType sst;
             do {
                 sst = randnum0<StoreSaleType>(MAX_STORES);
@@ -263,18 +201,18 @@ void process_world_aux_mutation(PlayerType *player_ptr)
             msg_print(_("店の主人が丘に向かって走っている！", "You see one of the shopkeepers running for the hills!"));
             store_shuffle(player_ptr, sst);
         }
-        msg_print(nullptr);
+        msg_erase();
     }
 
     if (player_ptr->muta.has(PlayerMutationType::EAT_LIGHT) && one_in_(3000)) {
         msg_print(_("影につつまれた。", "A shadow passes over you."));
-        msg_print(nullptr);
+        msg_erase();
 
         if ((player_ptr->current_floor_ptr->grid_array[player_ptr->y][player_ptr->x].info & (CAVE_GLOW | CAVE_MNDK)) == CAVE_GLOW) {
             hp_player(player_ptr, 10);
         }
 
-        auto &item = player_ptr->inventory_list[INVEN_LITE];
+        auto &item = *player_ptr->inventory[INVEN_LITE];
         if (item.bi_key.tval() == ItemKindType::LITE) {
             if (!item.is_fixed_artifact() && (item.fuel > 0)) {
                 hp_player(player_ptr, item.fuel / 20);
@@ -310,8 +248,8 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     if (player_ptr->muta.has(PlayerMutationType::RAW_CHAOS) && !player_ptr->anti_magic && one_in_(8000)) {
         disturb(player_ptr, false, true);
         msg_print(_("周りの空間が歪んでいる気がする！", "You feel the world warping around you!"));
-        msg_print(nullptr);
-        fire_ball(player_ptr, AttributeType::CHAOS, 0, player_ptr->lev, 8);
+        msg_erase();
+        fire_ball(player_ptr, AttributeType::CHAOS, Direction::self(), player_ptr->lev, 8);
     }
 
     if (player_ptr->muta.has(PlayerMutationType::NORMALITY) && one_in_(5000)) {
@@ -323,7 +261,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     if (player_ptr->muta.has(PlayerMutationType::WRAITH) && !player_ptr->anti_magic && one_in_(3000)) {
         disturb(player_ptr, false, true);
         msg_print(_("非物質化した！", "You feel insubstantial!"));
-        msg_print(nullptr);
+        msg_erase();
         set_wraith_form(player_ptr, randint1(player_ptr->lev / 2) + (player_ptr->lev / 2), false);
     }
 
@@ -374,7 +312,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         if (!sustained) {
             disturb(player_ptr, false, true);
             msg_print(_("自分が衰弱していくのが分かる！", "You can feel yourself wasting away!"));
-            msg_print(nullptr);
+            msg_erase();
             (void)dec_stat(player_ptr, which_stat, randint1(6) + 6, one_in_(3));
         }
     }
@@ -407,7 +345,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     if (player_ptr->muta.has(PlayerMutationType::NAUSEA) && !player_ptr->slow_digest && one_in_(9000)) {
         disturb(player_ptr, false, true);
         msg_print(_("胃が痙攣し、食事を失った！", "Your stomach roils, and you lose your lunch!"));
-        msg_print(nullptr);
+        msg_erase();
         set_food(player_ptr, PY_FOOD_WEAK);
         if (music_singing_any(player_ptr)) {
             stop_singing(player_ptr);
@@ -425,15 +363,15 @@ void process_world_aux_mutation(PlayerType *player_ptr)
 
     if (player_ptr->muta.has(PlayerMutationType::WARNING) && one_in_(1000)) {
         int danger_amount = 0;
-        for (MONSTER_IDX monster = 0; monster < player_ptr->current_floor_ptr->m_max; monster++) {
-            auto *m_ptr = &player_ptr->current_floor_ptr->m_list[monster];
-            auto *r_ptr = &m_ptr->get_monrace();
-            if (!m_ptr->is_valid()) {
+        for (auto m_idx = 0; m_idx < player_ptr->current_floor_ptr->m_max; m_idx++) {
+            const auto &monster = player_ptr->current_floor_ptr->m_list[m_idx];
+            const auto &monrace = monster.get_monrace();
+            if (!monster.is_valid()) {
                 continue;
             }
 
-            if (r_ptr->level >= player_ptr->lev) {
-                danger_amount += r_ptr->level - player_ptr->lev + 1;
+            if (monrace.level >= player_ptr->lev) {
+                danger_amount += monrace.level - player_ptr->lev + 1;
             }
         }
 
@@ -455,7 +393,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
     if (player_ptr->muta.has(PlayerMutationType::INVULN) && !player_ptr->anti_magic && one_in_(5000)) {
         disturb(player_ptr, false, true);
         msg_print(_("無敵な気がする！", "You feel invincible!"));
-        msg_print(nullptr);
+        msg_erase();
         (void)set_invuln(player_ptr, randint1(8) + 8, false);
     }
 
@@ -508,17 +446,17 @@ bool drop_weapons(PlayerType *player_ptr)
         return false;
     }
 
-    msg_print(nullptr);
+    msg_erase();
     if (has_melee_weapon(player_ptr, INVEN_MAIN_HAND)) {
         slot = INVEN_MAIN_HAND;
-        o_ptr = &player_ptr->inventory_list[INVEN_MAIN_HAND];
+        o_ptr = player_ptr->inventory[INVEN_MAIN_HAND].get();
 
         if (has_melee_weapon(player_ptr, INVEN_SUB_HAND) && one_in_(2)) {
-            o_ptr = &player_ptr->inventory_list[INVEN_SUB_HAND];
+            o_ptr = player_ptr->inventory[INVEN_SUB_HAND].get();
             slot = INVEN_SUB_HAND;
         }
     } else if (has_melee_weapon(player_ptr, INVEN_SUB_HAND)) {
-        o_ptr = &player_ptr->inventory_list[INVEN_SUB_HAND];
+        o_ptr = player_ptr->inventory[INVEN_SUB_HAND].get();
         slot = INVEN_SUB_HAND;
     }
 

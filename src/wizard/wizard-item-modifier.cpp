@@ -4,7 +4,6 @@
 #include "artifact/random-art-effects.h"
 #include "artifact/random-art-generator.h"
 #include "core/asking-player.h"
-#include "core/show-file.h"
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
@@ -134,7 +133,7 @@ static void wiz_item_drop(PlayerType *player_ptr, const int num_items, const Enu
             continue;
         }
 
-        if (!drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x)) {
+        if (!drop_near(player_ptr, &item, player_ptr->get_position())) {
             msg_print_wizard(player_ptr, 0, "No item dropping space!");
             return;
         }
@@ -272,7 +271,7 @@ void wiz_modify_item_activation(PlayerType *player_ptr)
 void wiz_identify_full_inventory(PlayerType *player_ptr)
 {
     for (int i = 0; i < INVEN_TOTAL; i++) {
-        auto *o_ptr = &player_ptr->inventory_list[i];
+        auto *o_ptr = player_ptr->inventory[i].get();
         if (!o_ptr->is_valid()) {
             continue;
         }
@@ -494,7 +493,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
 
         constexpr auto q = "Rolls: %d  Correct: %d  Matches: %d  Better: %d  Worse: %d  Other: %d";
         msg_format("Creating a lot of %s items. Base level = %d.", quality.data(), player_ptr->current_floor_ptr->dun_level);
-        msg_print(nullptr);
+        msg_erase();
         auto correct = 0;
         auto matches = 0;
         auto better = 0;
@@ -540,7 +539,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
         }
 
         msg_format(q, count, correct, matches, better, worse, other);
-        msg_print(nullptr);
+        msg_erase();
     }
 
     if (o_ptr->is_fixed_artifact()) {
@@ -548,7 +547,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
     }
 }
 
-static std::optional<ItemEntity> wiz_apply_magic_to_item(PlayerType *player_ptr, char command, short bi_id)
+static tl::optional<ItemEntity> wiz_apply_magic_to_item(PlayerType *player_ptr, char command, short bi_id)
 {
     const auto &floor = *player_ptr->current_floor_ptr;
     switch (tolower(command)) {
@@ -587,7 +586,7 @@ static std::optional<ItemEntity> wiz_apply_magic_to_item(PlayerType *player_ptr,
         return item;
     }
     default:
-        return std::nullopt;
+        return tl::nullopt;
     }
 }
 
@@ -812,8 +811,7 @@ static std::vector<FixedArtifactId> find_wishing_fixed_artifact(PlayerType *play
 #ifdef JP
         const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE));
 #else
-        auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE));
-        str_tolower(item_name.data());
+        const auto item_name = str_tolower(describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE)));
 #endif
         std::string art_description = artifact.name;
 #ifdef JP
@@ -841,7 +839,7 @@ static std::vector<FixedArtifactId> find_wishing_fixed_artifact(PlayerType *play
             }
         }
 
-        str_tolower(art_description.data());
+        art_description = str_tolower(art_description);
 #endif
         const std::string match_name(_(item_name.substr(2), item_name));
         if (cheat_xtra) {
@@ -940,9 +938,11 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
         return WishResultType::NOTHING;
     }
 
+#ifdef JP
     auto *pray_chars = pray.data();
-#ifndef JP
-    str_tolower(pray_chars);
+#else
+    pray = str_tolower(pray);
+    auto *pray_chars = pray.data();
     const std::string article_single("a ");
     const std::string article_multi("an ");
     if (pray.starts_with("a ")) {
@@ -952,7 +952,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
     }
 
     pray_chars = ltrim(pray_chars);
-#endif // !JP
+#endif
 
     pray_chars = rtrim(pray_chars);
 
@@ -1017,8 +1017,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
 #ifdef JP
             const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE));
 #else
-            auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE));
-            str_tolower(item_name.data());
+            const auto item_name = str_tolower(describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE)));
 #endif
             if (cheat_xtra) {
                 msg_format("Matching object No.%d %s", baseitem.idx, item_name.data());
@@ -1040,10 +1039,10 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
                     continue;
                 }
 
-                std::string item_name(ego.name);
 #ifdef JP
+                const auto &item_name = ego.name;
 #else
-                str_tolower(item_name.data());
+                const auto item_name = str_tolower(ego.name);
 #endif
                 if (cheat_xtra) {
                     msg_format("matching ego no.%d %s...", enum2i(ego.idx), item_name.data());
@@ -1119,7 +1118,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
                 } while (!item.is_random_artifact() || item.is_ego() || item.is_cursed());
 
                 if (item.is_random_artifact()) {
-                    drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
+                    drop_near(player_ptr, &item, player_ptr->get_position());
                 }
             } else {
                 wishing_puff_of_smoke();
@@ -1193,7 +1192,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
             item.art_flags.set(TR_IGNORE_FIRE);
         }
 
-        (void)drop_near(player_ptr, &item, -1, player_ptr->y, player_ptr->x);
+        (void)drop_near(player_ptr, &item, player_ptr->get_position());
         return res;
     }
 

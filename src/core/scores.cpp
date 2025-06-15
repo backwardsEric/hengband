@@ -189,10 +189,10 @@ errr top_twenty(PlayerType *player_ptr)
 {
     high_score the_score = {};
     snprintf(the_score.what, sizeof(the_score.what), "%u.%u.%u", H_VER_MAJOR, H_VER_MINOR, H_VER_PATCH);
-    snprintf(the_score.pts, sizeof(the_score.pts), "%9ld", (long)calc_score(player_ptr));
+    snprintf(the_score.pts, sizeof(the_score.pts), "%9u", calc_score(player_ptr));
     the_score.pts[9] = '\0';
 
-    snprintf(the_score.gold, sizeof(the_score.gold), "%9lu", (long)player_ptr->au);
+    snprintf(the_score.gold, sizeof(the_score.gold), "%9d", player_ptr->au);
     the_score.gold[9] = '\0';
 
     const auto &igd = InnerGameData::get_instance();
@@ -250,14 +250,14 @@ errr predict_score(PlayerType *player_ptr)
     high_score the_score;
     if (highscore_fd < 0) {
         msg_print(_("スコア・ファイルが使用できません。", "Score file unavailable."));
-        msg_print(nullptr);
+        msg_erase();
         return 0;
     }
 
     const auto &igd = InnerGameData::get_instance();
     snprintf(the_score.what, sizeof(the_score.what), "%u.%u.%u", H_VER_MAJOR, H_VER_MINOR, H_VER_PATCH);
-    snprintf(the_score.pts, sizeof(the_score.pts), "%9ld", (long)calc_score(player_ptr));
-    snprintf(the_score.gold, sizeof(the_score.gold), "%9lu", (long)player_ptr->au);
+    snprintf(the_score.pts, sizeof(the_score.pts), "%9u", calc_score(player_ptr));
+    snprintf(the_score.gold, sizeof(the_score.gold), "%9d", player_ptr->au);
     snprintf(the_score.turns, sizeof(the_score.turns), "%9d", igd.get_real_turns(AngbandWorld::get_instance().game_turn));
     angband_strcpy(the_score.day, _("今日", "TODAY"), sizeof(the_score.day));
     the_score.copy_info(*player_ptr);
@@ -284,7 +284,7 @@ void show_highclass(PlayerType *player_ptr)
     highscore_fd = fd_open(path, O_RDONLY);
     if (highscore_fd < 0) {
         msg_print(_("スコア・ファイルが使用できません。", "Score file unavailable."));
-        msg_print(nullptr);
+        msg_erase();
         return;
     }
 
@@ -363,7 +363,7 @@ void race_score(PlayerType *player_ptr, int race_num)
     highscore_fd = fd_open(path, O_RDONLY);
     if (highscore_fd < 0) {
         msg_print(_("スコア・ファイルが使用できません。", "Score file unavailable."));
-        msg_print(nullptr);
+        msg_erase();
         return;
     }
 
@@ -430,7 +430,7 @@ void race_legends(PlayerType *player_ptr)
     for (int i = 0; i < MAX_RACES; i++) {
         race_score(player_ptr, i);
         msg_print(_("何かキーを押すとゲームに戻ります", "Hit any key to continue"));
-        msg_print(nullptr);
+        msg_erase();
         for (int j = 5; j < 19; j++) {
             prt("", j, 0);
         }
@@ -448,7 +448,7 @@ bool check_score(PlayerType *player_ptr)
     /* No score file */
     if (highscore_fd < 0) {
         msg_print(_("スコア・ファイルが使用できません。", "Score file unavailable."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -457,14 +457,14 @@ bool check_score(PlayerType *player_ptr)
     const auto no_score = world.noscore;
     if (no_score & 0x000F) {
         msg_print(_("ウィザード・モードではスコアが記録されません。", "Score not registered for wizards."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
     /* Cheaters are not scored */
     if (no_score & 0xFF00) {
         msg_print(_("詐欺をやった人はスコアが記録されません。", "Score not registered for cheaters."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
@@ -472,14 +472,14 @@ bool check_score(PlayerType *player_ptr)
     const auto is_total_winner = world.total_winner != 0;
     if (!is_total_winner && streq(player_ptr->died_from, _("強制終了", "Interrupting"))) {
         msg_print(_("強制終了のためスコアが記録されません。", "Score not registered due to interruption."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
 
     /* Quitter */
     if (!is_total_winner && streq(player_ptr->died_from, _("途中終了", "Quitting"))) {
         msg_print(_("途中終了のためスコアが記録されません。", "Score not registered due to quitting."));
-        msg_print(nullptr);
+        msg_erase();
         return false;
     }
     return true;

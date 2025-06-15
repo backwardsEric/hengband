@@ -1,6 +1,4 @@
 #include "player/patron.h"
-#include "cmd-action/cmd-pet.h"
-#include "cmd-io/cmd-dump.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "inventory/inventory-slot-types.h"
@@ -8,15 +6,10 @@
 #include "mind/mind-chaos-warrior.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
-#include "mutation/mutation-flag-types.h"
 #include "mutation/mutation-investor-remover.h"
-#include "object-enchant/object-curse.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
-#include "player-info/class-info.h"
 #include "player-info/equipment-info.h"
-#include "player-info/race-types.h"
 #include "player/player-damage.h"
 #include "spell-kind/spells-floor.h"
 #include "spell-kind/spells-genocide.h"
@@ -32,7 +25,6 @@
 #include "status/shape-changer.h"
 #include "system/floor/floor-info.h"
 #include "system/item-entity.h"
-#include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
 std::vector<Patron> patron_list = {
@@ -175,7 +167,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
         (void)gain_mutation(this->player_ptr, 0);
         reward = _("変異した。", "mutation");
     } else {
-        const auto *floor_ptr = this->player_ptr->current_floor_ptr;
+        const auto &floor = *this->player_ptr->current_floor_ptr;
         switch (chosen_reward ? chosen_reward : effect) {
         case REW_POLY_SLF:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
@@ -251,7 +243,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「我が下僕たちよ、かの傲慢なる者を倒すべし！」", "'My pets, destroy the arrogant mortal!'"));
             for (int i = 0, summon_num = randint1(5) + 1; i < summon_num; i++) {
-                (void)summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE,
+                (void)summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_NONE,
                     (PM_ALLOW_GROUP | PM_ALLOW_UNIQUE | PM_NO_PET));
             }
 
@@ -318,7 +310,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
         case REW_HURT_LOT:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「苦しむがよい、無能な愚か者よ！」", "'Suffer, pathetic fool!'"));
-            fire_ball(this->player_ptr, AttributeType::DISINTEGRATE, 0, this->player_ptr->lev * 4, 4);
+            fire_ball(this->player_ptr, AttributeType::DISINTEGRATE, Direction::self(), this->player_ptr->lev * 4, 4);
             take_hit(this->player_ptr, DAMAGE_NOESCAPE, this->player_ptr->lev * 4, wrath_reason);
             reward = _("分解の球が発生した。", "generating disintegration ball");
             break;
@@ -345,19 +337,19 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                 }
             }
 
-            const auto item_name = describe_flavor(this->player_ptr, this->player_ptr->inventory_list[slot], OD_NAME_ONLY);
-            (void)curse_weapon_object(this->player_ptr, false, &this->player_ptr->inventory_list[slot]);
+            const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
+            (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
             reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
             break;
         }
         case REW_CURSE_AR: {
-            if (!this->player_ptr->inventory_list[INVEN_BODY].is_valid()) {
+            if (!this->player_ptr->inventory[INVEN_BODY]->is_valid()) {
                 break;
             }
 
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
             msg_print(_("「汝、防具に頼ることなかれ。」", "'Thou reliest too much on thine equipment.'"));
-            const auto item_name = describe_flavor(this->player_ptr, this->player_ptr->inventory_list[INVEN_BODY], OD_NAME_ONLY);
+            const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[INVEN_BODY], OD_NAME_ONLY);
             (void)curse_armor(this->player_ptr);
             reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
             break;
@@ -388,15 +380,15 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                         }
                     }
 
-                    const auto item_name = describe_flavor(this->player_ptr, this->player_ptr->inventory_list[slot], OD_NAME_ONLY);
-                    (void)curse_weapon_object(this->player_ptr, false, &this->player_ptr->inventory_list[slot]);
+                    const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
+                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
                     reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
                 } else {
-                    if (!this->player_ptr->inventory_list[INVEN_BODY].is_valid()) {
+                    if (!this->player_ptr->inventory[INVEN_BODY]->is_valid()) {
                         break;
                     }
 
-                    const auto item_name = describe_flavor(this->player_ptr, this->player_ptr->inventory_list[INVEN_BODY], OD_NAME_ONLY);
+                    const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[INVEN_BODY], OD_NAME_ONLY);
                     (void)curse_armor(this->player_ptr);
                     reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
                 }
@@ -433,7 +425,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                 }
 
                 if (slot) {
-                    (void)curse_weapon_object(this->player_ptr, false, &this->player_ptr->inventory_list[slot]);
+                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
                 }
             }
 
@@ -469,7 +461,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             break;
         case REW_SER_DEMO:
             msg_format(_("%sは褒美として悪魔の使いをよこした！", "%s rewards you with a demonic servant!"), this->name.data());
-            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_DEMON, PM_FORCE_PET)) {
+            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_DEMON, PM_FORCE_PET)) {
                 msg_print(_("何も現れなかった...", "Nobody ever turns up..."));
             } else {
                 reward = _("悪魔がペットになった。", "a demonic servant");
@@ -478,7 +470,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             break;
         case REW_SER_MONS:
             msg_format(_("%sは褒美として使いをよこした！", "%s rewards you with a servant!"), this->name.data());
-            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_NONE, PM_FORCE_PET)) {
+            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_NONE, PM_FORCE_PET)) {
                 msg_print(_("何も現れなかった...", "Nobody ever turns up..."));
             } else {
                 reward = _("モンスターがペットになった。", "a servant");
@@ -487,7 +479,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             break;
         case REW_SER_UNDE:
             msg_format(_("%sは褒美としてアンデッドの使いをよこした。", "%s rewards you with an undead servant!"), this->name.data());
-            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor_ptr->dun_level, SUMMON_UNDEAD, PM_FORCE_PET)) {
+            if (!summon_specific(this->player_ptr, this->player_ptr->y, this->player_ptr->x, floor.dun_level, SUMMON_UNDEAD, PM_FORCE_PET)) {
                 msg_print(_("何も現れなかった...", "Nobody ever turns up..."));
             } else {
                 reward = _("アンデッドがペットになった。", "an undead servant");

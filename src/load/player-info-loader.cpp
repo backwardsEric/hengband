@@ -10,6 +10,7 @@
 #include "load/savedata-old-flag-types.h"
 #include "load/world-loader.h"
 #include "market/arena-entry.h"
+#include "mind/mind-elementalist.h"
 #include "monster-race/race-ability-flags.h"
 #include "mutation/mutation-calculator.h"
 #include "object/tval-types.h"
@@ -40,7 +41,7 @@ static void rd_realms(PlayerType *player_ptr)
     pr.reset();
 
     if (PlayerClass(player_ptr).equals(PlayerClassType::ELEMENTALIST)) {
-        player_ptr->element = rd_byte();
+        player_ptr->element_realm = i2enum<ElementRealmType>(rd_byte());
         (void)rd_byte();
         return;
     }
@@ -303,7 +304,7 @@ static void rd_arena(PlayerType *player_ptr)
     player_ptr->oldpx = rd_s16b();
     player_ptr->oldpy = rd_s16b();
     const auto &floor = *player_ptr->current_floor_ptr;
-    if (h_older_than(0, 3, 13) && !floor.is_in_underground() && !floor.inside_arena) {
+    if (h_older_than(0, 3, 13) && !floor.is_underground() && !floor.inside_arena) {
         player_ptr->oldpy = 33;
         player_ptr->oldpx = 131;
     }

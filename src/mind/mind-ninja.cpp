@@ -1,27 +1,19 @@
 #include "mind/mind-ninja.h"
 #include "cmd-action/cmd-attack.h"
 #include "cmd-item/cmd-throw.h"
-#include "combat/combat-options-type.h"
 #include "core/disturbance.h"
-#include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "effect/spells-effect-util.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "floor/floor-util.h"
-#include "floor/geometry.h"
 #include "game-option/disturbance-options.h"
 #include "grid/grid.h"
-#include "inventory/inventory-slot-types.h"
 #include "mind/mind-mirror-master.h"
 #include "mind/mind-numbers.h"
 #include "mind/mind-warrior.h"
-#include "monster-race/race-flags-resistance.h"
 #include "monster/monster-describer.h"
-#include "monster/monster-status.h"
 #include "monster/monster-update.h"
-#include "object-enchant/trc-types.h"
 #include "player-attack/player-attack.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
@@ -29,7 +21,6 @@
 #include "player-status/player-energy.h"
 #include "player/attack-defense-types.h"
 #include "player/player-status-flags.h"
-#include "player/special-defense-types.h"
 #include "spell-kind/spells-detection.h"
 #include "spell-kind/spells-fetcher.h"
 #include "spell-kind/spells-floor.h"
@@ -56,7 +47,6 @@
 #include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "timed-effect/timed-effects.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
 /*!
@@ -97,14 +87,12 @@ bool kawarimi(PlayerType *player_ptr, bool success)
         return false;
     }
 
-    POSITION y = player_ptr->y;
-    POSITION x = player_ptr->x;
-
+    const auto p_pos_orig = player_ptr->get_position(); //!< @details 元の位置に変わり身を置く.
     teleport_player(player_ptr, 10 + randint1(90), TELEPORT_SPONTANEOUS);
-    constexpr int sv_wooden_statue = 0;
+    constexpr auto sv_wooden_statue = 0;
     ItemEntity item({ ItemKindType::STATUE, sv_wooden_statue });
     item.pval = enum2i(MonraceId::NINJA);
-    (void)drop_near(player_ptr, &item, -1, y, x);
+    (void)drop_near(player_ptr, &item, p_pos_orig);
 
     if (success) {
         msg_print(_("攻撃を受ける前に素早く身をひるがえした。", "You have turned around just before the attack hit you."));
@@ -130,87 +118,76 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
     }
 
     project_length = 5;
-    DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir)) {
+    const auto dir = get_aim_dir(player_ptr);
+    if (!dir) {
         return false;
     }
 
-    int tx = player_ptr->x + project_length * ddx[dir];
-    int ty = player_ptr->y + project_length * ddy[dir];
+    const auto p_pos = player_ptr->get_position();
+    const auto pos_target = dir.get_target_position(p_pos, project_length);
 
-    if ((dir == 5) && target_okay(player_ptr)) {
-        tx = target_col;
-        ty = target_row;
+    auto tm_idx = 0;
+    auto &floor = *player_ptr->current_floor_ptr;
+    if (floor.contains(pos_target)) {
+        tm_idx = floor.get_grid(pos_target).m_idx;
     }
 
-    int tm_idx = 0;
-    auto *floor_ptr = player_ptr->current_floor_ptr;
-    if (in_bounds(floor_ptr, ty, tx)) {
-        tm_idx = floor_ptr->grid_array[ty][tx].m_idx;
-    }
-
-    ProjectionPath path_g(player_ptr, project_length, player_ptr->get_position(), { ty, tx }, PROJECT_STOP | PROJECT_KILL);
+    ProjectionPath path_g(floor, project_length, p_pos, p_pos, pos_target, PROJECT_STOP | PROJECT_KILL);
     project_length = 0;
     if (path_g.path_num() == 0) {
         return true;
     }
 
-    auto y = player_ptr->y;
-    auto x = player_ptr->x;
+    auto p_pos_new = p_pos;
     auto tmp_mdeath = false;
     auto moved = false;
-    for (const auto &[ny, nx] : path_g) {
-        const auto &grid_new = floor_ptr->get_grid({ ny, nx });
-        if (is_cave_empty_bold(player_ptr, ny, nx) && player_can_enter(player_ptr, grid_new.feat, 0)) {
-            y = ny;
-            x = nx;
+    for (const auto &pos : path_g) {
+        const auto &grid_new = floor.get_grid(pos);
+        if (floor.is_empty_at(pos) && (pos != p_pos) && player_can_enter(player_ptr, grid_new.feat, 0)) {
+            p_pos_new = pos;
             continue;
         }
 
         if (!grid_new.has_monster()) {
-            if (tm_idx) {
-                msg_print(_("失敗！", "Failed!"));
-            } else {
-                msg_print(_("ここには入身では入れない。", "You can't move to that place."));
-            }
-
+            const auto *mes = tm_idx > 0 ? _("失敗！", "Failed!") : _("ここには入身では入れない。", "You can't move to that place.");
+            msg_print(mes);
             break;
         }
 
-        const Pos2D p_pos(y, x);
-        if (!player_ptr->is_located_at(p_pos)) {
-            teleport_player_to(player_ptr, y, x, TELEPORT_NONMAGICAL);
+        if (!player_ptr->is_located_at(p_pos_new)) {
+            teleport_player_to(player_ptr, p_pos_new.y, p_pos_new.x, TELEPORT_NONMAGICAL);
         }
 
         update_monster(player_ptr, grid_new.m_idx, true);
-        const auto *m_ptr = &floor_ptr->m_list[grid_new.m_idx];
+        const auto &monster = floor.m_list[grid_new.m_idx];
         if (tm_idx != grid_new.m_idx) {
 #ifdef JP
-            msg_format("%s%sが立ちふさがっている！", tm_idx ? "別の" : "", m_ptr->ml ? "モンスター" : "何か");
+            msg_format("%s%sが立ちふさがっている！", tm_idx > 0 ? "別の" : "", monster.ml ? "モンスター" : "何か");
 #else
-            msg_format("There is %s in the way!", m_ptr->ml ? (tm_idx ? "another monster" : "a monster") : "someone");
+            msg_format("There is %s in the way!", monster.ml ? (tm_idx > 0 ? "another monster" : "a monster") : "someone");
 #endif
-        } else if (!player_ptr->is_located_at(p_pos)) {
-            const auto m_name = monster_desc(player_ptr, m_ptr, 0);
+        } else if (!player_ptr->is_located_at(p_pos_new)) {
+            const auto m_name = monster_desc(player_ptr, monster, 0);
             msg_format(_("素早く%sの懐に入り込んだ！", "You quickly jump in and attack %s!"), m_name.data());
         }
 
-        if (!player_ptr->is_located_at(p_pos)) {
-            teleport_player_to(player_ptr, y, x, TELEPORT_NONMAGICAL);
+        if (!player_ptr->is_located_at(p_pos_new)) {
+            teleport_player_to(player_ptr, p_pos_new.y, p_pos_new.x, TELEPORT_NONMAGICAL);
         }
-        moved = true;
-        tmp_mdeath = do_cmd_attack(player_ptr, ny, nx, HISSATSU_NYUSIN);
 
+        moved = true;
+        tmp_mdeath = do_cmd_attack(player_ptr, pos.y, pos.x, HISSATSU_NYUSIN);
         break;
     }
 
-    if (!moved && !player_ptr->is_located_at({ y, x })) {
-        teleport_player_to(player_ptr, y, x, TELEPORT_NONMAGICAL);
+    if (!moved && !player_ptr->is_located_at(p_pos_new)) {
+        teleport_player_to(player_ptr, p_pos_new.y, p_pos_new.x, TELEPORT_NONMAGICAL);
     }
 
     if (mdeath) {
         *mdeath = tmp_mdeath;
     }
+
     return true;
 }
 
@@ -221,7 +198,7 @@ bool rush_attack(PlayerType *player_ptr, bool *mdeath)
  */
 void process_surprise_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto *r_ptr = &pa_ptr->m_ptr->get_monrace();
+    const auto &monrace = pa_ptr->m_ptr->get_monrace();
     if (!has_melee_weapon(player_ptr, enum2i(INVEN_MAIN_HAND) + pa_ptr->hand) || player_ptr->is_icky_wield[pa_ptr->hand]) {
         return;
     }
@@ -233,7 +210,7 @@ void process_surprise_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
     if (has_aggravate(player_ptr)) {
         tmp /= 2;
     }
-    if (r_ptr->level > (player_ptr->lev * player_ptr->lev / 20 + 10)) {
+    if (monrace.level > (player_ptr->lev * player_ptr->lev / 20 + 10)) {
         tmp /= 3;
     }
 
@@ -241,8 +218,8 @@ void process_surprise_attack(PlayerType *player_ptr, player_attack_type *pa_ptr)
     if (pa_ptr->m_ptr->is_asleep() && pa_ptr->m_ptr->ml) {
         /* Can't backstab creatures that we can't see, right? */
         pa_ptr->backstab = true;
-    } else if ((ninja_data && ninja_data->s_stealth) && (randint0(tmp) > (r_ptr->level + 20)) &&
-               pa_ptr->m_ptr->ml && !r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
+    } else if ((ninja_data && ninja_data->s_stealth) && (randint0(tmp) > (monrace.level + 20)) &&
+               pa_ptr->m_ptr->ml && !monrace.resistance_flags.has(MonsterResistanceType::RESIST_ALL)) {
         pa_ptr->surprise_attack = true;
     } else if (pa_ptr->m_ptr->is_fearful() && pa_ptr->m_ptr->ml) {
         pa_ptr->stab_fleeing = true;
@@ -300,7 +277,7 @@ bool hayagake(PlayerType *player_ptr)
 
     const auto &grid = player_ptr->current_floor_ptr->get_grid(player_ptr->get_position());
     const auto &terrain = grid.get_terrain();
-    if (terrain.flags.has_not(TerrainCharacteristics::PROJECT) || (!player_ptr->levitation && terrain.flags.has(TerrainCharacteristics::DEEP))) {
+    if (terrain.flags.has_not(TerrainCharacteristics::PROJECTION) || (!player_ptr->levitation && terrain.flags.has(TerrainCharacteristics::DEEP))) {
         msg_print(_("ここでは素早く動けない。", "You cannot run in here."));
     } else {
         set_action(player_ptr, ACTION_HAYAGAKE);
@@ -366,8 +343,6 @@ bool set_superstealth(PlayerType *player_ptr, bool set)
  */
 bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
 {
-    POSITION x = 0, y = 0;
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
     auto ninja_data = PlayerClass(player_ptr).get_specific_data<ninja_data_type>();
     switch (spell) {
@@ -411,20 +386,22 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
         }
 
         break;
-    case MindNinjaType::BIND_MONSTER:
-        if (!get_aim_dir(player_ptr, &dir)) {
+    case MindNinjaType::BIND_MONSTER: {
+        const auto dir = get_aim_dir(player_ptr);
+        if (!dir) {
             return false;
         }
 
         (void)stasis_monster(player_ptr, dir);
         break;
+    }
     case MindNinjaType::ANCIENT_KNOWLEDGE:
         return ident_spell(player_ptr, false);
     case MindNinjaType::FLOATING:
         set_tim_levitation(player_ptr, randint1(20) + 20, false);
         break;
     case MindNinjaType::HIDE_FLAMES:
-        fire_ball(player_ptr, AttributeType::FIRE, 0, 50 + plev, plev / 10 + 2);
+        fire_ball(player_ptr, AttributeType::FIRE, Direction::self(), 50 + plev, plev / 10 + 2);
         teleport_player(player_ptr, 30, TELEPORT_SPONTANEOUS);
         set_oppose_fire(player_ptr, (TIME_EFFECT)plev, false);
         break;
@@ -435,7 +412,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
             OBJECT_IDX slot;
 
             for (slot = 0; slot < INVEN_PACK; slot++) {
-                if (player_ptr->inventory_list[slot].bi_key.tval() == ItemKindType::SPIKE) {
+                if (player_ptr->inventory[slot]->bi_key.tval() == ItemKindType::SPIKE) {
                     break;
                 }
             }
@@ -459,16 +436,19 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
     case MindNinjaType::CHAIN_HOOK:
         (void)fetch_monster(player_ptr);
         break;
-    case MindNinjaType::SMOKE_BALL:
-        if (!get_aim_dir(player_ptr, &dir)) {
+    case MindNinjaType::SMOKE_BALL: {
+        const auto dir = get_aim_dir(player_ptr);
+        if (!dir) {
             return false;
         }
 
         fire_ball(player_ptr, AttributeType::OLD_CONF, dir, plev * 3, 3);
         break;
-    case MindNinjaType::SWAP_POSITION:
+    }
+    case MindNinjaType::SWAP_POSITION: {
         project_length = -1;
-        if (!get_aim_dir(player_ptr, &dir)) {
+        const auto dir = get_aim_dir(player_ptr);
+        if (!dir) {
             project_length = 0;
             return false;
         }
@@ -476,6 +456,7 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
         project_length = 0;
         (void)teleport_swap(player_ptr, dir);
         break;
+    }
     case MindNinjaType::EXPLOSIVE_RUNE:
         create_rune_explosion(player_ptr, player_ptr->y, player_ptr->x);
         break;
@@ -484,25 +465,27 @@ bool cast_ninja_spell(PlayerType *player_ptr, MindNinjaType spell)
         set_oppose_acid(player_ptr, (TIME_EFFECT)plev, false);
         break;
     case MindNinjaType::HIDE_MIST:
-        fire_ball(player_ptr, AttributeType::POIS, 0, 75 + plev * 2 / 3, plev / 5 + 2);
-        fire_ball(player_ptr, AttributeType::HYPODYNAMIA, 0, 75 + plev * 2 / 3, plev / 5 + 2);
-        fire_ball(player_ptr, AttributeType::CONFUSION, 0, 75 + plev * 2 / 3, plev / 5 + 2);
+        fire_ball(player_ptr, AttributeType::POIS, Direction::self(), 75 + plev * 2 / 3, plev / 5 + 2);
+        fire_ball(player_ptr, AttributeType::HYPODYNAMIA, Direction::self(), 75 + plev * 2 / 3, plev / 5 + 2);
+        fire_ball(player_ptr, AttributeType::CONFUSION, Direction::self(), 75 + plev * 2 / 3, plev / 5 + 2);
         teleport_player(player_ptr, 30, TELEPORT_SPONTANEOUS);
         break;
     case MindNinjaType::PURGATORY_FLAME: {
-        int num = Dice::roll(3, 9);
-        for (int k = 0; k < num; k++) {
-            AttributeType typ = one_in_(2) ? AttributeType::FIRE : one_in_(3) ? AttributeType::NETHER
-                                                                              : AttributeType::PLASMA;
-            int attempts = 1000;
+        const auto num = Dice::roll(3, 9);
+        for (auto k = 0; k < num; k++) {
+            const auto type = one_in_(2) ? AttributeType::FIRE : one_in_(3) ? AttributeType::NETHER
+                                                                            : AttributeType::PLASMA;
+            auto attempts = 1000;
+            Pos2D pos(0, 0);
             while (attempts--) {
-                scatter(player_ptr, &y, &x, player_ptr->y, player_ptr->x, 4, PROJECT_NONE);
-                if (!player_ptr->is_located_at({ y, x })) {
+                pos = scatter(player_ptr, player_ptr->get_position(), 4, PROJECT_NONE);
+                if (!player_ptr->is_located_at(pos)) {
                     break;
                 }
             }
 
-            project(player_ptr, 0, 0, y, x, Dice::roll(6 + plev / 8, 10), typ, (PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL));
+            const uint32_t flags = PROJECT_BEAM | PROJECT_THRU | PROJECT_GRID | PROJECT_KILL;
+            project(player_ptr, 0, 0, pos.y, pos.x, Dice::roll(6 + plev / 8, 10), type, flags);
         }
 
         break;

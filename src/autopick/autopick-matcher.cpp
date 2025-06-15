@@ -304,7 +304,7 @@ bool is_autopick_match(PlayerType *player_ptr, const ItemEntity *o_ptr, const au
 
     if (entry.has(FLG_HUMAN) && o_ptr->has_monrace()) {
         const auto &monrace = o_ptr->get_monrace();
-        if (tval != ItemKindType::MONSTER_REMAINS || !monrace.symbol_char_is_any_of("pht")) {
+        if (tval != ItemKindType::MONSTER_REMAINS || !monrace.is_human()) {
             return false;
         }
     }
@@ -365,7 +365,7 @@ bool is_autopick_match(PlayerType *player_ptr, const ItemEntity *o_ptr, const au
          * into an inventory slot.
          * But an item can not be absorbed into itself!
          */
-        if ((&player_ptr->inventory_list[j] != o_ptr) && player_ptr->inventory_list[j].is_similar(*o_ptr)) {
+        if ((player_ptr->inventory[j].get() != o_ptr) && player_ptr->inventory[j]->is_similar(*o_ptr)) {
             return true;
         }
     }

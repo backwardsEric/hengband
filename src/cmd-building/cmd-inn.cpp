@@ -51,7 +51,7 @@ static bool is_healthy_stay(PlayerType *player_ptr)
     }
 
     msg_print(_("あなたに必要なのは部屋ではなく、治療者です。", "You need a healer, not a room."));
-    msg_print(nullptr);
+    msg_erase();
     msg_print(_("すみません、でもうちで誰かに死なれちゃ困りますんで。", "Sorry, but I don't want anyone dying in here."));
     return false;
 }
@@ -93,7 +93,7 @@ static bool has_a_nightmare(PlayerType *player_ptr)
     msg_print(_("眠りに就くと恐ろしい光景が心をよぎった。", "Horrible visions flit through your mind as you sleep."));
 
     while (true) {
-        sanity_blast(player_ptr, nullptr, false);
+        sanity_blast(player_ptr);
         if (!one_in_(3)) {
             break;
         }
@@ -180,7 +180,7 @@ static bool stay_inn(PlayerType *player_ptr)
     world.pass_game_turn_by_stay();
     prevent_turn_overflow(player_ptr);
     if ((prev_hour >= 18) && (prev_hour <= 23)) {
-        determine_daily_bounty(player_ptr, false); /* Update daily bounty */
+        determine_daily_bounty(player_ptr);
         exe_write_diary(*player_ptr->current_floor_ptr, DiaryKind::DIALY, 0);
     }
 

@@ -85,7 +85,7 @@ std::filesystem::path path_parse(const std::filesystem::path &path)
      * Replace "~user/" by the home directory of the user named "user"
      * Replace "~/" by the home directory of the current user
      */
-    const auto &file = path.string();
+    const auto file = path.string();
     if (file.empty() || (file[0] != '~')) {
         return file;
     }
@@ -175,7 +175,7 @@ std::filesystem::path path_build(const std::filesystem::path &path, std::string_
 #ifdef WINDOWS
     // システムロケールがUTF-8の場合、appendによるUTF-16への変換時に
     // Shift-JISをUTF-8とみなしてしまい変換に失敗するので、自前でUTF-16に変換してからappendする
-    const auto &path_ret = parsed_path.append(to_wchar(file.data()).wc_str());
+    const auto &path_ret = parsed_path.append(to_wchar(file).wc_str());
 #else
     const auto &path_ret = parsed_path.append(file);
 #endif
@@ -271,9 +271,9 @@ FILE *angband_fopen_temp(char *buf, int max)
  * @brief ファイルから改行かEOFまでの文字列を読み取り、システムのエンコーディングに変換した結果を返す
  *
  * @param fp ファイルポインタ
- * @return 読み取った文字列。1バイトも読み取らずファイルの終端に達した場合はstd::nullopt
+ * @return 読み取った文字列。1バイトも読み取らずファイルの終端に達した場合はtl::nullopt
  */
-static std::optional<std::string> read_line(FILE *fp)
+static tl::optional<std::string> read_line(FILE *fp)
 {
     std::string line_buf;
 
@@ -321,7 +321,7 @@ static std::optional<std::string> read_line(FILE *fp)
 #endif /* MACH_O_COCOA */
 
     if (line_buf.empty()) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     if (line_buf.back() == '\n') {
@@ -354,16 +354,16 @@ static std::optional<std::string> read_line(FILE *fp)
  * @param n 読み込む文字列の最大サイズ。
  * 呼び出し側で終端文字を扱う可能性を考慮し、文字列長としては最大n-1バイトまでの文字列を返す。
  * デフォルト引数（std::string::npos）の場合は巨大な値であるため実質的にサイズ制限なし。
- * @return 読み取った文字列。1バイトも読み取らずファイルの終端に達した場合はstd::nullopt
+ * @return 読み取った文字列。1バイトも読み取らずファイルの終端に達した場合はtl::nullopt
  */
-std::optional<std::string> angband_fgets(FILE *fp, size_t n)
+tl::optional<std::string> angband_fgets(FILE *fp, size_t n)
 {
     // Reserve for null termination
     --n;
 
     const auto line = read_line(fp);
     if (!line) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     std::string str;
@@ -402,18 +402,6 @@ std::optional<std::string> angband_fgets(FILE *fp, size_t n)
     }
 
     return str;
-}
-
-/*
- * Hack -- replacement for "fputs()"
- * Dump a string, plus a newline, to a file
- * Process internal weirdness?
- */
-errr angband_fputs(FILE *fff, concptr buf, ulong n)
-{
-    n = n ? n : 0;
-    (void)fprintf(fff, "%s\n", buf);
-    return 0;
 }
 
 /*

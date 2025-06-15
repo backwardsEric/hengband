@@ -4,11 +4,9 @@
 #include "avatar/avatar.h"
 #include "core/asking-player.h"
 #include "core/stuff-handler.h"
-#include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
-#include "game-option/birth-options.h"
 #include "game-option/play-record-options.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
@@ -17,11 +15,9 @@
 #include "main/sound-of-music.h"
 #include "object-enchant/item-feeling.h"
 #include "object-enchant/special-object-flags.h"
-#include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
 #include "object/object-stack.h"
-#include "object/object-value.h"
 #include "racial/racial-android.h"
 #include "spell-kind/spells-perception.h"
 #include "store/home.h"
@@ -29,20 +25,16 @@
 #include "store/say-comments.h"
 #include "store/service-checker.h"
 #include "store/store-owners.h"
-#include "store/store-util.h"
 #include "store/store.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
-#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
-#include "term/screen-processor.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "view/display-store.h"
 #include "view/object-describer.h"
-#include "world/world.h"
-#include <optional>
+#include <fmt/format.h>
+#include <tl/optional.hpp>
 
 /*!
  * @brief プレイヤーが売却する時の確認プロンプト / Prompt to sell for the price
@@ -50,18 +42,18 @@
  * @param o_ptr オブジェクトの構造体参照ポインタ
  * @return 売るなら(true,売値)、売らないなら(false,0)のタプル
  */
-static std::optional<PRICE> prompt_to_sell(PlayerType *player_ptr, ItemEntity *o_ptr, StoreSaleType store_num)
+static tl::optional<int> prompt_to_sell(PlayerType *player_ptr, ItemEntity *o_ptr, StoreSaleType store_num)
 {
     auto price_ask = price_item(player_ptr, o_ptr->calc_price(), ot_ptr->inflate, true, store_num);
 
     price_ask = std::min(price_ask, ot_ptr->max_cost);
     price_ask *= o_ptr->number;
-    const auto s = format(_("売値 $%ld で売りますか？", "Do you sell for $%ld? "), static_cast<long>(price_ask));
+    const auto s = fmt::format(_("売値 ${} で売りますか？", "Do you sell for ${}? "), price_ask);
     if (input_check_strict(player_ptr, s, UserCheck::DEFAULT_Y)) {
         return price_ask;
     }
 
-    return std::nullopt;
+    return tl::nullopt;
 }
 
 /*!
@@ -133,7 +125,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
     if ((store_num != StoreSaleType::HOME) && (store_num != StoreSaleType::MUSEUM)) {
         const auto item_name = describe_flavor(player_ptr, selling_item, 0);
         msg_format(_("%s(%c)を売却する。", "Selling %s (%c)."), item_name.data(), index_to_label(i_idx));
-        msg_print(nullptr);
+        msg_erase();
 
         auto res = prompt_to_sell(player_ptr, &selling_item, store_num);
         placed = res.has_value();
@@ -141,7 +133,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             const auto price = *res;
             store_owner_says_comment(player_ptr, store_num);
 
-            sound(SOUND_SELL);
+            sound(SoundKind::SELL);
             if (store_num == StoreSaleType::BLACK) {
                 chg_virtue(player_ptr, Virtue::JUSTICE, -1);
             }
@@ -152,7 +144,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             }
 
             player_ptr->au += price;
-            store_prt_gold(player_ptr);
+            store_prt_gold(player_ptr->au);
             const auto dummy = selling_item.calc_price() * selling_item.number;
 
             identify_item(player_ptr, o_ptr);

@@ -10,10 +10,8 @@
  */
 
 #include "action/action-limited.h"
-#include "cmd-action/cmd-spell.h"
 #include "core/asking-player.h"
 #include "core/stuff-handler.h"
-#include "core/window-redrawer.h"
 #include "floor/floor-object.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/text-display-options.h"
@@ -22,25 +20,18 @@
 #include "io/input-key-requester.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "monster-race/monster-race-hook.h"
-#include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
 #include "player-info/samurai-data-type.h"
 #include "player-status/player-energy.h"
-#include "player/attack-defense-types.h"
 #include "player/player-realm.h"
 #include "player/player-spell-status.h"
-#include "player/special-defense-types.h"
 #include "spell/spells-execution.h"
 #include "spell/technic-info-table.h"
-#include "status/action-setter.h"
 #include "system/item-entity.h"
-#include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
-#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
 
@@ -70,15 +61,14 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
     PLAYER_LEVEL plev = player_ptr->lev;
     char choice;
     concptr p = _("必殺剣", "special attack");
-    COMMAND_CODE code;
     int menu_line = (use_menu ? 1 : 0);
 
     /* Assume cancelled */
     *sn = (-1);
 
     /* Get the spell, if available */
-    if (repeat_pull(&code)) {
-        *sn = (SPELL_IDX)code;
+    if (const auto code = repeat_pull(); code) {
+        *sn = *code;
         /* Verify the spell */
         if (0 <= *sn && *sn < 32 && PlayerRealm::get_spell_info(RealmType::HISSATSU, *sn).slevel <= plev) {
             /* Success */
@@ -337,11 +327,11 @@ void do_cmd_hissatsu(PlayerType *player_ptr)
         }
         /* Warning */
         msg_print(_("ＭＰが足りません。", "You do not have enough mana to use this power."));
-        msg_print(nullptr);
+        msg_erase();
         return;
     }
 
-    sound(SOUND_ZAP);
+    sound(SoundKind::ZAP);
 
     if (!exe_spell(player_ptr, RealmType::HISSATSU, n, SpellProcessType::CAST)) {
         return;

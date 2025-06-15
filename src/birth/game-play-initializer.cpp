@@ -17,11 +17,12 @@
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/floor-list.h"
+#include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
 #include "system/item-entity.h"
 #include "system/monrace/monrace-definition.h"
@@ -45,8 +46,6 @@ void player_wipe_without_name(PlayerType *player_ptr)
 
     // TODO: キャラ作成からゲーム開始までに  current_floor_ptr を参照しなければならない処理は今後整理して外す。
     player_ptr->current_floor_ptr = &FloorList::get_instance().get_floor(0);
-    //! @todo std::make_shared の配列対応版は C++20 から
-    player_ptr->inventory_list = std::shared_ptr<ItemEntity[]>{ new ItemEntity[INVEN_TOTAL] };
     for (int i = 0; i < 4; i++) {
         player_ptr->history[i][0] = '\0';
     }
@@ -66,7 +65,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
     player_ptr->inven_cnt = 0;
     player_ptr->equip_cnt = 0;
     for (int i = 0; i < INVEN_TOTAL; i++) {
-        (&player_ptr->inventory_list[i])->wipe();
+        player_ptr->inventory[i]->wipe();
     }
 
     ArtifactList::get_instance().reset_generated_flags();
@@ -106,16 +105,18 @@ void player_wipe_without_name(PlayerType *player_ptr)
     auto &world = AngbandWorld::get_instance();
     world.total_winner = false;
     player_ptr->timewalk = false;
-    player_ptr->panic_save = 0;
+    auto &system = AngbandSystem::get_instance();
+    system.set_panic_save(false);
 
     world.noscore = 0;
     world.wizard = false;
-    player_ptr->wait_report_score = false;
+    system.set_awaiting_report_score(false);
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
     DungeonRecords::get_instance().reset_all();
     player_ptr->visit = 1;
     world.set_wild_mode(false);
+    WildernessGrids::get_instance().initialize_position();
 
     player_ptr->max_plv = player_ptr->lev = 1;
     ArenaEntryList::get_instance().reset_entry();
@@ -130,9 +131,9 @@ void player_wipe_without_name(PlayerType *player_ptr)
     }
 
     if (vanilla_town || ironman_downward) {
-        player_ptr->recall_dungeon = DUNGEON_ANGBAND;
+        player_ptr->recall_dungeon = DungeonId::ANGBAND;
     } else {
-        player_ptr->recall_dungeon = DUNGEON_GALGALS;
+        player_ptr->recall_dungeon = DungeonId::GALGALS;
     }
 
     std::copy_n(backup_name.begin(), backup_name.length(), player_ptr->name);

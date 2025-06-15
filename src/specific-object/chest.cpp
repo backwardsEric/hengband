@@ -1,6 +1,5 @@
 #include "specific-object/chest.h"
 #include "effect/attribute-types.h"
-#include "floor/cave.h"
 #include "floor/floor-object.h"
 #include "grid/grid.h"
 #include "grid/trap.h"
@@ -44,7 +43,7 @@ void Chest::open(bool scatter, const Pos2D &pos, short item_idx)
 {
     BIT_FLAGS mode = AM_GOOD | AM_FORBID_CHEST;
     auto &floor = *this->player_ptr->current_floor_ptr;
-    auto &item = floor.o_list[item_idx];
+    auto &item = *floor.o_list[item_idx];
     if (!item.is_valid()) {
         msg_print(_("箱は既に壊れてしまっている…", "The chest was broken and you couldn't open it..."));
         return;
@@ -80,23 +79,20 @@ void Chest::open(bool scatter, const Pos2D &pos, short item_idx)
 
         if (!scatter) {
             /* Normally, drop object near the chest. */
-            (void)drop_near(this->player_ptr, &item_inner_chest, -1, pos.y, pos.x);
+            (void)drop_near(this->player_ptr, &item_inner_chest, pos);
             continue;
         }
 
         /* If chest scatters its contents, pick any floor square. */
         for (auto i = 0; i < 200; i++) {
-            /* Pick a totally random spot. */
             const auto y = randint0(MAX_HGT);
             const auto x = randint0(MAX_WID);
-
-            /* Must be an empty floor. */
-            if (!is_cave_empty_bold(this->player_ptr, y, x)) {
+            const Pos2D pos_random(y, x); //!< @details 乱数引数の標準を固定する.
+            if (!floor.is_empty_at(pos_random) || (pos_random == this->player_ptr->get_position())) {
                 continue;
             }
 
-            /* Place the object there. */
-            (void)drop_near(this->player_ptr, &item_inner_chest, -1, y, x);
+            (void)drop_near(this->player_ptr, &item_inner_chest, pos_random);
             break;
         }
     }
@@ -114,7 +110,7 @@ void Chest::open(bool scatter, const Pos2D &pos, short item_idx)
  */
 void Chest::fire_trap(const Pos2D &pos, short item_idx)
 {
-    auto *o_ptr = &this->player_ptr->current_floor_ptr->o_list[item_idx];
+    auto *o_ptr = this->player_ptr->current_floor_ptr->o_list[item_idx].get();
 
     int mon_level = o_ptr->chest_level;
 
@@ -284,7 +280,7 @@ void Chest::fire_trap(const Pos2D &pos, short item_idx)
         msg_print(_("突然、箱が爆発した！", "There is a sudden explosion!"));
         msg_print(_("箱の中の物はすべて粉々に砕け散った！", "Everything inside the chest is destroyed!"));
         o_ptr->pval = 0;
-        sound(SOUND_EXPLODE);
+        sound(SoundKind::EXPLODE);
         take_hit(this->player_ptr, DAMAGE_ATTACK, Dice::roll(5, 8), _("爆発する箱", "an exploding chest"));
     }
     /* Scatter contents. */

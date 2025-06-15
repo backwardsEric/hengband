@@ -1,6 +1,7 @@
 #include "load/load-zangband.h"
 #include "avatar/avatar.h"
 #include "dungeon/quest.h"
+#include "floor/dungeon-feeling.h"
 #include "game-option/option-flags.h"
 #include "info-reader/fixed-map-parser.h"
 #include "load/angband-version-comparer.h"
@@ -19,8 +20,8 @@
 #include "realm/realm-types.h"
 #include "spell/spells-status.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/inner-game-data.h"
 #include "system/monrace/monrace-definition.h"
@@ -122,7 +123,7 @@ void set_zangband_bounty_uniques(PlayerType *player_ptr)
     const auto &monraces = MonraceList::get_instance();
     for (auto &[monrace_id, is_achieved] : AngbandWorld::get_instance().bounties) {
         /* Is this bounty unique already dead? */
-        if (monraces.get_monrace(monrace_id).max_num == 0) {
+        if (monraces.get_monrace(monrace_id).is_dead_unique()) {
             is_achieved = true;
         }
     }
@@ -151,13 +152,14 @@ void set_zangband_reflection(PlayerType *player_ptr)
 
 void rd_zangband_dungeon()
 {
-    DungeonRecords::get_instance().get_record(DUNGEON_ANGBAND).set_max_level(rd_s16b());
+    DungeonRecords::get_instance().get_record(DungeonId::ANGBAND).set_max_level(rd_s16b());
 }
 
 void set_zangband_game_turns(PlayerType *player_ptr)
 {
     player_ptr->current_floor_ptr->generated_turn /= 2;
-    player_ptr->feeling_turn /= 2;
+    auto &df = DungeonFeeling::get_instance();
+    df.set_turns(df.get_turns() / 2);
     auto &world = AngbandWorld::get_instance();
     world.game_turn /= 2;
     world.dungeon_turn /= 2;
@@ -194,7 +196,7 @@ void set_zangband_visited_towns(PlayerType *player_ptr)
 void set_zangband_quest(PlayerType *player_ptr, QuestType *const q_ptr, const QuestId loading_quest_index, const QuestId old_inside_quest)
 {
     if (q_ptr->flags & QUEST_FLAG_PRESET) {
-        q_ptr->dungeon = 0;
+        q_ptr->dungeon = DungeonId::WILDERNESS;
         return;
     }
 

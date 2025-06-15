@@ -1,12 +1,5 @@
 #include "target/target-preparation.h"
-#include "floor/cave.h"
 #include "game-option/input-options.h"
-#include "grid/grid.h"
-#include "monster/monster-flag-types.h"
-#include "monster/monster-info.h"
-#include "monster/monster-status.h"
-#include "object/object-mark-types.h"
-#include "system/angband-system.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item-entity.h"
@@ -58,7 +51,8 @@ bool target_able(PlayerType *player_ptr, MONSTER_IDX m_idx)
         return true;
     }
 
-    if (!projectable(player_ptr, player_ptr->get_position(), monster.get_position())) {
+    const auto p_pos = player_ptr->get_position();
+    if (!projectable(floor, p_pos, p_pos, monster.get_position())) {
         return false;
     }
 
@@ -71,7 +65,7 @@ bool target_able(PlayerType *player_ptr, MONSTER_IDX m_idx)
 static bool target_set_accept(PlayerType *player_ptr, const Pos2D &pos)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    if (!(in_bounds(&floor, pos.y, pos.x))) {
+    if (!(floor.contains(pos))) {
         return false;
     }
 
@@ -92,7 +86,7 @@ static bool target_set_accept(PlayerType *player_ptr, const Pos2D &pos)
     }
 
     for (const auto this_o_idx : grid.o_idx_list) {
-        const auto &item = floor.o_list[this_o_idx];
+        const auto &item = *floor.o_list[this_o_idx];
         if (item.marked.has(OmType::FOUND)) {
             return true;
         }
@@ -106,19 +100,15 @@ static bool target_set_accept(PlayerType *player_ptr, const Pos2D &pos)
         return true;
     }
 
-    return grid.get_terrain_mimic().flags.has(TerrainCharacteristics::NOTICE);
+    return grid.get_terrain(TerrainKind::MIMIC).flags.has(TerrainCharacteristics::NOTICE);
 }
 
 /*!
- * @brief "interesting" な座標たちを ys, xs に返す。
- * @param player_ptr
- * @param ys y座標たちを格納する配列 (POSITION 型)
- * @param xs x座標たちを格納する配列 (POSITION 型)
- * @param mode
- *
- * ys, xs は処理開始時にクリアされる。
+ * @brief "interesting" な座標の一覧を返す。
+ * @param mode ターゲット選択モード
+ * @return "interesting" な座標の一覧
  */
-void target_set_prepare(PlayerType *player_ptr, std::vector<POSITION> &ys, std::vector<POSITION> &xs, const BIT_FLAGS mode)
+std::vector<Pos2D> target_set_prepare(PlayerType *player_ptr, target_type mode)
 {
     POSITION min_hgt, max_hgt, min_wid, max_wid;
     const auto &floor = *player_ptr->current_floor_ptr;
@@ -145,12 +135,12 @@ void target_set_prepare(PlayerType *player_ptr, std::vector<POSITION> &ys, std::
             }
 
             const auto &grid = floor.get_grid(pos);
-            if ((mode & (TARGET_KILL)) && !target_able(player_ptr, grid.m_idx)) {
+            if (is_killable && !target_able(player_ptr, grid.m_idx)) {
                 continue;
             }
 
             const auto &monster = floor.m_list[grid.m_idx];
-            if ((mode & (TARGET_KILL)) && !target_pet && monster.is_pet()) {
+            if (is_killable && !target_pet && monster.is_pet()) {
                 continue;
             }
 
@@ -169,21 +159,14 @@ void target_set_prepare(PlayerType *player_ptr, std::vector<POSITION> &ys, std::
         });
     }
 
-    ys.clear();
-    xs.clear();
-    for (const auto &pos : pos_list) {
-        ys.push_back(pos.y);
-        xs.push_back(pos.x);
+    if (player_ptr->riding == 0 || !target_pet || (std::ssize(pos_list) <= 1) || !is_killable) {
+        return pos_list;
     }
 
-    // 乗っているモンスターがターゲットリストの先頭にならないようにする調整。
-    if (player_ptr->riding == 0 || !target_pet || (size(ys) <= 1) || !(mode & (TARGET_KILL))) {
-        return;
-    }
+    // 乗っているモンスターがターゲットリストの先頭にならないようにする調整
+    std::swap(pos_list[0], pos_list[1]);
 
-    // 0 番目と 1 番目を入れ替える。
-    std::swap(ys[0], ys[1]);
-    std::swap(xs[0], xs[1]);
+    return pos_list;
 }
 
 void target_sensing_monsters_prepare(PlayerType *player_ptr, std::vector<MONSTER_IDX> &monster_list)
@@ -196,22 +179,22 @@ void target_sensing_monsters_prepare(PlayerType *player_ptr, std::vector<MONSTER
     }
 
     for (MONSTER_IDX i = 1; i < player_ptr->current_floor_ptr->m_max; i++) {
-        auto *m_ptr = &player_ptr->current_floor_ptr->m_list[i];
-        if (!m_ptr->is_valid() || !m_ptr->ml || m_ptr->is_pet()) {
+        const auto &monster = player_ptr->current_floor_ptr->m_list[i];
+        if (!monster.is_valid() || !monster.ml || monster.is_pet()) {
             continue;
         }
 
         // 感知魔法/スキルやESPで感知していない擬態モンスターはモンスター一覧に表示しない
-        if (m_ptr->is_mimicry() && m_ptr->mflag2.has_none_of({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW }) && m_ptr->mflag.has_not(MonsterTemporaryFlagType::ESP)) {
+        if (monster.is_mimicry() && monster.mflag2.has_none_of({ MonsterConstantFlagType::MARK, MonsterConstantFlagType::SHOW }) && monster.mflag.has_not(MonsterTemporaryFlagType::ESP)) {
             continue;
         }
 
         monster_list.push_back(i);
     }
 
-    auto comp_importance = [floor_ptr = player_ptr->current_floor_ptr](MONSTER_IDX idx1, MONSTER_IDX idx2) {
-        const auto &monster1 = floor_ptr->m_list[idx1];
-        const auto &monster2 = floor_ptr->m_list[idx2];
+    auto comp_importance = [&floor = *player_ptr->current_floor_ptr](MONSTER_IDX idx1, MONSTER_IDX idx2) {
+        const auto &monster1 = floor.m_list[idx1];
+        const auto &monster2 = floor.m_list[idx2];
         const auto &monrace1 = monster1.get_appearance_monrace();
         const auto &monrace2 = monster2.get_appearance_monrace();
 

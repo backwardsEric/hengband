@@ -32,14 +32,13 @@
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param spell 魔法ID
  * @param mode 処理内容 (SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO / SpellProcessType::CAST)
- * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は std::nullopt を返す。
+ * @return SpellProcessType::NAME / SPELL_DESC / SpellProcessType::INFO 時には文字列を返す。SpellProcessType::CAST時は tl::nullopt を返す。
  */
-std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
+tl::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX spell, SpellProcessType mode)
 {
     bool info = mode == SpellProcessType::INFO;
     bool cast = mode == SpellProcessType::CAST;
 
-    DIRECTION dir;
     PLAYER_LEVEL plev = player_ptr->lev;
 
     switch (spell) {
@@ -102,8 +101,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             confuse_monster(player_ptr, dir, power);
@@ -130,8 +130,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             sleep_monster(player_ptr, dir, plev);
@@ -147,7 +148,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
 
         if (cast) {
             if (!recharge(player_ptr, power)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -167,7 +168,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
     case 9: {
         if (cast) {
             if (!ident_spell(player_ptr, false)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -180,8 +181,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             slow_monster(player_ptr, dir, plev);
@@ -208,8 +210,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fire_beam(player_ptr, AttributeType::AWAY_ALL, dir, power);
@@ -244,7 +247,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
     case 15: {
         if (cast) {
             if (!identify_fully(player_ptr, false)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -271,8 +274,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             charm_monster(player_ptr, dir, plev);
@@ -295,7 +299,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
     case 19: {
         if (cast) {
             if (!tele_town(player_ptr)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -309,7 +313,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
     case 21: {
         if (cast) {
             if (!input_check(_("本当に他の階にテレポートしますか？", "Are you sure? (Teleport Level)"))) {
-                return std::nullopt;
+                return tl::nullopt;
             }
             teleport_level(player_ptr, 0);
         }
@@ -325,7 +329,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
 
         if (cast) {
             if (!recall_player(player_ptr, dice.roll() + base)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -340,7 +344,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         if (cast) {
             msg_print(_("次元の扉が開いた。目的地を選んで下さい。", "You open a dimensional gate. Choose a destination."));
             if (!dimension_door(player_ptr)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;
@@ -372,8 +376,9 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
         }
 
         if (cast) {
-            if (!get_aim_dir(player_ptr, &dir)) {
-                return std::nullopt;
+            const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
             }
 
             fetch_item(player_ptr, dir, weight, false);
@@ -415,7 +420,7 @@ std::optional<std::string> do_sorcery_spell(PlayerType *player_ptr, SPELL_IDX sp
     case 29: {
         if (cast) {
             if (!alchemy(player_ptr)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
     } break;

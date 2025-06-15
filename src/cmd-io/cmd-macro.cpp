@@ -6,6 +6,7 @@
 #include "io/files-util.h"
 #include "io/input-key-acceptor.h"
 #include "io/input-key-requester.h"
+#include "io/macro-configurations-store.h"
 #include "io/read-pref-file.h"
 #include "main/sound-of-music.h"
 #include "system/player-type-definition.h"
@@ -104,13 +105,7 @@ static errr keymap_dump(std::string_view filename)
 {
     FILE *auto_dump_stream;
     char key[1024];
-    BIT_FLAGS mode;
-    if (rogue_like_commands) {
-        mode = KEYMAP_MODE_ROGUE;
-    } else {
-        mode = KEYMAP_MODE_ORIG;
-    }
-
+    const auto mode = rogue_like_commands ? KeymapMode::ROGUE : KeymapMode::ORIGINAL;
     const auto path = path_build(ANGBAND_DIR_USER, filename);
     constexpr auto mark = "Keymap Dump";
     if (!open_auto_dump(&auto_dump_stream, path, mark)) {
@@ -118,9 +113,8 @@ static errr keymap_dump(std::string_view filename)
     }
 
     auto_dump_printf(auto_dump_stream, _("\n# 自動キー配置セーブ\n\n", "\n# Automatic keymap dump\n\n"));
-    for (int i = 0; i < 256; i++) {
-        concptr act;
-        act = keymap_act[mode][i];
+    for (auto i = 0; i < 256; i++) {
+        const auto &act = keymap_actions_map.at(mode).at(i);
         if (!act) {
             continue;
         }
@@ -128,9 +122,9 @@ static errr keymap_dump(std::string_view filename)
         char buf[1024]{};
         buf[0] = (char)i;
         ascii_to_text(key, buf, sizeof(key));
-        ascii_to_text(buf, act, sizeof(buf));
+        ascii_to_text(buf, *act, sizeof(buf));
         auto_dump_printf(auto_dump_stream, "A:%s\n", buf);
-        auto_dump_printf(auto_dump_stream, "C:%d:%s\n", mode, key);
+        auto_dump_printf(auto_dump_stream, "C:%d:%s\n", enum2i(mode), key);
     }
 
     close_auto_dump(&auto_dump_stream, mark);
@@ -152,7 +146,7 @@ void do_cmd_macros(PlayerType *player_ptr)
     char buf[1024];
     static char macro_buf[1024];
     FILE *auto_dump_stream;
-    BIT_FLAGS mode = rogue_like_commands ? KEYMAP_MODE_ROGUE : KEYMAP_MODE_ORIG;
+    const auto mode = rogue_like_commands ? KeymapMode::ROGUE : KeymapMode::ORIGINAL;
     screen_save();
     term_clear();
 
@@ -186,8 +180,8 @@ void do_cmd_macros(PlayerType *player_ptr)
             prt(_("コマンド: ユーザー設定ファイルのロード", "Command: Load a user pref file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
             const auto ask_result = askfor(70, initial_filename);
-            if (!ask_result) {
-                continue;
+            if (!ask_result || ask_result->empty()) {
+                break;
             }
 
             const auto err = process_pref_file(player_ptr, *ask_result, true);
@@ -206,8 +200,8 @@ void do_cmd_macros(PlayerType *player_ptr)
             prt(_("コマンド: マクロをファイルに追加する", "Command: Append macros to a file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
             const auto ask_result = askfor(70, initial_filename);
-            if (!ask_result) {
-                continue;
+            if (!ask_result || ask_result->empty()) {
+                break;
             }
 
             macro_dump(&auto_dump_stream, *ask_result);
@@ -248,7 +242,7 @@ void do_cmd_macros(PlayerType *player_ptr)
             char tmp[81]{};
             ascii_to_text(tmp, macro_buf, sizeof(tmp));
             const auto ask_result = askfor(80, tmp);
-            if (!ask_result) {
+            if (!ask_result || ask_result->empty()) {
                 break;
             }
 
@@ -268,8 +262,8 @@ void do_cmd_macros(PlayerType *player_ptr)
             prt(_("コマンド: キー配置をファイルに追加する", "Command: Append keymaps to a file"), 16, 0);
             prt(_("ファイル: ", "File: "), 18, 0);
             const auto ask_result = askfor(80, initial_filename);
-            if (!ask_result) {
-                continue;
+            if (!ask_result || ask_result->empty()) {
+                break;
             }
 
             (void)keymap_dump(*ask_result);
@@ -281,14 +275,14 @@ void do_cmd_macros(PlayerType *player_ptr)
             prt(_("マクロ行動が(もしあれば)下に表示されます:", "Current action (if any) shown below:"), 20, 0);
             prt(_("押すキー: ", "Keypress: "), 18, 0);
             do_cmd_macro_aux_keymap(buf);
-            concptr act = keymap_act[mode][(byte)(buf[0])];
+            const auto &act = keymap_actions_map.at(mode).at(static_cast<uint8_t>(buf[0]));
             if (!act) {
                 msg_print(_("キー配置は定義されていません。", "Found no keymap."));
                 break;
             }
 
             // マクロの作成時に参照するためmacro_bufにコピーする
-            angband_strcpy(macro_buf, act, sizeof(macro_buf));
+            angband_strcpy(macro_buf, *act, sizeof(macro_buf));
             // too long macro must die
             char tmp[81]{};
             angband_strcpy(tmp, macro_buf, sizeof(tmp));
@@ -311,13 +305,12 @@ void do_cmd_macros(PlayerType *player_ptr)
             char tmp[81]{};
             ascii_to_text(tmp, macro_buf, sizeof(tmp));
             const auto ask_result = askfor(80, tmp);
-            if (!ask_result) {
+            if (!ask_result || ask_result->empty()) {
                 break;
             }
 
             text_to_ascii(macro_buf, *ask_result, sizeof(macro_buf));
-            string_free(keymap_act[mode][(byte)(buf[0])]);
-            keymap_act[mode][(byte)(buf[0])] = string_make(macro_buf);
+            keymap_actions_map.at(mode).at(static_cast<uint8_t>(buf[0])) = macro_buf;
             msg_print(_("キー配置を追加しました。", "Added a keymap."));
             break;
         }
@@ -325,8 +318,7 @@ void do_cmd_macros(PlayerType *player_ptr)
             prt(_("コマンド: キー配置の削除", "Command: Remove a keymap"), 16, 0);
             prt(_("押すキー: ", "Keypress: "), 18, 0);
             do_cmd_macro_aux_keymap(buf);
-            string_free(keymap_act[mode][(byte)(buf[0])]);
-            keymap_act[mode][(byte)(buf[0])] = nullptr;
+            keymap_actions_map.at(mode).at(static_cast<uint8_t>(buf[0])).reset();
             msg_print(_("キー配置を削除しました。", "Removed a keymap."));
             break;
         case '0': {
@@ -337,8 +329,8 @@ void do_cmd_macros(PlayerType *player_ptr)
                 22, 0);
             prt(_("マクロ行動: ", "Action: "), 20, 0);
             const auto ask_result = askfor(80);
-            if (!ask_result) {
-                continue;
+            if (!ask_result || ask_result->empty()) {
+                break;
             }
 
             text_to_ascii(macro_buf, *ask_result, sizeof(macro_buf));

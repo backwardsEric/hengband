@@ -6,14 +6,14 @@
 #include "system/player-type-definition.h"
 #include "target/target-getter.h"
 #include "view/display-messages.h"
-#include <optional>
 #include <string>
+#include <tl/optional.hpp>
 #include <utility>
 
-static std::optional<std::pair<AttributeType, std::string>> decide_breath_kind(PlayerType *player_ptr)
+static tl::optional<std::pair<AttributeType, std::string>> decide_breath_kind(PlayerType *player_ptr)
 {
     if (randint1(100) >= player_ptr->lev) {
-        return std::nullopt;
+        return tl::nullopt;
     }
 
     switch (player_ptr->pclass) {
@@ -83,12 +83,12 @@ static std::optional<std::pair<AttributeType, std::string>> decide_breath_kind(P
 
         return std::pair(AttributeType::SOUND, _("轟音", "sound"));
     case PlayerClassType::ELEMENTALIST: {
-        const auto type = get_element_type(player_ptr->element, 0);
-        const std::string name(get_element_name(player_ptr->element, 0));
+        const auto type = get_element_type(player_ptr->element_realm, 0);
+        const std::string name(get_element_name(player_ptr->element_realm, 0));
         return std::pair(type, name);
     }
     default:
-        return std::nullopt;
+        return tl::nullopt;
     }
 }
 
@@ -96,8 +96,8 @@ bool draconian_breath(PlayerType *player_ptr)
 {
     auto breath_type = one_in_(3) ? AttributeType::COLD : AttributeType::FIRE;
     std::string breath_type_description((breath_type == AttributeType::COLD) ? _("冷気", "cold") : _("炎", "fire"));
-    DIRECTION dir;
-    if (!get_aim_dir(player_ptr, &dir)) {
+    const auto dir = get_aim_dir(player_ptr);
+    if (!dir) {
         return false;
     }
 

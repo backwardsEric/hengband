@@ -18,12 +18,9 @@
 #include "object/item-use-flags.h"
 #include "perception/object-perception.h"
 #include "player-info/class-info.h"
-#include "store/store-util.h"
-#include "store/store.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
-#include "system/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
@@ -35,6 +32,7 @@
 #include "view/display-messages.h"
 #include "view/display-player.h"
 #include "world/world.h"
+#include <fmt/format.h>
 
 constexpr auto GRAVE_LINE_WIDTH = 31;
 constexpr auto GRAVE_LINE_START_COL = 11;
@@ -71,11 +69,11 @@ static void show_tomb_line(std::string_view str, int row)
  */
 static void show_basic_params(PlayerType *player_ptr)
 {
-    show_tomb_line(format(_("レベル: %d", "Level: %d"), (int)player_ptr->lev), GRAVE_LEVEL_ROW);
+    show_tomb_line(fmt::format(_("レベル: {}", "Level: {}"), player_ptr->lev), GRAVE_LEVEL_ROW);
 
-    show_tomb_line(format(_("経験値: %ld", "Exp: %ld"), (long)player_ptr->exp), GRAVE_EXP_ROW);
+    show_tomb_line(fmt::format(_("経験値: {}", "Exp: {}"), player_ptr->exp), GRAVE_EXP_ROW);
 
-    show_tomb_line(format(_("所持金: %ld", "AU: %ld"), (long)player_ptr->au), GRAVE_AU_ROW);
+    show_tomb_line(fmt::format(_("所持金: {}", "AU: {}"), player_ptr->au), GRAVE_AU_ROW);
 }
 
 #ifdef JP
@@ -137,7 +135,7 @@ static void show_dead_place(PlayerType *player_ptr, int extra_line)
     }
 
     std::string place;
-    if (player_ptr->current_floor_ptr->dun_level == 0) {
+    if (!player_ptr->current_floor_ptr->is_underground()) {
         concptr field_name = player_ptr->town_num ? "街" : "荒野";
         if (streq(player_ptr->died_from, "途中終了")) {
             place = format("%sで死んだ", field_name);
@@ -238,7 +236,7 @@ static void inventory_aware(PlayerType *player_ptr)
 {
     ItemEntity *o_ptr;
     for (int i = 0; i < INVEN_TOTAL; i++) {
-        o_ptr = &player_ptr->inventory_list[i];
+        o_ptr = player_ptr->inventory[i].get();
         if (!o_ptr->is_valid()) {
             continue;
         }

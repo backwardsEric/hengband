@@ -31,6 +31,7 @@
 #include "system/angband-system.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/inner-game-data.h"
@@ -45,6 +46,7 @@
 #include "window/main-window-row-column.h"
 #include "world/world-movement-processor.h"
 #include "world/world.h"
+#include <range/v3/view.hpp>
 
 WorldTurnProcessor::WorldTurnProcessor(PlayerType *player_ptr)
     : player_ptr(player_ptr)
@@ -81,7 +83,7 @@ void WorldTurnProcessor::process_world()
     if ((this->hour == 0) && (this->min == 0)) {
         if (this->min != prev_min) {
             exe_write_diary(floor, DiaryKind::DIALY, 0);
-            determine_daily_bounty(this->player_ptr, false);
+            determine_daily_bounty(this->player_ptr);
         }
     }
 
@@ -123,15 +125,15 @@ void WorldTurnProcessor::print_time()
 void WorldTurnProcessor::process_downward()
 {
     /* 帰還無しモード時のレベルテレポバグ対策 / Fix for level teleport bugs on ironman_downward.*/
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    if (!ironman_downward || (floor_ptr->dungeon_idx == DUNGEON_ANGBAND) || (floor_ptr->dungeon_idx == 0)) {
+    auto &floor = *this->player_ptr->current_floor_ptr;
+    if (!ironman_downward || (floor.dungeon_id == DungeonId::ANGBAND) || !floor.is_underground()) {
         return;
     }
 
-    floor_ptr->dun_level = 0;
-    floor_ptr->reset_dungeon_index();
+    floor.dun_level = 0;
+    floor.reset_dungeon_index();
     FloorChangeModesStore::get_instace()->set({ FloorChangeMode::FIRST_FLOOR, FloorChangeMode::RANDOM_PLACE });
-    floor_ptr->inside_arena = false;
+    floor.inside_arena = false;
     AngbandWorld::get_instance().set_wild_mode(false);
     this->player_ptr->leaving = true;
 }
@@ -142,30 +144,28 @@ void WorldTurnProcessor::process_monster_arena()
         return;
     }
 
-    auto win_m_idx = 0;
-    auto number_mon = 0;
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    for (auto x = 0; x < floor_ptr->width; ++x) {
-        for (auto y = 0; y < floor_ptr->height; y++) {
-            auto *g_ptr = &floor_ptr->grid_array[y][x];
-            if (g_ptr->has_monster() && !floor_ptr->m_list[g_ptr->m_idx].is_riding()) {
-                number_mon++;
-                win_m_idx = g_ptr->m_idx;
-            }
-        }
-    }
+    const auto &floor = *this->player_ptr->current_floor_ptr;
+    const auto monster_exists = [&](const Pos2D &pos) {
+        const auto &grid = floor.get_grid(pos);
+        return grid.has_monster() && !floor.m_list[grid.m_idx].is_riding();
+    };
+    const auto to_m_idx = [&](const Pos2D &pos) { return floor.get_grid(pos).m_idx; };
+    const auto m_idxs = floor.get_area() |
+                        ranges::views::filter(monster_exists) |
+                        ranges::views::transform(to_m_idx) |
+                        ranges::to_vector;
 
-    if (number_mon == 0) {
+    if (m_idxs.empty()) {
         msg_print(_("相打ちに終わりました。", "Nothing survived."));
-        msg_print(nullptr);
+        msg_erase();
         this->player_ptr->energy_need = 0;
         auto &melee_arena = MeleeArena::get_instance();
         melee_arena.update_gladiators(player_ptr);
         return;
     }
 
-    if (number_mon == 1) {
-        process_monster_arena_winner(win_m_idx);
+    if (m_idxs.size() == 1) {
+        process_monster_arena_winner(m_idxs.front());
         return;
     }
 
@@ -174,10 +174,10 @@ void WorldTurnProcessor::process_monster_arena()
 
 void WorldTurnProcessor::process_monster_arena_winner(int win_m_idx)
 {
-    auto *wm_ptr = &this->player_ptr->current_floor_ptr->m_list[win_m_idx];
-    const auto m_name = monster_desc(this->player_ptr, wm_ptr, 0);
+    const auto &monster = this->player_ptr->current_floor_ptr->m_list[win_m_idx];
+    const auto m_name = monster_desc(this->player_ptr, monster, 0);
     msg_format(_("%sが勝利した！", "%s won!"), m_name.data());
-    msg_print(nullptr);
+    msg_erase();
 
     auto &melee_arena = MeleeArena::get_instance();
     if (melee_arena.matches_bet_number(win_m_idx - 1)) {
@@ -189,7 +189,7 @@ void WorldTurnProcessor::process_monster_arena_winner(int win_m_idx)
         msg_print(_("残念でした。", "You lost gold."));
     }
 
-    msg_print(nullptr);
+    msg_erase();
     this->player_ptr->energy_need = 0;
     melee_arena.update_gladiators(this->player_ptr);
 }
@@ -203,7 +203,7 @@ void WorldTurnProcessor::process_monster_arena_draw()
 
     msg_print(_("申し訳ありませんが、この勝負は引き分けとさせていただきます。", "Sorry, but this battle ended in a draw."));
     this->player_ptr->au += MeleeArena::get_instance().get_payback(true);
-    msg_print(nullptr);
+    msg_erase();
     this->player_ptr->energy_need = 0;
     auto &melee_arena = MeleeArena::get_instance();
     melee_arena.update_gladiators(player_ptr);
@@ -225,9 +225,9 @@ void WorldTurnProcessor::decide_auto_save()
 
 void WorldTurnProcessor::process_change_daytime_night()
 {
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
+    const auto &floor = *this->player_ptr->current_floor_ptr;
     const auto &world = AngbandWorld::get_instance();
-    if (!floor_ptr->dun_level && !floor_ptr->is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor_ptr->inside_arena) {
+    if (!floor.is_underground() && !floor.is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor.inside_arena) {
         if (!(world.game_turn % ((TURNS_PER_TICK * TOWN_DAWN) / 2))) {
             auto dawn = world.game_turn % (TURNS_PER_TICK * TOWN_DAWN) == 0;
             if (dawn) {
@@ -241,8 +241,8 @@ void WorldTurnProcessor::process_change_daytime_night()
     }
 
     auto is_in_dungeon = vanilla_town;
-    is_in_dungeon |= lite_town && !floor_ptr->is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor_ptr->inside_arena;
-    is_in_dungeon &= floor_ptr->dun_level != 0;
+    is_in_dungeon |= lite_town && !floor.is_in_quest() && !AngbandSystem::get_instance().is_phase_out() && !floor.inside_arena;
+    is_in_dungeon &= floor.is_underground();
     if (!is_in_dungeon) {
         return;
     }
@@ -311,10 +311,10 @@ void WorldTurnProcessor::shuffle_shopkeeper()
 
 void WorldTurnProcessor::decide_alloc_monster()
 {
-    auto *floor_ptr = this->player_ptr->current_floor_ptr;
-    auto should_alloc = one_in_(floor_ptr->get_dungeon_definition().max_m_alloc_chance);
-    should_alloc &= !floor_ptr->inside_arena;
-    should_alloc &= !floor_ptr->is_in_quest();
+    const auto &floor = *this->player_ptr->current_floor_ptr;
+    auto should_alloc = one_in_(floor.get_dungeon_definition().max_m_alloc_chance);
+    should_alloc &= !floor.inside_arena;
+    should_alloc &= !floor.is_in_quest();
     should_alloc &= !AngbandSystem::get_instance().is_phase_out();
     if (should_alloc) {
         (void)alloc_monster(this->player_ptr, MAX_PLAYER_SIGHT + 5, 0, summon_specific);

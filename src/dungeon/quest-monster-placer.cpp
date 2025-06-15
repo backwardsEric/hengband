@@ -1,7 +1,6 @@
 #include "dungeon/quest-monster-placer.h"
 #include "dungeon/quest.h"
 #include "floor/floor-generator-util.h"
-#include "floor/geometry.h"
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster/monster-info.h"
@@ -25,7 +24,7 @@ bool place_quest_monsters(PlayerType *player_ptr)
         auto no_quest_monsters = quest.status != QuestStatusType::TAKEN;
         no_quest_monsters |= (quest.type != QuestKindType::KILL_LEVEL && quest.type != QuestKindType::RANDOM);
         no_quest_monsters |= quest.level != floor.dun_level;
-        no_quest_monsters |= floor.dungeon_idx != quest.dungeon;
+        no_quest_monsters |= floor.dungeon_id != quest.dungeon;
         no_quest_monsters |= any_bits(quest.flags, QUEST_FLAG_PRESET);
 
         if (no_quest_monsters) {
@@ -55,11 +54,11 @@ bool place_quest_monsters(PlayerType *player_ptr)
                         continue;
                     }
 
-                    if (!monster_can_enter(player_ptr, pos.y, pos.x, &monrace, 0)) {
+                    if (!monster_can_enter(player_ptr, pos.y, pos.x, monrace, 0)) {
                         continue;
                     }
 
-                    if (distance(pos.y, pos.x, player_ptr->y, player_ptr->x) < 10) {
+                    if (Grid::calc_distance(pos, player_ptr->get_position()) < 10) {
                         continue;
                     }
 

@@ -6,19 +6,11 @@
  */
 
 #include "object-enchant/others/apply-magic-others.h"
-#include "artifact/random-art-generator.h"
 #include "game-option/cheat-options.h"
-#include "inventory/inventory-slot-types.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster-race/monster-race-hook.h"
 #include "monster/monster-list.h"
 #include "monster/monster-util.h"
-#include "object-enchant/object-ego.h"
-#include "object-enchant/tr-types.h"
-#include "object-enchant/trc-types.h"
-#include "object/tval-types.h"
 #include "perception/object-perception.h"
-#include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-other-types.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
@@ -26,7 +18,6 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
-#include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include <unordered_map>
 
@@ -107,22 +98,7 @@ void OtherItemsEnchanter::generate_figurine()
 {
     const auto &floor = *this->player_ptr->current_floor_ptr;
     const auto &monraces = MonraceList::get_instance();
-    MonraceId monrace_id;
-    while (true) {
-        monrace_id = monraces.pick_id_at_random();
-        if (!item_monster_okay(this->player_ptr, monrace_id) || (monrace_id == MonraceId::TSUCHINOKO)) {
-            continue;
-        }
-
-        const auto &monrace = monraces.get_monrace(monrace_id);
-        auto check = (floor.dun_level < monrace.level) ? (monrace.level - floor.dun_level) : 0;
-        if ((monrace.rarity > 100) || (randint0(check) > 0)) {
-            continue;
-        }
-
-        break;
-    }
-
+    const auto monrace_id = monraces.select_figurine(floor.dun_level);
     this->o_ptr->pval = enum2i(monrace_id);
     if (one_in_(6)) {
         this->o_ptr->curse_flags.set(CurseTraitType::CURSED);
@@ -144,7 +120,7 @@ void OtherItemsEnchanter::generate_corpse()
         { SV_CORPSE, MonsterDropType::DROP_CORPSE },
     };
 
-    get_mon_num_prep(this->player_ptr, item_monster_okay, nullptr);
+    get_mon_num_prep_enum(this->player_ptr, MonraceHook::FIGURINE);
     const auto &floor = *this->player_ptr->current_floor_ptr;
     const auto &monraces = MonraceList::get_instance();
     MonraceId monrace_id;

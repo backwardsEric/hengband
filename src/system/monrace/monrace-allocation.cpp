@@ -7,6 +7,8 @@
 #include "system/monrace/monrace-allocation.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
+#include <range/v3/algorithm.hpp>
+#include <range/v3/view.hpp>
 
 MonraceAllocationEntry::MonraceAllocationEntry(MonraceId index, int level, short prob1, short prob2)
     : index(index)
@@ -55,6 +57,14 @@ bool MonraceAllocationEntry::is_defeatable(int threshold_level) const
     return !has_resist_all && !(can_diminish && is_shallow);
 }
 
+void MonraceAllocationEntry::update_prob2(int division)
+{
+    const auto numer = this->prob2 * division;
+    const auto q = numer / 64;
+    const auto r = numer % 64;
+    this->prob2 = static_cast<short>(randint0(64) < r ? q + 1 : q);
+}
+
 const MonraceDefinition &MonraceAllocationEntry::get_monrace() const
 {
     return MonraceList::get_instance().get_monrace(index);
@@ -67,40 +77,17 @@ MonraceAllocationTable &MonraceAllocationTable::get_instance()
     return instance;
 }
 
-size_t MonraceAllocationTable::size() const
-{
-    return this->entries.size();
-}
-
 void MonraceAllocationTable::initialize()
 {
-    auto &monraces = MonraceList::get_instance();
-    const auto &elements = monraces.get_sorted_monraces();
-    this->entries.reserve(elements.size());
-    for (const auto &[monrace_id, r_ptr] : elements) {
-        const auto prob = static_cast<short>(100 / r_ptr->rarity);
-        this->entries.emplace_back(monrace_id, r_ptr->level, prob, prob);
+    const auto &monraces = MonraceList::get_instance();
+    this->entries.reserve(monraces.size());
+
+    for (const auto &[id, monrace] : monraces | ranges::views::filter([](const auto &x) { return x.second.is_valid(); })) {
+        const auto prob = static_cast<short>(100 / monrace.rarity);
+        this->entries.emplace_back(id, monrace.level, prob, prob);
     }
-}
 
-std::vector<MonraceAllocationEntry>::iterator MonraceAllocationTable::begin()
-{
-    return this->entries.begin();
-}
-
-std::vector<MonraceAllocationEntry>::const_iterator MonraceAllocationTable::begin() const
-{
-    return this->entries.begin();
-}
-
-std::vector<MonraceAllocationEntry>::iterator MonraceAllocationTable::end()
-{
-    return this->entries.end();
-}
-
-std::vector<MonraceAllocationEntry>::const_iterator MonraceAllocationTable::end() const
-{
-    return this->entries.end();
+    ranges::stable_sort(this->entries, {}, &MonraceAllocationEntry::level);
 }
 
 const MonraceAllocationEntry &MonraceAllocationTable::get_entry(int index) const

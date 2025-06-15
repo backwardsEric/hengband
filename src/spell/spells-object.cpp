@@ -100,11 +100,11 @@ struct AmusementRewardItemVisitor {
     {
     }
 
-    std::optional<ItemEntity> operator()(const FixedArtifactId &fa_id) const
+    tl::optional<ItemEntity> operator()(const FixedArtifactId &fa_id) const
     {
         const auto &artifact = ArtifactList::get_instance().get_artifact(fa_id);
         if (artifact.is_generated) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         ItemEntity item(artifact.bi_key);
@@ -114,14 +114,14 @@ struct AmusementRewardItemVisitor {
         return item;
     }
 
-    std::optional<ItemEntity> operator()(const BaseitemKey &bi_key) const
+    tl::optional<ItemEntity> operator()(const BaseitemKey &bi_key) const
     {
         ItemEntity item(bi_key);
         ItemMagicApplier(player_ptr, &item, 1, AM_NO_FIXED_ART).execute();
 
         if (this->flag == AmusementFlagType::NO_UNIQUE) {
             if (item.has_monrace() && item.get_monrace().kind_flags.has(MonsterKindType::UNIQUE)) {
-                return std::nullopt;
+                return tl::nullopt;
             }
         }
 
@@ -166,7 +166,7 @@ void generate_amusement(PlayerType *player_ptr, int num, bool known)
             item->mark_as_known();
         }
 
-        (void)drop_near(player_ptr, &*item, -1, player_ptr->y, player_ptr->x);
+        (void)drop_near(player_ptr, &*item, player_ptr->get_position());
     }
 }
 
@@ -181,6 +181,7 @@ void generate_amusement(PlayerType *player_ptr, int num, bool known)
  */
 void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool great)
 {
+    const Pos2D pos(y1, x1);
     auto mode = AM_GOOD | (great ? AM_GREAT : AM_NONE);
     for (auto i = 0; i < num; i++) {
         ItemEntity item;
@@ -188,7 +189,7 @@ void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool
             continue;
         }
 
-        (void)drop_near(player_ptr, &item, -1, y1, x1);
+        (void)drop_near(player_ptr, &item, pos);
     }
 }
 
@@ -201,7 +202,7 @@ void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool
 bool curse_armor(PlayerType *player_ptr)
 {
     /* Curse the body armor */
-    auto &item = player_ptr->inventory_list[INVEN_BODY];
+    auto &item = *player_ptr->inventory[INVEN_BODY];
     if (!item.is_valid()) {
         return false;
     }
@@ -307,7 +308,7 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity *o_ptr)
 void brand_bolts(PlayerType *player_ptr)
 {
     for (auto i = 0; i < INVEN_PACK; i++) {
-        auto *o_ptr = &player_ptr->inventory_list[i];
+        auto *o_ptr = player_ptr->inventory[i].get();
         if (o_ptr->bi_key.tval() != ItemKindType::BOLT) {
             continue;
         }

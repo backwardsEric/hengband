@@ -3,7 +3,6 @@
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
-#include "floor/cave.h"
 #include "floor/floor-events.h"
 #include "game-option/birth-options.h"
 #include "game-option/input-options.h"
@@ -56,14 +55,14 @@ void do_cmd_store(PlayerType *player_ptr)
     if (AngbandWorld::get_instance().is_wild_mode()) {
         return;
     }
-    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, std::nullopt);
+    TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, tl::nullopt);
     const auto &[wid, hgt] = term_get_size();
     xtra_stock = std::min(14 + 26, ((hgt > MAIN_TERM_MIN_ROWS) ? (hgt - MAIN_TERM_MIN_ROWS) : 0));
     store_bottom = MIN_STOCK + xtra_stock;
 
     auto &floor = *player_ptr->current_floor_ptr;
     const auto &grid = floor.get_grid(player_ptr->get_position());
-    if (!grid.cave_has_flag(TerrainCharacteristics::STORE)) {
+    if (!grid.has(TerrainCharacteristics::STORE)) {
         msg_print(_("ここには店がありません。", "You see no store here."));
         return;
     }
@@ -81,7 +80,7 @@ void do_cmd_store(PlayerType *player_ptr)
         player_ptr->town_num = 1;
     }
 
-    if (floor.is_in_underground()) {
+    if (floor.is_underground()) {
         player_ptr->town_num = VALID_TOWNS;
     }
 
@@ -105,8 +104,8 @@ void do_cmd_store(PlayerType *player_ptr)
         store.last_visit = world.game_turn;
     }
 
-    forget_lite(&floor);
-    forget_view(&floor);
+    forget_lite(floor);
+    forget_view(floor);
     world.character_icky_depth = 1;
     command_arg = 0;
     command_rep = 0;
@@ -157,9 +156,9 @@ void do_cmd_store(PlayerType *player_ptr)
         const auto should_redraw_store_inventory = rfu.has(StatusRecalculatingFlag::BONUS);
         world.character_icky_depth = 1;
         handle_stuff(player_ptr);
-        if (player_ptr->inventory_list[INVEN_PACK].bi_id) {
+        if (player_ptr->inventory[INVEN_PACK]->bi_id) {
             INVENTORY_IDX i_idx = INVEN_PACK;
-            const auto &item_inventory = player_ptr->inventory_list[i_idx];
+            const auto &item_inventory = *player_ptr->inventory[i_idx];
             if (store_num != StoreSaleType::HOME) {
                 if (store_num == StoreSaleType::MUSEUM) {
                     msg_print(_("ザックからアイテムがあふれそうなので、あわてて博物館から出た...", "Your pack is so full that you flee the Museum..."));
