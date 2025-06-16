@@ -11,11 +11,29 @@
     <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | 3.0.0 Changes | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
-        <LI>December 16, 2024.  3.0.1 Beta22 incorporates all of the changes in
-          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta22.  You can
+        <LI>June 16, 2025.  3.0.1 Beta28 incorporates all of the changes in
+          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta28.  You can
           find Hengband's notes, in Japanese, on what has changed at
-          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
-          or this fork are:
+          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.
+          The changes that are specific to the Mac interface or this fork are:
+          <UL>
+            <LI>Include mac-specific headers after C++ ones to avoid conflict
+              between the Nil preprocessor macro in the Objective-c headers
+              (object/objc.h) and the use of Nil in the C++ range library.
+            <LI>Adapt to upstream changes in main/sound-definitions-table.h.
+            <LI>Allow dead key events to be passed to the game's core.  A dead
+              key is a key combination that does not have a Unicode equivalent
+              with the current keyboard mapping.  Potentially allows for more
+              key combinations to be used as macro triggers:  on macOS 12.7.6
+              with the US keyboard mapping, Option+E is passed to the game's
+              core as ^_056\r rather than being ignored.
+            <LI>Undo workarounds for missing std::span constructors.
+            <LI>This release was built on macOS 12.7.6.  There are no changes
+              to the minimum required version of macOS (still 10.15).
+          </UL>
+        <LI>December 16, 2024.  3.0.1 Beta22 incorporates all of the changes in
+          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta22.  The changes
+          that are specific to the Mac interface or this fork are:
           <UL>
             <LI>Fix https://github.com/backwardsEric/hengband/issues/38 , a
               regression in 3.0.1 Beta17 that causes the game to crash upon
@@ -29,10 +47,8 @@
               to the minimum required version of macOS (still 10.15).
           </UL>
         <LI>July 15, 2024.  3.0.1 Beta17 incorporates all of the changes in
-          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta17.  You can
-          find Hengband's notes, in Japanese, on what has changed at
-          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
-          or this fork are:
+          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta17.  The changes
+          that are specific to the Mac interface or this fork are:
           <UL>
             <LI>Adapt to upstream changes to angband_fgets().
             <LI>Include a binary with native support for arm64 and x86_64 in
@@ -42,10 +58,8 @@
               to the minimum required version of macOS (still 10.15).
           </UL>
         <LI>January 22, 2024.  3.0.1 Beta6 incorporates all of the changes in
-          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta6.  You can
-          find Hengband's notes, in Japanese, on what has changed at
-          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
-          or this fork are:
+          Hengband's preliminary 3.0.0 versions up to 3.0.1Beta6.  The changes
+          that are specific to the Mac interface or this fork are:
           <UL>
             <LI>In the readme, update the minimum OS version needed for
               compiling.
@@ -68,10 +82,8 @@
               to the minimum required version of macOS (still 10.15).
           </UL>
         <LI>May 4, 2023.  3.0.0 Alpha81 incorporates all of the changes in
-          Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha81.  You can
-          find Hengband's notes, in Japanese, on what has changed at
-          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.  The changes that are specific to the Mac interface
-          or this fork are:
+          Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha81.  The
+          changes that are specific to the Mac interface or this fork are:
           <UL>
             <LI>For the Mac frontend, implement the option for background
               music like the Window frontend has.  As part of that, rearranges
@@ -95,10 +107,8 @@
               10.13 or later.  It was built on macOS 12.6.5.
           </UL>
         <LI>September 19, 2022.  3.0.0 Alpha67 incorporates all of the changes
-          in Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha67.  You
-          can find Hengband's notes, in Japanese, on what has changed at
-          <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.
-          The Mac interface is essentially that of the 2.2.1.7g or 2.2.1.7h
+          in Hengband's preliminary 3.0.0 versions up to 3.0.0Alpha67.  The
+          Mac interface is essentially that of the 2.2.1.7g or 2.2.1.7h
           releases with adaptations to work with the 3.0.0 code base.  It does
           use a different directory, ~/Documents/Hengband-3.0.0, for storing
           save files, character dumps and other game data.  It also requires a
