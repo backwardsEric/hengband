@@ -28,6 +28,7 @@
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-weapon-types.h"
 #include "system/artifact-type-definition.h"
+#include "system/baseitem/baseitem-allocation.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
 #include "system/item-entity.h"
@@ -131,17 +132,11 @@ static void on_dead_raal(PlayerType *player_ptr, MonsterDeath *md_ptr)
         return;
     }
 
-    ItemEntity forge;
-    auto *q_ptr = &forge;
-    q_ptr->wipe();
-    if ((floor.dun_level > 49) && one_in_(5)) {
-        select_baseitem_id_hook = kind_is_good_book;
-    } else {
-        select_baseitem_id_hook = kind_is_book;
-    }
+    const auto restrict = ((floor.dun_level > 49) && one_in_(5)) ? kind_is_good_book : kind_is_book;
 
-    (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
-    (void)drop_near(player_ptr, q_ptr, md_ptr->get_position());
+    if (auto item = make_object(player_ptr, md_ptr->mo_mode, restrict)) {
+        (void)drop_near(player_ptr, &*item, md_ptr->get_position());
+    }
 }
 
 /*!
@@ -285,70 +280,66 @@ static void on_dead_dragon_centipede(PlayerType *player_ptr, MonsterDeath *md_pt
     }
 }
 
-/*
+/*!
  * @brief 装備品の生成を試みる
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param q_ptr 生成中アイテムへの参照ポインタ
  * @param drop_mode ドロップ品の質
- * @param is_object_hook_null アイテム種別が何でもありならtrue、指定されていればfalse
- * @return 生成したアイテムが装備品ならtrue、それ以外ならfalse
+ * @param restrict ベースアイテム制約関数。特になければnullptrで良い
+ * @return 生成した装備品。生成に失敗した場合はtl::nulloptを返す。
  * @todo 汎用的に使えそうだがどこかにいいファイルはないか？
  */
-static bool make_equipment(PlayerType *player_ptr, ItemEntity *q_ptr, const BIT_FLAGS drop_mode, const bool is_object_hook_null)
+static tl::optional<ItemEntity> make_equipment(PlayerType *player_ptr, const BIT_FLAGS drop_mode, BaseitemRestrict restrict)
 {
-    q_ptr->wipe();
-    (void)make_object(player_ptr, q_ptr, drop_mode);
-    if (!is_object_hook_null) {
-        return true;
+    if (!restrict) {
+        // アイテムの制約を指定しない場合は、すべての装備品から選ぶ
+        restrict = [](short bi_id) {
+            const auto &item = BaseitemList::get_instance().get_baseitem(bi_id);
+            return item.bi_key.is_wearable() && (item.bi_key.tval() != ItemKindType::CARD);
+        };
     }
 
-    return q_ptr->is_wearable() && (q_ptr->bi_key.tval() != ItemKindType::CARD);
+    return make_object(player_ptr, drop_mode, restrict);
 }
 
-/*
+/*!
  * @brief 死亡時ドロップとしてランダムアーティファクトのみを生成する
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param md_ptr モンスター撃破構造体への参照ポインタ
- * @param hook_pf アイテム種別指定、特になければnullptrで良い
+ * @param restrict ベースアイテム制約関数。特になければnullptrで良い
  * @return なし
  * @details
  * 最初のアイテム生成でいきなり☆が生成された場合を除き、中途半端な☆ (例：呪われている)は生成しない.
  * このルーチンで★は生成されないので、★生成フラグのキャンセルも不要
  */
-static void on_dead_random_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, bool (*hook_pf)(short bi_id))
+static void on_dead_random_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, BaseitemRestrict restrict)
 {
-    ItemEntity forge;
-    auto *q_ptr = &forge;
-    auto is_object_hook_null = hook_pf == nullptr;
-    auto drop_mode = md_ptr->mo_mode | AM_NO_FIXED_ART;
+    const auto drop_mode = md_ptr->mo_mode | AM_NO_FIXED_ART;
     while (true) {
-        // make_object() の中でアイテム種別をキャンセルしている
-        // よってこのwhileループ中へ入れないと、引数で指定していない種別のアイテムが選ばれる可能性がある
-        select_baseitem_id_hook = hook_pf;
-        if (!make_equipment(player_ptr, q_ptr, drop_mode, is_object_hook_null)) {
+        auto item = make_equipment(player_ptr, drop_mode, restrict);
+        if (!item) {
+            return;
+        }
+
+        if (item->is_random_artifact()) {
+            (void)drop_near(player_ptr, &*item, md_ptr->get_position());
+            return;
+        }
+
+        if (item->is_ego()) {
             continue;
         }
 
-        if (q_ptr->is_random_artifact()) {
-            break;
-        }
-
-        if (q_ptr->is_ego()) {
-            continue;
-        }
-
-        (void)become_random_artifact(player_ptr, q_ptr, false);
-        auto is_good_random_art = !q_ptr->is_cursed();
-        is_good_random_art &= q_ptr->to_h > 0;
-        is_good_random_art &= q_ptr->to_d > 0;
-        is_good_random_art &= q_ptr->to_a > 0;
-        is_good_random_art &= q_ptr->pval > 0;
+        (void)become_random_artifact(player_ptr, &*item, false);
+        auto is_good_random_art = !item->is_cursed();
+        is_good_random_art &= item->to_h > 0;
+        is_good_random_art &= item->to_d > 0;
+        is_good_random_art &= item->to_a > 0;
+        is_good_random_art &= item->pval > 0;
         if (is_good_random_art) {
-            break;
+            (void)drop_near(player_ptr, &*item, md_ptr->get_position());
+            return;
         }
     }
-
-    (void)drop_near(player_ptr, q_ptr, md_ptr->get_position());
 }
 
 /*!
@@ -364,14 +355,11 @@ static void on_dead_manimani(PlayerType *player_ptr, MonsterDeath *md_ptr)
     msg_print(_("どこからか声が聞こえる…「ハロー！　そして…グッドバイ！」", "Heard a voice from somewhere... 'Hello! And... good bye!'"));
 }
 
-static void drop_specific_item_on_dead(PlayerType *player_ptr, MonsterDeath *md_ptr, bool (*object_hook_pf)(short bi_id))
+static void drop_specific_item_on_dead(PlayerType *player_ptr, MonsterDeath *md_ptr, BaseitemRestrict restrict)
 {
-    ItemEntity forge;
-    auto *q_ptr = &forge;
-    q_ptr->wipe();
-    select_baseitem_id_hook = object_hook_pf;
-    (void)make_object(player_ptr, q_ptr, md_ptr->mo_mode);
-    (void)drop_near(player_ptr, q_ptr, md_ptr->get_position());
+    if (auto item = make_object(player_ptr, md_ptr->mo_mode, restrict)) {
+        (void)drop_near(player_ptr, &*item, md_ptr->get_position());
+    }
 }
 
 static void on_dead_chest_mimic(PlayerType *player_ptr, MonsterDeath *md_ptr)
