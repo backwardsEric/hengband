@@ -48,9 +48,9 @@
  *    will prompt you for where to save the exported localizations.  That
  *    export is done as a directory tree.  Within it, you'll find a
  *    ja.xcloc/Localized Contents/ja.xliff file.  The strings bracketed with
- *    <source></source> in that file are the English strings.  The strings
- *    bracketed with <target></target> give what's currently used for the
- *    Japanese version.  Adjust the strings bracketed with <target></target>,
+ *    `<source></source>` in that file are the English strings.  The strings
+ *    bracketed with `<target></target>` give what's currently used for the
+ *    Japanese version.  Adjust the strings bracketed with `<target></target>`,
  *    save the modified file, and use Editor->Import Localizations... from
  *    within Xcode to import the localization from the ja.xloc directory.
  *    The result of that will be to regenerate ja.lproj/MainMenu.strings and
@@ -62,7 +62,7 @@
  *    Contents/Resources/Base.lproj/MainMenu.nib and
  *    Contents/Resources/Base.lproj/SoundAndMusic.nib in the product
  *    directory which is something like
- *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
+ *    ~/Library/Developer/Xcode/DerivedData/`product_name`-`some_string`/Build/Products/Debug/`product_name`.app
  *    You can use those to replace src/cocoa/Base.lproj/MainMenu.nib and
  *    src/cocoa/Base.lproj/SoundAndMusic.nib in the Hengband source files.
  *    With Xcode 13 and later and if the development target is macOS 10.13 or
