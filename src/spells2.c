@@ -5288,8 +5288,10 @@ sprintf(buf, "%s ... align:%s HP:%d/%d AC:%d speed:%s%d exp:", m_name, align, m_
 				/* Note that we learnt some new flags  -Mogami- */
 				msg_format("%sについてさらに詳しくなった気がする。", buf);
 #else
-				/* Pluralize it */
-				plural_aux(buf);
+				if (!(r_ptr->flags1 & RF1_UNIQUE)) {
+					/* Pluralize it */
+					plural_aux(buf);
+				}
 
 				/* Note that we learnt some new flags  -Mogami- */
 				msg_format("You now know more about %s.", buf);
