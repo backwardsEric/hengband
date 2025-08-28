@@ -1943,7 +1943,7 @@ static void draw_image_tile(
 - (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults;
 
 /**
- * Change the minimum size and size increments for the window associated with
+ * Change the size bounds and size increments for the window associated with
  * the context.  termIdx is the index for the terminal:  pass it so this
  * function can be used when self->terminal has not yet been set.
  */
@@ -2559,17 +2559,26 @@ static int compare_advances(const void *ap, const void *bp)
 		 contentRectForFrameRect: [self.primaryWindow frame]];
 
 	[self constrainWindowSize:[self terminalIndex]];
-	NSSize size = self.primaryWindow.contentMinSize;
+	NSSize minSize = self.primaryWindow.contentMinSize;
+	NSSize maxSize = self.primaryWindow.contentMaxSize;
 	BOOL windowNeedsResizing = NO;
-	if (contentRect.size.width < size.width) {
-	    contentRect.size.width = size.width;
+	if (contentRect.size.width < minSize.width) {
+	    contentRect.size.width = minSize.width;
+	    windowNeedsResizing = YES;
+	} else if (contentRect.size.width > maxSize.width) {
+	    contentRect.size.width = maxSize.width;
 	    windowNeedsResizing = YES;
 	}
-	if (contentRect.size.height < size.height) {
-	    contentRect.size.height = size.height;
+	if (contentRect.size.height < minSize.height) {
+	    contentRect.size.height = minSize.height;
+	    windowNeedsResizing = YES;
+	} else if (contentRect.size.height > maxSize.height) {
+	    contentRect.size.height = maxSize.height;
 	    windowNeedsResizing = YES;
 	}
 	if (windowNeedsResizing) {
+	    NSSize size;
+
 	    size.width = contentRect.size.width;
 	    size.height = contentRect.size.height;
 	    [self.primaryWindow setContentSize:size];
@@ -3811,7 +3820,7 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 
 - (void)constrainWindowSize:(int)termIdx
 {
-    NSSize minsize;
+    NSSize minsize, maxsize;
 
     if (termIdx == 0) {
 	minsize.width = 80;
@@ -3825,6 +3834,13 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
     minsize.height =
         minsize.height * self.tileSize.height + self.borderSize.height * 2.0;
     [[self makePrimaryWindow] setContentMinSize:minsize];
+    /*
+     * Unsigned 8-bit integers are used to store the number of rows and
+     * columns for a terminal, so do not allow the size to exceed those limits.
+     */
+    maxsize.width = 255 * self.tileSize.width + self.borderSize.width * 2.0;
+    maxsize.height = 255 * self.tileSize.height + self.borderSize.height * 2.0;
+    [[self makePrimaryWindow] setContentMaxSize:maxsize];
     self.primaryWindow.contentResizeIncrements = self.tileSize;
 }
 
