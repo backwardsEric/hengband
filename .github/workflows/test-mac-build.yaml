@@ -35,12 +35,13 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).
+      # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
 
       - name: Build
         run: |
@@ -112,12 +113,14 @@ jobs:
           submodules: true
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
-      # nkf; install those via homebrew (available by default).
+      # nkf; install those via homebrew (available by default).  Alse need
+      # pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
           brew install nkf
 
       - name: Build
@@ -175,12 +178,13 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).
+      # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
 
       - name: Build
         run: |
