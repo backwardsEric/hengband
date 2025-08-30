@@ -41,54 +41,86 @@
          <LI><CODE>git submodule init</CODE>
          <LI><CODE>git submodule update</CODE>
        </OL>
-     <P>Now run this in the top-level directory of the directory tree with the
-       source code to create the configure script (you'll need to have
-       autoconf and automake in the path; at least for macOS 11 or 12 it is
-       recommended to use autoconf 2.69 since the version of m4, GNU M4 1.4.6,
-       included with macOS doesn't work well with autoconf 2.71):
+     <P>To build the configure script you will need to have autoconf and
+       automake in the path.  If you want to generate the configure script for
+       Hengband 3 (for instance, the macos-develop or macos-3-0-0 branches)
+       you will need pkg.m4 from pkgconf/pkg-config in the directory that
+       automake's aclocal searches for third-party m4 files (running
+       "aclocal --print-ac-dir" will display the name of that directory).
+       Using <A HREF="https://brew.sh">Homebrew</A> or
+       <A HREF="https://www.macports.org">MacPorts</A> to get autoconf,
+       automake, and pkgconf/pkg-config is likely easiest.  If you are building
+       them yourself, keep these points in mind:
+       <UL>
+         <LI>The version of GNU m4 that comes with macOS 11 through macOS 15 is
+           not compatbile with versions of autoconf after 2.69.  If you use
+           a version of autoconf newer than that, you will need to have a
+           sufficiently recent version of GNU m4 as well.
+         <LI>If building <A HREF="https://www.freedesktop.org/wiki/Software/pkg-config/">freedesktop.org's pkg-config</A>
+           with recent versions of Xcode's clang (Xcode 16 and later are known
+           to be affected), you will need to run configure for it with
+           "CFLAGS=-Wno-int-conversion CXXFLAGS=-Wno-int-conversion ./configure --with-internal-glib":
+           see <A HREF="https://gist.github.com/jl/9e5ebbc9ccf44f3c804e">https://gist.github.com/jl/9e5ebbc9ccf44f3c804e</A>.  Or, you could instead use
+           <A HREF="https://github.com/pkgconf/pkgconf">pkgconf</A>.
+         <LI>As noted above, the pkg.m4 frm pkgconf/pkg-config has to be in
+           the directory aclocal searches for third-party m4 files.  If it is
+           not there, you will get a cryptic error message when generating the
+           configure script for Hengband 3 (the specific line numbers from
+           configure.ac may change if that file has changed):
+           <BLOCKQUOTE>
+             configure.ac:14: error: possible undefined macro: AC_MSG_ERROR<br>
+             &nbsp;&nbsp;&nbsp;&nbsp&nbsp;&nbsp;If this token and others are legitimate, please use m4_pattern_allow.<br>
+             &nbsp;&nbsp;&nbsp;&nbsp&nbsp;&nbsp;See the Autoconf documentation.<br>
+             configure.ac:72: error: possible undefined macro: AC_DEFINE<br>
+             configure.ac:117: error: possible undefined macro: AC_CHECK_LIB<br>
+           </BLOCKQUOTE>
+       </UL>
+     <P>With those prerequisites in place, run this in the top-level directory
+       of the directory tree with the source code to create the configure
+       script:
        <OL>
          <LI><CODE>./bootstrap</CODE>
        </OL>
-      <P>To compile the changed code and generate an English version of the game
-        which uses the Cocoa user interface for macOS, run these commands from
-        the top-level directory of the directory tree with the source code:
-        <OL>
-          <LI><CODE>./configure --disable-japanese --enable-cocoa</CODE>
-          <LI><CODE>make install</CODE>
-        </OL>
-      <P>That will create the full application, hengband.app, in the top-level
-        directory.  You can move that wherever you want.  If you want the
-        curses interface or, if you have the X11 libraries installed, the X11
-        interface, do not specify <CODE>--enable-cocoa</CODE> when
-        running configure.  The curses or X11 interface will not use
-        hengband.app.  Instead you'll get an executable, hengband, in the
-        directory where you ran configure and that executable will pull
-        information from the lib subdirectory there.  To get the Japanese
-        version, do not specify <CODE>--disable-japanese</CODE> when running
-        configure.  Compilation of the Japanese version requires the utility,
-        nkf, unless you are building the code based on Hengband 1.6.2.
-        Source code for that utility is available from
-        <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>
-        or <A HREF="https://github.com/nurse/nkf">https://github.com/nurse/nkf</A>.
-      <P>To compile an English version that will run natively on either x86_64
-        or arm machines, you can use these commands from the top-level directory
-        of the directory tree with the source code if the source code is prior
-        to the move to C++ (2021 March 6th; 3.0.0 Alpha 10):
-        <OL>
-          <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
-          <LI><CODE>make install</CODE>
-        </OL>
-        For the C++-based code, these commands will work (needs source code
-        newer than 2021 March 30th for the --disable-pch option to configure):
-        <OL>
-          <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" CXXFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCXXFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --disable-pch --enable-cocoa --disable-japanese</CODE>
-          <LI><CODE>make install</CODE>
-        </OL>
-      <P>For a Japanese version with a universal binary, the steps are much the
-        same.  The only difference is to omit <CODE>--disable-japanese</CODE>
-        when running configure.
-      <P>Eventually, the hope is that the changes made here will be
-        incorporated into the standard version of Hengband and you can get
-        both the source code and binaries from them.
+     <P>To compile the changed code and generate an English version of the game
+       which uses the Cocoa user interface for macOS, run these commands from
+       the top-level directory of the directory tree with the source code:
+       <OL>
+         <LI><CODE>./configure --disable-japanese --enable-cocoa</CODE>
+         <LI><CODE>make install</CODE>
+       </OL>
+     <P>That will create the full application, hengband.app, in the top-level
+       directory.  You can move that wherever you want.  If you want the
+       curses interface or, if you have the X11 libraries installed, the X11
+       interface, do not specify <CODE>--enable-cocoa</CODE> when
+       running configure.  The curses or X11 interface will not use
+       hengband.app.  Instead you'll get an executable, hengband, in the
+       directory where you ran configure and that executable will pull
+       information from the lib subdirectory there.  To get the Japanese
+       version, do not specify <CODE>--disable-japanese</CODE> when running
+       configure.  Compilation of the Japanese version requires the utility,
+       nkf, unless you are building the code based on Hengband 1.6.2.
+       Source code for that utility is available from
+       <A HREF="https://osdn.net/projects/nkf/">https://osdn.net/projects/nkf/</A>
+       or <A HREF="https://github.com/nurse/nkf">https://github.com/nurse/nkf</A>.
+     <P>To compile an English version that will run natively on either x86_64
+       or arm machines, you can use these commands from the top-level directory
+       of the directory tree with the source code if the source code is prior
+       to the move to C++ (2021 March 6th; 3.0.0 Alpha 10):
+       <OL>
+         <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --enable-cocoa --disable-japanese</CODE>
+         <LI><CODE>make install</CODE>
+       </OL>
+       For the C++-based code, these commands will work (needs source code
+       newer than 2021 March 30th for the --disable-pch option to configure):
+       <OL>
+         <LI><CODE>env CFLAGS="-g -O2 -arch x86_64 -arch arm64" CXXFLAGS="-g -O2 -arch x86_64 -arch arm64" OBJCXXFLAGS="-g -O2 -arch x86_64 -arch arm64" LDFLAGS="-arch x86_64 -arch arm64" ./configure --disable-dependency-tracking --disable-pch --enable-cocoa --disable-japanese</CODE>
+         <LI><CODE>make install</CODE>
+       </OL>
+     <P>For a Japanese version with a universal binary, the steps are much the
+       same.  The only difference is to omit <CODE>--disable-japanese</CODE>
+       when running configure.
+     <P>Eventually, the hope is that the changes made here will be
+       incorporated into the standard version of Hengband and you can get
+       both the source code and binaries from them.
   </BODY>
 </HTML>
