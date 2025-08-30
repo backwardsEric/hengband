@@ -148,7 +148,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install automake autoconf make tar gzip
+          sudo apt-get install automake autoconf make pkgconf tar gzip
 
       - name: Clone Project
         uses: actions/checkout@v4
@@ -213,12 +213,13 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).
+      # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
 
       - name: Create Mac English Archive
         id: create_mac_en_archive
@@ -309,13 +310,15 @@ jobs:
           submodules: true
 
       # Requires automake, autoconf, and nkf; install those via homebrew
-      # (available by default).
+      # (available by default).  Also need pkgconf or pkg-config if building
+      # Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
           brew install nkf
+          brew install pkgconf
 
       - name: Create Mac Japanese Archive
         id: create_mac_ja_archive
