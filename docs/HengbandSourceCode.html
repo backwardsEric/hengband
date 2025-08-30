@@ -44,10 +44,8 @@
      <P>To build the configure script you will need to have autoconf and
        automake in the path.  If you want to generate the configure script for
        Hengband 3 (for instance, the macos-develop or macos-3-0-0 branches)
-       you will need pkg.m4 from pkgconf/pkg-config in the directory that
-       automake's aclocal searches for third-party m4 files (running
-       "aclocal --print-ac-dir" will display the name of that directory).
-       Using <A HREF="https://brew.sh">Homebrew</A> or
+       you will need pkgconf/pkg-config as well.  Using
+       <A HREF="https://brew.sh">Homebrew</A> or
        <A HREF="https://www.macports.org">MacPorts</A> to get autoconf,
        automake, and pkgconf/pkg-config is likely easiest.  If you are building
        them yourself, keep these points in mind:
@@ -60,13 +58,18 @@
            with recent versions of Xcode's clang (Xcode 16 and later are known
            to be affected), you will need to run configure for it with
            "CFLAGS=-Wno-int-conversion CXXFLAGS=-Wno-int-conversion ./configure --with-internal-glib":
-           see <A HREF="https://gist.github.com/jl/9e5ebbc9ccf44f3c804e">https://gist.github.com/jl/9e5ebbc9ccf44f3c804e</A>.  Or, you could instead use
-           <A HREF="https://github.com/pkgconf/pkgconf">pkgconf</A>.
-         <LI>As noted above, the pkg.m4 frm pkgconf/pkg-config has to be in
-           the directory aclocal searches for third-party m4 files.  If it is
-           not there, you will get a cryptic error message when generating the
-           configure script for Hengband 3 (the specific line numbers from
-           configure.ac may change if that file has changed):
+           see <A HREF="https://gist.github.com/jl/9e5ebbc9ccf44f3c804e">https://gist.github.com/jl/9e5ebbc9ccf44f3c804e</A>. If you instead build
+           <A HREF="https://github.com/pkgconf/pkgconf">pkgconf</A>, "make
+           install" does not set up a symbolic link named pkg-config in
+           the bin directory that links to pkgconf in the same directory.
+           That is necessary as the macros in pkg.m4 look for pkg-config and
+           not pkgconf.
+         <LI>pkg.m4 installed by pkgconf/pkg-config has to be in the directory
+           aclocal searches for third-party m4 files (running
+           "aclocal --print-ac-dir" displays the name of that directory.  If
+           it is not there, you will get a cryptic error message when
+           generating the configure script for Hengband 3 (the specific line
+           numbers from configure.ac may change if that file has changed):
            <BLOCKQUOTE>
              configure.ac:14: error: possible undefined macro: AC_MSG_ERROR<br>
              &nbsp;&nbsp;&nbsp;&nbsp&nbsp;&nbsp;If this token and others are legitimate, please use m4_pattern_allow.<br>
