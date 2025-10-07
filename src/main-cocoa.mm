@@ -4548,10 +4548,7 @@ static errr Term_xtra_cocoa(int n, int v)
 		 * explicitly to draw it, but tells us implicitly to forget it
 		 * by simply telling us to redraw a location.
 		 */
-		int isVisible = 0;
-
-		term_get_cursor(&isVisible);
-		if (! isVisible) {
+		if (!term_get_cursor()) {
 		    [angbandContext.contents removeCursor];
 		}
 		[angbandContext computeInvalidRects];
