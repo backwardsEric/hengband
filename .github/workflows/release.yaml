@@ -162,7 +162,7 @@ jobs:
           echo "archive_file=${out}.tar.gz" >> $GITHUB_OUTPUT
           ./bootstrap
           ./configure --disable-japanese --disable-net
-          make distdir
+          make -j`sysctl -n hw.ncpu` distdir
           n_name=`find . -maxdepth 1 -type d -name "${{ steps.store_config.outputs.name }}"'-*' -print | wc -l`
           name=`find . -maxdepth 1 -type d -name "${{ steps.store_config.outputs.name }}"'-*' -print`
           test x"$n_name" == x1 || exit 1
@@ -258,7 +258,7 @@ jobs:
           env CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" \
             OBJCXXFLAGS="$OBJCXXFLAGS" LDFLAGS="$LDFLAGS" \
             ./configure --enable-cocoa --disable-japanese $DEPENDENCY_TRACKING
-          make install
+          make -j`sysctl -n hw.ncpu` install
           mkdir disttemp
           mv "${{ steps.store_config.outputs.name }}".app disttemp
           hdiutil create -quiet -volname "${{ steps.store_config.outputs.cap }}-${{ steps.store_config.outputs.version }}-English" -srcfolder disttemp disttemp.dmg

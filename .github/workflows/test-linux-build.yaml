@@ -34,7 +34,7 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make
+          make -j$(nproc)
 
       # Use make distcheck to verify that configure.ac and the Makefile.am
       # files properly list all the dependencies and that a build outside of
@@ -43,7 +43,7 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }} --disable-pch" \
+          make -j$(nproc) DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }} --disable-pch" \
             distcheck
 
   # Unless building 1.6.2; make distcheck will not work with the Japanese
