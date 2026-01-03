@@ -8,9 +8,35 @@
 
   <BODY>
     <H1>Hengband Application for macOS</H1>
-    <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | <A HREF="HengbandChangeLog-3-0-0.html">3.0.0 Changes</A> | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | 1.6.2 Changes
+    <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | <A HREF="HengbandChangeLog-3-0-0.html">3.0 Changes</A> | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | 1.6.2 Changes
     <H1>Changes</H1>
       <OL>
+        <LI>January 3, 2026.  1.6.2f includes the following changes:
+        <UL>
+          <LI>For the Mac frontend, cap window sizes so they do not exceed
+            z-term's limits.
+          <LI>For the Mac frontend, allow key combinations which do not
+            have a Unicode equivalent in the current keyboard mapping to
+            be passed as macro triggers to the game's core.
+          <LI>For the Mac frontend, do not use the alternate prototype for
+            atol() in h-system.h.
+          <LI>For the Mac frontend, default to compiling for macOS 10.11 or
+            later.  Allow that minimum OS version to be set with configure
+            via the MACOS_MIN variable.
+          <LI>For the Mac frontend, avoid some deprecation warnings while
+            remaining compatible with macOS 10.8.
+          <LI>For the Mac frontend, change comments for better compatibility
+            with doxygen.
+          <LI>Drop two obsolete macros, AC_LANG_C and AC_PROG_GCC_TRADITIONAL,
+            from configure.ac.  Beware that may cause trouble with compiling
+            main-gcu.c or main-cap.c with versions of gcc prior to 3.3.
+          <LI>Do not make a unique's name plural in English probing messages.
+          <LI>Correct typos in the English description of the arrow of Bard.
+          <LI>Use Homonculi as the plural for Homonculous.
+          <LI>The executable was compiled on macOS 12.7.6 with Xcode 14.2.
+            The executable targets macOS 10.11 or later:  earlier releases
+            targeted macOS 10.8 or later.
+        </UL>
         <LI>May 4, 2023.  1.6.2e includes the following changes:
         <UL>
           <LI>For the Mac frontend, disable sending commands from the command
