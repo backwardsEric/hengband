@@ -68,7 +68,7 @@ jobs:
           fi
           env CFLAGS="$CFLAGS" OBJCFLAGS="$OBJCFLAGS" LDFLAGS="$LDFLAGS" \
             ./configure $DEPENDENCY_TRACKING ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make install
+          make -j`sysctl -n hw.ncpu` install
           # Verify that some key files in the application bundle are there.
           test -x hengband.app/Contents/MacOS/hengband || exit 1
           test -r hengband.app/Contents/Info.plist || exit 1
@@ -80,7 +80,7 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
+          make -j`sysctl -n hw.ncpu` DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
             distcheck
 
   # Unless building 1.6.2; make distcheck will not work with the Japanese
