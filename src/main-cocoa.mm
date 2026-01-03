@@ -50,7 +50,7 @@
 
 #ifdef MACH_O_COCOA
 
-/* Default creator signature */
+/** Default creator signature */
 #ifndef ANGBAND_CREATOR
 # define ANGBAND_CREATOR 'H300'
 #endif
@@ -101,22 +101,22 @@ static NSInteger const AngbandCommandMenuItemTagBase = 2000;
 
 /* End Angband stuff - NRM */
 
-/* Application defined event numbers */
+/** Application-defined event numbers */
 enum
 {
     AngbandEventWakeup = 1
 };
 
-/* Delay handling of pre-emptive "quit" event */
+/** Delay handling of pre-emptive "quit" event */
 static BOOL quit_when_ready = NO;
 
-/* Set to indicate the game is over and we can quit without delay */
+/** Set to indicate the game is over and we can quit without delay */
 static BOOL game_is_finished = NO;
 
-/* Our frames per second (e.g. 60). A value of 0 means unthrottled. */
+/** Our frames per second (e.g. 60). A value of 0 means unthrottled. */
 static int frames_per_second;
 
-/* Force a new game or not? */
+/** Force a new game or not? */
 static bool new_game = false;
 
 @class AngbandView;
@@ -138,18 +138,18 @@ struct TerminalCellChar {
     wchar_t glyph;
     int attr;
 };
+/**
+ * These are the coordinates, within the tile set, for the foreground
+ * tile and background tile.
+ */
 struct TerminalCellTile {
-    /*
-     * These are the coordinates, within the tile set, for the foreground
-     * tile and background tile.
-     */
     char fgdCol, fgdRow, bckCol, bckRow;
 };
+/**
+ * If the cell at (x, y) is padding, the cell at (x - hoff, y - voff) has the
+ * attributes affecting the padded region.
+ */
 struct TerminalCellPadding {
-       /*
-	* If the cell at (x, y) is padding, the cell at (x - hoff, y - voff)
-	* has the attributes affecting the padded region.
-	*/
     unsigned char hoff, voff;
 };
 struct TerminalCell {
@@ -158,7 +158,7 @@ struct TerminalCell {
 	struct TerminalCellTile ti;
 	struct TerminalCellPadding pd;
     } v;
-    /*
+    /**
      * Used for big characters or tiles which are hscl x vscl cells.
      * The upper left corner of the big tile or character is marked as
      * TERM_CELL_TILE or TERM_CELL_CHAR.  The remainder are marked as
@@ -170,9 +170,8 @@ struct TerminalCell {
      * character and hscl will hold the number of columns it occupies (likely
      * just 2, i.e. for Japanese kanji).
      */
-    unsigned char hscl;
-    unsigned char vscl;
-    /*
+    unsigned char hscl, vscl;
+    /**
      * Hold the offsets, as fractions of the tile size expressed as the
      * rational numbers hoff_n / hoff_d and voff_n / voff_d, within the tile
      * or character.  For something that is not a big tile or character, these
@@ -184,11 +183,8 @@ struct TerminalCell {
      * parts that are not overwritten while hscl, vscl, and, for padding,
      * v.pd.hoff and v.pd.voff are.
      */
-    unsigned char hoff_n;
-    unsigned char voff_n;
-    unsigned char hoff_d;
-    unsigned char voff_d;
-    /*
+    unsigned char hoff_n, voff_n, hoff_d, voff_d;
+    /**
      * Is either TERM_CELL_CHAR, TERM_CELL_CHAR_PADDING, TERM_CELL_TILE, or
      * TERM_CELL_TILE_PADDING.
      */
@@ -1160,7 +1156,7 @@ static int isCharNoPartial(const struct TerminalCell *c)
  */
 @interface TerminalChanges : NSObject {
     int* colBounds;
-    /*
+    /**
      * Outside of firstChangedRow, lastChangedRow and what's in colBounds, the
      * contents of this are handled lazily.
      */
@@ -1581,7 +1577,7 @@ static void draw_image_tile(
 }
 
 
-/*
+/**
  * The max number of glyphs we support.  Currently this only affects
  * updateGlyphInfo() for the calculation of the tile size, fontAscender,
  * fontDescender, nColPre, and nColPost.  The rendering in drawWChar() will
@@ -1591,7 +1587,7 @@ static void draw_image_tile(
  */
 #define GLYPH_COUNT 256
 
-/*
+/**
  * An AngbandContext represents a logical Term (i.e. what Angband thinks is
  * a window).
  */
@@ -1613,48 +1609,46 @@ static void draw_image_tile(
     AngbandView *angbandView;
 }
 
-/* Column and row counts, by default TERM_DEFAULT_COLS x TERM_DEFAULT_ROWS */
+/** Column count, by default TERM_DEFAULT_COLS */
 @property (readonly) int cols;
+/** Row count, by default TERM_DEFAULT_ROWS */
 @property (readonly) int rows;
 
-/* The size of the border between the window edge and the contents */
+/** The size of the border between the window edge and the contents */
 @property (readonly) NSSize borderSize;
 
-/* The font of this context */
+/** The font of this context */
 @property NSFont *angbandViewFont;
 
-/* The size of one tile */
+/** The size of one tile */
 @property (readonly) NSSize tileSize;
 
-/* Font's ascender and descender */
+/** Font's ascender */
 @property (readonly) CGFloat fontAscender;
+/** Font's descender */
 @property (readonly) CGFloat fontDescender;
 
-/*
- * These are the number of columns before or after, respectively, a text
- * change that may need to be redrawn.
- */
+/** The number of columns before a text change that may need to be redrawn. */
 @property (readonly) int nColPre;
+/** The number of columns after a text change that may need to be redrawn. */
 @property (readonly) int nColPost;
 
-/* If this context owns a window, here it is. */
+/** If this context owns a window, here it is. */
 @property NSWindow *primaryWindow;
 
-/* Holds our version of the contents of the terminal. */
+/** Holds our version of the contents of the terminal. */
 @property TerminalContents *contents;
 
-/*
+/**
  * Marks which locations have been changed by the text_hook, pict_hook,
  * wipe_hook, curs_hook, and bigcurs_hhok callbacks on the terminal since
  * the last call to xtra_hook with TERM_XTRA_FRESH.
  */
 @property TerminalChanges *changes;
 
-/*
- * Record first possible row and column for tiles for double-height tile
- * handling.
- */
+/** Record first possible row for tiles for double-height tile handling. */
 @property int firstTileRow;
+/** Record first possible column for tiles for double-height tile handling. */
 @property int firstTileCol;
 
 @property (nonatomic, assign) BOOL hasSubwindowFlags;
@@ -1670,63 +1664,63 @@ static void draw_image_tile(
 
 - (void)drawRect:(NSRect)rect inView:(NSView *)view;
 
-/* Called at initialization to set the term */
+/** Called at initialization to set the term */
 - (void)setTerm:(term_type *)t;
 
-/* Called when the context is going down. */
+/** Called when the context is going down. */
 - (void)dispose;
 
-/*
+/**
  * Return the rect in view coordinates for the block of cells whose upper
  * left corner is (x,y).
  */
 - (NSRect)viewRectForCellBlockAtX:(int)x y:(int)y width:(int)w height:(int)h;
 
-/* Draw the given wide character into the given tile rect. */
+/** Draw the given wide character into the given tile rect. */
 - (void)drawWChar:(wchar_t)wchar inRect:(NSRect)tile screenFont:(NSFont*)font
 	  context:(CGContextRef)ctx;
 
-/*
+/**
  * Returns the primary window for this angband context, creating it if
  * necessary
  */
 - (NSWindow *)makePrimaryWindow;
 
-/* Handle becoming the main window */
+/** Handle becoming the main window */
 - (void)windowDidBecomeMain:(NSNotification *)notification;
 
-/* Return whether the context's primary window is ordered in or not */
+/** Return whether the context's primary window is ordered in or not */
 - (BOOL)isOrderedIn;
 
-/*
+/**
  * Return whether the context's primary window is the main window.
  * Since the terminals other than terminal 0 are configured as panels in
  * Hengband, this will only be true for terminal 0.
  */
 - (BOOL)isMainWindow;
 
-/*
+/**
  * Return whether the context's primary window is the destination for key
  * input.
  */
 - (BOOL)isKeyWindow;
 
-/* Invalidate the whole image */
+/** Invalidate the whole image */
 - (void)setNeedsDisplay:(BOOL)val;
 
-/* Invalidate part of the image, with the rect expressed in view coordinates */
+/** Invalidate part of the image, with the rect expressed in view coordinates */
 - (void)setNeedsDisplayInRect:(NSRect)rect;
 
-/* Display (flush) our Angband views */
+/** Display (flush) our Angband views */
 - (void)displayIfNeeded;
 
-/*
+/**
  * Resize context to size of contentRect, and optionally save size to
  * defaults
  */
 - (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults;
 
-/*
+/**
  * Change the minimum size and size increments for the window associated with
  * the context.  termIdx is the index for the terminal:  pass it so this
  * function can be used when self->terminal has not yet been set.
@@ -1748,7 +1742,7 @@ static void draw_image_tile(
 + (void)setDefaultFont:(NSFont*)font;
 
 /* Internal methods */
-/* Set the title for the primary window. */
+/** Set the title for the primary window. */
 - (void)setDefaultTitle:(int)termIdx;
 
 @end
@@ -1908,7 +1902,7 @@ static BOOL graphics_will_be_enabled(void)
 }
 
 /**
- * Hack -- game in progress
+ * Game in progress
  */
 static BOOL game_in_progress = NO;
 
@@ -1954,7 +1948,7 @@ static BOOL initialized = NO;
 }
 @end
 
-/*
+/**
  * Methods for pulling images out of the Angband bundle (which may be separate
  * from the current bundle in the case of a screensaver
  */
@@ -1962,7 +1956,7 @@ static BOOL initialized = NO;
 + (NSImage *)angbandImage:(NSString *)name;
 @end
 
-/* The NSView subclass that draws our Angband image */
+/** The NSView subclass that draws our Angband image */
 @interface AngbandView : NSView {
 @private
     NSBitmapImageRep *cacheForResize;
@@ -1975,7 +1969,7 @@ static BOOL initialized = NO;
 
 @implementation NSImage (AngbandImages)
 
-/*
+/**
  * Returns an image in the resource directoy of the bundle containing the
  * Angband view class.
  */
@@ -2004,7 +1998,7 @@ static BOOL initialized = NO;
 	floor(self.rows * self.tileSize.height + 2 * self.borderSize.height));
 }
 
-/* qsort-compatible compare function for CGSizes */
+/** qsort-compatible compare function for CGSizes */
 static int compare_advances(const void *ap, const void *bp)
 {
     const CGSize *a = (CGSize*) ap, *b = (CGSize*) bp;
@@ -2838,7 +2832,7 @@ static __strong NSFont* gDefaultFont = nil;
 
 #pragma mark View/Window Passthrough
 
-/*
+/**
  * This is a qsort-compatible compare function for NSRect, to get them in
  * ascending order by y origin.
  */
@@ -4502,12 +4496,12 @@ static errr Term_xtra_cocoa(int n, int v)
 
 	    /* Flush all pending events (if any) */
         case TERM_XTRA_FLUSH:
-	    /* Hack -- flush all events */
+	    /* Flush all events */
 	    while (check_events(CHECK_EVENTS_DRAIN)) /* loop */;
 
 	    break;
 
-	    /* Hack -- Change the "soft level" */
+	    /* Change the "soft level" */
         case TERM_XTRA_LEVEL:
 	    /*
 	     * Here we could activate (if requested), but I don't think
@@ -4554,10 +4548,7 @@ static errr Term_xtra_cocoa(int n, int v)
 		 * explicitly to draw it, but tells us implicitly to forget it
 		 * by simply telling us to redraw a location.
 		 */
-		int isVisible = 0;
-
-		term_get_cursor(&isVisible);
-		if (! isVisible) {
+		if (!term_get_cursor()) {
 		    [angbandContext.contents removeCursor];
 		}
 		[angbandContext computeInvalidRects];
@@ -4872,7 +4863,7 @@ static void quit_calmly(void)
     /* Save the game and Quit (if it's safe) */
     if (inkey_flag)
     {
-        /* Hack -- Forget messages and term */
+        /* Forget messages and term */
         msg_flag = false;
         game_term->mapped_flag = false;
 
@@ -5708,7 +5699,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
 
 - (IBAction)saveGame:sender
 {
-    /* Hack -- Forget messages */
+    /* Forget messages */
     msg_flag = false;
     
     /* Save the game */

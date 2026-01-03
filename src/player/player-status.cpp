@@ -13,7 +13,6 @@
 #include "core/window-redrawer.h"
 #include "dungeon/dungeon-flag-types.h"
 #include "effect/effect-characteristics.h"
-#include "floor/floor-events.h"
 #include "floor/floor-leaver.h"
 #include "floor/floor-save.h"
 #include "floor/floor-util.h"
@@ -153,13 +152,9 @@ static player_hand main_attack_hand(PlayerType *player_ptr);
 static void delayed_visual_update(PlayerType *player_ptr)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    for (auto i = 0; i < floor.redraw_n; i++) {
-        const Pos2D pos(floor.redraw_y[i], floor.redraw_x[i]);
+    const auto points = floor.collect_redraw_points();
+    for (const auto &pos : points) {
         auto &grid = floor.get_grid(pos);
-        if (none_bits(grid.info, CAVE_REDRAW)) {
-            continue;
-        }
-
         if (any_bits(grid.info, CAVE_NOTE)) {
             note_spot(player_ptr, pos);
         }
@@ -171,8 +166,6 @@ static void delayed_visual_update(PlayerType *player_ptr)
 
         reset_bits(grid.info, (CAVE_NOTE | CAVE_REDRAW));
     }
-
-    floor.redraw_n = 0;
 }
 
 /*!
@@ -1671,6 +1664,14 @@ static ARMOUR_CLASS calc_to_ac(PlayerType *player_ptr, bool is_real_value)
     case MimicKindType::VAMPIRE:
         ac += 10;
         break;
+    case MimicKindType::ANGEL:
+        ac += 10;
+        break;
+    case MimicKindType::DEMIGOD:
+        ac += 20;
+        break;
+    default:
+        break;
     }
 
     PlayerClass pc(player_ptr);
@@ -2641,12 +2642,12 @@ void update_creature(PlayerType *player_ptr)
 
     if (rfu.has(StatusRecalculatingFlag::UN_LITE)) {
         rfu.reset_flag(StatusRecalculatingFlag::UN_LITE);
-        forget_lite(floor);
+        floor.forget_lite();
     }
 
     if (rfu.has(StatusRecalculatingFlag::UN_VIEW)) {
         rfu.reset_flag(StatusRecalculatingFlag::UN_VIEW);
-        forget_view(floor);
+        floor.forget_view();
     }
 
     if (rfu.has(StatusRecalculatingFlag::VIEW)) {
@@ -3117,12 +3118,12 @@ bool is_hero(PlayerType *player_ptr)
 
 bool is_shero(PlayerType *player_ptr)
 {
-    return player_ptr->shero || PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER);
+    return player_ptr->berserk || PlayerClass(player_ptr).equals(PlayerClassType::BERSERKER);
 }
 
 bool is_echizen(PlayerType *player_ptr)
 {
-    return (player_ptr->ppersonality == PERSONALITY_COMBAT) || (player_ptr->inventory[INVEN_BOW]->is_specific_artifact(FixedArtifactId::CRIMSON));
+    return (player_ptr->ppersonality == PERSONALITY_COMBAT) || player_ptr->is_wielding(FixedArtifactId::CRIMSON);
 }
 
 bool is_chargeman(PlayerType *player_ptr)

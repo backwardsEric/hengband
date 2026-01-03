@@ -1,4 +1,4 @@
-%define version 3.0.1.27
+%define version 3.0.2.1
 %define release 1
 
 Summary: hengband %{version}
@@ -9,10 +9,10 @@ License: unknown
 Group: Amusements/Games
 Url: https://hengband.github.io
 Source: hengband-%{version}.tar.gz
-Requires: ncurses-libs libstdc++ libcurl libX11
-BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf libX11-devel
+Requires: ncurses-libs libstdc++ libcurl libX11 libXft
+BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf libX11-devel libXft-devel
 
-Requires: %{name}-data
+Requires: %{name}-data = %{version}
 
 %package data
 
@@ -20,8 +20,8 @@ Summary: %{name}-data %{version}
 
 %package en
 
-Requires: ncurses-libs libstdc++ libcurl libX11
-Requires: %{name}-data
+Requires: ncurses-libs libstdc++ libcurl libX11 libXft
+Requires: %{name}-data = %{version}
 Summary: %{name}-en %{version}
 
 %description
@@ -85,10 +85,10 @@ rm -rf %{buildroot}
 ./bootstrap
 
 %build
-%configure --with-libpath=%{_datadir}/games/%{name}/lib --disable-japanese
+%configure --with-libpath=%{_datadir}/games/%{name}/lib --disable-japanese --enable-xft
 %make_build
 cp src/hengband src/hengband-en
-%configure --with-libpath=%{_datadir}/games/%{name}/lib
+%configure --with-libpath=%{_datadir}/games/%{name}/lib --enable-xft
 %make_build
 
 %install
@@ -154,6 +154,22 @@ exit 0
 %license lib/help/jlicense.txt THIRD-PARTY-NOTICES.txt
 
 %changelog
+* Fri Dec 19 2025 whitehara <white@vx-xv.com>
+- hengband RPM 3.0.2.1(Beta)
+
+* Tue Dec 16 2025 whitehara <white@vx-xv.com>
+- hengband RPM 3.0.2.0(Beta)
+
+* Sun Aug 17 2025 whitehara <white@vx-xv.com>
+- Enable Xft
+- hengband RPM 3.0.1.29(Beta)
+
+* Mon Jun 16 2025 whitehara <white@vx-xv.com>
+- hengband RPM 3.0.1.28(Beta)
+
+* Mon May 26 2025 whitehara <white@vx-xv.com>
+- Add specified version dependencies between hengband,en and hengband-data
+
 * Wed May 21 2025 whitehara <white@vx-xv.com>
 - hengband RPM 3.0.1.27(Beta)
 

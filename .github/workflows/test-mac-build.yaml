@@ -35,12 +35,13 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).
+      # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
 
       - name: Build
         run: |
@@ -80,7 +81,7 @@ jobs:
             ./configure $DEPENDENCY_TRACKING ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
           # Print out the compiler version for debugging problems with a build.
           g++ -v
-          make install
+          make -j`sysctl -n hw.ncpu` install
           # Verify that some key files in the application bundle are there.
           test -x hengband.app/Contents/MacOS/hengband || exit 1
           test -r hengband.app/Contents/Info.plist || exit 1
@@ -92,7 +93,7 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
+          make -j`sysctl -n hw.ncpu` DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
             distcheck
 
   # Unless building 1.6.2; make distcheck will not work with the Japanese
@@ -112,12 +113,14 @@ jobs:
           submodules: true
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
-      # nkf; install those via homebrew (available by default).
+      # nkf; install those via homebrew (available by default).  Alse need
+      # pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
           brew install nkf
 
       - name: Build
@@ -175,12 +178,13 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via homebrew (available
-      # by default).
+      # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
           brew install m4
           brew install autoconf
           brew install automake
+          brew install pkgconf
 
       - name: Build
         run: |
@@ -192,7 +196,7 @@ jobs:
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
           # Print out the compiler version for debugging problems with a build.
           g++ -v
-          make
+          make -j`sysctl -n hw.ncpu`
 
       # Use make distcheck to verify that configure.ac and the Makefile.am
       # files properly list all the dependencies and that a build outside of
@@ -201,5 +205,5 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
+          make -j`sysctl -n hw.ncpu` DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }}" \
             distcheck

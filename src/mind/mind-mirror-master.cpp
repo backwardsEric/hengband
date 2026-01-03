@@ -6,6 +6,7 @@
  */
 
 #include "mind/mind-mirror-master.h"
+#include "action/travel-execution.h"
 #include "core/disturbance.h"
 #include "core/stuff-handler.h"
 #include "effect/attribute-types.h"
@@ -88,7 +89,7 @@ bool binding_field(PlayerType *player_ptr, int dam)
         }
 
         const auto dist = Grid::calc_distance(p_pos, pos);
-        const auto is_projectable = projectable(floor, p_pos, p_pos, pos);
+        const auto is_projectable = projectable(floor, p_pos, pos);
         if ((dist == 0) || (dist > max_range) || !grid.has_los() || !is_projectable) {
             continue;
         }
@@ -147,9 +148,9 @@ bool binding_field(PlayerType *player_ptr, int dam)
                 continue;
             }
 
-            if (floor.has_los_at(pos) && projectable(floor, p_pos, p_pos, pos)) {
-                if (!(player_ptr->effects()->blindness().is_blind()) && panel_contains(y, x)) {
-                    print_bolt_pict(player_ptr, y, x, y, x, AttributeType::MANA);
+            if (floor.has_los_at(pos) && projectable(floor, p_pos, pos)) {
+                if (!(player_ptr->effects()->blindness().is_blind()) && panel_contains(pos)) {
+                    print_bolt_pict(player_ptr, pos, pos, AttributeType::MANA);
                     move_cursor_relative(y, x);
                     term_fresh();
                     term_xtra(TERM_XTRA_DELAY, delay_factor);
@@ -173,7 +174,7 @@ bool binding_field(PlayerType *player_ptr, int dam)
                 continue;
             }
 
-            if (floor.has_los_at(pos) && projectable(floor, p_pos, p_pos, pos)) {
+            if (floor.has_los_at(pos) && projectable(floor, p_pos, pos)) {
                 (void)affect_feature(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
             }
         }
@@ -194,7 +195,7 @@ bool binding_field(PlayerType *player_ptr, int dam)
                 continue;
             }
 
-            if (floor.has_los_at(pos) && projectable(floor, p_pos, p_pos, pos)) {
+            if (floor.has_los_at(pos) && projectable(floor, p_pos, pos)) {
                 (void)affect_item(player_ptr, 0, 0, y, x, dam, AttributeType::MANA);
             }
         }
@@ -215,7 +216,7 @@ bool binding_field(PlayerType *player_ptr, int dam)
                 continue;
             }
 
-            if (floor.has_los_at(pos) && projectable(floor, p_pos, p_pos, pos)) {
+            if (floor.has_los_at(pos) && projectable(floor, p_pos, pos)) {
                 constexpr auto flags = PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL | PROJECT_JUMP;
                 (void)affect_monster(player_ptr, 0, 0, y, x, dam, AttributeType::MANA, flags, true);
             }
@@ -282,8 +283,8 @@ bool set_multishadow(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         return false;
     }
 
-    if (disturb_state) {
-        disturb(player_ptr, false, false);
+    if (disturb_state || Travel::get_instance().is_ongoing()) {
+        disturb(player_ptr, false, true);
     }
 
     rfu.set_flag(StatusRecalculatingFlag::BONUS);
@@ -330,8 +331,8 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         return false;
     }
 
-    if (disturb_state) {
-        disturb(player_ptr, false, false);
+    if (disturb_state || Travel::get_instance().is_ongoing()) {
+        disturb(player_ptr, false, true);
     }
 
     rfu.set_flag(StatusRecalculatingFlag::BONUS);

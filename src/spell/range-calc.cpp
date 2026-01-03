@@ -26,7 +26,7 @@ bool is_prevent_blast(PlayerType *player_ptr, const Pos2D &center, const Pos2D &
         return !in_disintegration_range(floor, center, pos);
     default:
         /* Others are stopped by walls */
-        return !projectable(floor, player_ptr->get_position(), center, pos);
+        return !projectable(floor, center, pos);
     }
 }
 }
@@ -242,7 +242,7 @@ std::vector<std::pair<int, Pos2D>> breath_shape(PlayerType *player_ptr, const Pr
             for (auto y = pos_breath.y - cdis; y <= pos_breath.y + cdis; y++) {
                 for (auto x = pos_breath.x - cdis; x <= pos_breath.x + cdis; x++) {
                     const Pos2D pos(y, x);
-                    if (!floor.contains(pos)) {
+                    if (!floor.contains(pos, FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
                         continue;
                     }
                     if (Grid::calc_distance(pos_source, pos) != bdis) {

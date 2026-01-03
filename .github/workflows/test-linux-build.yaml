@@ -24,16 +24,17 @@ jobs:
           submodules: true
 
       # Requires automake and autoconf; install those via apt-get.
+      # Hengband 3 also needs pkgconf or pkg-config.
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install autoconf automake
+          sudo apt-get install autoconf automake pkgconf
 
       - name: Build
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make
+          make -j$(nproc)
 
       # Use make distcheck to verify that configure.ac and the Makefile.am
       # files properly list all the dependencies and that a build outside of
@@ -42,7 +43,7 @@ jobs:
         run: |
           ./bootstrap
           ./configure ${{ env.DEFAULT_CONFIGURE_OPTIONS }}
-          make DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }} --disable-pch" \
+          make -j$(nproc) DISTCHECK_CONFIGURE_FLAGS="${{ env.DEFAULT_CONFIGURE_OPTIONS }} --disable-pch" \
             distcheck
 
   # Unless building 1.6.2; make distcheck will not work with the Japanese
@@ -62,12 +63,12 @@ jobs:
           submodules: true
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
-      # nkf.  Hengband 3.0.0 now requires libcurl if not configured with
-      # --disable-net.  Install those via apt-get.
+      # nkf.  Hengband 3 needs pkgconf or pkg-config and, if not configured
+      # with --disable-net, needs libcurl.  Install those via apt-get.
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install automake autoconf nkf libcurl4-openssl-dev
+          sudo apt-get install automake autoconf pkgconf nkf libcurl4-openssl-dev
 
       - name: Build
         run: |

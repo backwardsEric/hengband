@@ -737,7 +737,7 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         if (choice == ESCAPE) {
             choice = ' ';
         } else {
-            const auto new_choice = input_command(prompt, true);
+            const auto new_choice = input_command(prompt);
             if (!new_choice) {
                 break;
             }
@@ -1396,7 +1396,7 @@ static bool is_target_grid_dark(const FloorType &floor, const Pos2D &pos)
             if (pos == pos_neighbor) {
                 continue;
             }
-            if (!floor.contains(pos_neighbor)) {
+            if (!floor.contains(pos_neighbor, FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
                 continue;
             }
 

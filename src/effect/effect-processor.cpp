@@ -141,15 +141,15 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
 
         if (delay_factor > 0) {
             if (!is_blind && !(flag & (PROJECT_HIDE | PROJECT_FAST))) {
-                if (panel_contains(pos.y, pos.x) && floor.has_los_at(pos)) {
-                    print_bolt_pict(player_ptr, pos_path.y, pos_path.x, pos.y, pos.x, typ);
+                if (panel_contains(pos) && floor.has_los_at(pos)) {
+                    print_bolt_pict(player_ptr, pos_path, pos, typ);
                     move_cursor_relative(pos.y, pos.x);
                     term_fresh();
                     term_xtra(TERM_XTRA_DELAY, delay_factor);
                     lite_spot(player_ptr, pos);
                     term_fresh();
                     if (flag & (PROJECT_BEAM)) {
-                        print_bolt_pict(player_ptr, pos.y, pos.x, pos.y, pos.x, typ);
+                        print_bolt_pict(player_ptr, pos, pos, typ);
                     }
 
                     visual = true;
@@ -210,9 +210,9 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
                 if (dist != dist_step) {
                     continue;
                 }
-                if (panel_contains(pos.y, pos.x) && (can_see_disi || floor.has_los_at(pos))) {
+                if (panel_contains(pos) && (can_see_disi || floor.has_los_at(pos))) {
                     drawn = true;
-                    print_bolt_pict(player_ptr, pos.y, pos.x, pos.y, pos.x, typ);
+                    print_bolt_pict(player_ptr, pos, pos, typ);
                 }
                 pos_total++;
             }
@@ -226,7 +226,7 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
 
         if (drawn) {
             for (const auto &[_, pos] : positions) {
-                if (panel_contains(pos.y, pos.x) && floor.has_los_at(pos)) {
+                if (panel_contains(pos) && floor.has_los_at(pos)) {
                     lite_spot(player_ptr, pos);
                 }
             }
@@ -241,7 +241,7 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
     const auto p_pos = player_ptr->get_position();
     if (flag & PROJECT_KILL) {
         see_s_msg = is_monster(src_idx) ? is_seen(player_ptr, floor.m_list[src_idx])
-                                        : (is_player(src_idx) ? true : (player_can_see_bold(player_ptr, pos_source.y, pos_source.x) && projectable(floor, p_pos, p_pos, pos_source)));
+                                        : (is_player(src_idx) ? true : (player_can_see_bold(player_ptr, pos_source.y, pos_source.x) && projectable(floor, p_pos, pos_source)));
     }
 
     if (flag & (PROJECT_GRID)) {
@@ -282,7 +282,7 @@ ProjectResult project(PlayerType *player_ptr, const MONSTER_IDX src_idx, POSITIO
                         pos_reflection.y = pos_source.y - 1 + randint1(3);
                         pos_reflection.x = pos_source.x - 1 + randint1(3);
                         max_attempts--;
-                    } while (max_attempts && floor.contains(pos_reflection, FloorBoundary::OUTER_WALL_INCLUSIVE) && !projectable(floor, p_pos, pos, pos_reflection));
+                    } while (max_attempts && floor.contains(pos_reflection, FloorBoundary::OUTER_WALL_INCLUSIVE) && !projectable(floor, pos, pos_reflection));
 
                     if (max_attempts < 1) {
                         pos_reflection = pos_source;

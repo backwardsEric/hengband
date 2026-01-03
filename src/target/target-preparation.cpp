@@ -52,7 +52,7 @@ bool target_able(PlayerType *player_ptr, MONSTER_IDX m_idx)
     }
 
     const auto p_pos = player_ptr->get_position();
-    if (!projectable(floor, p_pos, p_pos, monster.get_position())) {
+    if (!projectable(floor, p_pos, monster.get_position())) {
         return false;
     }
 
@@ -65,7 +65,7 @@ bool target_able(PlayerType *player_ptr, MONSTER_IDX m_idx)
 static bool target_set_accept(PlayerType *player_ptr, const Pos2D &pos)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    if (!(floor.contains(pos))) {
+    if (!floor.contains(pos, FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
         return false;
     }
 

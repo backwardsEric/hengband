@@ -18,7 +18,6 @@
 #include "grid/grid.h"
 #include "io/write-diary.h"
 #include "mind/mind-ninja.h"
-#include "monster-floor/monster-lite.h"
 #include "monster-floor/monster-remover.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
@@ -251,7 +250,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
 
     /* Lose monster light */
     if (!in_generate) {
-        clear_mon_lite(floor);
+        floor.forget_mon_lite();
     }
 
     /* Big area of affect */
@@ -260,7 +259,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
     for (auto y = (y1 - r); y <= (y1 + r); y++) {
         for (auto x = (x1 - r); x <= (x1 + r); x++) {
             const Pos2D pos(y, x);
-            if (!floor.contains(pos)) {
+            if (!floor.contains(pos, FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
                 continue;
             }
 
@@ -331,7 +330,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
             if (preserve_mode || in_generate) {
                 /* Scan all objects in the grid */
                 for (const auto this_o_idx : grid.o_idx_list) {
-                    const auto &item = *floor.o_list[this_o_idx];
+                    auto &item = *floor.o_list[this_o_idx];
                     if (item.is_fixed_artifact() && (!item.is_known() || in_generate)) {
                         item.get_fixed_artifact().is_generated = false;
 
@@ -402,7 +401,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
     for (auto y = (y1 - r); y <= (y1 + r); y++) {
         for (auto x = (x1 - r); x <= (x1 + r); x++) {
             const Pos2D pos(y, x);
-            if (!floor.contains(pos)) {
+            if (!floor.contains(pos, FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
                 continue;
             }
 

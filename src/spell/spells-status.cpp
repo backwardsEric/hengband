@@ -298,7 +298,7 @@ bool life_stream(PlayerType *player_ptr, bool message, bool virtue_change)
     (void)bss.set_cut(0);
     (void)bss.set_paralysis(0);
     (void)restore_all_status(player_ptr);
-    (void)set_shero(player_ptr, 0, true);
+    (void)set_berserk(player_ptr, 0, true);
     handle_stuff(player_ptr);
     hp_player(player_ptr, 5000);
 
@@ -330,7 +330,7 @@ bool berserk(PlayerType *player_ptr, int base)
         ident = true;
     }
 
-    if (set_shero(player_ptr, player_ptr->shero + randint1(base) + base, false)) {
+    if (set_berserk(player_ptr, player_ptr->berserk + randint1(base) + base, false)) {
         ident = true;
     }
 
@@ -357,7 +357,7 @@ bool cure_light_wounds(PlayerType *player_ptr, int pow)
         ident = true;
     }
 
-    if (set_shero(player_ptr, 0, true)) {
+    if (set_berserk(player_ptr, 0, true)) {
         ident = true;
     }
 
@@ -384,7 +384,7 @@ bool cure_serious_wounds(PlayerType *player_ptr, int pow)
         ident = true;
     }
 
-    if (set_shero(player_ptr, 0, true)) {
+    if (set_berserk(player_ptr, 0, true)) {
         ident = true;
     }
 
@@ -419,7 +419,7 @@ bool cure_critical_wounds(PlayerType *player_ptr, int pow)
         ident = true;
     }
 
-    if (set_shero(player_ptr, 0, true)) {
+    if (set_berserk(player_ptr, 0, true)) {
         ident = true;
     }
 
@@ -586,7 +586,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
     inven_item_increase(player_ptr, slot, (0 - o_ptr->number));
     inven_item_optimize(player_ptr, slot);
 
-    const auto old_o_idx = drop_near(player_ptr, &item, player_ptr->get_position());
+    const auto old_o_idx = drop_near(player_ptr, item, player_ptr->get_position());
     *o_ptr_ptr = player_ptr->current_floor_ptr->o_list[old_o_idx].get();
 
     const auto item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
@@ -604,7 +604,7 @@ bool cosmic_cast_off(PlayerType *player_ptr, ItemEntity **o_ptr_ptr)
     (void)set_hero(player_ptr, player_ptr->hero + t, false);
     (void)set_blessed(player_ptr, player_ptr->blessed + t, false);
     (void)mod_acceleration(player_ptr, t, false);
-    (void)set_shero(player_ptr, player_ptr->shero + t, false);
+    (void)set_berserk(player_ptr, player_ptr->berserk + t, false);
     if (PlayerClass(player_ptr).equals(PlayerClassType::FORCETRAINER)) {
         set_current_ki(player_ptr, true, player_ptr->lev * 5 + 190);
         msg_print(_("気が爆発寸前になった。", "Your force absorbs the explosion."));

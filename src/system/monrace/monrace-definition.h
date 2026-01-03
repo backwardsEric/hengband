@@ -49,6 +49,16 @@ public:
     Dice damage_dice;
 };
 
+class MonsterSummon {
+public:
+    MonsterSummon(MonraceId id, int probability, int min_num, int max_num, int radius);
+    MonraceId id;
+    int probability;
+    int min_num;
+    int max_num;
+    int radius;
+};
+
 class MonraceDefinition;
 class Reinforce {
 public:
@@ -147,6 +157,8 @@ public:
     bool is_male() const;
     bool is_female() const;
     bool has_living_flag() const;
+    bool has_demon_flag() const;
+    bool has_undead_flag() const;
     bool is_explodable() const;
     bool is_angel_superficially() const;
     bool symbol_char_is_any_of(std::string_view symbol_characters) const;
@@ -229,9 +241,13 @@ public:
     void increment_pkills();
     void increment_tkills();
 
+    void emplace_final_summon(MonraceId id, int probability, int min_num, int max_num, int radius);
+    const std::vector<MonsterSummon> &get_final_summons() const;
+
 private:
     std::vector<DropArtifact> drop_artifacts; //!< 特定アーティファクトドロップリスト
     std::vector<Reinforce> reinforces; //!< 指定護衛リスト
+    std::vector<MonsterSummon> final_summons; //!< 死亡召喚リスト
     MonsterSex sex{}; //!< 性別 / Sex
 
     bool is_suitable_for_arena() const;

@@ -71,7 +71,7 @@ void process_world_aux_mutation(PlayerType *player_ptr)
         disturb(player_ptr, false, true);
         msg_print(_("ウガァァア！", "RAAAAGHH!"));
         msg_print(_("激怒の発作に襲われた！", "You feel a fit of rage coming over you!"));
-        (void)set_shero(player_ptr, 10 + randint1(player_ptr->lev), false);
+        (void)set_berserk(player_ptr, 10 + randint1(player_ptr->lev), false);
         (void)bss.set_fear(0);
     }
 
@@ -220,6 +220,12 @@ void process_world_aux_mutation(PlayerType *player_ptr)
                 msg_print(_("光源からエネルギーを吸収した！", "You absorb energy from your light!"));
                 notice_lite_change(player_ptr, &item);
             }
+        }
+
+        if (player_ptr->tim_emission > 0) {
+            hp_player(player_ptr, player_ptr->tim_emission);
+            set_tim_emission(player_ptr, 0, true);
+            msg_print(_("あなたは自身の光をエネルギーとして吸収した！", "You absorb energy from your own light!"));
         }
 
         /*

@@ -1,6 +1,7 @@
 #include "util/string-processor.h"
 #include "system/angband.h"
 #include <array>
+#include <charconv>
 #include <range/v3/all.hpp>
 
 namespace {
@@ -568,6 +569,61 @@ std::set<int> str_find_all_multibyte_chars([[maybe_unused]] std::string_view str
 #endif
 }
 
+/*!
+ * @brief 文字列を指定した基数の数値として整数に変換する
+ *
+ * @param str 変換する文字列
+ * @param base 基数（省略した場合のデフォルト値は10）
+ * @return 変換した整数値。変換に失敗した場合はtl::nullopt。
+ */
+tl::optional<int> str_to_int(std::string_view str, int base)
+{
+    if (str.empty()) {
+        return tl::nullopt;
+    }
+
+    const auto begin = str.data();
+    const auto end = str.data() + str.size();
+    int value;
+    if (const auto [ptr, ec] = std::from_chars(begin, end, value, base); ec == std::errc() && ptr == end) {
+        return value;
+    }
+
+    return tl::nullopt;
+}
+
+/*!
+ * @brief 文字列から指定した文字以降の部分文字列を抽出する
+ * @param str 抽出対象の文字列
+ * @param find 検索する文字
+ * @return 部分文字列
+ * @details 現時点ではシフトJISのダメ文字は考慮しない (必要に応じて拡張する)
+ */
+tl::optional<std::string_view> extract_suffix(std::string_view str, char find)
+{
+    if (const auto pos = str.find(find); pos != std::string_view::npos) {
+        return str.substr(pos);
+    }
+
+    return tl::nullopt;
+}
+
+/*!
+ * @brief 文字列から指定した文字列以降の部分文字列を抽出する
+ * @param str 抽出対象の文字列
+ * @param find 検索する文字列
+ * @return 部分文字列
+ * @details 現時点ではシフトJISのダメ文字は考慮しない (必要に応じて拡張する)
+ */
+tl::optional<std::string_view> extract_suffix(std::string_view str, std::string_view find)
+{
+    if (const auto pos = str.find(find); pos != std::string_view::npos) {
+        return str.substr(pos);
+    }
+
+    return tl::nullopt;
+}
+
 char hexify_upper(uint8_t value)
 {
     return hex_symbol_table.at(value / 16);
@@ -581,4 +637,9 @@ char hexify_lower(uint8_t value)
 char octify(uint8_t i)
 {
     return hex_symbol_table.at(i % 8);
+}
+
+bool is_numeric(char c)
+{
+    return (c >= '0') && (c <= '9');
 }

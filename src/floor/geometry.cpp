@@ -1,6 +1,5 @@
 #include "floor/geometry.h"
 #include "game-option/text-display-options.h"
-#include "grid/grid.h"
 #include "system/angband-system.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
@@ -53,7 +52,8 @@ bool player_can_see_bold(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     const Pos2D pos(y, x);
-    const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
+    const auto &floor = *player_ptr->current_floor_ptr;
+    const auto &grid = floor.get_grid(pos);
 
     /* Note that "torch-lite" yields "illumination" */
     if (grid.info & (CAVE_LITE | CAVE_MNLT)) {
@@ -82,7 +82,7 @@ bool player_can_see_bold(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     /* Check for "local" illumination */
-    return check_local_illumination(player_ptr, y, x);
+    return floor.is_illuminated_at(player_ptr->get_position(), pos);
 }
 
 /*
@@ -141,6 +141,6 @@ bool is_seen(PlayerType *player_ptr, const MonsterEntity &monster)
     is_inside_view |= AngbandSystem::get_instance().is_phase_out();
     const auto p_pos = player_ptr->get_position();
     const auto m_pos = monster.get_position();
-    is_inside_view |= player_can_see_bold(player_ptr, m_pos.y, m_pos.x) && projectable(*player_ptr->current_floor_ptr, p_pos, p_pos, m_pos);
+    is_inside_view |= player_can_see_bold(player_ptr, m_pos.y, m_pos.x) && projectable(*player_ptr->current_floor_ptr, p_pos, m_pos);
     return monster.ml && is_inside_view;
 }

@@ -87,16 +87,17 @@ void PlayerAlignment::update_alignment()
         break;
     case MimicKindType::VAMPIRE:
         break;
+    case MimicKindType::ANGEL:
+        this->bias_good_alignment(200);
+        break;
+    case MimicKindType::DEMIGOD:
+        this->bias_good_alignment(200);
+        break;
     default:
         THROW_EXCEPTION(std::logic_error, "Invalid MimicKindType was specified!");
     }
 
-    for (int i = 0; i < 2; i++) {
-        const auto &wielding_weapon = *this->player_ptr->inventory[INVEN_MAIN_HAND + i];
-        if (!has_melee_weapon(this->player_ptr, INVEN_MAIN_HAND + i) || !wielding_weapon.is_specific_artifact(FixedArtifactId::IRON_BALL)) {
-            continue;
-        }
-
+    if (this->player_ptr->is_wielding(FixedArtifactId::IRON_BALL)) {
         this->bias_evil_alignment(1000);
     }
 

@@ -275,6 +275,7 @@ void self_knowledge(PlayerType *player_ptr)
     set_status_sustain_info(player_ptr, self_ptr);
     set_equipment_influence(player_ptr, self_ptr);
     set_weapon_effect_info(player_ptr, self_ptr);
+    set_body_improvement_info_5(player_ptr, self_ptr);
     display_self_info(self_ptr);
 }
 
@@ -354,7 +355,7 @@ void report_magics(PlayerType *player_ptr)
     }
 
     if (is_shero(player_ptr)) {
-        info.emplace_back(report_magics_aux(player_ptr->shero),
+        info.emplace_back(report_magics_aux(player_ptr->berserk),
             _("あなたは戦闘狂だ", "You are in a battle rage"));
     }
 

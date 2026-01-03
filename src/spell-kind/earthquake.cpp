@@ -6,7 +6,6 @@
 #include "grid/grid.h"
 #include "io/write-diary.h"
 #include "mind/mind-ninja.h"
-#include "monster-floor/monster-lite.h"
 #include "monster-floor/monster-remover.h"
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
@@ -36,7 +35,7 @@ namespace {
 std::vector<Pos2D> get_earthquake_area(FloorType &floor, const Pos2D &center, int radius)
 {
     const auto is_eathquake_area = [&](const Pos2D &pos) {
-        return floor.contains(pos) && Grid::calc_distance(center, pos) <= radius;
+        return floor.contains(pos, FloorBoundary::OUTER_WALL_EXCLUSIVE) && Grid::calc_distance(center, pos) <= radius;
     };
 
     return Rect2D(center, Pos2DVec(radius, radius)) |
@@ -256,7 +255,7 @@ void process_hit_to_monsters(PlayerType *player_ptr, std::span<const Pos2D> pos_
 void destruct_earthquake_area(PlayerType *player_ptr, std::span<const Pos2D> pos_collapses)
 {
     auto &floor = *player_ptr->current_floor_ptr;
-    clear_mon_lite(floor);
+    floor.forget_mon_lite();
     const auto &dungeon = floor.get_dungeon_definition();
     const auto is_changeable = [&](const auto &pos) { return floor.is_grid_changeable(pos); };
 

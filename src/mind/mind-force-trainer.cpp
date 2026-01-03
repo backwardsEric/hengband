@@ -1,4 +1,5 @@
 #include "mind/mind-force-trainer.h"
+#include "action/travel-execution.h"
 #include "avatar/avatar.h"
 #include "core/disturbance.h"
 #include "core/stuff-handler.h"
@@ -179,8 +180,8 @@ bool set_tim_sh_force(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         return false;
     }
 
-    if (disturb_state) {
-        disturb(player_ptr, false, false);
+    if (disturb_state || Travel::get_instance().is_ongoing()) {
+        disturb(player_ptr, false, true);
     }
 
     handle_stuff(player_ptr);
@@ -341,7 +342,7 @@ bool cast_force_spell(PlayerType *player_ptr, MindForceTrainerType spell)
         const auto &grid = floor.get_grid(*pos);
         const auto m_idx = grid.m_idx;
         const auto p_pos = player_ptr->get_position();
-        const auto is_projectable = projectable(floor, p_pos, p_pos, *pos);
+        const auto is_projectable = projectable(floor, p_pos, *pos);
         if ((m_idx == 0) || !grid.has_los() || !is_projectable) {
             break;
         }

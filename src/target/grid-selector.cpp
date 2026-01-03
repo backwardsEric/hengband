@@ -20,6 +20,7 @@
 #include "util/candidate-selector.h"
 #include "util/finalizer.h"
 #include "util/int-char-converter.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "window/main-window-util.h"
 #include <functional>
@@ -42,10 +43,6 @@ static std::vector<Pos2D> tgt_pt_prepare(PlayerType *player_ptr)
     const auto p_pos = player_ptr->get_position();
     const auto is_hallucinated = player_ptr->effects()->hallucination().is_hallucinated();
     for (const auto &pos : floor.get_area(FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
-        if (!floor.contains(pos)) {
-            continue;
-        }
-
         if (pos == p_pos) {
             positions.push_back(pos);
             continue;
@@ -133,6 +130,10 @@ struct tgt_pt_info {
     std::function<bool(const Grid &)> callback{}; //<! 条件判定コールバック
 
     void move_to_symbol(PlayerType *player_ptr);
+    bool is_ch_numeric() const
+    {
+        return is_numeric(this->ch);
+    }
 };
 
 /*!
@@ -245,7 +246,7 @@ tl::optional<Pos2D> point_target(PlayerType *player_ptr)
         }
         default: {
             if (rogue_like_commands) {
-                if (info.ch >= '0' && info.ch <= '9') {
+                if (info.is_ch_numeric()) {
                     if (info.ch != '0') {
                         info.ch -= 16;
                     }

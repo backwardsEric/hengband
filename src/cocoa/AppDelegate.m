@@ -5,22 +5,22 @@
  * Use this file to rebuild the .nib file with Xcode without having to pull
  * in all of the Hengband source.  This is the procedure with Xcode 14:
  *
- * 1) Create a new Xcode project for a macOS App.
- * 2) You can set the "Product Name", "Team", "Organization Name",
+ * 1. Create a new Xcode project for a macOS App.
+ * 2. You can set the "Product Name", "Team", "Organization Name",
  *    "Organization Identifier" as you wish.  Setting the product name to
  *    "hengband" and the "Organization Identifier" to "jp.osdn" will match
  *    the bundle identifier used in the full builds for Hengband.  Set
  *    "Language" to "Objective-C" and "User Interface" to "XIB".  Leave
  *    "Use Core Data" off.  The setting for "Include Tests" doesn't matter;
  *    you can turn it off to avoid extra clutter.
- * 3) In hengband's project settings on the "Info" tab, set the deployment
+ * 3. In hengband's project settings on the "Info" tab, set the deployment
  *    target to what's used in Hengband's src/Makefile.am.  When this was
  *    written, that was 10.15.  As least 10.8 is necessary for Base
  *    localization.  In the localizations part of that tab, click the '+' and
  *    add a Japanese localization.  That will prompt you for the files
  *    involved.  Leave that as is:  one file, "MainMenu.xib", with Base as the
  *    reference language and localizable strings as the file type.
- * 4) Copy src/cocoa/AppDelegate.h, src/cocoa/AppDelegate.m,
+ * 4. Copy src/cocoa/AppDelegate.h, src/cocoa/AppDelegate.m,
  *    src/cocoa/SoundAndMusic.h, and src/cocoa/SoundAndMusic.mm from the
  *    Hengband source files to the directory in the project with main.m.  Copy
  *    src/cocoa/Base.lproj/MainMenu.xib and
@@ -31,7 +31,7 @@
  *    SoundAndMusic.xib to the project.  In the file view in Xcode, click on
  *    SoundAndMusic.xib and in the Indentity and in the File inspector for that
  *    file, turn on Japanese localization for that file.
- * 5) (This annoyance seems to have gone away beween Xcode 11 and Xcode 13;
+ * 5. (This annoyance seems to have gone away beween Xcode 11 and Xcode 13;
  *    leaving it here just in case) If you modify MainMenu.xib after copying
  *    it over, you may want to set it so that it can be opened in older
  *    versions of Xcode.  Select it in Xcode, and select one of the things,
@@ -41,28 +41,28 @@
  *    "Latest Xcode" will close the file and save it with the appropriate
  *    flags.  Note that reopening the xib file in Xcode and saving it will
  *    cause the version to revert to the latest Xcode.
- * 6) If you want to change the Japanese strings for the menus, one way to
+ * 6. If you want to change the Japanese strings for the menus, one way to
  *    partly do it in Xcode is to export the localizations:  from the file view
  *    select topmost category ("hengband" with an application icon) and then
  *    select Product->Export Localizations... in Xcode's menu bar.  That
  *    will prompt you for where to save the exported localizations.  That
  *    export is done as a directory tree.  Within it, you'll find a
  *    ja.xcloc/Localized Contents/ja.xliff file.  The strings bracketed with
- *    <source></source> in that file are the English strings.  The strings
- *    bracketed with <target></target> give what's currently used for the
- *    Japanese version.  Adjust the strings bracketed with <target></target>,
+ *    `<source></source>` in that file are the English strings.  The strings
+ *    bracketed with `<target></target>` give what's currently used for the
+ *    Japanese version.  Adjust the strings bracketed with `<target></target>`,
  *    save the modified file, and use Editor->Import Localizations... from
  *    within Xcode to import the localization from the ja.xloc directory.
  *    The result of that will be to regenerate ja.lproj/MainMenu.strings and
  *    ja.lproj/SoundAndMusic.strings in the Xcode project files which you can
  *    use to replace the versions in src/cocoa/ja.lproj/MainMenu.strings and
  *    src/cocoa/ja.lproj/SoundAndMusic.strings in the Hengband source code.
- * 7) Use Xcode's Product->Build For->Running menu entry to build the project.
- * 8) The generated .nib files for English will be
+ * 7. Use Xcode's Product->Build For->Running menu entry to build the project.
+ * 8. The generated .nib files for English will be
  *    Contents/Resources/Base.lproj/MainMenu.nib and
  *    Contents/Resources/Base.lproj/SoundAndMusic.nib in the product
  *    directory which is something like
- *    ~/Library/Developer/Xcode/DerivedData/<product_name>-<some_string>/Build/Products/Debug/<product_name>.app
+ *    ~/Library/Developer/Xcode/DerivedData/`product_name`-`some_string`/Build/Products/Debug/`product_name`.app
  *    You can use those to replace src/cocoa/Base.lproj/MainMenu.nib and
  *    src/cocoa/Base.lproj/SoundAndMusic.nib in the Hengband source files.
  *    With Xcode 13 and later and if the development target is macOS 10.13 or

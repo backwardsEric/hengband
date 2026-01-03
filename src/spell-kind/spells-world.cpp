@@ -67,7 +67,7 @@ void teleport_level(PlayerType *player_ptr, MONSTER_IDX m_idx)
         see_m = is_seen(player_ptr, monster);
     }
 
-    if (floor.can_teleport_level(m_idx != 0)) {
+    if (floor.can_teleport_level(m_idx <= 0)) {
         if (see_m) {
             msg_print(_("効果がなかった。", "There is no effect."));
         }
@@ -236,7 +236,7 @@ bool teleport_level_other(PlayerType *player_ptr)
     }
 
     const auto p_pos = player_ptr->get_position();
-    if (!projectable(floor, p_pos, p_pos, *pos)) {
+    if (!projectable(floor, p_pos, *pos)) {
         return true;
     }
 
