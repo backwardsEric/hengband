@@ -54,6 +54,13 @@ AX_CXX_COMPILE_STDCXX(20, [noext], [mandatory])
 CXXFLAGS="$saved_CXXFLAGS"
 PKG_PROG_PKG_CONFIG
 
+dnl Detect macOS host
+AC_CANONICAL_HOST
+is_macos=no
+case "${host_os}" in
+  darwin*) is_macos=yes ;;
+esac
+
 AC_MSG_CHECKING([whether the compiler is Clang])
 AC_COMPILE_IFELSE(
   [AC_LANG_SOURCE([[
@@ -113,18 +120,28 @@ fi
 
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:
-if test x"$enable_cocoa" != xyes ; then
-  AC_CHECK_LIB(ncursesw, initscr, [AC_DEFINE(USE_GCU, 1, [Allow -mGCU environment]) AC_DEFINE(USE_NCURSES, 1, [Use ncurses]) LIBS="$LIBS -lncursesw"])
-  if test "$ac_cv_lib_ncursesw_initscr" != yes; then
-    AC_CHECK_LIB(ncurses, initscr, [AC_DEFINE(USE_GCU, 1, [Allow -mGCU environment]) AC_DEFINE(USE_NCURSES, 1, [Use ncurses]) LIBS="$LIBS -lncurses"])
-    if test "$ac_cv_lib_ncurses_initscr" != yes; then
-      AC_CHECK_LIB(curses, initscr, [AC_DEFINE(USE_GCU, 1, [Allow -mGCU environment]) LIBS="$LIBS -lcurses"])
-      if test "$ac_cv_lib_curses_initscr" != yes; then
-        AC_CHECK_LIB(termcap, tgetent, [AC_DEFINE(USE_CAP, 1, [Allow -mCAP environment]) LIBS="$LIBS -ltermcap"])
-      fi
-    fi
-  fi
-fi
+AS_IF([test "x$enable_cocoa" != xyes],
+  [have_ncurses=no 
+  curses_lib=
+  AC_CHECK_LIB([ncursesw], [initscr],
+      [have_ncurses=yes
+      curses_lib=ncursesw],
+      [AC_CHECK_LIB([ncurses], [initscr],
+          [have_ncurses=yes
+          curses_lib=ncurses],
+          [AC_CHECK_LIB([curses], [initscr],
+              [curses_lib=curses],
+              [AC_CHECK_LIB([termcap], [tgetent],
+                  [AC_DEFINE([USE_CAP], [1], [Allow -mCAP environment])
+                  LIBS="$LIBS -ltermcap"])])])])
+  AS_IF([test "x$curses_lib" != x], [
+      AC_DEFINE([USE_GCU], [1], [Allow -mGCU environment])
+      LIBS="$LIBS -l$curses_lib"
+      AS_IF([test "x$have_ncurses" = xyes],
+          [AC_DEFINE([USE_NCURSES], [1], [Use ncurses])
+          dnl Define MACOS_TERMINAL_UTF8 for macOS ncursesw builds
+          AS_IF([test "x$is_macos" = "xyes"],
+              [AC_DEFINE([MACOS_TERMINAL_UTF8], [1], [Enable UTF-8 width fix for macOS terminal])])])])])
 
 AC_CHECK_LIB(iconv, iconv_open)
 
