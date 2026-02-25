@@ -17,6 +17,7 @@
 #include "monster/monster-describer.h"
 #include "monster/monster-info.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "player-info/equipment-info.h"
 #include "player/player-damage.h"
 #include "player/player-move.h"
@@ -262,15 +263,8 @@ tl::optional<std::string> do_hissatsu_spell(PlayerType *player_ptr, SPELL_IDX sp
                 }
                 if (pos_target != pos_origin) {
                     msg_format(_("%sを吹き飛ばした！", "You blow %s away!"), m_name.data());
-                    floor.get_grid(pos_origin).m_idx = 0;
-                    floor.get_grid(pos_target).m_idx = m_idx;
-                    monster.fy = pos_target.y;
-                    monster.fx = pos_target.x;
-
-                    update_monster(player_ptr, m_idx, true);
-                    lite_spot(player_ptr, pos_origin);
-                    lite_spot(player_ptr, pos_target);
-
+                    monster.set_target(player_ptr->get_position());
+                    move_monster_to(player_ptr, monster, pos_target);
                     if (monster.get_monrace().brightness_flags.has_any_of(ld_mask)) {
                         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);
                     }

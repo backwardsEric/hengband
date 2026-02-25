@@ -1,10 +1,12 @@
 #include "monster/monster-util.h"
 #include "dungeon/quest.h"
 #include "game-option/cheat-options.h"
+#include "grid/grid.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster/monster-info.h"
+#include "monster/monster-update.h"
 #include "mspell/summon-checker.h"
 #include "room/pit-nest-util.h"
 #include "spell/summon-types.h"
@@ -715,4 +717,17 @@ bool is_player(MONSTER_IDX m_idx)
 bool is_monster(MONSTER_IDX m_idx)
 {
     return m_idx > 0;
+}
+
+void move_monster_to(PlayerType *player_ptr, MonsterEntity &monster, const Pos2D &pos_to)
+{
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto pos_from = monster.get_position();
+    auto &grid_from = floor.get_grid(pos_from);
+    auto &grid_to = floor.get_grid(pos_to);
+    grid_to.m_idx = std::exchange(grid_from.m_idx, {});
+    monster.set_position(pos_to);
+    update_monster(player_ptr, grid_to.m_idx, true);
+    lite_spot(player_ptr, pos_from);
+    lite_spot(player_ptr, pos_to);
 }
