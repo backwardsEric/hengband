@@ -65,7 +65,7 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
     const auto &terrain = TerrainList::get_instance().get_terrain(feat);
     auto &floor = *player_ptr->current_floor_ptr;
     const auto &dungeon = floor.get_dungeon_definition();
-    if (terrain.flags.has(TerrainCharacteristics::LESS)) {
+    if (terrain.flags.has(TerrainCharacteristics::UP_STAIRS)) {
         if (ironman_downward || !floor.is_underground()) {
             return true;
         }
@@ -73,7 +73,7 @@ bool alloc_stairs(PlayerType *player_ptr, FEAT_IDX feat, int num, int walls)
         if (floor.dun_level > dungeon.mindepth) {
             shaft_num = (randint1(num + 1)) / 2;
         }
-    } else if (terrain.flags.has(TerrainCharacteristics::MORE)) {
+    } else if (terrain.flags.has(TerrainCharacteristics::DOWN_STAIRS)) {
         auto quest_id = floor.get_quest_id();
         const auto &quests = QuestList::get_instance();
         if (floor.dun_level > 1 && inside_quest(quest_id)) {

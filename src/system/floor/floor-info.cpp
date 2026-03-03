@@ -458,7 +458,7 @@ TerrainTag FloorType::select_random_trap() const
     const auto &terrains = TerrainList::get_instance();
     while (true) {
         const auto tag = terrains.select_normal_trap();
-        if (terrains.get_terrain(tag).flags.has_not(TerrainCharacteristics::MORE)) {
+        if (terrains.get_terrain(tag).flags.has_not(TerrainCharacteristics::DOWN_STAIRS)) {
             return tag;
         }
 

@@ -230,7 +230,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
         break;
     }
     case AttributeType::KILL_WALL: {
-        if (terrain.flags.has_not(TerrainCharacteristics::HURT_ROCK)) {
+        if (terrain.flags.has_not(TerrainCharacteristics::STONE)) {
             break;
         }
 
@@ -239,7 +239,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
             obvious = true;
         }
 
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HURT_ROCK);
+        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::STONE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
         break;
     }
@@ -407,7 +407,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
             sound(SoundKind::GLASS);
         }
 
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HURT_ROCK);
+        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::STONE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
         break;
     }
@@ -429,7 +429,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
             sound(SoundKind::GLASS);
         }
 
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HURT_ROCK);
+        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::STONE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
         break;
     }
@@ -438,11 +438,11 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
             SpellsMirrorMaster(player_ptr).remove_mirror(y, x);
         }
 
-        if (terrain.flags.has_not(TerrainCharacteristics::HURT_DISI) || terrain.flags.has(TerrainCharacteristics::PERMANENT)) {
+        if (terrain.flags.has_not(TerrainCharacteristics::CAN_DISINTEGRATE) || terrain.flags.has(TerrainCharacteristics::PERMANENT)) {
             break;
         }
 
-        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::HURT_DISI);
+        cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::CAN_DISINTEGRATE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
         break;
     }

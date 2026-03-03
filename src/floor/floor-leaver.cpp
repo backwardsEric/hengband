@@ -154,7 +154,7 @@ static void locate_connected_stairs(PlayerType *player_ptr, FloorType &floor, sa
         const auto &terrain = grid.get_terrain();
         auto ok = false;
         if (fcms->has(FloorChangeMode::UP)) {
-            if (terrain.flags.has_all_of({ TerrainCharacteristics::LESS, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
+            if (terrain.flags.has_all_of({ TerrainCharacteristics::UP_STAIRS, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
                 ok = true;
                 if (grid.special && grid.special == sf_ptr->upper_floor_id) {
                     sx = pos.x;
@@ -162,7 +162,7 @@ static void locate_connected_stairs(PlayerType *player_ptr, FloorType &floor, sa
                 }
             }
         } else if (fcms->has(FloorChangeMode::DOWN)) {
-            if (terrain.flags.has_all_of({ TerrainCharacteristics::MORE, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
+            if (terrain.flags.has_all_of({ TerrainCharacteristics::DOWN_STAIRS, TerrainCharacteristics::STAIRS }) && terrain.flags.has_not(TerrainCharacteristics::SPECIAL)) {
                 ok = true;
                 if (grid.special && grid.special == sf_ptr->lower_floor_id) {
                     sx = pos.x;

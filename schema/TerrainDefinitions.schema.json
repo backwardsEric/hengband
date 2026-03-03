@@ -1,0 +1,192 @@
+{
+  "type": "object",
+  "required": ["version", "terrains"],
+  "properties": {
+    "version": {
+      "type": "number",
+      "description": "Version情報"
+    },
+    "terrains": {
+      "type": "array",
+      "description": "地形情報定義の配列",
+      "items": {
+        "type": "object",
+        "required": ["id", "key", "name", "symbol", "flags"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "key": {
+            "description": "地形の識別子",
+            "type": "string"
+          },
+          "name": {
+            "type": "object",
+            "description": "地形のゲーム内表記",
+            "required": ["ja", "en"],
+            "properties": {
+              "ja": {
+                "type": "string"
+              },
+              "en": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "symbol": {
+            "type": "object",
+            "description": "地形の表示シンボル",
+            "required": ["character", "color", "lit"],
+            "properties": {
+              "character": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1
+              },
+              "color": {
+                "type": "string"
+              },
+              "lit": {
+                "description": "地形が明るいかどうか",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "mimic": {
+            "description": "他の地形への模倣 例:罠→床",
+            "type": ["string", "null"]
+          },
+          "map_priority": {
+            "description": "マップ表示優先度",
+            "type": ["integer", "null"]
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ACID_PUDDLE",
+                "AVOID_RUN",
+                "BASH",
+                "BLDG",
+                "CAN_DIG",
+                "CAN_FLY",
+                "CAN_PASS",
+                "CAN_SWIM",
+                "CLOSE",
+                "COLD_PUDDLE",
+                "CONVERT",
+                "DEEP",
+                "DISARM",
+                "DOOR",
+                "DROP",
+                "ELEC_PUDDLE",
+                "ENTRANCE",
+                "FLOOR",
+                "GLASS",
+                "GLOW",
+                "HAS_GOLD",
+                "HAS_ITEM",
+                "HIT_TRAP",
+                "CAN_DISINTEGRATE",
+                "STONE",
+                "LAVA",
+                "UP_STAIRS",
+                "LOS",
+                "MAY_HAVE_GOLD",
+                "MIRROR",
+                "DOWN_STAIRS",
+                "MOUNTAIN",
+                "MOVE",
+                "NOTICE",
+                "OPEN",
+                "PATTERN",
+                "PERMANENT",
+                "PLACE",
+                "PLANT",
+                "POISON_PUDDLE",
+                "POWER_0",
+                "POWER_1",
+                "POWER_10",
+                "POWER_100",
+                "POWER_2",
+                "POWER_20",
+                "POWER_3",
+                "POWER_4",
+                "POWER_40",
+                "POWER_5",
+                "POWER_6",
+                "POWER_7",
+                "PROJECTION",
+                "QUEST",
+                "QUEST_ENTER",
+                "QUEST_EXIT",
+                "REMEMBER",
+                "RUNE_EXPLOSION",
+                "RUNE_PROTECTION",
+                "SECRET",
+                "SHAFT",
+                "SHALLOW",
+                "SPECIAL",
+                "SPIKE",
+                "STAIRS",
+                "STORE",
+                "SUBTYPE_0",
+                "SUBTYPE_1",
+                "SUBTYPE_10",
+                "SUBTYPE_11",
+                "SUBTYPE_12",
+                "SUBTYPE_13",
+                "SUBTYPE_14",
+                "SUBTYPE_15",
+                "SUBTYPE_16",
+                "SUBTYPE_17",
+                "SUBTYPE_18",
+                "SUBTYPE_19",
+                "SUBTYPE_2",
+                "SUBTYPE_20",
+                "SUBTYPE_21",
+                "SUBTYPE_22",
+                "SUBTYPE_23",
+                "SUBTYPE_24",
+                "SUBTYPE_25",
+                "SUBTYPE_26",
+                "SUBTYPE_27",
+                "SUBTYPE_28",
+                "SUBTYPE_29",
+                "SUBTYPE_3",
+                "SUBTYPE_30",
+                "SUBTYPE_31",
+                "SUBTYPE_4",
+                "SUBTYPE_5",
+                "SUBTYPE_6",
+                "SUBTYPE_7",
+                "SUBTYPE_8",
+                "SUBTYPE_9",
+                "TELEPORTABLE",
+                "TOWN",
+                "TRAP",
+                "TREE",
+                "TUNNEL",
+                "WALL",
+                "WATER"
+              ]
+            }
+          },
+          "interactions": {
+            "type": "object",
+            "description": "特定行動後の地形変化定義",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

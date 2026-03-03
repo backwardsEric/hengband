@@ -115,7 +115,7 @@ bool create_ammo(PlayerType *player_ptr)
             return false;
         }
 
-        if (!grid.has(TerrainCharacteristics::CAN_DIG) || !grid.has(TerrainCharacteristics::HURT_ROCK)) {
+        if (!grid.has(TerrainCharacteristics::CAN_DIG) || !grid.has(TerrainCharacteristics::STONE)) {
             msg_print(_("硬すぎて崩せなかった。", "You failed to make ammo."));
             return true;
         }
@@ -133,7 +133,7 @@ bool create_ammo(PlayerType *player_ptr)
             autopick_alter_item(player_ptr, slot, false);
         }
 
-        cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::HURT_ROCK);
+        cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::STONE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
         return true;
     }

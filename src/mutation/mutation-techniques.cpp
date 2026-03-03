@@ -39,7 +39,7 @@ bool eat_rock(PlayerType *player_ptr)
     const auto &terrain_mimic = grid.get_terrain(TerrainKind::MIMIC);
 
     stop_mouth(player_ptr);
-    if (terrain_mimic.flags.has_not(TerrainCharacteristics::HURT_ROCK)) {
+    if (terrain_mimic.flags.has_not(TerrainCharacteristics::STONE)) {
         msg_print(_("この地形は食べられない。", "You cannot eat this feature."));
     } else if (terrain.flags.has(TerrainCharacteristics::PERMANENT)) {
         msg_format(_("いてっ！この%sはあなたの歯より硬い！", "Ouch!  This %s is harder than your teeth!"), terrain_mimic.name.data());
@@ -62,7 +62,7 @@ bool eat_rock(PlayerType *player_ptr)
         (void)set_food(player_ptr, player_ptr->food + 10000);
     }
 
-    cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::HURT_ROCK);
+    cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::STONE);
     (void)move_player_effect(player_ptr, pos.y, pos.x, MPE_DONT_PICKUP);
     return true;
 }

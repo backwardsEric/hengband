@@ -84,7 +84,7 @@ void do_cmd_go_up(PlayerType *player_ptr)
     const auto &terrain = grid.get_terrain();
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
 
-    if (terrain.flags.has_not(TerrainCharacteristics::LESS)) {
+    if (terrain.flags.has_not(TerrainCharacteristics::UP_STAIRS)) {
         msg_print(_("ここには上り階段が見当たらない。", "I see no up staircase here."));
         return;
     }
@@ -207,7 +207,7 @@ void do_cmd_go_down(PlayerType *player_ptr)
     auto &floor = *player_ptr->current_floor_ptr;
     auto &grid = floor.grid_array[player_ptr->y][player_ptr->x];
     auto &terrain = grid.get_terrain();
-    if (terrain.flags.has_not(TerrainCharacteristics::MORE)) {
+    if (terrain.flags.has_not(TerrainCharacteristics::DOWN_STAIRS)) {
         msg_print(_("ここには下り階段が見当たらない。", "I see no down staircase here."));
         return;
     }
