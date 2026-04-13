@@ -90,6 +90,7 @@
  */
 
 #include "cmd-io/macro-util.h"
+#include "core/special-internal-keys.h"
 #include "game-option/runtime-arguments.h"
 #include "game-option/special-options.h"
 #include "io/files-util.h"
@@ -546,6 +547,7 @@ static errr Infowin_prepare(Window xid)
     iwin->mask = xwa.your_event_mask;
     iwin->mapped = ((xwa.map_state == IsUnmapped) ? 0 : 1);
     iwin->redraw = 1;
+
     return 0;
 }
 
@@ -1398,7 +1400,8 @@ static void copy_x11_end(const Time time)
     }
 }
 
-static Atom xa_targets, xa_timestamp, xa_text, xa_compound_text, xa_utf8;
+static Atom xa_targets, xa_timestamp, xa_text, xa_compound_text, xa_utf8,
+    xa_wm_protocols, xa_delete_window;
 
 /*
  * Set the required variable atoms at start-up to avoid errors later.
@@ -1410,6 +1413,16 @@ static void set_atoms(void)
     xa_text = XInternAtom(DPY, "TEXT", False);
     xa_compound_text = XInternAtom(DPY, "COMPOUND_TEXT", False);
     xa_utf8 = XInternAtom(DPY, "UTF8_STRING", False);
+    xa_wm_protocols = XInternAtom(DPY, "WM_PROTOCOLS", False);
+    xa_delete_window = XInternAtom(DPY, "WM_DELETE_WINDOW", False);
+}
+/*!
+ * @brief Register window manager protocols
+ */
+static void set_wm_protocols(Window xid)
+{
+    Atom protocols[] = { xa_delete_window };
+    XSetWMProtocols(DPY, xid, protocols, 1);
 }
 
 static Atom request_target = 0;
@@ -1781,6 +1794,21 @@ static errr CheckEvent(bool wait)
         game_term->mapped_flag = false;
         break;
     }
+    case ClientMessage: {
+        /*!
+         * @brief Handle window close request
+         * @note X11にはウインドウの強制終了時に発生するDestroyNotifyというイベントも存在するが､
+         *  追加のキー入力が不可能になるため通常の終了シーケンスの実行が(おそらく)不可能｡
+         */
+        if (xev->xclient.message_type == xa_wm_protocols &&
+            (Atom)xev->xclient.data.l[0] == xa_delete_window) {
+            if (td == &data[0]) { // Check if the request sent to main window
+                term_activate(&old_td->t);
+                term_key_push(SPECIAL_KEY_QUIT);
+            }
+        }
+        break;
+    }
     case ConfigureNotify: {
         int cols, rows, wid, hgt;
         int ox = Infowin->ox;
@@ -1866,7 +1894,7 @@ static errr game_term_xtra_x11_sound(int v)
     return 1;
 }
 
-/*
+/*!
  * @brief Initialize music
  * @detail this function called when music play requested first
  *  because it must be called after init_angband() and store the game data
@@ -2601,6 +2629,7 @@ errr init_x11(int argc, char *argv[])
     for (i = 0; i < num_term; i++) {
         term_data *td = &data[i];
         term_data_init(td, i);
+        set_wm_protocols(td->win->win);
         angband_terms[i] = game_term;
     }
 
