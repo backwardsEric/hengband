@@ -4855,7 +4855,7 @@ static void wakeup_event_loop(void)
 static void quit_calmly(void)
 {
     /* Quit immediately if game's not started */
-    if (!game_in_progress || !AngbandWorld::get_instance().character_generated) quit(NULL);
+    if (!game_in_progress || !AngbandWorld::get_instance().character_generated) quit("");
 
     /* Save the game and Quit (if it's safe) */
     if (inkey_flag)
@@ -4869,7 +4869,7 @@ static void quit_calmly(void)
         record_current_savefile();
 
         /* Quit */
-        quit(NULL);
+        quit("");
     }
 
     /* Wait until inkey_flag is set */
@@ -5803,7 +5803,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
     term_fresh();
     play_game(p_ptr, new_game, false);
 
-    quit(NULL);
+    quit("");
 }
 
 /**
