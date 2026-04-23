@@ -56,7 +56,7 @@ jobs:
       # Need commit history and tags to get the version so use 0 for
       # fetch-depth.  Don't need the submodule(s) here.
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -121,7 +121,7 @@ jobs:
           echo draft= '${{ steps.get_release_vars.outputs.draft }}' >> $CONFIG_ARTIFACT_PATH
 
       - name: Upload Artifact for Use by Dependent Steps
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.CONFIG_ARTIFACT }}
           path: ${{ env.CONFIG_ARTIFACT_PATH }}
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifact with Configuration Information
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.CONFIG_ARTIFACT }}
 
@@ -151,7 +151,7 @@ jobs:
           sudo apt-get install automake autoconf make pkgconf tar gzip
 
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -174,14 +174,14 @@ jobs:
           echo archive_path= '${{ steps.create_source_archive.outputs.archive_file }}' > $SRC_ARTIFACT_PATH
 
       - name: Upload Artifact with Source Archive Path
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.SRC_ARTIFACT }}
           path: ${{ env.SRC_ARTIFACT_PATH }}
           retention-days: 1
 
       - name: Upload Source Archive as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.SRC_ARCHIVE_ARTIFACT }}
           path: ${{ steps.create_source_archive.outputs.archive_file }}
@@ -193,7 +193,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download Artifact with Configuration Information
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.CONFIG_ARTIFACT }}
 
@@ -208,7 +208,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -271,14 +271,14 @@ jobs:
           echo archive_path= '${{ steps.create_mac_en_archive.outputs.archive_file }}' > $MAC_ENGLISH_ARTIFACT_PATH
 
       - name: Upload Artifact with Mac English Archive Path
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MAC_ENGLISH_ARTIFACT }}
           path: ${{ env.MAC_ENGLISH_ARTIFACT_PATH }}
           retention-days: 1
 
       - name: Upload Mac English Archive as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MAC_ENGLISH_ARCHIVE_ARTIFACT }}
           path: ${{ steps.create_mac_en_archive.outputs.archive_file }}
@@ -290,7 +290,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download Artifact with Configuration Information
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.CONFIG_ARTIFACT }}
 
@@ -305,7 +305,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -370,14 +370,14 @@ jobs:
           echo archive_path= '${{ steps.create_mac_ja_archive.outputs.archive_file }}' > $MAC_JAPANESE_ARTIFACT_PATH
 
       - name: Upload Artifact with Mac Japanese Archive Path
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MAC_JAPANESE_ARTIFACT }}
           path: ${{ env.MAC_JAPANESE_ARTIFACT_PATH }}
           retention-days: 1
 
       - name: Upload Mac Japanese Archive as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MAC_JAPANESE_ARCHIVE_ARTIFACT }}
           path: ${{ steps.create_mac_ja_archive.outputs.archive_file }}
@@ -389,7 +389,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifact with Configuration Information
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.CONFIG_ARTIFACT }}
 
@@ -406,7 +406,7 @@ jobs:
           echo "draft=$draft" >> $GITHUB_OUTPUT
 
       - name: Download Artifact with Source Archive Path
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.SRC_ARTIFACT }}
 
@@ -417,12 +417,12 @@ jobs:
           echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
 
       - name: Download Artifact with Source Archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.SRC_ARCHIVE_ARTIFACT }}
 
       - name: Download Artifact with Mac English Archive Path
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.MAC_ENGLISH_ARTIFACT }}
 
@@ -433,12 +433,12 @@ jobs:
           echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
 
       - name: Download Artifact with Mac English Archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.MAC_ENGLISH_ARCHIVE_ARTIFACT }}
 
       - name: Download Artifact with Mac Japanese Archive Path
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.MAC_JAPANESE_ARTIFACT }}
 
@@ -449,12 +449,12 @@ jobs:
           echo "archive_path=$archive_path" >> $GITHUB_OUTPUT
 
       - name: Download Artifact with Mac Japanese Archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.MAC_JAPANESE_ARCHIVE_ARTIFACT }}
 
       - name: Populate Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "${{ steps.store_config.outputs.tag }}"
           name: ${{ steps.store_config.outputs.version }}
