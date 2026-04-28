@@ -34,7 +34,6 @@
 #include "spell-realm/spells-song.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-ring-types.h"
-#include "system/artifact-type-definition.h"
 #include "system/baseitem/baseitem-key.h"
 #include "system/floor/floor-info.h"
 #include "system/item-entity.h"
@@ -46,28 +45,6 @@
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include "world/world.h"
-
-static void decide_activation_level(ae_type *ae_ptr)
-{
-    if (ae_ptr->o_ptr->is_fixed_artifact()) {
-        ae_ptr->lev = ae_ptr->o_ptr->get_fixed_artifact().level;
-        return;
-    }
-
-    if (ae_ptr->o_ptr->is_random_artifact()) {
-        const auto it_activation = ae_ptr->o_ptr->find_activation_info();
-        if (it_activation != activation_info.end()) {
-            ae_ptr->lev = it_activation->level;
-        }
-
-        return;
-    }
-
-    const auto tval = ae_ptr->o_ptr->bi_key.tval();
-    if (((tval == ItemKindType::RING) || (tval == ItemKindType::AMULET)) && ae_ptr->o_ptr->is_ego()) {
-        ae_ptr->lev = ae_ptr->o_ptr->get_ego().level;
-    }
-}
 
 static void decide_chance_fail(PlayerType *player_ptr, ae_type *ae_ptr)
 {
@@ -128,12 +105,12 @@ static bool check_activation_conditions(PlayerType *player_ptr, ae_type *ae_ptr)
         return false;
     }
 
-    if (ae_ptr->o_ptr->timeout) {
+    if (ae_ptr->item->timeout) {
         msg_print(_("それは微かに音を立て、輝き、消えた...", "It whines, glows and fades..."));
         return false;
     }
 
-    if (ae_ptr->o_ptr->is_fuel() && (ae_ptr->o_ptr->fuel == 0)) {
+    if (ae_ptr->item->is_fuel() && (ae_ptr->item->fuel == 0)) {
         msg_print(_("燃料がない。", "It has no fuel."));
         PlayerEnergy(player_ptr).reset_player_turn();
         return false;
@@ -196,23 +173,22 @@ static bool activate_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
 void exe_activate(PlayerType *player_ptr, INVENTORY_IDX i_idx)
 {
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    ae_type tmp_ae;
-    ae_type *ae_ptr = initialize_ae_type(player_ptr, &tmp_ae, i_idx);
-    decide_activation_level(ae_ptr);
-    decide_chance_fail(player_ptr, ae_ptr);
+    ae_type ae(player_ptr, i_idx);
+    ae.decide_activation_level();
+    decide_chance_fail(player_ptr, &ae);
     if (cmd_limit_time_walk(player_ptr)) {
         return;
     }
 
-    decide_activation_success(player_ptr, ae_ptr);
-    if (!check_activation_conditions(player_ptr, ae_ptr)) {
+    decide_activation_success(player_ptr, &ae);
+    if (!check_activation_conditions(player_ptr, &ae)) {
         return;
     }
 
     msg_print(_("始動させた...", "You activate it..."));
     sound(SoundKind::ZAP);
-    if (ae_ptr->o_ptr->has_activation()) {
-        (void)activate_artifact(player_ptr, ae_ptr->o_ptr);
+    if (ae.item->has_activation()) {
+        (void)activate_artifact(player_ptr, ae.item.get());
         static constexpr auto flags = {
             SubWindowRedrawingFlag::INVENTORY,
             SubWindowRedrawingFlag::EQUIPMENT,

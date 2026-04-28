@@ -6,6 +6,8 @@
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "monster/monster-status-setter.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
@@ -144,6 +146,7 @@ bool set_acceleration(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
             is_singing |= music_singing(player_ptr, MUSIC_SHERO);
             if (!is_singing) {
                 msg_print(_("動きの素早さがなくなったようだ。", "You feel yourself slow down."));
+                sound(SoundKind::BUFF_EXPIRE);
                 notice = true;
             }
         }
@@ -195,6 +198,7 @@ bool set_shield(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->shield) {
             msg_print(_("肌が元に戻った。", "Your skin returns to normal."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -243,6 +247,7 @@ bool set_magicdef(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->magicdef) {
             msg_print(_("魔法の防御力が元に戻った。", "You feel less resistant to magic."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -291,6 +296,7 @@ bool set_blessed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->blessed && !music_singing(player_ptr, MUSIC_BLESS)) {
             msg_print(_("高潔な気分が消え失せた。", "The prayer has expired."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -339,6 +345,7 @@ bool set_hero(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->hero && !music_singing(player_ptr, MUSIC_HERO) && !music_singing(player_ptr, MUSIC_SHERO)) {
             msg_print(_("ヒーローの気分が消え失せた。", "The heroism wears off."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -395,6 +402,7 @@ bool set_mimic(PlayerType *player_ptr, TIME_EFFECT v, MimicKindType mimic_race_i
     else {
         if (player_ptr->tim_mimic) {
             msg_print(_("変身が解けた。", "You are no longer transformed."));
+            sound(SoundKind::BUFF_EXPIRE);
             if (player_ptr->mimic_form == MimicKindType::DEMON) {
                 set_oppose_fire(player_ptr, 0, true);
             }
@@ -460,6 +468,7 @@ bool set_berserk(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         }
     } else {
         if (player_ptr->berserk) {
+            sound(SoundKind::BUFF_EXPIRE);
             msg_print(_("野蛮な気持ちが消え失せた。", "You feel less berserk."));
             notice = true;
         }
@@ -525,6 +534,7 @@ bool set_wraith_form(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->wraith_form) {
             msg_print(_("不透明になった感じがする。", "You feel opaque."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
             rfu.set_flag(MainWindowRedrawingFlag::MAP);
             rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
@@ -575,6 +585,7 @@ bool set_tsuyoshi(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
         }
     } else {
         if (player_ptr->tsuyoshi) {
+            sound(SoundKind::BUFF_EXPIRE);
             msg_print(_("肉体が急速にしぼんでいった。", "Your body has quickly shriveled."));
 
             (void)dec_stat(player_ptr, A_CON, 20, true);

@@ -12,8 +12,8 @@
 #include "game-option/cheat-options.h"
 #include "game-option/cheat-types.h"
 #include "grid/grid.h"
+#include "inventory/floor-item-getter.h"
 #include "inventory/inventory-slot-types.h"
-#include "inventory/item-getter.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "object-enchant/item-apply-magic.h"
@@ -549,27 +549,19 @@ void floor_item_describe(PlayerType *player_ptr, INVENTORY_IDX i_idx)
  * @brief Choose an item and get auto-picker entry from it.
  * @todo initial_i_idx をポインタではなく値に変え、戻り値をstd::pairに変える
  */
-ItemEntity *choose_object(PlayerType *player_ptr, short *initial_i_idx, concptr q, concptr s, BIT_FLAGS option, const ItemTester &item_tester)
+std::pair<std::shared_ptr<ItemEntity>, short> choose_item(PlayerType *player_ptr, std::string_view q, std::string_view s, BIT_FLAGS option, const ItemTester &item_tester)
 {
-    if (initial_i_idx) {
-        *initial_i_idx = INVEN_NONE;
-    }
-
     const auto enable_repeat = util::make_finalizer([&] { player_ptr->current_floor_ptr->prevent_repeat_floor_item_idx = false; });
 
     FixItemTesterSetter setter(item_tester);
-    short i_idx;
-    if (!get_item(player_ptr, &i_idx, q, s, option, item_tester)) {
-        return nullptr;
+    const auto i_idx = get_item_floor(player_ptr, q, s, option, item_tester);
+    if (!i_idx) {
+        return { nullptr, INVEN_NONE };
     }
 
-    if (initial_i_idx) {
-        *initial_i_idx = i_idx;
+    if (*i_idx == INVEN_FORCE) {
+        return { nullptr, INVEN_FORCE };
     }
 
-    if (i_idx == INVEN_FORCE) {
-        return nullptr;
-    }
-
-    return ref_item(player_ptr, i_idx);
+    return { ref_item(player_ptr, *i_idx), *i_idx };
 }

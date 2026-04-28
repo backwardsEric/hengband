@@ -55,19 +55,18 @@ bool psychometry(PlayerType *player_ptr)
 {
     constexpr auto q = _("どのアイテムを調べますか？", "Meditate on which item? ");
     constexpr auto s = _("調べるアイテムがありません。", "You have nothing appropriate.");
-    short i_idx;
-    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
-    if (!o_ptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT));
+    if (!item) {
         return false;
     }
 
-    if (o_ptr->is_known()) {
+    if (item->is_known()) {
         msg_print(_("何も新しいことは判らなかった。", "You cannot find out anything more about that."));
         return true;
     }
 
-    item_feel_type feel = pseudo_value_check_heavy(o_ptr);
-    const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
+    item_feel_type feel = pseudo_value_check_heavy(item.get());
+    const auto item_name = describe_flavor(player_ptr, *item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
     if (!feel) {
         msg_format(_("%sからは特に変わった事は感じとれなかった。", "You do not perceive anything unusual about the %s."), item_name.data());
         return true;
@@ -76,12 +75,12 @@ bool psychometry(PlayerType *player_ptr)
 #ifdef JP
     msg_format("%sは%sという感じがする...", item_name.data(), game_inscriptions[feel]);
 #else
-    msg_format("You feel that the %s %s %s...", item_name.data(), ((o_ptr->number == 1) ? "is" : "are"), game_inscriptions[feel]);
+    msg_format("You feel that the %s %s %s...", item_name.data(), ((item->number == 1) ? "is" : "are"), game_inscriptions[feel]);
 #endif
 
-    set_bits(o_ptr->ident, IDENT_SENSE);
-    o_ptr->feeling = feel;
-    o_ptr->marked.set(OmType::TOUCHED);
+    set_bits(item->ident, IDENT_SENSE);
+    item->feeling = feel;
+    item->marked.set(OmType::TOUCHED);
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
@@ -99,7 +98,7 @@ bool psychometry(PlayerType *player_ptr)
     rfu.set_flags(flags_swrf);
 
     bool okay = false;
-    switch (o_ptr->bi_key.tval()) {
+    switch (item->bi_key.tval()) {
     case ItemKindType::SHOT:
     case ItemKindType::ARROW:
     case ItemKindType::BOLT:

@@ -6,6 +6,8 @@
 #include "core/stuff-handler.h"
 #include "core/window-redrawer.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "player/player-status.h"
 #include "realm/realm-song-numbers.h"
 #include "spell-realm/spells-song.h"
@@ -59,6 +61,7 @@ void BodyImprovement::set_protection(short v, bool is_decrease)
     } else {
         if (is_protected) {
             msg_print(_("邪悪なる存在から守られている感じがなくなった。", "You no longer feel safe from evil."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -117,6 +120,7 @@ bool set_invuln(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->invuln && !music_singing(player_ptr, MUSIC_INVULN)) {
             msg_print(_("無敵ではなくなった。", "The invulnerability wears off."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
             rfu.set_flag(MainWindowRedrawingFlag::MAP);
             rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
@@ -169,6 +173,7 @@ bool set_tim_regen(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->tim_regen) {
             msg_print(_("素早く回復する感じがなくなった。", "You feel you are no longer regenerating quickly."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -217,6 +222,7 @@ bool set_tim_reflect(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->tim_reflect) {
             msg_print(_("体の表面が滑かでなくなった。", "Your body is no longer smooth."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -265,6 +271,7 @@ bool set_pass_wall(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->tim_pass_wall) {
             msg_print(_("体が物質化した。", "You are no longer ethereal."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -313,6 +320,7 @@ bool set_tim_emission(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->tim_emission) {
             msg_print(_("体の光が消え去った。", "Your body stopped emitting light."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -361,6 +369,7 @@ bool set_tim_exorcism(PlayerType *player_ptr, short v, bool do_dec)
     } else {
         if (player_ptr->tim_exorcism) {
             msg_print(_("浄化の力を失った。", "You are no longer exorcist."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

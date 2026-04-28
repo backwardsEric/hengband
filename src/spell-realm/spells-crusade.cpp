@@ -11,6 +11,8 @@
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "player-info/race-info.h"
 #include "spell-kind/spells-detection.h"
 #include "spell-kind/spells-floor.h"
@@ -54,6 +56,7 @@ bool set_tim_sh_holy(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_sh_holy) {
             msg_print(_("聖なるオーラが消えた。", "The holy aura disappeared."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -104,6 +107,7 @@ bool set_tim_eyeeye(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_eyeeye) {
             msg_print(_("懲罰を執行することができなくなった。", "You lost your aura of retribution."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

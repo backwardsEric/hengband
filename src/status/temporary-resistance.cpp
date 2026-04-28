@@ -3,6 +3,8 @@
 #include "core/disturbance.h"
 #include "core/stuff-handler.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "view/display-messages.h"
@@ -35,6 +37,7 @@ bool set_tim_levitation(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_levitation) {
             msg_print(_("もう宙に浮かべなくなった。", "You stop flying."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -77,6 +80,7 @@ bool set_ultimate_res(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->ult_res) {
             msg_print(_("あらゆることに対する耐性が薄れた気がする。", "You feel less resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -121,6 +125,7 @@ bool set_tim_res_nether(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     else {
         if (player_ptr->tim_res_nether) {
             msg_print(_("地獄の力に対する耐性が薄れた気がする。", "You feel less nether-resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -162,6 +167,7 @@ bool set_tim_res_lite(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_res_lite) {
             msg_print(_("閃光の力に対する耐性が薄れた気がする。", "You feel less lite-resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -203,6 +209,7 @@ bool set_tim_res_dark(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_res_dark) {
             msg_print(_("暗黒の力に対する耐性が薄れた気がする。", "You feel less dark-resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -243,6 +250,7 @@ bool set_tim_res_fear(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_res_fear) {
             msg_print(_("恐怖の力に対する耐性が薄れた気がする。", "You feel less fear-resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -281,6 +289,7 @@ bool set_tim_res_time(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_res_time) {
             msg_print(_("時間逆転の力に対する耐性が薄れた気がする。", "You feel less time-resistant"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -321,6 +330,7 @@ bool set_tim_imm_dark(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_imm_dark) {
             msg_print(_("暗黒の力に対する完全な耐性を喪った気がする。", "You feel lose dark-immunity"));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

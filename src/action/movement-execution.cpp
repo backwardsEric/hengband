@@ -315,7 +315,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
         return;
     }
 
-    if (player_ptr->warning && (!process_warning(player_ptr, pos.x, pos.y))) {
+    if (player_ptr->warning && (!process_warning(player_ptr, pos))) {
         energy.set_player_turn_energy(25);
         return;
     }

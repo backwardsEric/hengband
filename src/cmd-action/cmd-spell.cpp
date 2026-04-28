@@ -601,9 +601,8 @@ void do_cmd_browse(PlayerType *player_ptr)
     constexpr auto q = _("どの本を読みますか? ", "Browse which book? ");
     constexpr auto s = _("読める本がない。", "You have no books that you can read.");
     constexpr auto options = USE_INVEN | USE_FLOOR;
-    short i_idx;
-    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0), item_tester);
-    if (o_ptr == nullptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, options | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0), item_tester);
+    if (!item) {
         if (i_idx == INVEN_FORCE) /* the_force */
         {
             do_cmd_mind_browse(player_ptr);
@@ -613,11 +612,11 @@ void do_cmd_browse(PlayerType *player_ptr)
     }
 
     /* Access the item's sval */
-    const auto tval = o_ptr->bi_key.tval();
-    const auto sval = *o_ptr->bi_key.sval();
+    const auto tval = item->bi_key.tval();
+    const auto sval = *item->bi_key.sval();
     const auto use_realm = PlayerRealm::get_realm_of_book(tval);
 
-    o_ptr->track_baseitem();
+    item->track_baseitem();
     handle_stuff(player_ptr);
 
     /* Extract spells */
@@ -746,15 +745,13 @@ void do_cmd_study(PlayerType *player_ptr)
 
     constexpr auto q = _("どの本から学びますか? ", "Study which book? ");
     constexpr auto s = _("読める本がない。", "You have no books that you can read.");
-
-    short i_idx;
-    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_INVEN | USE_FLOOR), item_tester);
-    if (o_ptr == nullptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, (USE_INVEN | USE_FLOOR), item_tester);
+    if (!item) {
         return;
     }
 
-    const auto tval = o_ptr->bi_key.tval();
-    const auto sval = *o_ptr->bi_key.sval();
+    const auto tval = item->bi_key.tval();
+    const auto sval = *item->bi_key.sval();
     const auto study_realm = PlayerRealm::get_realm_of_book(tval);
     if (pr.realm2().equals(study_realm)) {
         increment = 32;
@@ -767,7 +764,7 @@ void do_cmd_study(PlayerType *player_ptr)
         increment = 32;
     }
 
-    o_ptr->track_baseitem();
+    item->track_baseitem();
     handle_stuff(player_ptr);
 
     /* Mage -- Learn a selected spell */
@@ -958,9 +955,8 @@ bool do_cmd_cast(PlayerType *player_ptr)
     constexpr auto s = _("呪文書がない！", "You have no spell books!");
     auto item_tester = get_castable_spellbook_tester(player_ptr);
     const auto options = USE_INVEN | USE_FLOOR | (pc.equals(PlayerClassType::FORCETRAINER) ? USE_FORCE : 0);
-    short i_idx;
-    const auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, options, item_tester);
-    if (o_ptr == nullptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, options, item_tester);
+    if (!item) {
         if (i_idx == INVEN_FORCE) {
             do_cmd_mind(player_ptr);
             return true; //!< 錬気キャンセル時の処理がない
@@ -969,14 +965,14 @@ bool do_cmd_cast(PlayerType *player_ptr)
         return false;
     }
 
-    const auto tval = o_ptr->bi_key.tval();
-    const auto sval = *o_ptr->bi_key.sval();
+    const auto tval = item->bi_key.tval();
+    const auto sval = *item->bi_key.sval();
     const auto use_realm = PlayerRealm::get_realm_of_book(tval);
     if (!is_every_magic && PlayerRealm(player_ptr).realm2().equals(use_realm)) {
         increment = 32;
     }
 
-    o_ptr->track_baseitem();
+    item->track_baseitem();
     handle_stuff(player_ptr);
 
     /* Ask for a spell */
