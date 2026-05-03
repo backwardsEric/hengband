@@ -1,0 +1,328 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "dungeons"],
+  "properties": {
+    "version": {
+      "type": "number",
+      "description": "JSONC定義フォーマットのVersion情報"
+    },
+    "dungeons": {
+      "type": "array",
+      "description": "ダンジョン定義の配列",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "description",
+          "position",
+          "generation",
+          "floor",
+          "wall",
+          "flags"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "name": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ja", "en"],
+            "properties": {
+              "ja": {
+                "type": "string"
+              },
+              "en": {
+                "type": "string"
+              }
+            }
+          },
+          "description": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ja", "en"],
+            "properties": {
+              "ja": {
+                "type": "string"
+              },
+              "en": {
+                "type": "string"
+              }
+            }
+          },
+          "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["min", "max"],
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "generation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "minDepth",
+              "maxDepth",
+              "minPlayerLevel",
+              "flagsMode",
+              "minAlloc",
+              "maxAllocChance",
+              "objGood",
+              "objGreat",
+              "pit",
+              "nest"
+            ],
+            "properties": {
+              "minDepth": {
+                "type": "integer"
+              },
+              "maxDepth": {
+                "type": "integer"
+              },
+              "minPlayerLevel": {
+                "type": "integer"
+              },
+              "flagsMode": {
+                "type": "integer",
+                "enum": [0, 1, 2, 3, 4],
+                "description": "0:制限なし, 1:AND, 2:NAND, 3:OR, 4:NOR"
+              },
+              "minAlloc": {
+                "type": "integer"
+              },
+              "maxAllocChance": {
+                "type": "integer"
+              },
+              "objGood": {
+                "type": "integer"
+              },
+              "objGreat": {
+                "type": "integer"
+              },
+              "pit": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{4}$"
+              },
+              "nest": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{4}$"
+              }
+            }
+          },
+          "floor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tiles", "tunnelRate"],
+            "properties": {
+              "tiles": {
+                "$ref": "#/$defs/weightedTerrains"
+              },
+              "tunnelRate": {
+                "type": "integer"
+              }
+            }
+          },
+          "wall": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tiles", "outer", "inner", "stream1", "stream2"],
+            "properties": {
+              "tiles": {
+                "$ref": "#/$defs/weightedTerrains"
+              },
+              "outer": {
+                "$ref": "#/$defs/terrainKey"
+              },
+              "inner": {
+                "$ref": "#/$defs/terrainKey"
+              },
+              "stream1": {
+                "$ref": "#/$defs/terrainKey"
+              },
+              "stream2": {
+                "$ref": "#/$defs/terrainKey"
+              }
+            }
+          },
+          "flags": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "ACID_RIVER",
+                "ARCADE",
+                "ARENA",
+                "BEGINNER",
+                "BIG",
+                "CAVE",
+                "CAVERN",
+                "CHAMELEON",
+                "CURTAIN",
+                "DARKNESS",
+                "DESTROY",
+                "FINAL_ARTIFACT_107",
+                "FINAL_ARTIFACT_129",
+                "FINAL_ARTIFACT_89",
+                "FINAL_GUARDIAN_1034",
+                "FINAL_GUARDIAN_1041",
+                "FINAL_GUARDIAN_237",
+                "FINAL_GUARDIAN_373",
+                "FINAL_GUARDIAN_468",
+                "FINAL_GUARDIAN_481",
+                "FINAL_GUARDIAN_803",
+                "FINAL_GUARDIAN_804",
+                "FINAL_GUARDIAN_854",
+                "FINAL_GUARDIAN_857",
+                "FINAL_GUARDIAN_882",
+                "FINAL_GUARDIAN_972",
+                "FINAL_OBJECT_148",
+                "FINAL_OBJECT_239",
+                "FINAL_OBJECT_354",
+                "FINAL_OBJECT_426",
+                "FINAL_OBJECT_592",
+                "FINAL_OBJECT_617",
+                "FINAL_OBJECT_629",
+                "FORGET",
+                "GLASS_DOOR",
+                "GLASS_ROOM",
+                "LAKE_ACID",
+                "LAKE_LAVA",
+                "LAKE_POISONOUS",
+                "LAKE_RUBBLE",
+                "LAKE_TREE",
+                "LAKE_WATER",
+                "LAVA_RIVER",
+                "MAZE",
+                "MONSTER_DIV_0",
+                "MONSTER_DIV_1",
+                "MONSTER_DIV_10",
+                "MONSTER_DIV_15",
+                "MONSTER_DIV_16",
+                "MONSTER_DIV_32",
+                "MONSTER_DIV_4",
+                "MONSTER_DIV_64",
+                "NO_CAVE",
+                "NO_DOORS",
+                "NO_MAGIC",
+                "NO_MELEE",
+                "NO_VAULT",
+                "POISONOUS_RIVER",
+                "SMALLEST",
+                "WATER_RIVER",
+                "WINNER"
+              ]
+            }
+          },
+          "monsterFlags": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "ANIMAL",
+                "AQUATIC",
+                "CAN_FLY",
+                "CAN_SWIM",
+                "CHAMELEON",
+                "DEMON",
+                "DRAGON",
+                "ELDRITCH_HORROR",
+                "EVIL",
+                "GIANT",
+                "GOOD",
+                "HAS_DARK_1",
+                "HAS_DARK_2",
+                "HAS_LITE_1",
+                "HAS_LITE_2",
+                "IM_FIRE",
+                "INVISIBLE",
+                "NONLIVING",
+                "ORC",
+                "R_CHAR_$",
+                "R_CHAR_OYH",
+                "R_CHAR_SJZ#",
+                "R_CHAR_dD",
+                "R_CHAR_koO",
+                "R_CHAR_phHg",
+                "SELF_DARK_1",
+                "SELF_DARK_2",
+                "SELF_LITE_1",
+                "SELF_LITE_2",
+                "TROLL",
+                "UNDEAD",
+                "WILD_MOUNTAIN",
+                "WILD_OCEAN",
+                "WILD_VOLCANO",
+                "WILD_WOOD"
+              ]
+            }
+          },
+          "monsterSpells": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["BA_DARK", "BA_LITE", "BR_DARK", "BR_LITE"]
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "terrainKey": {
+      "type": "string",
+      "enum": [
+        "BRAKE",
+        "DARK_PIT",
+        "DEEP_LAVA",
+        "DEEP_WATER",
+        "DIRT",
+        "FLOOR",
+        "FLOWER",
+        "GLASS_FLOOR",
+        "GLASS_WALL",
+        "GRANITE",
+        "GRASS",
+        "MAGMA_TREASURE",
+        "MAGMA_VEIN",
+        "MOUNTAIN_WALL",
+        "NONE",
+        "PERMANENT",
+        "QUARTZ_TREASURE",
+        "QUARTZ_VEIN",
+        "SHALLOW_LAVA",
+        "SHALLOW_WATER",
+        "TREE"
+      ]
+    },
+    "weightedTerrains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "rate"],
+        "properties": {
+          "type": {
+            "$ref": "#/$defs/terrainKey"
+          },
+          "rate": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

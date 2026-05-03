@@ -4,7 +4,6 @@
 #include "game-option/cheat-types.h"
 #include "room/door-definition.h"
 #include "room/room-info-table.h"
-#include "room/room-types.h"
 #include "room/rooms-city.h"
 #include "room/rooms-fractal.h"
 #include "room/rooms-nest.h"
@@ -96,12 +95,11 @@ bool generate_rooms(PlayerType *player_ptr, DungeonData *dd_ptr)
     const auto level_index = std::min(10, div_round(floor.dun_level, 10));
     std::map<RoomType, int> room_num;
     const auto dun_rooms = max_rooms * area_size / 100;
-    room_info_type *room_info_ptr = room_info_normal;
-    for (auto r : ROOM_TYPE_LIST) {
-        if (floor.dun_level < room_info_ptr[enum2i(r)].min_level) {
+    for (const auto &[r, room_info] : room_info_normal) {
+        if (floor.dun_level < room_info.min_level) {
             prob_list[r] = 0;
         } else {
-            prob_list[r] = room_info_ptr[enum2i(r)].prob[level_index];
+            prob_list[r] = room_info.prob[level_index];
         }
     }
 
@@ -189,8 +187,7 @@ bool generate_rooms(PlayerType *player_ptr, DungeonData *dd_ptr)
     bool remain;
     while (true) {
         remain = false;
-        for (auto i = 0; i < ROOM_TYPE_MAX; i++) {
-            auto room_type = room_build_order[i];
+        for (const auto room_type : room_build_order) {
             if (!room_num[room_type]) {
                 continue;
             }

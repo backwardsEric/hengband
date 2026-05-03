@@ -16,30 +16,28 @@
  * appear above their minimum depth.  Tiny levels will not have space\n
  * for all the rooms you ask for.\n
  */
-room_info_type room_info_normal[ROOM_TYPE_MAX] = {
-    /* Depth */
-    /*  0  10  20  30  40  50  60  70  80  90 100  min limit */
-    { { 999, 900, 800, 700, 600, 500, 400, 300, 200, 100, 0 }, 0 }, /*NORMAL   */
-    { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 }, 1 }, /*OVERLAP  */
-    { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 }, 3 }, /*CROSS    */
-    { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 }, 3 }, /*INNER_F  */
-    { { 0, 1, 1, 1, 2, 3, 5, 6, 8, 10, 13 }, 10 }, /*NEST     */
-    { { 0, 1, 1, 2, 3, 4, 6, 8, 10, 13, 16 }, 10 }, /*PIT      */
-    { { 0, 1, 1, 1, 2, 2, 3, 5, 6, 8, 10 }, 10 }, /*LESSER_V */
-    { { 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4 }, 20 }, /*GREATER_V*/
-    { { 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999 }, 10 }, /*FRACAVE  */
-    { { 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2 }, 10 }, /*RANDOM_V */
-    { { 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40 }, 3 }, /*OVAL     */
-    { { 1, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60 }, 10 }, /*CRYPT    */
-    { { 0, 0, 1, 1, 1, 2, 3, 4, 5, 6, 8 }, 20 }, /*TRAP_PIT */
-    { { 0, 0, 1, 1, 1, 2, 3, 4, 5, 6, 8 }, 20 }, /*TRAP     */
-    { { 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2 }, 40 }, /*GLASS    */
-    { { 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3 }, 1 }, /*ARCADE   */
-    { { 1, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80 }, 1 }, /*FIX      */
+const std::map<RoomType, room_info_type> room_info_normal = {
+    { RoomType::NORMAL, { { { 999, 900, 800, 700, 600, 500, 400, 300, 200, 100, 0 } }, 0 } },
+    { RoomType::OVERLAP, { { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 } }, 1 } },
+    { RoomType::CROSS, { { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 } }, 3 } },
+    { RoomType::INNER_FEAT, { { { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 } }, 3 } },
+    { RoomType::NEST, { { { 0, 1, 1, 1, 2, 3, 5, 6, 8, 10, 13 } }, 10 } },
+    { RoomType::PIT, { { { 0, 1, 1, 2, 3, 4, 6, 8, 10, 13, 16 } }, 10 } },
+    { RoomType::LESSER_VAULT, { { { 0, 1, 1, 1, 2, 2, 3, 5, 6, 8, 10 } }, 10 } },
+    { RoomType::GREATER_VAULT, { { { 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4 } }, 20 } },
+    { RoomType::FRACAVE, { { { 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999 } }, 10 } },
+    { RoomType::RANDOM_VAULT, { { { 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2 } }, 10 } },
+    { RoomType::OVAL, { { { 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40 } }, 3 } },
+    { RoomType::CRYPT, { { { 1, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60 } }, 10 } },
+    { RoomType::TRAP_PIT, { { { 0, 0, 1, 1, 1, 2, 3, 4, 5, 6, 8 } }, 20 } },
+    { RoomType::TRAP, { { { 0, 0, 1, 1, 1, 2, 3, 4, 5, 6, 8 } }, 20 } },
+    { RoomType::GLASS, { { { 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2 } }, 40 } },
+    { RoomType::ARCADE, { { { 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3 } }, 1 } },
+    { RoomType::FIXED, { { { 1, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80 } }, 1 } },
 };
 
 /*! 部屋の生成処理順 / Build rooms in descending order of difficulty. */
-RoomType room_build_order[ROOM_TYPE_MAX] = {
+const std::array<RoomType, ROOM_TYPE_MAX> room_build_order = {
     RoomType::GREATER_VAULT,
     RoomType::ARCADE,
     RoomType::RANDOM_VAULT,

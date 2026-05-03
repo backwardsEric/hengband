@@ -1,0 +1,1315 @@
+{
+  "version": 1,
+  "dungeons": [
+    {
+      "id": 0,
+      "name": {
+        "ja": "荒野",
+        "en": "Wilderness",
+      },
+      "description": {
+        "ja": "荒野",
+        "en": "wilderness",
+      },
+      "position": {
+        "min": 0,
+        "max": 0,
+      },
+      "generation": {
+        "minDepth": 0,
+        "maxDepth": 0,
+        "minPlayerLevel": 0,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0000",
+        "nest": "0x0000",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": ["MONSTER_DIV_64"],
+    },
+    {
+      "id": 1,
+      "name": {
+        "ja": "鉄獄",
+        "en": "Angband",
+      },
+      "description": {
+        "ja": "鉄獄への入り口",
+        "en": "the entrance to the Dungeon of Angband",
+      },
+      "position": {
+        "min": 40,
+        "max": 57,
+      },
+      "generation": {
+        "minDepth": 1,
+        "maxDepth": 127,
+        "minPlayerLevel": 30,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0xffff",
+        "nest": "0xffff",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVERN",
+        "WATER_RIVER",
+        "LAVA_RIVER",
+        "ARENA",
+        "DESTROY",
+        "CURTAIN",
+        "GLASS_ROOM",
+        "LAKE_WATER",
+        "LAKE_LAVA",
+        "LAKE_RUBBLE",
+        "LAKE_TREE",
+        "ARCADE",
+        "LAKE_ACID",
+        "ACID_RIVER",
+        "LAKE_POISONOUS",
+        "POISONOUS_RIVER",
+        "MONSTER_DIV_64",
+      ],
+    },
+    {
+      "id": 2,
+      "name": {
+        "ja": "イークの洞穴",
+        "en": "Yeek cave",
+      },
+      "description": {
+        "ja": "イークの住みかへと続く小さな洞穴",
+        "en": "the entrance to the cave leading to the Yeek's den",
+      },
+      "position": {
+        "min": 48,
+        "max": 5,
+      },
+      "generation": {
+        "minDepth": 1,
+        "maxDepth": 13,
+        "minPlayerLevel": 1,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 240,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0000",
+        "nest": "0x0000",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 8,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": ["FINAL_GUARDIAN_237", "FINAL_OBJECT_426", "NO_VAULT", "BEGINNER", "MONSTER_DIV_0"],
+    },
+    {
+      "id": 3,
+      "name": {
+        "ja": "オークの洞窟",
+        "en": "Orc cave",
+      },
+      "description": {
+        "ja": "オークの洞窟へ続く薄暗いトンネル",
+        "en": "a dark tunnel leading to an Orc Cave",
+      },
+      "position": {
+        "min": 45,
+        "max": 30,
+      },
+      "generation": {
+        "minDepth": 10,
+        "maxDepth": 23,
+        "minPlayerLevel": 5,
+        "flagsMode": 3,
+        "minAlloc": 18,
+        "maxAllocChance": 200,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0031",
+        "nest": "0x006d",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "DIRT",
+            "rate": 70,
+          },
+          {
+            "type": "GRASS",
+            "rate": 30,
+          },
+        ],
+        "tunnelRate": 14,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 70,
+          },
+          {
+            "type": "MOUNTAIN_WALL",
+            "rate": 30,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "FINAL_GUARDIAN_373",
+        "FINAL_OBJECT_148",
+        "CAVE",
+        "WATER_RIVER",
+        "CAVERN",
+        "LAKE_TREE",
+        "DESTROY",
+        "BIG",
+        "MONSTER_DIV_32",
+      ],
+      "monsterFlags": ["ORC", "R_CHAR_koO", "ANIMAL"],
+    },
+    {
+      "id": 4,
+      "name": {
+        "ja": "迷宮",
+        "en": "Labyrinth",
+      },
+      "description": {
+        "ja": "恐るべき奇妙な迷宮",
+        "en": "the frightening entrance to the Labyrinth",
+      },
+      "position": {
+        "min": 57,
+        "max": 31,
+      },
+      "generation": {
+        "minDepth": 10,
+        "maxDepth": 18,
+        "minPlayerLevel": 1,
+        "flagsMode": 0,
+        "minAlloc": 80,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0000",
+        "nest": "0x0000",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 100,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "MAZE",
+        "SMALLEST",
+        "FORGET",
+        "MONSTER_DIV_64",
+        "FINAL_GUARDIAN_1034",
+        "FINAL_OBJECT_354",
+      ],
+    },
+    {
+      "id": 5,
+      "name": {
+        "ja": "竜の住みか",
+        "en": "Dragon's lair",
+      },
+      "description": {
+        "ja": "竜の住みかへ続く大きく、薄暗い恐るべきトンネル",
+        "en": "a big tunnel leading to a Dragon's Lair",
+      },
+      "position": {
+        "min": 28,
+        "max": 74,
+      },
+      "generation": {
+        "minDepth": 60,
+        "maxDepth": 72,
+        "minPlayerLevel": 25,
+        "flagsMode": 3,
+        "minAlloc": 20,
+        "maxAllocChance": 140,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x00a6",
+        "nest": "0x00c1",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "DIRT",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 0,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 90,
+          },
+          {
+            "type": "DARK_PIT",
+            "rate": 10,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "DARK_PIT",
+      },
+      "flags": [
+        "BIG",
+        "LAVA_RIVER",
+        "CAVERN",
+        "DESTROY",
+        "MONSTER_DIV_10",
+        "CAVE",
+        "LAKE_LAVA",
+        "LAKE_TREE",
+        "LAKE_RUBBLE",
+        "LAKE_ACID",
+        "ACID_RIVER",
+        "LAKE_POISONOUS",
+        "POISONOUS_RIVER",
+      ],
+      "monsterFlags": ["DRAGON", "R_CHAR_dD"],
+    },
+    {
+      "id": 6,
+      "name": {
+        "ja": "墓地",
+        "en": "Graveyard",
+      },
+      "description": {
+        "ja": "墓地の地下への穴",
+        "en": "a hole to the Graveyard underground",
+      },
+      "position": {
+        "min": 19,
+        "max": 85,
+      },
+      "generation": {
+        "minDepth": 40,
+        "maxDepth": 70,
+        "minPlayerLevel": 18,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0128",
+        "nest": "0x027b",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 85,
+          },
+          {
+            "type": "SHALLOW_WATER",
+            "rate": 15,
+          },
+        ],
+        "tunnelRate": 30,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 75,
+          },
+          {
+            "type": "DARK_PIT",
+            "rate": 25,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "SHALLOW_WATER",
+        "stream2": "DEEP_WATER",
+      },
+      "flags": [
+        "MONSTER_DIV_4",
+        "FINAL_GUARDIAN_804",
+        "FINAL_ARTIFACT_89",
+        "WATER_RIVER",
+        "DESTROY",
+        "ARENA",
+        "LAKE_WATER",
+        "LAKE_RUBBLE",
+        "LAKE_POISONOUS",
+        "POISONOUS_RIVER",
+      ],
+      "monsterFlags": ["UNDEAD", "NONLIVING"],
+    },
+    {
+      "id": 7,
+      "name": {
+        "ja": "森",
+        "en": "Forest",
+      },
+      "description": {
+        "ja": "森へ続く草の道",
+        "en": "a path leading to a Forest",
+      },
+      "position": {
+        "min": 53,
+        "max": 63,
+      },
+      "generation": {
+        "minDepth": 15,
+        "maxDepth": 32,
+        "minPlayerLevel": 5,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0001",
+        "nest": "0x0052",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "GRASS",
+            "rate": 85,
+          },
+          {
+            "type": "FLOWER",
+            "rate": 5,
+          },
+          {
+            "type": "SHALLOW_WATER",
+            "rate": 10,
+          },
+        ],
+        "tunnelRate": 15,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "TREE",
+            "rate": 90,
+          },
+          {
+            "type": "GRANITE",
+            "rate": 10,
+          },
+        ],
+        "outer": "BRAKE",
+        "inner": "TREE",
+        "stream1": "GRANITE",
+        "stream2": "BRAKE",
+      },
+      "flags": [
+        "NO_DOORS",
+        "WATER_RIVER",
+        "MONSTER_DIV_15",
+        "FINAL_GUARDIAN_481",
+        "FINAL_OBJECT_592",
+      ],
+      "monsterFlags": ["ANIMAL", "R_CHAR_SJZ#", "WILD_WOOD"],
+    },
+    {
+      "id": 8,
+      "name": {
+        "ja": "火山",
+        "en": "Volcano",
+      },
+      "description": {
+        "ja": "火山の中心への穴",
+        "en": "a hole to the center of the Volcano",
+      },
+      "position": {
+        "min": 53,
+        "max": 13,
+      },
+      "generation": {
+        "minDepth": 50,
+        "maxDepth": 60,
+        "minPlayerLevel": 18,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 80,
+        "objGreat": 30,
+        "pit": "0x01bf",
+        "nest": "0x02fd",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "DIRT",
+            "rate": 40,
+          },
+          {
+            "type": "SHALLOW_LAVA",
+            "rate": 40,
+          },
+          {
+            "type": "DEEP_LAVA",
+            "rate": 20,
+          },
+        ],
+        "tunnelRate": 0,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 90,
+          },
+          {
+            "type": "DARK_PIT",
+            "rate": 10,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "DARK_PIT",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVE",
+        "MONSTER_DIV_0",
+        "CAVERN",
+        "LAKE_LAVA",
+        "LAVA_RIVER",
+        "DESTROY",
+        "FINAL_GUARDIAN_972",
+        "FINAL_OBJECT_629",
+      ],
+      "monsterFlags": ["IM_FIRE", "CAN_FLY", "WILD_VOLCANO"],
+    },
+    {
+      "id": 9,
+      "name": {
+        "ja": "地獄",
+        "en": "Hell",
+      },
+      "description": {
+        "ja": "地獄への階段",
+        "en": "the stairway to Hell",
+      },
+      "position": {
+        "min": 62,
+        "max": 94,
+      },
+      "generation": {
+        "minDepth": 666,
+        "maxDepth": 696,
+        "minPlayerLevel": 50,
+        "flagsMode": 1,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 90,
+        "objGreat": 77,
+        "pit": "0x0188",
+        "nest": "0x0280",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "SHALLOW_LAVA",
+            "rate": 80,
+          },
+          {
+            "type": "DEEP_LAVA",
+            "rate": 20,
+          },
+        ],
+        "tunnelRate": 0,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "DEEP_LAVA",
+            "rate": 80,
+          },
+          {
+            "type": "DARK_PIT",
+            "rate": 20,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "DEEP_LAVA",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": ["CAVERN", "MONSTER_DIV_0", "LAKE_LAVA", "LAVA_RIVER", "WINNER", "BIG"],
+      "monsterFlags": ["IM_FIRE", "EVIL"],
+    },
+    {
+      "id": 10,
+      "name": {
+        "ja": "天界",
+        "en": "Heaven",
+      },
+      "description": {
+        "ja": "天界へと通じる道",
+        "en": "the way to Heaven",
+      },
+      "position": {
+        "min": 2,
+        "max": 94,
+      },
+      "generation": {
+        "minDepth": 555,
+        "maxDepth": 585,
+        "minPlayerLevel": 50,
+        "flagsMode": 1,
+        "minAlloc": 18,
+        "maxAllocChance": 160,
+        "objGood": 85,
+        "objGreat": 35,
+        "pit": "0x0040",
+        "nest": "0x0104",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 1000,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "PERMANENT",
+            "rate": 100,
+          },
+        ],
+        "outer": "PERMANENT",
+        "inner": "GRANITE",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": ["MONSTER_DIV_0", "WATER_RIVER", "WINNER", "BIG", "GLASS_ROOM"],
+      "monsterFlags": ["GOOD"],
+    },
+    {
+      "id": 11,
+      "name": {
+        "ja": "水没した遺跡",
+        "en": "Numenor",
+      },
+      "description": {
+        "ja": "失われた地ヌメノールへの水没した道",
+        "en": "a submerged way to the lost land of Numenor",
+      },
+      "position": {
+        "min": 27,
+        "max": 30,
+      },
+      "generation": {
+        "minDepth": 55,
+        "maxDepth": 75,
+        "minPlayerLevel": 30,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 80,
+        "objGreat": 30,
+        "pit": "0x0000",
+        "nest": "0x0000",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 80,
+          },
+          {
+            "type": "SHALLOW_WATER",
+            "rate": 20,
+          },
+        ],
+        "tunnelRate": 100,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "DEEP_WATER",
+            "rate": 80,
+          },
+          {
+            "type": "SHALLOW_WATER",
+            "rate": 10,
+          },
+          {
+            "type": "GRANITE",
+            "rate": 10,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "DEEP_WATER",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": [
+        "MONSTER_DIV_0",
+        "LAKE_WATER",
+        "WATER_RIVER",
+        "DESTROY",
+        "FINAL_GUARDIAN_854",
+        "FINAL_ARTIFACT_107",
+      ],
+      "monsterFlags": ["CAN_SWIM", "CAN_FLY", "AQUATIC", "WILD_OCEAN"],
+    },
+    {
+      "id": 12,
+      "name": {
+        "ja": "城",
+        "en": "Castle",
+      },
+      "description": {
+        "ja": "城",
+        "en": "the entrance to the Castle",
+      },
+      "position": {
+        "min": 34,
+        "max": 88,
+      },
+      "generation": {
+        "minDepth": 20,
+        "maxDepth": 65,
+        "minPlayerLevel": 30,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x037f",
+        "nest": "0x033f",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 100,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": [
+        "MONSTER_DIV_16",
+        "ARENA",
+        "NO_CAVE",
+        "CURTAIN",
+        "GLASS_ROOM",
+        "FINAL_GUARDIAN_882",
+      ],
+      "monsterFlags": ["DEMON", "R_CHAR_phHg"],
+    },
+    {
+      "id": 13,
+      "name": {
+        "ja": "ルルイエ",
+        "en": "R'lyeh",
+      },
+      "description": {
+        "ja": "ルルイエ",
+        "en": "a way to R'lyeh",
+      },
+      "position": {
+        "min": 3,
+        "max": 40,
+      },
+      "generation": {
+        "minDepth": 80,
+        "maxDepth": 96,
+        "minPlayerLevel": 45,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x01a8",
+        "nest": "0x023f",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 50,
+          },
+          {
+            "type": "SHALLOW_WATER",
+            "rate": 30,
+          },
+          {
+            "type": "DEEP_WATER",
+            "rate": 20,
+          },
+        ],
+        "tunnelRate": 100,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "SHALLOW_WATER",
+        "stream2": "DEEP_WATER",
+      },
+      "flags": [
+        "MONSTER_DIV_16",
+        "ARENA",
+        "WATER_RIVER",
+        "LAKE_WATER",
+        "FINAL_GUARDIAN_857",
+        "FINAL_ARTIFACT_129",
+        "LAKE_ACID",
+        "ACID_RIVER",
+        "LAKE_POISONOUS",
+        "POISONOUS_RIVER",
+      ],
+      "monsterFlags": ["DEMON", "ELDRITCH_HORROR"],
+    },
+    {
+      "id": 14,
+      "name": {
+        "ja": "山",
+        "en": "Mountain",
+      },
+      "description": {
+        "ja": "山",
+        "en": "a way leading to the mountain",
+      },
+      "position": {
+        "min": 46,
+        "max": 76,
+      },
+      "generation": {
+        "minDepth": 25,
+        "maxDepth": 50,
+        "minPlayerLevel": 20,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x00b7",
+        "nest": "0x00df",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "GRASS",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 0,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "MOUNTAIN_WALL",
+            "rate": 100,
+          },
+        ],
+        "outer": "MOUNTAIN_WALL",
+        "inner": "GRANITE",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": [
+        "FINAL_GUARDIAN_468",
+        "FINAL_OBJECT_239",
+        "MONSTER_DIV_16",
+        "WATER_RIVER",
+        "CAVE",
+        "CAVERN",
+        "NO_DOORS",
+        "BIG",
+      ],
+      "monsterFlags": ["TROLL", "GIANT", "CAN_FLY", "ANIMAL", "WILD_MOUNTAIN", "R_CHAR_OYH"],
+    },
+    {
+      "id": 15,
+      "name": {
+        "ja": "金鉱",
+        "en": "Mine",
+      },
+      "description": {
+        "ja": "金鉱",
+        "en": "the entrance to the Mine",
+      },
+      "position": {
+        "min": 23,
+        "max": 49,
+      },
+      "generation": {
+        "minDepth": 75,
+        "maxDepth": 80,
+        "minPlayerLevel": 50,
+        "flagsMode": 3,
+        "minAlloc": 18,
+        "maxAllocChance": 80,
+        "objGood": 80,
+        "objGreat": 25,
+        "pit": "0x0000",
+        "nest": "0x0010",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 0,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 60,
+          },
+          {
+            "type": "MAGMA_TREASURE",
+            "rate": 20,
+          },
+          {
+            "type": "QUARTZ_TREASURE",
+            "rate": 20,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "MONSTER_DIV_1",
+        "WATER_RIVER",
+        "CAVE",
+        "CAVERN",
+        "SMALLEST",
+        "LAVA_RIVER",
+        "DESTROY",
+        "LAKE_ACID",
+        "ACID_RIVER",
+      ],
+      "monsterFlags": ["R_CHAR_$"],
+    },
+    {
+      "id": 16,
+      "name": {
+        "ja": "反魔法の洞窟",
+        "en": "Anti-magic cave",
+      },
+      "description": {
+        "ja": "反魔法の洞窟",
+        "en": "the entrance to the cave filled with anti-magic cloud",
+      },
+      "position": {
+        "min": 6,
+        "max": 84,
+      },
+      "generation": {
+        "minDepth": 40,
+        "maxDepth": 50,
+        "minPlayerLevel": 30,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x01ff",
+        "nest": "0x01ed",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVERN",
+        "WATER_RIVER",
+        "LAVA_RIVER",
+        "ARENA",
+        "DESTROY",
+        "LAKE_WATER",
+        "LAKE_LAVA",
+        "LAKE_RUBBLE",
+        "LAKE_TREE",
+        "MONSTER_DIV_0",
+        "NO_MAGIC",
+      ],
+    },
+    {
+      "id": 17,
+      "name": {
+        "ja": "反攻撃の洞窟",
+        "en": "Anti-melee cave",
+      },
+      "description": {
+        "ja": "反攻撃の洞窟",
+        "en": "the entrance to the cave filled with restricting magical field",
+      },
+      "position": {
+        "min": 45,
+        "max": 47,
+      },
+      "generation": {
+        "minDepth": 40,
+        "maxDepth": 50,
+        "minPlayerLevel": 30,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x01ff",
+        "nest": "0x01ed",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVERN",
+        "WATER_RIVER",
+        "LAVA_RIVER",
+        "ARENA",
+        "DESTROY",
+        "GLASS_ROOM",
+        "LAKE_WATER",
+        "LAKE_LAVA",
+        "LAKE_RUBBLE",
+        "LAKE_TREE",
+        "MONSTER_DIV_0",
+        "NO_MELEE",
+      ],
+    },
+    {
+      "id": 18,
+      "name": {
+        "ja": "カメレオン洞",
+        "en": "Chameleon cave",
+      },
+      "description": {
+        "ja": "カメレオンだけが棲息する洞窟",
+        "en": "the entrance to the chameleon's den",
+      },
+      "position": {
+        "min": 52,
+        "max": 94,
+      },
+      "generation": {
+        "minDepth": 30,
+        "maxDepth": 45,
+        "minPlayerLevel": 30,
+        "flagsMode": 3,
+        "minAlloc": 30,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x0000",
+        "nest": "0x0000",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVERN",
+        "WATER_RIVER",
+        "LAVA_RIVER",
+        "ARENA",
+        "DESTROY",
+        "LAKE_WATER",
+        "LAKE_LAVA",
+        "LAKE_RUBBLE",
+        "LAKE_TREE",
+        "CHAMELEON",
+        "MONSTER_DIV_0",
+        "FINAL_GUARDIAN_1041",
+        "FINAL_OBJECT_617",
+      ],
+      "monsterFlags": ["CHAMELEON"],
+    },
+    {
+      "id": 19,
+      "name": {
+        "ja": "暗闇の洞窟",
+        "en": "Dark cave",
+      },
+      "description": {
+        "ja": "暗闇の洞窟",
+        "en": "the dark entrance to the cave filled with magical darkness",
+      },
+      "position": {
+        "min": 12,
+        "max": 57,
+      },
+      "generation": {
+        "minDepth": 55,
+        "maxDepth": 72,
+        "minPlayerLevel": 30,
+        "flagsMode": 0,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 80,
+        "objGreat": 30,
+        "pit": "0xffff",
+        "nest": "0xffff",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 50,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GRANITE",
+            "rate": 100,
+          },
+        ],
+        "outer": "GRANITE",
+        "inner": "GRANITE",
+        "stream1": "MAGMA_VEIN",
+        "stream2": "QUARTZ_VEIN",
+      },
+      "flags": [
+        "CAVERN",
+        "WATER_RIVER",
+        "LAVA_RIVER",
+        "ARENA",
+        "DESTROY",
+        "GLASS_ROOM",
+        "LAKE_WATER",
+        "LAKE_LAVA",
+        "LAKE_RUBBLE",
+        "LAKE_TREE",
+        "LAKE_ACID",
+        "ACID_RIVER",
+        "LAKE_POISONOUS",
+        "POISONOUS_RIVER",
+        "MONSTER_DIV_64",
+        "DARKNESS",
+        "FINAL_GUARDIAN_803",
+      ],
+    },
+    {
+      "id": 20,
+      "name": {
+        "ja": "ガラスの城",
+        "en": "Glass castle",
+      },
+      "description": {
+        "ja": "ガラスの城",
+        "en": "the entrance to the glass castle",
+      },
+      "position": {
+        "min": 40,
+        "max": 37,
+      },
+      "generation": {
+        "minDepth": 40,
+        "maxDepth": 60,
+        "minPlayerLevel": 30,
+        "flagsMode": 3,
+        "minAlloc": 14,
+        "maxAllocChance": 160,
+        "objGood": 75,
+        "objGreat": 20,
+        "pit": "0x01f8",
+        "nest": "0x033d",
+      },
+      "floor": {
+        "tiles": [
+          {
+            "type": "GLASS_FLOOR",
+            "rate": 100,
+          },
+        ],
+        "tunnelRate": 100,
+      },
+      "wall": {
+        "tiles": [
+          {
+            "type": "GLASS_WALL",
+            "rate": 100,
+          },
+        ],
+        "outer": "GLASS_WALL",
+        "inner": "GLASS_WALL",
+        "stream1": "NONE",
+        "stream2": "NONE",
+      },
+      "flags": ["MONSTER_DIV_0", "ARENA", "NO_CAVE", "CURTAIN", "GLASS_DOOR", "GLASS_ROOM"],
+      "monsterFlags": [
+        "INVISIBLE",
+        "HAS_LITE_1",
+        "SELF_LITE_1",
+        "HAS_LITE_2",
+        "SELF_LITE_2",
+        "HAS_DARK_1",
+        "SELF_DARK_1",
+        "HAS_DARK_2",
+        "SELF_DARK_2",
+      ],
+      "monsterSpells": ["BR_LITE", "BR_DARK", "BA_DARK", "BA_LITE"],
+    },
+  ],
+}
