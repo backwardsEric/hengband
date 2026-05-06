@@ -339,7 +339,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             }
 
             const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
-            (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+            (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
             reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
             break;
         }
@@ -382,7 +382,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                     }
 
                     const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
-                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+                    (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
                     reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
                 } else {
                     if (!this->player_ptr->inventory[INVEN_BODY]->is_valid()) {
@@ -426,7 +426,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                 }
 
                 if (slot) {
-                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+                    (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
                 }
             }
 

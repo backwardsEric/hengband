@@ -164,7 +164,6 @@
                 "ARCADE",
                 "ARENA",
                 "BEGINNER",
-                "BIG",
                 "CAVE",
                 "CAVERN",
                 "CHAMELEON",
@@ -202,6 +201,8 @@
                 "LAKE_RUBBLE",
                 "LAKE_TREE",
                 "LAKE_WATER",
+                "LARGE",
+                "LARGEST",
                 "LAVA_RIVER",
                 "MAZE",
                 "MONSTER_DIV_0",
@@ -219,6 +220,7 @@
                 "NO_VAULT",
                 "POISONOUS_RIVER",
                 "SMALLEST",
+                "SMALL",
                 "WATER_RIVER",
                 "WINNER"
               ]

@@ -77,41 +77,41 @@ static void milim_swimsuit(PlayerType *player_ptr, ItemEntity *o_ptr)
  * @attention プレイヤーの各種ステータスに依存した処理がある。
  * @todo 折を見て関数名を変更すること。
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param o_ptr 対象のオブジェクト構造体ポインタ
+ * @param item 対象のオブジェクト構造体への参照
  * @param a_ptr 生成する固定アーティファクト構造体ポインタ
  * @details
  * 対象は村正、ロビントンのハープ、龍争虎鬪、ブラッディムーン、羽衣、天女の羽衣、ミリム
  */
-static void invest_special_artifact_abilities(PlayerType *player_ptr, ItemEntity *o_ptr)
+static void invest_special_artifact_abilities(PlayerType *player_ptr, ItemEntity &item)
 {
     const auto pc = PlayerClass(player_ptr);
-    switch (o_ptr->fa_id) {
+    switch (item.fa_id) {
     case FixedArtifactId::MURAMASA:
         if (!pc.equals(PlayerClassType::SAMURAI)) {
-            o_ptr->art_flags.set(TR_NO_MAGIC);
-            o_ptr->curse_flags.set(CurseTraitType::HEAVY_CURSE);
+            item.art_flags.set(TR_NO_MAGIC);
+            item.curse_flags.set(CurseTraitType::HEAVY_CURSE);
         }
         return;
     case FixedArtifactId::ROBINTON:
         if (pc.equals(PlayerClassType::BARD)) {
-            o_ptr->art_flags.set(TR_DEC_MANA);
+            item.art_flags.set(TR_DEC_MANA);
         }
         return;
     case FixedArtifactId::XIAOLONG:
         if (pc.equals(PlayerClassType::MONK)) {
-            o_ptr->art_flags.set(TR_BLOWS);
+            item.art_flags.set(TR_BLOWS);
         }
         return;
     case FixedArtifactId::BLOOD:
-        get_bloody_moon_flags(o_ptr);
+        get_bloody_moon_flags(item);
         return;
     case FixedArtifactId::HEAVENLY_MAIDEN:
         if (player_ptr->psex != SEX_FEMALE) {
-            o_ptr->art_flags.set(TR_AGGRAVATE);
+            item.art_flags.set(TR_AGGRAVATE);
         }
         return;
     case FixedArtifactId::MILIM:
-        milim_swimsuit(player_ptr, o_ptr);
+        milim_swimsuit(player_ptr, &item);
         return;
     default:
         break;
@@ -124,17 +124,17 @@ static void invest_special_artifact_abilities(PlayerType *player_ptr, ItemEntity
  * @param a_ptr 固定アーティファクト情報への参照ポインタ
  * @param q_ptr オブジェクト情報への参照ポインタ
  */
-static void fixed_artifact_random_abilities(PlayerType *player_ptr, const ArtifactType &artifact, ItemEntity *o_ptr)
+static void fixed_artifact_random_abilities(PlayerType *player_ptr, const ArtifactType &artifact, ItemEntity &item)
 {
     auto give_power = false;
     auto give_resistance = false;
 
-    if (invest_terror_mask(player_ptr, o_ptr)) {
+    if (invest_terror_mask(player_ptr, &item)) {
         give_power = true;
         give_resistance = true;
     }
 
-    invest_special_artifact_abilities(player_ptr, o_ptr);
+    invest_special_artifact_abilities(player_ptr, item);
 
     if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_POWER)) {
         give_power = true;
@@ -153,15 +153,15 @@ static void fixed_artifact_random_abilities(PlayerType *player_ptr, const Artifa
     }
 
     if (give_power) {
-        one_ability(o_ptr);
+        one_ability(&item);
     }
 
     if (give_resistance) {
-        one_high_resistance(o_ptr);
+        one_high_resistance(&item);
     }
 
     if (artifact.gen_flags.has(ItemGenerationTraitType::XTRA_DICE)) {
-        auto &dice = o_ptr->damage_dice;
+        auto &dice = item.damage_dice;
         do {
             dice.num++;
         } while (one_in_(dice.num));
@@ -228,7 +228,7 @@ void apply_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
     o_ptr->activation_id = artifact.act_idx;
 
     invest_curse_to_fixed_artifact(artifact, o_ptr);
-    fixed_artifact_random_abilities(player_ptr, artifact, o_ptr);
+    fixed_artifact_random_abilities(player_ptr, artifact, *o_ptr);
 }
 
 /*!

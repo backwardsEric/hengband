@@ -157,6 +157,8 @@ public:
     void set_terrain_id_at(const Pos2D &pos, short terrain_id, TerrainKind tk = TerrainKind::NORMAL);
     void place_trap_at(const Pos2D &pos);
 
+    void decide_floor_size();
+
 private:
     bool entering_dungeon = false;
     bool leaving_dungeon = false;
@@ -178,6 +180,16 @@ private:
     std::array<int, REDRAW_MAX> redraw_x{};
 
     static int decide_selection_count();
+    static std::pair<int, int> select_floor_size_beginner();
+    static std::pair<int, int> select_floor_size_small();
+    static tl::optional<std::pair<int, int>> select_floor_size_small_option();
+    static std::pair<int, int> select_floor_size_large();
+    static std::pair<int, int> select_floor_size_normal();
+    static std::pair<int, int> pick_block_size(size_t size);
+    static int calc_blocks(const std::pair<int, int> &block);
 
     void set_note_and_redraw_at(const Pos2D &pos);
+    tl::optional<std::pair<int, int>> try_select_largest_floor() const;
+    tl::optional<std::pair<int, int>> try_select_smallest_floor() const;
+    std::pair<int, int> select_floor_size() const;
 };

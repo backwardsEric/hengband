@@ -25,6 +25,7 @@
 #include "world/world.h"
 #include <algorithm>
 #include <filesystem>
+#include <fmt/format.h>
 #include <string>
 
 //!< @todo コールバック関数に変更するので、いずれ消す.
@@ -271,26 +272,24 @@ void close_auto_dump(FILE **fpp, std::string_view mark)
 
 /*!
  * @brief 全ユーザプロファイルをロードする / Load some "user pref files"
+ *
+ * "{}.prf"をfmt::format() 第1引数へ変数として入れると実行時エラーを吐く場合があるので、リテラルで渡す.
  * @paaram player_ptr プレイヤーへの参照ポインタ
- * @note
- * Modified by Arcum Dagsson to support
- * separate macro files for different realms.
  */
 void load_all_pref_files(PlayerType *player_ptr)
 {
     process_pref_file(player_ptr, "user.prf");
-    process_pref_file(player_ptr, format("user-%s.prf", ANGBAND_SYS));
-    constexpr auto fmt = "%s.prf";
-    process_pref_file(player_ptr, format(fmt, rp_ptr->title.data()));
-    process_pref_file(player_ptr, format(fmt, cp_ptr->title.data()));
-    process_pref_file(player_ptr, format(fmt, player_ptr->base_name));
+    process_pref_file(player_ptr, fmt::format("user-{}.prf", ANGBAND_SYS));
+    process_pref_file(player_ptr, fmt::format("{}.prf", rp_ptr->title));
+    process_pref_file(player_ptr, fmt::format("{}.prf", cp_ptr->title));
+    process_pref_file(player_ptr, fmt::format("{}.prf", player_ptr->base_name));
     PlayerRealm pr(player_ptr);
     if (pr.realm1().is_available()) {
-        process_pref_file(player_ptr, format(fmt, pr.realm1().get_name().data()));
+        process_pref_file(player_ptr, fmt::format("{}.prf", pr.realm1().get_name()));
     }
 
     if (pr.realm2().is_available()) {
-        process_pref_file(player_ptr, format(fmt, pr.realm2().get_name().data()));
+        process_pref_file(player_ptr, fmt::format("{}.prf", pr.realm2().get_name()));
     }
 
     autopick_load_pref(player_ptr, false);

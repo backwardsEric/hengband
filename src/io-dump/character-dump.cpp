@@ -196,14 +196,14 @@ static void dump_aux_options(FILE *fff)
         fmt::print(fff, _("\n 保存モード:         OFF", "\n Preserve Mode:      OFF"));
     }
 
-    if (ironman_small_levels) {
-        fmt::print(fff, _("\n 小さいダンジョン:   ALWAYS", "\n Small Levels:       ALWAYS"));
-    } else if (always_small_levels) {
-        fmt::print(fff, _("\n 小さいダンジョン:   ON", "\n Small Levels:       ON"));
-    } else if (small_levels) {
-        fmt::print(fff, _("\n 小さいダンジョン:   ENABLED", "\n Small Levels:       ENABLED"));
+    if (ironman_smallest_floor) {
+        fmt::print(fff, _("\n (鉄人)最小フロア:   ON", "\n Ironman Smallest Floor:  ON"));
+    } else if (always_small_floor) {
+        fmt::print(fff, _("\n 常に小さめフロア:   ON", "\n Always Small Floor:      ON"));
+    } else if (allow_smallest_floor) {
+        fmt::print(fff, _("\n 最小フロア許可  :   ON", "\n Possible Small Floor:    ON"));
     } else {
-        fmt::print(fff, _("\n 小さいダンジョン:   OFF", "\n Small Levels:       OFF"));
+        fmt::print(fff, _("\n 小さいフロア:       OFF", "\n Small Floor:             OFF"));
     }
 
     if (vanilla_town) {
@@ -228,12 +228,12 @@ static void dump_aux_options(FILE *fff)
         fmt::print(fff, _("\n 悪夢モード:         ON", "\n Nightmare Mode:     ON"));
     }
 
-    if (ironman_empty_levels) {
-        fmt::print(fff, _("\n アリーナ:           ALWAYS", "\n Arena Levels:       ALWAYS"));
-    } else if (empty_levels) {
-        fmt::print(fff, _("\n アリーナ:           ENABLED", "\n Arena Levels:       ENABLED"));
+    if (ironman_force_arena_floor) {
+        fmt::print(fff, _("\n (鉄人)常時アリーナ: ON", "\n Ironman Arena Floor: ON"));
+    } else if (allow_arena_floor) {
+        fmt::print(fff, _("\n アリーナフロア許可: ON", "\n Arena Floor:         ON"));
     } else {
-        fmt::print(fff, _("\n アリーナ:           OFF", "\n Arena Levels:       OFF"));
+        fmt::print(fff, _("\n アリーナフロア許可: OFF", "\n Arena Floor :        OFF"));
     }
 
     fmt::print(fff, "\n");

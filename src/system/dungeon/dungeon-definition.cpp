@@ -211,6 +211,16 @@ void DungeonDefinition::set_guardian_flag()
     }
 }
 
+/*!
+ * @brief 最小面積が保証されるダンジョンにはVAULTを生成しないフラグをセットする.
+ */
+void DungeonDefinition::set_no_vault_flag_if_smallest()
+{
+    if (this->flags.has(DungeonFeatureType::SMALLEST)) {
+        this->flags.set(DungeonFeatureType::NO_VAULT);
+    }
+}
+
 MonraceDefinition &DungeonDefinition::get_guardian()
 {
     return MonraceList::get_instance().get_monrace(this->final_guardian);

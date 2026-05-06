@@ -2165,7 +2165,7 @@
       },
       "symbol": {
         "character": "*",
-        "color": "Black",
+        "color": "Dark Gray",
         "lit": false,
       },
       "mimic": null,
@@ -2360,7 +2360,7 @@
       },
       "symbol": {
         "character": "7",
-        "color": "Black",
+        "color": "Dark Gray",
         "lit": false,
       },
       "mimic": null,
@@ -2558,7 +2558,7 @@
       },
       "symbol": {
         "character": "#",
-        "color": "Black",
+        "color": "Dark Gray",
         "lit": false,
       },
       "mimic": null,
@@ -2619,7 +2619,7 @@
       },
       "symbol": {
         "character": "^",
-        "color": "Black",
+        "color": "Dark Gray",
         "lit": true,
       },
       "mimic": null,
@@ -4051,7 +4051,7 @@
       },
       "symbol": {
         "character": "x",
-        "color": "Black",
+        "color": "Dark Gray",
         "lit": false,
       },
       "mimic": null,
