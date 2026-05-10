@@ -1054,7 +1054,7 @@ hengband_SOURCES = \
 	player-info/alignment.cpp player-info/alignment.h \
 	player-info/bard-data-type.h \
 	player-info/base-status-info.cpp player-info/base-status-info.h \
-	player-info/bluemage-data-type.h \
+	player-info/bluemage-data.cpp player-info/bluemage-data.h \
 	player-info/body-improvement-info.cpp player-info/body-improvement-info.h \
 	player-info/class-ability-info.cpp player-info/class-ability-info.h \
 	player-info/class-types.h \
@@ -1294,6 +1294,7 @@ hengband_SOURCES = \
 	system/floor/floor-list.cpp system/floor/floor-list.h \
 	system/floor/town-info.cpp system/floor/town-info.h \
 	system/floor/town-list.cpp system/floor/town-list.h \
+	system/floor/town-records.cpp system/floor/town-records.h \
 	system/floor/wilderness-grid.cpp system/floor/wilderness-grid.h \
 	\
 	system/monrace/monrace-allocation.cpp system/monrace/monrace-allocation.h \

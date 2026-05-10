@@ -23,6 +23,7 @@
 #include "system/dungeon/dungeon-record.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/town-records.h"
 #include "system/inner-game-data.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
@@ -194,10 +195,10 @@ void set_zangband_action(PlayerType *player_ptr)
     }
 }
 
-void set_zangband_visited_towns(PlayerType *player_ptr)
+void set_zangband_visited_towns()
 {
     strip_bytes(4);
-    player_ptr->visit = 1L;
+    TownRecords::get_instance().initialize();
 }
 
 void set_zangband_quest(PlayerType *player_ptr, QuestType *const q_ptr, const QuestId loading_quest_index, const QuestId old_inside_quest)

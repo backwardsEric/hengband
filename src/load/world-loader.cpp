@@ -11,6 +11,7 @@
 #include "system/dungeon/dungeon-record.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
@@ -137,19 +138,30 @@ static void rd_world_info(PlayerType *player_ptr)
     }
 }
 
-void rd_visited_towns(PlayerType *player_ptr)
+void rd_visited_towns()
 {
+    auto &town_records = TownRecords::get_instance();
     if (h_older_than(0, 3, 9)) {
-        player_ptr->visit = 1L;
+        town_records.set_visited(TownId::OUTPOST);
         return;
     }
 
     if (h_older_than(0, 3, 10)) {
-        set_zangband_visited_towns(player_ptr);
+        set_zangband_visited_towns();
         return;
     }
 
-    player_ptr->visit = rd_u32b();
+    if (loading_savefile_version_is_older_than(24)) {
+        const auto tmp32u = rd_u32b();
+        EnumClassFlagGroup<TownId> visited_towns;
+        migrate_bitflag_to_flaggroup(visited_towns, tmp32u);
+        town_records.set_ids(visited_towns);
+        return;
+    }
+
+    EnumClassFlagGroup<TownId> visited_towns;
+    rd_FlagGroup(visited_towns, rd_byte);
+    town_records.set_ids(visited_towns);
 }
 
 void rd_global_configurations(PlayerType *player_ptr)

@@ -15,9 +15,11 @@
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/town-records.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/timed-effects.h"
+#include "util/flag-group.h"
 #include "world/world.h"
 #include <variant>
 
@@ -280,6 +282,6 @@ void wr_player(PlayerType *player_ptr)
     /* Save temporary preserved pets (obsolated) */
     wr_s16b(0);
     wr_u32b(world.play_time.elapsed_sec());
-    wr_s32b(player_ptr->visit);
+    wr_FlagGroup(TownRecords::get_instance().get_ids(), wr_byte);
     wr_u32b(player_ptr->count);
 }

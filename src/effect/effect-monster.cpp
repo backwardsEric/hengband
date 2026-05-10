@@ -145,7 +145,7 @@ static ProcessResult exe_affect_monster_by_effect(PlayerType *player_ptr, Effect
         return result;
     }
 
-    bool do_effect = em_ptr->r_ptr->resistance_flags.has_not(MonsterResistanceType::RESIST_ALL);
+    bool do_effect = em_ptr->monrace->resistance_flags.has_not(MonsterResistanceType::RESIST_ALL);
     do_effect |= std::any_of(effect_arrtibute.cbegin(), effect_arrtibute.cend(), check);
 
     if (do_effect) {
@@ -156,14 +156,14 @@ static ProcessResult exe_affect_monster_by_effect(PlayerType *player_ptr, Effect
     ignore_res_all |= (em_ptr->attribute == AttributeType::MONSTER_MELEE);
     ignore_res_all |= (em_ptr->attribute == AttributeType::MONSTER_SHOOT);
 
-    if (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::RESIST_ALL) && ignore_res_all) {
+    if (em_ptr->monrace->resistance_flags.has(MonsterResistanceType::RESIST_ALL) && ignore_res_all) {
         return switch_effects_monster(player_ptr, em_ptr);
     }
 
     em_ptr->note = _("には完全な耐性がある！", " is immune.");
     em_ptr->dam = 0;
     if (is_original_ap_and_seen(player_ptr, *em_ptr->m_ptr)) {
-        em_ptr->r_ptr->r_resistance_flags.set(MonsterResistanceType::RESIST_ALL);
+        em_ptr->monrace->r_resistance_flags.set(MonsterResistanceType::RESIST_ALL);
     }
 
     if (em_ptr->attribute == AttributeType::LITE_WEAK || em_ptr->attribute == AttributeType::KILL_WALL) {
@@ -368,10 +368,10 @@ static void effect_makes_change_virtues(PlayerType *player_ptr, EffectMonster *e
         return;
     }
 
-    if (em_ptr->r_ptr->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
+    if (em_ptr->monrace->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
         chg_virtue(player_ptr, Virtue::COMPASSION, -1);
     }
-    if (em_ptr->r_ptr->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
+    if (em_ptr->monrace->kind_flags.has_not(MonsterKindType::EVIL) || one_in_(5)) {
         chg_virtue(player_ptr, Virtue::HONOUR, -1);
     }
 }
@@ -383,7 +383,7 @@ static void effect_makes_change_virtues(PlayerType *player_ptr, EffectMonster *e
  */
 static void affected_monster_prevents_bad_status(EffectMonster *em_ptr)
 {
-    const auto &monrace = *em_ptr->r_ptr;
+    const auto &monrace = *em_ptr->monrace;
     auto can_avoid_polymorph = monrace.kind_flags.has(MonsterKindType::UNIQUE);
     can_avoid_polymorph |= monrace.misc_flags.has(MonsterMiscType::QUESTOR);
     can_avoid_polymorph |= em_ptr->m_ptr->is_riding();
@@ -407,7 +407,7 @@ static void affected_monster_prevents_bad_status(EffectMonster *em_ptr)
  */
 static void effect_damage_piles_stun(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    const auto &monrace = *em_ptr->r_ptr;
+    const auto &monrace = *em_ptr->monrace;
     auto can_avoid_stun = em_ptr->do_stun == 0;
     can_avoid_stun |= monrace.resistance_flags.has(MonsterResistanceType::NO_STUN);
     if (can_avoid_stun) {
@@ -439,7 +439,7 @@ static void effect_damage_piles_stun(PlayerType *player_ptr, EffectMonster *em_p
  */
 static void effect_damage_piles_confusion(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if ((em_ptr->do_conf == 0) || (em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_CONF))) {
+    if ((em_ptr->do_conf == 0) || (em_ptr->monrace->resistance_flags.has(MonsterResistanceType::NO_CONF))) {
         return;
     }
 
@@ -470,7 +470,7 @@ static void effect_damage_piles_confusion(PlayerType *player_ptr, EffectMonster 
  */
 static void effect_damage_piles_fear(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if (em_ptr->do_fear == 0 || em_ptr->r_ptr->resistance_flags.has(MonsterResistanceType::NO_FEAR)) {
+    if (em_ptr->do_fear == 0 || em_ptr->monrace->resistance_flags.has(MonsterResistanceType::NO_FEAR)) {
         return;
     }
 
@@ -514,7 +514,7 @@ static void effect_damage_makes_weak(EffectMonster *em_ptr)
  */
 static void effect_damage_makes_polymorph(PlayerType *player_ptr, EffectMonster *em_ptr)
 {
-    if (!em_ptr->do_polymorph || (randint1(90) <= em_ptr->r_ptr->level)) {
+    if (!em_ptr->do_polymorph || (randint1(90) <= em_ptr->monrace->level)) {
         return;
     }
 
@@ -528,7 +528,7 @@ static void effect_damage_makes_polymorph(PlayerType *player_ptr, EffectMonster 
     }
 
     em_ptr->m_ptr = &player_ptr->current_floor_ptr->m_list[em_ptr->g_ptr->m_idx];
-    em_ptr->r_ptr = &em_ptr->m_ptr->get_monrace();
+    em_ptr->monrace = em_ptr->m_ptr->get_monrace_shared();
 }
 
 /*!

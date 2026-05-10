@@ -299,7 +299,7 @@ static void allocate_loaded_floor(PlayerType *player_ptr, saved_floor_type *sf_p
 {
     GAME_TURN tmp_last_visit = sf_ptr->last_visit;
     const auto &floor = *player_ptr->current_floor_ptr;
-    auto alloc_chance = floor.get_dungeon_definition().max_m_alloc_chance;
+    auto alloc_chance = floor.get_dungeon_definition().additional_monster_spawn_chance;
     const auto &world = AngbandWorld::get_instance();
     while (tmp_last_visit > world.game_turn) {
         tmp_last_visit -= TURNS_PER_TICK * TOWN_DAWN;

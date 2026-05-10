@@ -29,6 +29,7 @@
 #include "system/floor/floor-info.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
+#include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
@@ -277,8 +278,9 @@ bool tele_town(PlayerType *player_ptr)
 
     auto num = 0;
     const int towns_size = towns_info.size();
+    const auto &town_records = TownRecords::get_instance();
     for (auto i = 1; i < towns_size; i++) {
-        if ((i == VALID_TOWNS) || (i == SECRET_TOWN) || (i == player_ptr->town_num) || !(player_ptr->visit & (1UL << (i - 1)))) {
+        if ((i == VALID_TOWNS) || (i == SECRET_TOWN) || (i == player_ptr->town_num) || !town_records.has_visited(i2enum<TownId>(i - 1))) {
             continue;
         }
 
@@ -309,7 +311,7 @@ bool tele_town(PlayerType *player_ptr)
         }
 
         const auto town_num = key - 'a' + 1;
-        if ((town_num == player_ptr->town_num) || (town_num == VALID_TOWNS) || (town_num == SECRET_TOWN) || !(player_ptr->visit & (1UL << (key - 'a')))) {
+        if ((town_num == player_ptr->town_num) || (town_num == VALID_TOWNS) || (town_num == SECRET_TOWN) || !town_records.has_visited(i2enum<TownId>(key - 'a'))) {
             continue;
         }
 

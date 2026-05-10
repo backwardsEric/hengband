@@ -29,7 +29,7 @@
 #include "monster/monster-util.h"
 #include "mutation/mutation-investor-remover.h"
 #include "player-base/player-class.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/mane-data-type.h"
 #include "player-info/samurai-data-type.h"
 #include "player-info/sniper-data-type.h"
@@ -332,7 +332,7 @@ void process_player(PlayerType *player_ptr)
                     continue;
                 }
 
-                const auto &monrace = monster.get_appearance_monrace();
+                const auto &monrace = monster.get_apparent_monrace();
 
                 // モンスターのシンボル/カラーの更新
                 if (monster.ml && monrace.visual_flags.has_any_of({ MonsterVisualType::MULTI_COLOR, MonsterVisualType::SHAPECHANGER })) {
@@ -380,7 +380,7 @@ void process_player(PlayerType *player_ptr)
             }
 
             if (player_ptr->action == ACTION_LEARN) {
-                auto mane_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
+                auto mane_data = PlayerClass(player_ptr).get_specific_data<BluemageData>();
                 mane_data->new_magic_learned = false;
                 rfu.set_flag(MainWindowRedrawingFlag::ACTION);
             }

@@ -5,29 +5,17 @@
  */
 
 #include "io-dump/special-class-dump.h"
-#include "blue-magic/blue-magic-checker.h"
-#include "cmd-item/cmd-magiceat.h"
-#include "mind/mind-blue-mage.h"
-#include "monster-race/race-ability-flags.h"
-#include "mspell/monster-power-table.h"
-#include "object/tval-types.h"
 #include "player-base/player-class.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/magic-eater-data-type.h"
 #include "smith/object-smith.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "system/player-type-definition.h"
-#include "util/enum-converter.h"
-#include "util/flag-group.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <iterator>
 #include <string>
 #include <vector>
-
-struct learnt_spell_table {
-    EnumClassFlagGroup<MonsterAbilityType> ability_flags;
-};
 
 /*!
  * @brief 魔力喰いを持つクラスの情報をダンプする
@@ -124,103 +112,6 @@ static void dump_smith(PlayerType *player_ptr, FILE *fff)
 }
 
 /*!
- * @brief ダンプする情報に学習済魔法の種類を追加する
- * @param p ダンプ用のバッファ
- * @param col 行数
- * @param SpellProcessType 魔法の種類
- * @param learnt_spell_ptr 学習済魔法のテーブル
- */
-static void add_monster_spell_type(char p[][80], int col, BlueMagicType SpellProcessType, learnt_spell_table *learnt_spell_ptr)
-{
-    learnt_spell_ptr->ability_flags.clear();
-    set_rf_masks(learnt_spell_ptr->ability_flags, SpellProcessType);
-    switch (SpellProcessType) {
-    case BlueMagicType::BOLT:
-        strcat(p[col], _("\n     [ボルト型]\n", "\n     [Bolt  Type]\n"));
-        break;
-
-    case BlueMagicType::BALL:
-        strcat(p[col], _("\n     [ボール型]\n", "\n     [Ball  Type]\n"));
-        break;
-
-    case BlueMagicType::BREATH:
-        strcat(p[col], _("\n     [ブレス型]\n", "\n     [  Breath  ]\n"));
-        break;
-
-    case BlueMagicType::SUMMON:
-        strcat(p[col], _("\n     [召喚魔法]\n", "\n     [Summonning]\n"));
-        break;
-
-    case BlueMagicType::OTHER:
-        strcat(p[col], _("\n     [ その他 ]\n", "\n     [Other Type]\n"));
-        break;
-    }
-}
-
-/*!
- * @brief 青魔道士の学習済魔法をダンプする
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param fff ファイルポインタ
- */
-static void dump_blue_mage(PlayerType *player_ptr, FILE *fff)
-{
-    const auto bluemage_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
-    if (!bluemage_data) {
-        return;
-    }
-
-    char p[60][80]{};
-    auto col = 0;
-    strcat(p[col], _("\n\n  [学習済みの青魔法]\n", "\n\n  [Learned Blue Magic]\n"));
-
-    for (auto SpellProcessType : BLUE_MAGIC_TYPE_LIST) {
-        col++;
-        learnt_spell_table learnt_magic;
-        add_monster_spell_type(p, col, SpellProcessType, &learnt_magic);
-        learnt_magic.ability_flags &= bluemage_data->learnt_blue_magics;
-
-        std::vector<MonsterAbilityType> learnt_spells;
-        EnumClassFlagGroup<MonsterAbilityType>::get_flags(learnt_magic.ability_flags, std::back_inserter(learnt_spells));
-
-        col++;
-        auto pcol = false;
-        strcat(p[col], "       ");
-
-        for (auto spell : learnt_spells) {
-            pcol = true;
-            auto l1 = strlen(p[col]);
-            auto l2 = strlen(monster_powers_short.at(spell));
-            if ((l1 + l2) >= 75) {
-                strcat(p[col], "\n");
-                col++;
-                strcat(p[col], "       ");
-            }
-
-            strcat(p[col], monster_powers_short.at(spell));
-            strcat(p[col], ", ");
-        }
-
-        if (!pcol) {
-            strcat(p[col], _("なし", "None"));
-            strcat(p[col], "\n");
-            continue;
-        }
-
-        if (p[col][strlen(p[col]) - 2] == ',') {
-            p[col][strlen(p[col]) - 2] = '\0';
-        } else {
-            p[col][strlen(p[col]) - 10] = '\0';
-        }
-
-        strcat(p[col], "\n");
-    }
-
-    for (int i = 0; i <= col; i++) {
-        fputs(p[i], fff);
-    }
-}
-
-/*!
  * @brief プレイヤーの職業能力情報をファイルにダンプする
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param fff ファイルポインタ
@@ -237,7 +128,16 @@ void dump_aux_class_special(PlayerType *player_ptr, FILE *fff)
         return;
     }
     case PlayerClassType::BLUE_MAGE: {
-        dump_blue_mage(player_ptr, fff);
+        const auto bluemage_data = PlayerClass(player_ptr).get_specific_data<BluemageData>();
+        std::vector<std::string> lines;
+        if (bluemage_data) {
+            lines = bluemage_data->build_learnt_magics_info();
+        }
+
+        for (const auto &line : lines) {
+            fmt::print(fff, "{}", line);
+        }
+
         return;
     }
     default:

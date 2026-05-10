@@ -9,7 +9,7 @@
 #include "inventory/inventory-slot-types.h"
 #include "mind/mind-elementalist.h"
 #include "player-info/bard-data-type.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/equipment-info.h"
 #include "player-info/force-trainer-data-type.h"
 #include "player-info/magic-eater-data-type.h"
@@ -495,7 +495,7 @@ void PlayerClass::init_specific_data()
         this->player_ptr->class_specific_data = std::make_shared<force_trainer_data_type>();
         break;
     case PlayerClassType::BLUE_MAGE:
-        this->player_ptr->class_specific_data = std::make_shared<bluemage_data_type>();
+        this->player_ptr->class_specific_data = std::make_shared<BluemageData>();
         break;
     case PlayerClassType::MAGIC_EATER:
         this->player_ptr->class_specific_data = std::make_shared<MagicEaterDataList>();

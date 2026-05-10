@@ -188,7 +188,7 @@ static void on_dead_can_angel(PlayerType *player_ptr, MonsterDeath *md_ptr)
 {
     auto is_drop_can = md_ptr->drop_chosen_item;
     auto is_silver = md_ptr->m_ptr->r_idx == MonraceId::A_SILVER;
-    is_silver &= md_ptr->r_ptr->r_akills % 5 == 0;
+    is_silver &= md_ptr->monrace->r_akills % 5 == 0;
     is_drop_can &= (md_ptr->m_ptr->r_idx == MonraceId::A_GOLD) || is_silver;
     if (!is_drop_can) {
         return;
@@ -287,7 +287,7 @@ static void on_dead_mimics(PlayerType *player_ptr, MonsterDeath *md_ptr)
         return;
     }
 
-    switch (md_ptr->r_ptr->symbol_definition.character) {
+    switch (md_ptr->monrace->symbol_definition.character) {
     case '(':
         if (player_ptr->current_floor_ptr->dun_level <= 0) {
             return;
@@ -346,7 +346,7 @@ static void on_dead_swordfish(PlayerType *player_ptr, MonsterDeath *md_ptr, Attr
 
 void switch_special_death(PlayerType *player_ptr, MonsterDeath *md_ptr, AttributeFlags attribute_flags)
 {
-    auto &monrace = MonraceList::get_instance().get_monrace(md_ptr->ap_r_ptr->idx);
+    auto &monrace = MonraceList::get_instance().get_monrace(md_ptr->apparent_monrace->idx);
     const auto &summon_list = monrace.get_final_summons();
     if (!summon_list.empty()) {
         auto do_message = false;
@@ -365,7 +365,7 @@ void switch_special_death(PlayerType *player_ptr, MonsterDeath *md_ptr, Attribut
         return;
     }
 
-    switch (md_ptr->ap_r_ptr->idx) {
+    switch (md_ptr->apparent_monrace->idx) {
     case MonraceId::BLOODLETTER:
         on_dead_bloodletter(player_ptr, md_ptr);
         return;

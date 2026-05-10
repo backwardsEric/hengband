@@ -39,7 +39,7 @@ void rd_extra(PlayerType *player_ptr)
         world.play_time = ElapsedTime(rd_u32b());
     }
 
-    rd_visited_towns(player_ptr);
+    rd_visited_towns();
     if (!h_older_than(1, 0, 5)) {
         player_ptr->count = rd_u32b();
     }

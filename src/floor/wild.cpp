@@ -35,6 +35,7 @@
 #include "system/floor/floor-info.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
+#include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
@@ -287,7 +288,7 @@ static void generate_area(PlayerType *player_ptr, const Pos2D &pos, bool is_bord
 
         parse_fixed_map(player_ptr, TOWN_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID);
         if (!is_corner && !is_border) {
-            player_ptr->visit |= (1UL << (player_ptr->town_num - 1));
+            TownRecords::get_instance().set_visited(i2enum<TownId>(player_ptr->town_num - 1));
         }
     } else {
         generate_wilderness_area(floor, wg, is_corner);
@@ -641,32 +642,31 @@ tl::expected<Pos2D, parse_error_type> parse_line_wilderness(char *line, int xmin
     case 'E':
 #endif
     {
-        char *zz[33];
-        const auto num = tokenize(line + 4, 6, zz, 0);
-        if (num <= 1) {
+        const auto tokens = tokenize(line + 4, 6);
+        if (tokens.size() <= 1) {
             return tl::unexpected(PARSE_ERROR_TOO_FEW_ARGUMENTS);
         }
 
-        const int index = zz[0][0];
+        const auto index = tokens.at(0).at(0);
         auto &letter = letters.get_grid(index);
-        if (num > 1) {
-            letter.set_terrain(i2enum<WildernessTerrain>(std::stoi(zz[1])));
+        if (tokens.size() > 1) {
+            letter.set_terrain(i2enum<WildernessTerrain>(std::stoi(tokens.at(1))));
         }
 
-        if (num > 2) {
-            letter.set_level(std::stoi(zz[2]));
+        if (tokens.size() > 2) {
+            letter.set_level(std::stoi(tokens.at(2)));
         }
 
-        if (num > 3) {
-            letter.set_town(static_cast<short>(std::stoi(zz[3])));
+        if (tokens.size() > 3) {
+            letter.set_town(static_cast<short>(std::stoi(tokens.at(3))));
         }
 
-        if (num > 4) {
-            letter.set_road(std::stoi(zz[4]));
+        if (tokens.size() > 4) {
+            letter.set_road(std::stoi(tokens.at(4)));
         }
 
-        if (num > 5) {
-            letter.set_name(zz[5]);
+        if (tokens.size() > 5) {
+            letter.set_name(tokens.at(5));
         }
 
         break;
@@ -695,12 +695,12 @@ tl::expected<Pos2D, parse_error_type> parse_line_wilderness(char *line, int xmin
             break;
         }
 
-        char *zz[33];
-        if (tokenize(line + 4, 2, zz, 0) != 2) {
+        const auto tokens = tokenize(line + 4, 2);
+        if (tokens.size() != 2) {
             return tl::unexpected(PARSE_ERROR_TOO_FEW_ARGUMENTS);
         }
 
-        wilderness.set_starting_player_position({ std::stoi(zz[0]), std::stoi(zz[1]) });
+        wilderness.set_starting_player_position({ std::stoi(tokens.at(0)), std::stoi(tokens.at(1)) });
         wilderness.initialize_position();
         if (!wilderness.is_player_in_bounds()) {
             return tl::unexpected(PARSE_ERROR_OUT_OF_BOUNDS);

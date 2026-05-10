@@ -300,7 +300,7 @@ static void decide_dungeon_data_allocation(PlayerType *player_ptr, DungeonData *
         dd_ptr->alloc_object_num = 2;
     }
 
-    dd_ptr->alloc_monster_num = dungeon.min_m_alloc_level;
+    dd_ptr->alloc_monster_num = dungeon.min_monster_count_on_floor;
     if (floor.height >= MAX_HGT && floor.width >= MAX_WID) {
         return;
     }

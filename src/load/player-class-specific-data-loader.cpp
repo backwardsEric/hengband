@@ -1,7 +1,7 @@
 #include "load/player-class-specific-data-loader.h"
 #include "load/load-util.h"
 #include "player-info/bard-data-type.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/force-trainer-data-type.h"
 #include "player-info/magic-eater-data-type.h"
 #include "player-info/mane-data-type.h"
@@ -79,7 +79,7 @@ void PlayerClassSpecificDataLoader::operator()(std::shared_ptr<force_trainer_dat
     }
 }
 
-void PlayerClassSpecificDataLoader::operator()(std::shared_ptr<bluemage_data_type> &bluemage_data) const
+void PlayerClassSpecificDataLoader::operator()(std::shared_ptr<BluemageData> &bluemage_data) const
 {
     if (loading_savefile_version_is_older_than(9)) {
         auto [magic_num1, magic_num2] = load_old_savfile_magic_num();

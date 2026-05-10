@@ -56,8 +56,7 @@ void do_cmd_pref(PlayerType *player_ptr)
         return;
     }
 
-    auto buf(*input_str);
-    (void)interpret_pref_file(player_ptr, buf.data());
+    (void)interpret_pref_file(player_ptr, *input_str);
 }
 
 /*

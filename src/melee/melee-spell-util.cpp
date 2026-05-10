@@ -16,7 +16,7 @@ melee_spell_type::melee_spell_type(PlayerType *player_ptr, MONSTER_IDX m_idx)
     auto &floor = *player_ptr->current_floor_ptr;
     this->m_ptr = &floor.m_list[m_idx];
     this->t_ptr = nullptr;
-    this->r_ptr = &this->m_ptr->get_monrace();
+    this->monrace = this->m_ptr->get_monrace_shared();
     this->see_m = is_seen(player_ptr, *this->m_ptr);
     this->maneable = floor.has_los_at(this->m_ptr->get_position());
     this->pet = this->m_ptr->is_pet();

@@ -122,7 +122,7 @@ static errr process_pref_file_aux(PlayerType *player_ptr, const std::filesystem:
             continue;
         }
 
-        err = interpret_pref_file(player_ptr, line_str->data());
+        err = interpret_pref_file(player_ptr, *line_str);
         if (err != 0) {
             if (preftype != PREF_TYPE_AUTOPICK) {
                 break;

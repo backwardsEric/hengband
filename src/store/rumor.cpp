@@ -3,6 +3,7 @@
 #include "flavor/object-flavor-types.h"
 #include "io/files-util.h"
 #include "io/tokenizer.h"
+#include "locale/language-switcher.h"
 #include "object-enchant/special-object-flags.h"
 #include "system/angband-exceptions.h"
 #include "system/artifact-type-definition.h"
@@ -14,6 +15,7 @@
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
+#include "system/floor/town-records.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -53,16 +55,15 @@ T get_rumor_num(std::string_view zz, U max_idx)
  * @return トークン群の配列を返す。フィールドの数が合わない場合はtl::nulloptを返す。
  * @todo tmp_tokensを使わず単なるsplitにすればもっと簡略化できそう
  */
-tl::optional<std::vector<std::string>> get_rumor_tokens(std::string rumor)
+tl::optional<std::vector<std::string>> get_rumor_tokens(std::string_view rumor)
 {
     constexpr auto num_tokens = 3;
-    char *tmp_tokens[num_tokens];
-    if (tokenize(rumor.data() + 2, num_tokens, tmp_tokens, TOKENIZE_CHECKQUOTE) != num_tokens) {
+    const auto tokens = tokenize(rumor.substr(2), num_tokens);
+    if (tokens.size() != num_tokens) {
         msg_print(_("この情報は間違っている。", "This information is wrong."));
         return tl::nullopt;
     }
 
-    std::vector<std::string> tokens(std::begin(tmp_tokens), std::end(tmp_tokens));
     return tokens;
 }
 }
@@ -195,9 +196,10 @@ public:
         const auto &town_name = towns_info[town_rumor.t_idx].name;
         this->print_rumor(town_name);
 
-        const uint32_t visit = (1U << (town_rumor.t_idx - 1));
-        if ((town_rumor.t_idx != SECRET_TOWN) && !(player_ptr->visit & visit)) {
-            player_ptr->visit |= visit;
+        const auto town_id = i2enum<TownId>(town_rumor.t_idx - 1);
+        auto &town_records = TownRecords::get_instance();
+        if ((town_rumor.t_idx != SECRET_TOWN) && !town_records.has_visited(town_id)) {
+            town_records.set_visited(town_id);
             msg_erase();
             msg_print(_("{}に行ったことがある気がする。", "You feel you have been to {}."), town_name);
         }

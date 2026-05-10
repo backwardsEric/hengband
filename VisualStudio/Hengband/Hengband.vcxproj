@@ -309,6 +309,8 @@
     <ClCompile Include="..\..\src\external-lib\fmt\format.cc" />
     <ClCompile Include="..\..\src\io\macro-configurations-store.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-movement-direction-list.cpp" />
+    <ClCompile Include="..\..\src\player-info\bluemage-data.cpp" />
+    <ClCompile Include="..\..\src\system\floor\town-records.cpp" />
     <ClCompile Include="..\..\src\system\floor\wilderness-grid.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-monrace-service.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-service.cpp" />
@@ -1037,6 +1039,7 @@
     <ClInclude Include="..\..\src\monster-floor\monster-movement-direction-list.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\terrain-kind.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h" />
+    <ClInclude Include="..\..\src\system\floor\town-records.h" />
     <ClInclude Include="..\..\src\system\floor\wilderness-grid.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-monrace-service.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-service.h" />
@@ -1176,7 +1179,7 @@
     <ClInclude Include="..\..\src\player-base\player-race.h" />
     <ClInclude Include="..\..\src\player-info\alignment.h" />
     <ClInclude Include="..\..\src\player-info\bard-data-type.h" />
-    <ClInclude Include="..\..\src\player-info\bluemage-data-type.h" />
+    <ClInclude Include="..\..\src\player-info\bluemage-data.h" />
     <ClInclude Include="..\..\src\player-info\class-specific-data.h" />
     <ClInclude Include="..\..\src\player-info\equipment-info.h" />
     <ClInclude Include="..\..\src\player-info\force-trainer-data-type.h" />

@@ -179,9 +179,9 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
     }
 }
 
-static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
+static bool parse_qtw_QQ(QuestType *q_ptr, const std::vector<std::string> &tokens, int num)
 {
-    if (zz[1][0] != 'Q') {
+    if (tokens[1][0] != 'Q') {
         return false;
     }
 
@@ -193,18 +193,18 @@ static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
         return true;
     }
 
-    q_ptr->type = i2enum<QuestKindType>(atoi(zz[2]));
-    q_ptr->num_mon = (MONSTER_NUMBER)atoi(zz[3]);
-    q_ptr->cur_num = (MONSTER_NUMBER)atoi(zz[4]);
-    q_ptr->max_num = (MONSTER_NUMBER)atoi(zz[5]);
-    q_ptr->level = (DEPTH)atoi(zz[6]);
-    q_ptr->r_idx = i2enum<MonraceId>(atoi(zz[7]));
-    const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[8]));
+    q_ptr->type = i2enum<QuestKindType>(std::stoi(tokens[2]));
+    q_ptr->num_mon = std::stoi(tokens[3]);
+    q_ptr->cur_num = std::stoi(tokens[4]);
+    q_ptr->max_num = std::stoi(tokens[5]);
+    q_ptr->level = std::stoi(tokens[6]);
+    q_ptr->r_idx = i2enum<MonraceId>(std::stoi(tokens[7]));
+    const auto fa_id = i2enum<FixedArtifactId>(std::stoi(tokens[8]));
     q_ptr->reward_fa_id = fa_id;
-    q_ptr->dungeon = i2enum<DungeonId>(std::atoi(zz[9]));
+    q_ptr->dungeon = i2enum<DungeonId>(std::stoi(tokens[9]));
 
     if (num > 10) {
-        q_ptr->flags = atoi(zz[10]);
+        q_ptr->flags = std::stoi(tokens[10]);
     }
 
     auto &monrace = q_ptr->get_bounty();
@@ -224,9 +224,9 @@ static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
 /*!
  * @todo 処理がどうなっているのかいずれチェックする
  */
-static bool parse_qtw_QR(QuestType *q_ptr, char **zz, int num)
+static bool parse_qtw_QR(QuestType *q_ptr, const std::vector<std::string> &tokens, int num)
 {
-    if (zz[1][0] != 'R') {
+    if (tokens[1][0] != 'R') {
         return false;
     }
 
@@ -238,7 +238,7 @@ static bool parse_qtw_QR(QuestType *q_ptr, char **zz, int num)
     auto reward_idx = FixedArtifactId::NONE;
     auto &artifacts = ArtifactList::get_instance();
     for (auto idx = 2; idx < num; idx++) {
-        const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[idx]));
+        const auto fa_id = i2enum<FixedArtifactId>(std::stoi(tokens[idx]));
         if (fa_id == FixedArtifactId::NONE) {
             continue;
         }
@@ -266,10 +266,10 @@ static bool parse_qtw_QR(QuestType *q_ptr, char **zz, int num)
 /*!
  * @brief t_info、q_info、w_infoにおけるQトークンをパースする
  * @param qtwg_ptr トークンパース構造体への参照ポインタ
- * @param zz トークン保管文字列
+ * @param tokens トークン保管文字列
  * @return エラーコード、但しPARSE_CONTINUEの時は処理続行
  */
-static int parse_qtw_Q(qtwg_type *qtwg_ptr, char **zz)
+static int parse_qtw_Q(qtwg_type *qtwg_ptr)
 {
     if (qtwg_ptr->buf[0] != 'Q') {
         return PARSE_CONTINUE;
@@ -285,32 +285,33 @@ static int parse_qtw_Q(qtwg_type *qtwg_ptr, char **zz)
     }
 #endif
 
-    int num = tokenize(qtwg_ptr->buf + _(2, 3), 33, zz, 0);
-    if (num < 3) {
+    const auto tokens = tokenize(qtwg_ptr->buf + _(2, 3), 33);
+    const auto size = tokens.size();
+    if (size < 3) {
         return PARSE_ERROR_TOO_FEW_ARGUMENTS;
     }
 
     auto &quests = QuestList::get_instance();
-    auto &quest = quests.get_quest(i2enum<QuestId>(atoi(zz[0])));
-    if (parse_qtw_QQ(&quest, zz, num)) {
+    auto &quest = quests.get_quest(i2enum<QuestId>(std::stoi(tokens[0])));
+    if (parse_qtw_QQ(&quest, tokens, size)) {
         return PARSE_ERROR_NONE;
     }
 
-    if (parse_qtw_QR(&quest, zz, num)) {
+    if (parse_qtw_QR(&quest, tokens, size)) {
         return PARSE_ERROR_NONE;
     }
 
-    if (zz[1][0] == 'N') {
+    if (tokens[1][0] == 'N') {
         if (init_flags & (INIT_ASSIGN | INIT_SHOW_TEXT | INIT_NAME_ONLY)) {
-            quest.name = zz[2];
+            quest.name = tokens[2];
         }
 
         return PARSE_ERROR_NONE;
     }
 
-    if (zz[1][0] == 'T') {
+    if (tokens[1][0] == 'T') {
         if ((init_flags & INIT_SHOW_TEXT) && (std::ssize(quest_text_lines) < QUEST_TEST_LINES_MAX)) {
-            quest_text_lines.emplace_back(zz[2]);
+            quest_text_lines.emplace_back(tokens[2]);
         }
 
         return PARSE_ERROR_NONE;
@@ -319,7 +320,7 @@ static int parse_qtw_Q(qtwg_type *qtwg_ptr, char **zz)
     return PARSE_ERROR_GENERIC;
 }
 
-static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
+static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr)
 {
     if (qtwg_ptr->buf[0] != 'P') {
         return false;
@@ -329,7 +330,8 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
         return true;
     }
 
-    if (tokenize(qtwg_ptr->buf + 2, 2, zz, 0) != 2) {
+    const auto tokens = tokenize(qtwg_ptr->buf + 2, 2);
+    if (tokens.size() != 2) {
         return true;
     }
 
@@ -349,17 +351,15 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
     panel_row_min = floor.height;
     panel_col_min = floor.width;
     if (floor.is_in_quest()) {
-        POSITION py = atoi(zz[0]);
-        POSITION px = atoi(zz[1]);
-        player_ptr->y = py;
-        player_ptr->x = px;
+        Pos2D p_pos(std::stoi(tokens[0]), std::stoi(tokens[1]));
+        player_ptr->set_position(p_pos);
         delete_monster(player_ptr, player_ptr->get_position());
         return true;
     }
 
     if (!player_ptr->oldpx && !player_ptr->oldpy) {
-        player_ptr->oldpy = atoi(zz[0]);
-        player_ptr->oldpx = atoi(zz[1]);
+        player_ptr->oldpy = std::stoi(tokens[0]);
+        player_ptr->oldpx = std::stoi(tokens[1]);
     }
 
     return true;
@@ -381,7 +381,6 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
  */
 parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtwg_ptr, process_dungeon_file_pf parse_fixed_map)
 {
-    char *zz[33];
     if (!qtwg_ptr->buf[0]) {
         return PARSE_ERROR_NONE;
     }
@@ -418,7 +417,7 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
         return PARSE_ERROR_NONE;
     }
 
-    parse_error_type parse_result_Q = i2enum<parse_error_type>(parse_qtw_Q(qtwg_ptr, zz));
+    parse_error_type parse_result_Q = i2enum<parse_error_type>(parse_qtw_Q(qtwg_ptr));
     if (parse_result_Q != PARSE_CONTINUE) {
         return parse_result_Q;
     }
@@ -434,7 +433,7 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
         return pos.error_or(PARSE_ERROR_NONE);
     }
 
-    if (parse_qtw_P(player_ptr, qtwg_ptr, zz)) {
+    if (parse_qtw_P(player_ptr, qtwg_ptr)) {
         return PARSE_ERROR_NONE;
     }
 

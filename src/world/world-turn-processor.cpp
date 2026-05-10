@@ -312,7 +312,7 @@ void WorldTurnProcessor::shuffle_shopkeeper()
 void WorldTurnProcessor::decide_alloc_monster()
 {
     const auto &floor = *this->player_ptr->current_floor_ptr;
-    auto should_alloc = one_in_(floor.get_dungeon_definition().max_m_alloc_chance);
+    auto should_alloc = one_in_(floor.get_dungeon_definition().additional_monster_spawn_chance);
     should_alloc &= !floor.inside_arena;
     should_alloc &= !floor.is_in_quest();
     should_alloc &= !AngbandSystem::get_instance().is_phase_out();

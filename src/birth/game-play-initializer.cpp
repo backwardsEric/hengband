@@ -22,6 +22,7 @@
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/floor-list.h"
+#include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
 #include "system/item-entity.h"
@@ -71,13 +72,13 @@ void player_wipe_without_name(PlayerType *player_ptr)
     ArtifactList::get_instance().reset_generated_flags();
     BaseitemList::get_instance().reset_identification_flags();
     for (auto &[_, monrace] : MonraceList::get_instance()) {
-        if (!monrace.is_valid()) {
+        if (!monrace->is_valid()) {
             continue;
         }
-        monrace.reset_current_numbers();
-        monrace.reset_max_number();
-        monrace.r_pkills = 0;
-        monrace.r_akills = 0;
+        monrace->reset_current_numbers();
+        monrace->reset_max_number();
+        monrace->r_pkills = 0;
+        monrace->r_akills = 0;
     }
 
     player_ptr->food = PY_FOOD_FULL - 1;
@@ -114,7 +115,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
     DungeonRecords::get_instance().reset_all();
-    player_ptr->visit = 1;
+    TownRecords::get_instance().initialize();
     world.set_wild_mode(false);
     WildernessGrids::get_instance().initialize_position();
 

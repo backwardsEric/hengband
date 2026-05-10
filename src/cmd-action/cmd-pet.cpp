@@ -379,7 +379,7 @@ void do_cmd_pet(PlayerType *player_ptr)
     powers[num++] = PET_DISMISS;
 
     const auto is_hallucinated = player_ptr->effects()->hallucination().is_hallucinated();
-    const auto taget_of_pet = player_ptr->current_floor_ptr->m_list[player_ptr->pet_t_m_idx].get_appearance_monrace().name.data();
+    const auto taget_of_pet = player_ptr->current_floor_ptr->m_list[player_ptr->pet_t_m_idx].get_apparent_monrace().name.data();
     const auto target_of_pet_appearance = is_hallucinated ? _("何か奇妙な物", "something strange") : taget_of_pet;
     const auto mes = _("ペットのターゲットを指定 (現在：%s)", "specify a target of pet (now:%s)");
     const auto target_name = player_ptr->pet_t_m_idx > 0 ? target_of_pet_appearance : _("指定なし", "nothing");

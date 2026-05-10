@@ -57,12 +57,12 @@ bool MonraceAllocationEntry::is_defeatable(int threshold_level) const
     return !has_resist_all && !(can_diminish && is_shallow);
 }
 
-void MonraceAllocationEntry::update_prob2(int division)
+void MonraceAllocationEntry::update_prob2(int normal_monster_rate)
 {
-    const auto numer = this->prob2 * division;
-    const auto q = numer / 64;
-    const auto r = numer % 64;
-    this->prob2 = static_cast<short>(randint0(64) < r ? q + 1 : q);
+    const auto numer = this->prob2 * normal_monster_rate;
+    const auto q = numer / 100;
+    const auto r = numer % 100;
+    this->prob2 = static_cast<short>(randint0(100) < r ? q + 1 : q);
 }
 
 const MonraceDefinition &MonraceAllocationEntry::get_monrace() const
@@ -82,9 +82,9 @@ void MonraceAllocationTable::initialize()
     const auto &monraces = MonraceList::get_instance();
     this->entries.reserve(monraces.size());
 
-    for (const auto &[id, monrace] : monraces | ranges::views::filter([](const auto &x) { return x.second.is_valid(); })) {
-        const auto prob = static_cast<short>(100 / monrace.rarity);
-        this->entries.emplace_back(id, monrace.level, prob, prob);
+    for (const auto &[id, monrace] : monraces | ranges::views::filter([](const auto &x) { return x.second->is_valid(); })) {
+        const auto prob = static_cast<short>(100 / monrace->rarity);
+        this->entries.emplace_back(id, monrace->level, prob, prob);
     }
 
     ranges::stable_sort(this->entries, {}, &MonraceAllocationEntry::level);

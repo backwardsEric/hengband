@@ -120,18 +120,18 @@ void output_monster_spoiler(MonraceId r_idx, hook_c_roff_pf roff_func)
 static void display_killed(lore_type *lore_ptr)
 {
 #ifdef JP
-    hooked_roff(format("このモンスターはあなたの先祖を %d 人葬っている", lore_ptr->r_ptr->r_deaths));
+    hooked_roff(format("このモンスターはあなたの先祖を %d 人葬っている", lore_ptr->monrace->r_deaths));
 #else
-    const auto present_perfect_tense = lore_ptr->r_ptr->r_deaths == 1 ? "has" : "have";
-    hooked_roff(format("%d of your ancestors %s been killed by this creature, ", lore_ptr->r_ptr->r_deaths, present_perfect_tense));
+    const auto present_perfect_tense = lore_ptr->monrace->r_deaths == 1 ? "has" : "have";
+    hooked_roff(format("%d of your ancestors %s been killed by this creature, ", lore_ptr->monrace->r_deaths, present_perfect_tense));
 #endif
-    if (lore_ptr->r_ptr->r_pkills) {
+    if (lore_ptr->monrace->r_pkills) {
         hooked_roff(format(_("が、あなたはこのモンスターを少なくとも %d 体は倒している。", "and you have exterminated at least %d of the creatures.  "),
-            lore_ptr->r_ptr->r_pkills));
-    } else if (lore_ptr->r_ptr->r_tkills) {
+            lore_ptr->monrace->r_pkills));
+    } else if (lore_ptr->monrace->r_tkills) {
         hooked_roff(format(
             _("が、あなたの先祖はこのモンスターを少なくとも %d 体は倒している。", "and your ancestors have exterminated at least %d of the creatures.  "),
-            lore_ptr->r_ptr->r_tkills));
+            lore_ptr->monrace->r_tkills));
     } else {
         hooked_roff(format(_("が、まだ%sを倒したことはない。", "and %s is not ever known to have been defeated.  "), Who::who(lore_ptr->msex).data()));
     }
@@ -139,12 +139,12 @@ static void display_killed(lore_type *lore_ptr)
 
 static void display_no_killed(lore_type *lore_ptr)
 {
-    if (lore_ptr->r_ptr->r_pkills) {
+    if (lore_ptr->monrace->r_pkills) {
         hooked_roff(format(
-            _("あなたはこのモンスターを少なくとも %d 体は殺している。", "You have killed at least %d of these creatures.  "), lore_ptr->r_ptr->r_pkills));
-    } else if (lore_ptr->r_ptr->r_tkills) {
+            _("あなたはこのモンスターを少なくとも %d 体は殺している。", "You have killed at least %d of these creatures.  "), lore_ptr->monrace->r_pkills));
+    } else if (lore_ptr->monrace->r_tkills) {
         hooked_roff(format(_("あなたの先祖はこのモンスターを少なくとも %d 体は殺している。", "Your ancestors have killed at least %d of these creatures.  "),
-            lore_ptr->r_ptr->r_tkills));
+            lore_ptr->monrace->r_tkills));
     } else {
         hooked_roff(_("このモンスターを倒したことはない。", "No battles to the death are recalled.  "));
     }
@@ -158,15 +158,15 @@ static void display_no_killed(lore_type *lore_ptr)
  */
 static void display_number_of_nazguls(lore_type *lore_ptr)
 {
-    if (lore_ptr->mode != MONSTER_LORE_DEBUG && lore_ptr->r_ptr->r_tkills == 0) {
+    if (lore_ptr->mode != MONSTER_LORE_DEBUG && lore_ptr->monrace->r_tkills == 0) {
         return;
     }
-    if (!lore_ptr->r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) {
+    if (!lore_ptr->monrace->population_flags.has(MonsterPopulationType::NAZGUL)) {
         return;
     }
 
-    const auto remain = lore_ptr->r_ptr->max_num;
-    const auto killed = lore_ptr->r_ptr->r_akills;
+    const auto remain = lore_ptr->monrace->max_num;
+    const auto killed = lore_ptr->monrace->r_akills;
     if (remain == 0) {
         const auto whom = Who::whom(lore_ptr->msex, (killed > 1));
 #ifdef JP
@@ -199,7 +199,7 @@ void display_kill_numbers(lore_type *lore_ptr)
         return;
     }
 
-    if (lore_ptr->r_ptr->r_deaths == 0) {
+    if (lore_ptr->monrace->r_deaths == 0) {
         display_no_killed(lore_ptr);
     } else {
         display_killed(lore_ptr);
@@ -212,15 +212,15 @@ void display_kill_numbers(lore_type *lore_ptr)
 
 void display_where_to_appear_summary(lore_type *lore_ptr)
 {
-    if (lore_ptr->r_ptr->level == 0) {
+    if (lore_ptr->monrace->level == 0) {
         hooked_roff(_("出現:町 ", "live:town "));
         lore_ptr->old = true;
-    } else if (lore_ptr->r_ptr->r_tkills || lore_ptr->know_everything) {
+    } else if (lore_ptr->monrace->r_tkills || lore_ptr->know_everything) {
         if (depth_in_feet) {
             hooked_roff(format(
-                _("出現:%d フィート ", "depth:%d ft "), lore_ptr->r_ptr->level * 50));
+                _("出現:%d フィート ", "depth:%d ft "), lore_ptr->monrace->level * 50));
         } else {
-            hooked_roff(format(_("出現:%d階 ", "depth:%d F "), lore_ptr->r_ptr->level));
+            hooked_roff(format(_("出現:%d階 ", "depth:%d F "), lore_ptr->monrace->level));
         }
     }
 }
@@ -233,15 +233,15 @@ void display_where_to_appear_summary(lore_type *lore_ptr)
 bool display_where_to_appear(lore_type *lore_ptr)
 {
     lore_ptr->old = false;
-    if (lore_ptr->r_ptr->level == 0) {
+    if (lore_ptr->monrace->level == 0) {
         hooked_roff(format(_("%s^は町に住み", "%s^ lives in the town"), Who::who(lore_ptr->msex).data()));
         lore_ptr->old = true;
-    } else if (lore_ptr->r_ptr->r_tkills || lore_ptr->know_everything) {
+    } else if (lore_ptr->monrace->r_tkills || lore_ptr->know_everything) {
         if (depth_in_feet) {
             hooked_roff(format(
-                _("%s^は通常地下 %d フィートで出現し", "%s^ is normally found at depths of %d feet"), Who::who(lore_ptr->msex).data(), lore_ptr->r_ptr->level * 50));
+                _("%s^は通常地下 %d フィートで出現し", "%s^ is normally found at depths of %d feet"), Who::who(lore_ptr->msex).data(), lore_ptr->monrace->level * 50));
         } else {
-            hooked_roff(format(_("%s^は通常地下 %d 階で出現し", "%s^ is normally found on dungeon level %d"), Who::who(lore_ptr->msex).data(), lore_ptr->r_ptr->level));
+            hooked_roff(format(_("%s^は通常地下 %d 階で出現し", "%s^ is normally found on dungeon level %d"), Who::who(lore_ptr->msex).data(), lore_ptr->monrace->level));
         }
 
         lore_ptr->old = true;
@@ -295,17 +295,17 @@ void display_monster_never_move(lore_type *lore_ptr)
 
 void display_monster_exp_summary(lore_type *lore_ptr)
 {
-    if ((lore_ptr->r_ptr->r_tkills == 0) && !lore_ptr->know_everything) {
+    if ((lore_ptr->monrace->r_tkills == 0) && !lore_ptr->know_everything) {
         hooked_roff(_("経験:??? ", "Exp:??? "));
         return;
     }
-    hooked_roff(format(_("経験:%d ", "Exp:%d "), lore_ptr->r_ptr->mexp));
+    hooked_roff(format(_("経験:%d ", "Exp:%d "), lore_ptr->monrace->mexp));
 }
 
 void display_monster_kills_summary(lore_type *lore_ptr)
 {
     if (lore_ptr->kind_flags.has(MonsterKindType::UNIQUE)) {
-        if (lore_ptr->r_ptr->r_pkills == 0) {
+        if (lore_ptr->monrace->r_pkills == 0) {
             hook_c_roff(TERM_L_GREEN, _("生存 ", "alive "));
             return;
         }
@@ -314,12 +314,12 @@ void display_monster_kills_summary(lore_type *lore_ptr)
         return;
     }
 
-    hooked_roff(format(_("殺:%d ", "kill:%d "), lore_ptr->r_ptr->r_pkills));
+    hooked_roff(format(_("殺:%d ", "kill:%d "), lore_ptr->monrace->r_pkills));
 
-    if (!lore_ptr->r_ptr->population_flags.has(MonsterPopulationType::NAZGUL)) {
+    if (!lore_ptr->monrace->population_flags.has(MonsterPopulationType::NAZGUL)) {
         return;
     }
-    hooked_roff(format(_("残:%d ", "remain:%d "), lore_ptr->r_ptr->max_num));
+    hooked_roff(format(_("残:%d ", "remain:%d "), lore_ptr->monrace->max_num));
 }
 
 void display_monster_kind_tags(lore_type *lore_ptr)
@@ -466,7 +466,7 @@ void display_monster_exp(PlayerType *player_ptr, lore_type *lore_ptr)
 #endif
 
     // 最も経験値の多い金無垢の指輪(level 110、mexp 5000000)でも符号付き32bit整数に収まる
-    const auto base_exp = lore_ptr->r_ptr->mexp * lore_ptr->r_ptr->level * 3 / 2;
+    const auto base_exp = lore_ptr->monrace->mexp * lore_ptr->monrace->level * 3 / 2;
     const auto player_factor = player_ptr->max_plv + 2;
 
     const auto exp_integer = base_exp / player_factor;
@@ -557,7 +557,7 @@ void display_monster_aura(lore_type *lore_ptr)
 
 void display_lore_this(PlayerType *player_ptr, lore_type *lore_ptr)
 {
-    if ((lore_ptr->r_ptr->r_tkills == 0) && !lore_ptr->know_everything) {
+    if ((lore_ptr->monrace->r_tkills == 0) && !lore_ptr->know_everything) {
         return;
     }
 
@@ -587,7 +587,7 @@ static void display_monster_escort_contents(lore_type *lore_ptr)
         hooked_roff(_("少なくとも", " at the least"));
     }
 
-    const auto &reinforces = lore_ptr->r_ptr->get_reinforces();
+    const auto &reinforces = lore_ptr->monrace->get_reinforces();
 #ifdef JP
 #else
     hooked_roff(" contain");
@@ -657,7 +657,7 @@ void display_monster_launching(PlayerType *player_ptr, lore_type *lore_ptr)
 
     std::string msg;
     if (lore_ptr->is_details_known() || lore_ptr->know_everything) {
-        msg = format(_("威力 %s の射撃をする", "fire an arrow (Power:%s)"), lore_ptr->r_ptr->shoot_damage_dice.to_string().data());
+        msg = format(_("威力 %s の射撃をする", "fire an arrow (Power:%s)"), lore_ptr->monrace->shoot_damage_dice.to_string().data());
     } else {
         msg = _("射撃をする", "fire an arrow");
     }
@@ -703,8 +703,8 @@ void display_monster_sometimes(lore_type *lore_ptr)
 void display_monster_guardian(lore_type *lore_ptr)
 {
     bool is_kingpin = lore_ptr->misc_flags.has(MonsterMiscType::QUESTOR);
-    is_kingpin &= lore_ptr->r_ptr->r_sights > 0;
-    is_kingpin &= lore_ptr->r_ptr->max_num > 0;
+    is_kingpin &= lore_ptr->monrace->r_sights > 0;
+    is_kingpin &= lore_ptr->monrace->max_num > 0;
     is_kingpin &= (lore_ptr->monrace_id == MonraceId::OBERON) || (lore_ptr->monrace_id == MonraceId::SERPENT);
     if (is_kingpin) {
         hook_c_roff(TERM_VIOLET, _("あなたはこのモンスターを殺したいという強い欲望を感じている...", "You feel an intense desire to kill this monster...  "));

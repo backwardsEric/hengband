@@ -7,7 +7,7 @@
 #include "mind/mind-sniper.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/monk-data-type.h"
 #include "player/attack-defense-types.h"
 #include "player/player-status-flags.h"
@@ -127,7 +127,7 @@ bool BadStatusSetter::set_confusion(const TIME_EFFECT tmp_v)
             msg_print(_("あなたは混乱した！", "You are confused!"));
             if (this->player_ptr->action == ACTION_LEARN) {
                 msg_print(_("学習が続けられない！", "You cannot continue learning!"));
-                auto bluemage_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
+                auto bluemage_data = PlayerClass(player_ptr).get_specific_data<BluemageData>();
                 bluemage_data->new_magic_learned = false;
                 rfu.set_flag(MainWindowRedrawingFlag::ACTION);
                 this->player_ptr->action = ACTION_NONE;

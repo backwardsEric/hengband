@@ -1076,7 +1076,7 @@ ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, EffectMo
     }
 
     const auto type = get_element_type(player_ptr->element_realm, 0);
-    const auto is_effective = is_elemental_genocide_effective(*em_ptr->r_ptr, type);
+    const auto is_effective = is_elemental_genocide_effective(*em_ptr->monrace, type);
     if (!is_effective) {
         if (em_ptr->seen_msg) {
             msg_format(_("%sには効果がなかった。", "%s^ is unaffected."), em_ptr->m_name);
@@ -1085,7 +1085,7 @@ ProcessResult effect_monster_elemental_genocide(PlayerType *player_ptr, EffectMo
         return ProcessResult::PROCESS_TRUE;
     }
 
-    if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, em_ptr->is_player(), (em_ptr->r_ptr->level + 1) / 2, _("モンスター消滅", "Genocide One"))) {
+    if (genocide_aux(player_ptr, em_ptr->g_ptr->m_idx, em_ptr->dam, em_ptr->is_player(), (em_ptr->monrace->level + 1) / 2, _("モンスター消滅", "Genocide One"))) {
         if (em_ptr->seen_msg) {
             msg_format(_("%sは消滅した！", "%s^ disappeared!"), em_ptr->m_name);
         }

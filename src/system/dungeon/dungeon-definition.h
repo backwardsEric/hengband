@@ -15,6 +15,7 @@
 #include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "monster-race/race-wilderness-flags.h"
+#include "room/pit-nest-util.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
 #include "util/point-2d.h"
@@ -25,6 +26,7 @@
 #include <vector>
 
 enum class DungeonMode {
+    NONE = 0,
     AND = 1,
     NAND = 2,
     OR = 3,
@@ -54,12 +56,12 @@ public:
     DEPTH mindepth{}; /* Minimal depth */
     DEPTH maxdepth{}; /* Maximal depth */
     PLAYER_LEVEL min_plev{}; /* Minimal plev needed to enter -- it's an anti-cheating mesure */
-    BIT_FLAGS16 pit{};
-    BIT_FLAGS16 nest{};
+    EnumClassFlagGroup<PitKind> pit{};
+    EnumClassFlagGroup<NestKind> nest{};
     DungeonMode mode{}; /* Mode of combinaison of the monster flags */
 
-    int min_m_alloc_level{}; /* Minimal number of monsters per level */
-    int max_m_alloc_chance{}; /* There is a 1/max_m_alloc_chance chance per round of creating a new monster */
+    int min_monster_count_on_floor{}; /* Minimal number of monsters per floor */
+    int additional_monster_spawn_chance{}; /* There is a 1/extra_monster_spawn_chance chance per round of creating a new monster */
 
     EnumClassFlagGroup<DungeonFeatureType> flags{}; /* Dungeon Flags */
 
@@ -83,7 +85,7 @@ public:
     FixedArtifactId final_artifact{}; /* The artifact you'll find at the bottom */
     MonraceId final_guardian{}; /* The artifact's guardian. If an artifact is specified, then it's NEEDED */
 
-    PROB special_div{}; /* % of monsters affected by the flags/races allowed, to add some variety */
+    PROB normal_monster_rate{}; /* % of normal monsters not affected by dungeon monster flags/races, to add some variety */
     int tunnel_percent{};
     int obj_great{};
     int obj_good{};
