@@ -6,7 +6,7 @@
  * @details オブジェクトの状態を変更するメソッドは道半ば
  */
 
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "artifact/fixed-art-types.h"
 #include "artifact/random-art-bias-types.h"
 #include "artifact/random-art-effects.h"
@@ -17,14 +17,16 @@
 #include "object-enchant/dragon-breaths-table.h"
 #include "object-enchant/item-feeling.h"
 #include "object-enchant/object-curse.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-value.h"
 #include "object/tval-types.h"
 #include "smith/object-smith.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-ring-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
+#include "system/artifact/artifact-service.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/enums/monrace/monrace-id.h"
@@ -106,7 +108,7 @@ void ItemEntity::generate(short new_bi_id)
     }
 
     if (this->is_worthless()) {
-        this->ident |= (IDENT_BROKEN);
+        this->identification_flags.set(IdentificationFlag::BROKEN);
     }
 
     if (baseitem.gen_flags.has(ItemGenerationTraitType::CURSED)) {
@@ -376,7 +378,7 @@ bool ItemEntity::is_valid() const
 
 bool ItemEntity::is_broken() const
 {
-    return any_bits(this->ident, IDENT_BROKEN);
+    return this->identification_flags.has(IdentificationFlag::BROKEN);
 }
 
 bool ItemEntity::is_cursed() const
@@ -396,12 +398,12 @@ bool ItemEntity::is_held_by_monster() const
 bool ItemEntity::is_known() const
 {
     const auto &baseitem = this->get_baseitem();
-    return any_bits(this->ident, IDENT_KNOWN) || (baseitem.easy_know && baseitem.aware);
+    return this->identification_flags.has(IdentificationFlag::KNOWN) || (baseitem.easy_know && baseitem.aware);
 }
 
 bool ItemEntity::is_fully_known() const
 {
-    return any_bits(this->ident, IDENT_FULL_KNOWN);
+    return this->identification_flags.has(IdentificationFlag::FULL_KNOWN);
 }
 
 /*!
@@ -624,7 +626,7 @@ int ItemEntity::calc_price() const
 
         value = object_value_real(this);
     } else {
-        if (any_bits(this->ident, IDENT_SENSE) && is_worthless) {
+        if (this->identification_flags.has(IdentificationFlag::SENSE) && is_worthless) {
             return 0;
         }
 
@@ -816,12 +818,11 @@ bool ItemEntity::is_target_of(QuestId quest_id) const
         return false;
     }
 
-    const auto &artifact = quest.get_reward();
-    if (artifact.gen_flags.has(ItemGenerationTraitType::INSTA_ART)) {
+    if (quest.is_reward_instant_artifact()) {
         return false;
     }
 
-    return this->bi_key == artifact.bi_key;
+    return quest.is_reward_target(this->bi_key);
 }
 
 BaseitemDefinition &ItemEntity::get_baseitem() const
@@ -834,14 +835,19 @@ EgoItemDefinition &ItemEntity::get_ego() const
     return egos_info.at(this->ego_idx);
 }
 
-ArtifactType &ItemEntity::get_fixed_artifact()
+const ArtifactDefinition &ItemEntity::get_fixed_artifact() const
 {
     return ArtifactList::get_instance().get_artifact(this->fa_id);
 }
 
-const ArtifactType &ItemEntity::get_fixed_artifact() const
+const tl::optional<short> &ItemEntity::get_fixed_artifact_floor_id() const
 {
-    return ArtifactList::get_instance().get_artifact(this->fa_id);
+    return ArtifactRecords::get_instance().get_floor_id(this->fa_id);
+}
+
+void ItemEntity::set_fixed_artifact_floor_id(const tl::optional<short> &id)
+{
+    ArtifactRecords::get_instance().set_floor_id(this->fa_id, id);
 }
 
 TrFlags ItemEntity::get_flags() const
@@ -1017,7 +1023,7 @@ int ItemEntity::is_similar_part(const ItemEntity &other) const
     case ItemKindType::SCROLL:
         break;
     case ItemKindType::STAFF:
-        if ((none_bits(this->ident, IDENT_EMPTY) && !this->is_known()) || (none_bits(other.ident, IDENT_EMPTY) && !other.is_known())) {
+        if ((this->identification_flags.has_not(IdentificationFlag::EMPTY) && !this->is_known()) || (other.identification_flags.has_not(IdentificationFlag::EMPTY) && !other.is_known())) {
             return 0;
         }
 
@@ -1027,7 +1033,7 @@ int ItemEntity::is_similar_part(const ItemEntity &other) const
 
         break;
     case ItemKindType::WAND:
-        if ((none_bits(this->ident, IDENT_EMPTY) && !this->is_known()) || (none_bits(other.ident, IDENT_EMPTY) && !other.is_known())) {
+        if ((this->identification_flags.has_not(IdentificationFlag::EMPTY) && !this->is_known()) || (other.identification_flags.has_not(IdentificationFlag::EMPTY) && !other.is_known())) {
             return 0;
         }
 
@@ -1112,7 +1118,7 @@ int ItemEntity::is_similar_part(const ItemEntity &other) const
         return 0;
     }
 
-    if (any_bits(this->ident, IDENT_BROKEN) != any_bits(other.ident, IDENT_BROKEN)) {
+    if (this->identification_flags.has(IdentificationFlag::BROKEN) != other.identification_flags.has(IdentificationFlag::BROKEN)) {
         return 0;
     }
 
@@ -1336,9 +1342,9 @@ std::string ItemEntity::build_activation_description() const
 void ItemEntity::mark_as_known()
 {
     this->feeling = FEEL_NONE;
-    this->ident &= ~(IDENT_SENSE);
-    this->ident &= ~(IDENT_EMPTY);
-    this->ident |= (IDENT_KNOWN);
+    this->identification_flags.reset(IdentificationFlag::SENSE);
+    this->identification_flags.reset(IdentificationFlag::EMPTY);
+    this->identification_flags.set(IdentificationFlag::KNOWN);
 }
 
 /*!
@@ -1366,20 +1372,8 @@ bool ItemEntity::try_become_artifact(int dungeon_level)
         return false;
     }
 
-    for (const auto &[a_idx, artifact] : ArtifactList::get_instance()) {
-        if (!artifact.can_generate(this->bi_key)) {
-            continue;
-        }
-
-        if ((artifact.level > dungeon_level) && !one_in_((artifact.level - dungeon_level) * 2)) {
-            continue;
-        }
-
-        if (!one_in_(artifact.rarity)) {
-            continue;
-        }
-
-        this->fa_id = a_idx;
+    if (const auto fa_id_opt = ArtifactService::find_generatable_fixed_artifact(this->bi_key, dungeon_level); fa_id_opt) {
+        this->fa_id = *fa_id_opt;
         return true;
     }
 
@@ -1401,18 +1395,13 @@ void ItemEntity::absorb(ItemEntity &other)
         this->mark_as_known();
     }
 
-    if (((this->ident & IDENT_STORE) || (other.ident & IDENT_STORE)) && (!((this->ident & IDENT_STORE) && (other.ident & IDENT_STORE)))) {
-        if (other.ident & IDENT_STORE) {
-            other.ident &= 0xEF;
-        }
-
-        if (this->ident & IDENT_STORE) {
-            this->ident &= 0xEF;
-        }
+    if (this->identification_flags.has(IdentificationFlag::STORE) != other.identification_flags.has(IdentificationFlag::STORE)) {
+        this->identification_flags.reset(IdentificationFlag::STORE);
+        other.identification_flags.reset(IdentificationFlag::STORE);
     }
 
     if (other.is_fully_known()) {
-        this->ident |= (IDENT_FULL_KNOWN);
+        this->identification_flags.set(IdentificationFlag::FULL_KNOWN);
     }
 
     if (other.is_inscribed()) {
@@ -1437,6 +1426,57 @@ void ItemEntity::absorb(ItemEntity &other)
         this->pval += other.pval * (other.number - diff) / other.number;
     }
 }
+
+void ItemEntity::set_fixed_artifact_generated(bool new_state) const
+{
+    ArtifactRecords::get_instance().set_generated(this->fa_id, new_state);
+}
+
+void ItemEntity::set_identification_flag(IdentificationFlag flag)
+{
+    this->identification_flags.set(flag);
+}
+
+void ItemEntity::reset_identification_flag(IdentificationFlag flag)
+{
+    this->identification_flags.reset(flag);
+}
+
+void ItemEntity::set_identification_flags(const EnumClassFlagGroup<IdentificationFlag> &flags)
+{
+    this->identification_flags.set(flags);
+}
+
+void ItemEntity::reset_identification_flags(const EnumClassFlagGroup<IdentificationFlag> &flags)
+{
+    this->identification_flags.reset(flags);
+}
+
+bool ItemEntity::has_identification_flag(IdentificationFlag flag) const
+{
+    return this->identification_flags.has(flag);
+}
+
+bool ItemEntity::has_not_identification_flag(IdentificationFlag flag) const
+{
+    return this->identification_flags.has_not(flag);
+}
+
+bool ItemEntity::any_identification_flag() const
+{
+    return this->identification_flags.any();
+}
+
+const EnumClassFlagGroup<IdentificationFlag> &ItemEntity::get_special_flags() const
+{
+    return this->identification_flags;
+}
+
+void ItemEntity::load_identification_flags(const EnumClassFlagGroup<IdentificationFlag> &flags)
+{
+    this->identification_flags = flags;
+}
+
 /*!
  * @brief エゴ光源のフラグを修正する
  *

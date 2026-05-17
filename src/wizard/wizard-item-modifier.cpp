@@ -16,7 +16,6 @@
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
@@ -24,12 +23,14 @@
 #include "object/object-value.h"
 #include "spell-kind/spells-perception.h"
 #include "spell/spells-object.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-allocation.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "system/system-variables.h"
@@ -216,15 +217,15 @@ void wizard_item_modifier(PlayerType *player_ptr)
 
 /*!
  * @brief 固定アーティファクトの出現フラグをリセットする
- * @param reset_artifact_idx 指定したアーティファクトID
+ * @param fa_id 指定したアーティファクトID
  */
-void wiz_restore_aware_flag_of_fixed_arfifact(FixedArtifactId reset_artifact_idx, bool aware)
+void wiz_restore_aware_flag_of_fixed_arfifact(FixedArtifactId fa_id, bool aware)
 {
-    auto &artifacts = ArtifactList::get_instance();
-    const auto max_a_idx = enum2i(artifacts.rbegin()->first);
+    auto &artifact_records = ArtifactRecords::get_instance();
+    const auto max_a_idx = enum2i(artifact_records.crbegin()->first);
     const auto message = aware ? "Modified." : "Restored.";
-    if (reset_artifact_idx != FixedArtifactId::NONE) {
-        artifacts.get_artifact(reset_artifact_idx).is_generated = aware;
+    if (fa_id != FixedArtifactId::NONE) {
+        artifact_records.set_generated(fa_id, aware);
         msg_print(message);
         return;
     }
@@ -234,7 +235,7 @@ void wiz_restore_aware_flag_of_fixed_arfifact(FixedArtifactId reset_artifact_idx
         return;
     }
 
-    artifacts.get_artifact(*input_artifact_id).is_generated = aware;
+    artifact_records.set_generated(*input_artifact_id, aware);
     msg_print(message);
 }
 
@@ -277,7 +278,7 @@ void wiz_identify_full_inventory(PlayerType *player_ptr)
 
         auto &baseitem = o_ptr->get_baseitem();
         baseitem.mark_awareness(true); //!< @note 記録には残さない.
-        set_bits(o_ptr->ident, IDENT_KNOWN | IDENT_FULL_KNOWN);
+        o_ptr->set_identification_flags({ IdentificationFlag::KNOWN, IdentificationFlag::FULL_KNOWN });
         o_ptr->marked.set(OmType::TOUCHED);
     }
 
@@ -402,7 +403,7 @@ static void wiz_display_item(PlayerType *player_ptr, ItemEntity *o_ptr)
     prt(format("number = %-3d  wgt = %-6d  ac = %-5d    damage = %s", o_ptr->number, o_ptr->weight, o_ptr->ac, o_ptr->damage_dice.to_string().data()), ++line, j);
     prt(format("pval = %-5d  toac = %-5d  tohit = %-4d  todam = %-4d", o_ptr->pval, o_ptr->to_a, o_ptr->to_h, o_ptr->to_d), ++line, j);
     prt(format("fixed_artifact_id = %-4d  ego_idx = %-4d  cost = %d", enum2i(o_ptr->fa_id), enum2i(o_ptr->ego_idx), object_value_real(o_ptr)), ++line, j);
-    prt(format("ident = %04x  activation_id = %-4d  timeout = %-d", o_ptr->ident, enum2i(o_ptr->activation_id), o_ptr->timeout), ++line, j);
+    prt(format("special flags = %02x  activation_id = %-4d  timeout = %-d", static_cast<uint8_t>(o_ptr->get_special_flags().to_ulong()), enum2i(o_ptr->activation_id), o_ptr->timeout), ++line, j);
     prt(format("chest_level = %-4d  fuel = %-d", o_ptr->chest_level, o_ptr->fuel), ++line, j);
     prt(format("smith_hit = %-4d  smith_damage = %-4d", o_ptr->smith_hit, o_ptr->smith_damage), ++line, j);
     prt(format("cursed  = %-4lX  captured_monster_speed = %-4d", o_ptr->curse_flags.to_ulong(), o_ptr->captured_monster_speed), ++line, j);
@@ -458,7 +459,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     constexpr auto prompt = "Roll for [n]ormal, [g]ood, or [e]xcellent treasure? ";
     if (o_ptr->is_fixed_artifact()) {
-        o_ptr->get_fixed_artifact().is_generated = false;
+        o_ptr->set_fixed_artifact_generated(false);
     }
 
     auto rolls = 1000000;
@@ -517,7 +518,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
             }
 
             if (item->is_fixed_artifact()) {
-                item->get_fixed_artifact().is_generated = false;
+                item->set_fixed_artifact_generated(false);
             }
 
             if (o_ptr->bi_key != item->bi_key) {
@@ -542,7 +543,7 @@ static void wiz_statistics(PlayerType *player_ptr, ItemEntity *o_ptr)
     }
 
     if (o_ptr->is_fixed_artifact()) {
-        o_ptr->get_fixed_artifact().is_generated = true;
+        o_ptr->set_fixed_artifact_generated(true);
     }
 }
 
@@ -608,7 +609,7 @@ static void wiz_reroll_item(PlayerType *player_ptr, ItemEntity *o_ptr)
         const auto command = input_command(prompt);
         if (!command) {
             if (item.is_fixed_artifact()) {
-                item.get_fixed_artifact().is_generated = false;
+                item.set_fixed_artifact_generated(false);
                 item.fa_id = FixedArtifactId::NONE;
             }
 
@@ -622,7 +623,7 @@ static void wiz_reroll_item(PlayerType *player_ptr, ItemEntity *o_ptr)
         }
 
         if (item.is_fixed_artifact()) {
-            item.get_fixed_artifact().is_generated = false;
+            item.set_fixed_artifact_generated(false);
             item.fa_id = FixedArtifactId::NONE;
         }
 
@@ -1062,11 +1063,10 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
         return WishResultType::FAIL;
     }
 
-    const auto &artifacts = ArtifactList::get_instance();
+    const auto &artifact_records = ArtifactRecords::get_instance();
     if (!wishing_fa_ids.empty()) {
         const auto wishing_fa_id = *wishing_fa_ids.begin();
-        const auto &artifact = artifacts.get_artifact(wishing_fa_id);
-        if (must || (ok_art && !artifact.is_generated)) {
+        if (must || (ok_art && !artifact_records.get_generated(wishing_fa_id))) {
             (void)create_named_art(player_ptr, wishing_fa_id, player_ptr->y, player_ptr->x);
         } else {
             wishing_puff_of_smoke();
@@ -1081,6 +1081,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
     }
 
     if (baseitem_ids.size() == 1) {
+        const auto &artifacts = ArtifactList::get_instance();
         const auto bi_id = baseitem_ids.back();
         const auto &baseitem = BaseitemList::get_instance().get_baseitem(bi_id);
         auto a_idx = FixedArtifactId::NONE;
@@ -1096,8 +1097,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
         }
 
         if (a_idx != FixedArtifactId::NONE) {
-            const auto &artifact = artifacts.get_artifact(a_idx);
-            if (must || (ok_art && !artifact.is_generated)) {
+            if (must || (ok_art && !artifact_records.get_generated(a_idx))) {
                 (void)create_named_art(player_ptr, a_idx, player_ptr->y, player_ptr->x);
             } else {
                 wishing_puff_of_smoke();

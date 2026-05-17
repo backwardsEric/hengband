@@ -31,7 +31,7 @@
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -801,7 +801,8 @@ void cave_alter_feat(PlayerType *player_ptr, POSITION y, POSITION x, TerrainChar
         /* Handle gold */
         if (old_terrain.flags.has(TerrainCharacteristics::HAS_GOLD) && new_terrain.flags.has_not(TerrainCharacteristics::HAS_GOLD)) {
             /* Place some gold */
-            place_gold(player_ptr, pos);
+            const auto drop_count = old_terrain.gold_drop.is_valid() ? old_terrain.gold_drop.roll() : 1;
+            place_gold(player_ptr, pos, drop_count);
             found = true;
         }
 

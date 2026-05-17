@@ -9,14 +9,13 @@
 #include "view/display-characteristic.h"
 #include "flavor/flavor-util.h"
 #include "inventory/inventory-slot-types.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "perception/object-perception.h"
 #include "player/permanent-resistances.h"
 #include "player/race-resistances.h"
 #include "player/temporary-resistances.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -109,7 +108,7 @@ static void process_cursed_equipment_characteristics(PlayerType *player_ptr, uin
     for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
         auto *o_ptr = player_ptr->inventory[i].get();
         auto is_known = o_ptr->is_known();
-        auto is_sensed = is_known || o_ptr->ident & IDENT_SENSE;
+        auto is_sensed = is_known || o_ptr->has_identification_flag(IdentificationFlag::SENSE);
         auto flags = o_ptr->get_flags_known();
 
         if (flags.has(TR_ADD_L_CURSE) || flags.has(TR_ADD_H_CURSE)) {

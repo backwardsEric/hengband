@@ -8,7 +8,6 @@
 #include "game-option/input-options.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
 #include "perception/object-perception.h"
@@ -16,7 +15,7 @@
 #include "player-status/player-energy.h"
 #include "status/experience.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
@@ -93,7 +92,7 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
         }
 
         msg_print(_("この魔法棒にはもう魔力が残っていない。", "The wand has no charges left."));
-        item->ident |= IDENT_EMPTY;
+        item->set_identification_flag(IdentificationFlag::EMPTY);
         static constexpr auto flags = {
             StatusRecalculatingFlag::COMBINATION,
             StatusRecalculatingFlag::REORDER,

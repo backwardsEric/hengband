@@ -16,14 +16,16 @@
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
 #include "sv-definition/sv-scroll-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/town-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -65,14 +67,13 @@ static void drop_here(FloorType &floor, ItemEntity &&item, POSITION y, POSITION 
     grid.o_idx_list.add(floor, item_idx);
 }
 
-static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId a_idx)
+static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId fa_id)
 {
-    if (a_idx == FixedArtifactId::NONE) {
+    if (fa_id == FixedArtifactId::NONE) {
         return;
     }
 
-    const auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
-    if (!artifact.is_generated && create_named_art(player_ptr, a_idx, *qtwg_ptr->y, *qtwg_ptr->x)) {
+    if (!ArtifactRecords::get_instance().get_generated(fa_id) && create_named_art(player_ptr, fa_id, *qtwg_ptr->y, *qtwg_ptr->x)) {
         return;
     }
 
@@ -200,7 +201,6 @@ static bool parse_qtw_QQ(QuestType *q_ptr, const std::vector<std::string> &token
     q_ptr->level = std::stoi(tokens[6]);
     q_ptr->r_idx = i2enum<MonraceId>(std::stoi(tokens[7]));
     const auto fa_id = i2enum<FixedArtifactId>(std::stoi(tokens[8]));
-    q_ptr->reward_fa_id = fa_id;
     q_ptr->dungeon = i2enum<DungeonId>(std::stoi(tokens[9]));
 
     if (num > 10) {
@@ -216,8 +216,7 @@ static bool parse_qtw_QQ(QuestType *q_ptr, const std::vector<std::string> &token
         return true;
     }
 
-    auto &artifact = q_ptr->get_reward();
-    artifact.gen_flags.set(ItemGenerationTraitType::QUESTITEM);
+    q_ptr->set_reward(fa_id);
     return true;
 }
 
@@ -236,14 +235,14 @@ static bool parse_qtw_QR(QuestType *q_ptr, const std::vector<std::string> &token
 
     int count = 0;
     auto reward_idx = FixedArtifactId::NONE;
-    auto &artifacts = ArtifactList::get_instance();
+    auto &artifact_records = ArtifactRecords::get_instance();
     for (auto idx = 2; idx < num; idx++) {
         const auto fa_id = i2enum<FixedArtifactId>(std::stoi(tokens[idx]));
         if (fa_id == FixedArtifactId::NONE) {
             continue;
         }
 
-        if (artifacts.get_artifact(fa_id).is_generated) {
+        if (artifact_records.get_generated(fa_id)) {
             continue;
         }
 
@@ -254,8 +253,7 @@ static bool parse_qtw_QR(QuestType *q_ptr, const std::vector<std::string> &token
     }
 
     if (reward_idx != FixedArtifactId::NONE) {
-        q_ptr->reward_fa_id = reward_idx;
-        artifacts.get_artifact(reward_idx).gen_flags.set(ItemGenerationTraitType::QUESTITEM);
+        q_ptr->set_reward(reward_idx);
     } else {
         q_ptr->type = QuestKindType::KILL_ALL;
     }

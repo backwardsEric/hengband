@@ -9,7 +9,6 @@
 #include "inventory/inventory-object.h"
 #include "market/building-util.h"
 #include "object-enchant/object-boost.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-hook/hook-weapon.h"
 #include "object/item-tester-hooker.h"
@@ -21,7 +20,7 @@
 #include "sv-definition/sv-weapon-types.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -291,7 +290,7 @@ static PRICE repair_broken_weapon_aux(PlayerType *player_ptr, PRICE bcost)
     }
 
     display_repair_success_message(player_ptr, *item_broken, cost);
-    item_broken->ident &= ~(IDENT_BROKEN);
+    item_broken->reset_identification_flag(IdentificationFlag::BROKEN);
     item_broken->discount = 99;
 
     calc_android_exp(player_ptr);

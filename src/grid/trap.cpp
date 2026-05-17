@@ -289,7 +289,7 @@ void hit_trap(PlayerType *player_ptr, bool break_trap)
     const auto p_pos = player_ptr->get_position();
     const auto &grid = floor.get_grid(p_pos);
     const auto &terrain = grid.get_terrain();
-    TrapType trap_feat_type = terrain.flags.has(TerrainCharacteristics::TRAP) ? i2enum<TrapType>(terrain.subtype) : TrapType::NOT_TRAP;
+    const auto trap_feat_type = terrain.flags.has(TerrainCharacteristics::TRAP) ? terrain.trap_type : TrapType::NOT_TRAP;
 
     disturb(player_ptr, false, true);
 

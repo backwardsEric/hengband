@@ -18,6 +18,7 @@
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "util/candidate-selector.h"
+#include "util/enum-converter.h"
 #include "util/finalizer.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
@@ -85,7 +86,7 @@ static tl::optional<Pos2D> select_building_pos(const FloorType &floor)
     const auto describer = [&](const Pos2D &pos) {
         const auto &grid = floor.get_grid(pos);
         const auto &terrain = grid.get_terrain();
-        return buildings.at(terrain.subtype).name;
+        return buildings.at(enum2i(terrain.building_type)).name;
     };
 
     const auto choice = cs.select(pos_buildings, describer);

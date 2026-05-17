@@ -2,13 +2,12 @@
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "io/files-util.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/trg-types.h"
 #include "object/object-value.h"
 #include "system/angband-system.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
@@ -103,7 +102,7 @@ static std::string describe_weight(const ItemEntity &item)
 static ItemEntity prepare_item_for_obj_desc(short bi_id)
 {
     ItemEntity item(bi_id);
-    item.ident |= IDENT_KNOWN;
+    item.set_identification_flag(IdentificationFlag::KNOWN);
     switch (item.bi_key.tval()) {
     case ItemKindType::FIGURINE:
     case ItemKindType::STATUE:

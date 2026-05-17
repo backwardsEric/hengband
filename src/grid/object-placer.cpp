@@ -3,7 +3,7 @@
 #include "grid/grid.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 
 /*!
@@ -39,6 +39,19 @@ void place_gold(PlayerType *player_ptr, const Pos2D &pos)
 
     note_spot(player_ptr, pos);
     lite_spot(player_ptr, pos);
+}
+
+void place_gold(PlayerType *player_ptr, const Pos2D &pos, int drop_count)
+{
+    if (drop_count <= 0) {
+        return;
+    }
+
+    auto &floor = *player_ptr->current_floor_ptr;
+    for (auto i = 0; i < drop_count; i++) {
+        auto item = floor.make_gold();
+        (void)drop_near(player_ptr, item, pos, false);
+    }
 }
 
 /*!

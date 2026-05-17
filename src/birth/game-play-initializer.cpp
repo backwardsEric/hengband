@@ -13,7 +13,8 @@
 #include "player-info/race-types.h"
 #include "player/digestion-processor.h"
 #include "player/player-spell-status.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/building-type-definition.h"
@@ -25,7 +26,7 @@
 #include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -69,7 +70,7 @@ void player_wipe_without_name(PlayerType *player_ptr)
         player_ptr->inventory[i]->wipe();
     }
 
-    ArtifactList::get_instance().reset_generated_flags();
+    ArtifactRecords::get_instance().reset_all_without_knowledge();
     BaseitemList::get_instance().reset_identification_flags();
     for (auto &[_, monrace] : MonraceList::get_instance()) {
         if (!monrace->is_valid()) {

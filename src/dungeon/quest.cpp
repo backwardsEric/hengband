@@ -12,10 +12,12 @@
 #include "monster/monster-util.h"
 #include "player-status/player-energy.h"
 #include "player/player-status.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/floor/floor-info.h" // @todo 相互参照、将来的に削除する.
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -55,13 +57,63 @@ bool QuestType::is_fixed(QuestId quest_id)
 
 bool QuestType::has_reward() const
 {
-    return this->reward_fa_id != FixedArtifactId::NONE;
+    return this->reward_fa_id.has_value();
 }
 
-ArtifactType &QuestType::get_reward() const
+tl::optional<FixedArtifactId> QuestType::get_reward() const
 {
-    auto &artifacts = ArtifactList::get_instance();
-    return artifacts.get_artifact(this->reward_fa_id);
+    return this->reward_fa_id;
+}
+
+short QuestType::get_reward_bi_id() const
+{
+    if (!this->has_reward()) {
+        return 0;
+    }
+
+    const auto &artifact = ArtifactList::get_instance().get_artifact(*this->reward_fa_id);
+    return BaseitemList::get_instance().lookup_baseitem_id(artifact.bi_key);
+}
+
+bool QuestType::is_reward_instant_artifact() const
+{
+    if (!this->has_reward()) {
+        return false;
+    }
+
+    return ArtifactList::get_instance().get_artifact(*this->reward_fa_id).is_instant_artifact();
+}
+
+bool QuestType::is_reward_target(const BaseitemKey &key) const
+{
+    if (!this->has_reward()) {
+        return false;
+    }
+
+    return ArtifactList::get_instance().get_artifact(*this->reward_fa_id).bi_key == key;
+}
+
+void QuestType::set_reward(FixedArtifactId fa_id)
+{
+    if (fa_id == FixedArtifactId::NONE) {
+        this->reset_reward();
+        return;
+    }
+
+    if (this->reward_fa_id && (*this->reward_fa_id != fa_id)) {
+        ArtifactRecords::get_instance().set_quest_reward(*this->reward_fa_id, false);
+    }
+
+    this->reward_fa_id = fa_id;
+    ArtifactRecords::get_instance().set_quest_reward(fa_id, true);
+}
+
+void QuestType::reset_reward()
+{
+    if (this->reward_fa_id) {
+        ArtifactRecords::get_instance().set_quest_reward(*this->reward_fa_id, false);
+        this->reward_fa_id.reset();
+    }
 }
 
 /*!
@@ -221,7 +273,7 @@ void check_find_art_quest_completion(PlayerType *player_ptr, ItemEntity *o_ptr)
     for (const auto &[quest_id, quest] : quests) {
         auto found_artifact = (quest.type == QuestKindType::FIND_ARTIFACT);
         found_artifact &= (quest.status == QuestStatusType::TAKEN);
-        found_artifact &= (o_ptr->is_specific_artifact(quest.reward_fa_id));
+        found_artifact &= quest.get_reward().map_or([o_ptr](FixedArtifactId fa_id) { return o_ptr->is_specific_artifact(fa_id); }, false);
         if (found_artifact) {
             complete_quest(player_ptr, quest_id);
         }
@@ -291,7 +343,7 @@ void leave_quest_check(PlayerType *player_ptr)
         quests.get_quest(QuestId::TOWER1).complev = player_ptr->lev;
         break;
     case QuestKindType::FIND_ARTIFACT:
-        quest.get_reward().gen_flags.reset(ItemGenerationTraitType::QUESTITEM);
+        quest.reset_reward();
         break;
     case QuestKindType::RANDOM:
         quest.get_bounty().misc_flags.reset(MonsterMiscType::QUESTOR);

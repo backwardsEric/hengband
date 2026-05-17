@@ -10,12 +10,11 @@
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "inventory/inventory-object.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-hook/hook-magic.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "player-base/player-class.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -80,7 +79,7 @@ bool eat_magic(PlayerType *player_ptr, int power)
             }
 
             if (!item->pval) {
-                item->ident |= IDENT_EMPTY;
+                item->set_identification_flag(IdentificationFlag::EMPTY);
             }
         }
     }

@@ -3,6 +3,7 @@
 #include "dungeon/quest-monster-placer.h"
 #include "floor/dungeon-tunnel-util.h"
 #include "floor/floor-allocation-types.h"
+#include "floor/floor-generator.h"
 #include "floor/floor-streams.h"
 #include "floor/geometry.h"
 #include "floor/object-allocator.h"
@@ -225,19 +226,13 @@ static void make_aqua_streams(PlayerType *player_ptr, DungeonData *dd_ptr, const
         return;
     }
 
-    if (dungeon.stream2 > 0) {
-        constexpr auto num_quartz = 4;
-        constexpr auto chance_quartz = 15;
-        for (auto i = 0; i < num_quartz; i++) {
-            build_streamer(player_ptr, dungeon.stream2, chance_quartz);
+    for (const auto &stream : dungeon.streams) {
+        if (stream.terrain_id <= 0) {
+            continue;
         }
-    }
 
-    if (dungeon.stream1 > 0) {
-        constexpr auto num_magma = 6;
-        constexpr auto chance_magma = 30;
-        for (auto i = 0; i < num_magma; i++) {
-            build_streamer(player_ptr, dungeon.stream1, chance_magma);
+        for (auto i = 0; i < stream.count; i++) {
+            build_streamer(player_ptr, stream.terrain_id, stream.chance);
         }
     }
 }
@@ -391,6 +386,7 @@ tl::optional<std::string> cave_gen(PlayerType *player_ptr)
 
     make_aqua_streams(player_ptr, &dd, dungeon);
     make_perm_walls(player_ptr);
+    apply_terrain_generation_changes(floor);
     if (!check_place_necessary_objects(player_ptr, &dd)) {
         return dd.why;
     }

@@ -24,12 +24,12 @@
 #include "player/player-status-flags.h"
 #include "spell-kind/spells-teleport.h"
 #include "status/bad-status-setter.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -332,7 +332,7 @@ bool destroy_area(PlayerType *player_ptr, const POSITION y1, const POSITION x1, 
                 for (const auto this_o_idx : grid.o_idx_list) {
                     auto &item = *floor.o_list[this_o_idx];
                     if (item.is_fixed_artifact() && (!item.is_known() || in_generate)) {
-                        item.get_fixed_artifact().is_generated = false;
+                        item.set_fixed_artifact_generated(false);
 
                         if (in_generate && cheat_peek) {
                             const auto item_name = describe_flavor(player_ptr, item, (OD_NAME_ONLY | OD_STORE));

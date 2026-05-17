@@ -14,7 +14,6 @@
 #include "main/sound-of-music.h"
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-stack.h"
 #include "object/object-value.h"
 #include "object/tval-types.h"
@@ -29,7 +28,7 @@
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/inner-game-data.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/z-form.h"
@@ -379,7 +378,7 @@ static void store_create(PlayerType *player_ptr, short fix_k_idx, StoreSaleType 
         }
 
         item.mark_as_known();
-        item.ident |= IDENT_STORE;
+        item.set_identification_flag(IdentificationFlag::STORE);
         if (tval == ItemKindType::CHEST) {
             continue;
         }

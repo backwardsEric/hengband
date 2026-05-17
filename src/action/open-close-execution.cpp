@@ -23,7 +23,7 @@
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
 #include "term/screen-processor.h"
@@ -49,7 +49,7 @@ bool exe_open(PlayerType *player_ptr, POSITION y, POSITION x)
         return false;
     }
 
-    if (!terrain.power) {
+    if (!terrain.door_power) {
         cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::OPEN);
         sound(SoundKind::OPENDOOR);
         return false;
@@ -65,7 +65,7 @@ bool exe_open(PlayerType *player_ptr, POSITION y, POSITION x)
         i = i / 10;
     }
 
-    int j = terrain.power;
+    int j = terrain.door_power;
     j = i - (j * 4);
     if (j < 2) {
         j = 2;
@@ -155,7 +155,7 @@ bool easy_open_door(PlayerType *player_ptr, const Pos2D &pos)
     if (terrain.flags.has_not(TerrainCharacteristics::OPEN)) {
         constexpr auto fmt = _("%sはがっちりと閉じられているようだ。", "The %s appears to be stuck.");
         msg_format(fmt, grid.get_terrain(TerrainKind::MIMIC).name.data());
-    } else if (terrain.power) {
+    } else if (terrain.door_power) {
         auto power_disarm = player_ptr->skill_dis;
         const auto effects = player_ptr->effects();
         if (effects->blindness().is_blind() || no_lite(player_ptr)) {
@@ -166,7 +166,7 @@ bool easy_open_door(PlayerType *player_ptr, const Pos2D &pos)
             power_disarm = power_disarm / 10;
         }
 
-        auto power_terrain = terrain.power;
+        int power_terrain = terrain.door_power;
         power_terrain = power_disarm - (power_terrain * 4);
         if (power_terrain < 2) {
             power_terrain = 2;
@@ -274,7 +274,7 @@ bool exe_disarm(PlayerType *player_ptr, POSITION y, POSITION x, const Direction 
     const auto &grid = player_ptr->current_floor_ptr->get_grid(pos);
     const auto &terrain = grid.get_terrain();
     const auto &name = terrain.name;
-    int power = terrain.power;
+    int power = terrain.trap_power;
     int i = player_ptr->skill_dis;
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     auto effects = player_ptr->effects();
@@ -333,7 +333,7 @@ bool exe_bash(PlayerType *player_ptr, POSITION y, POSITION x, const Direction &d
     const auto &grid = floor.get_grid(pos);
     const auto &terrain = grid.get_terrain();
     int bash = adj_str_blow[player_ptr->stat_index[A_STR]];
-    int power = terrain.power;
+    int power = terrain.door_power;
     const auto &name = grid.get_terrain(TerrainKind::MIMIC).name;
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
     msg_format(_("%sに体当たりをした！", "You smash into the %s!"), name.data());

@@ -4,9 +4,9 @@
 #include "io/files-util.h"
 #include "io/tokenizer.h"
 #include "locale/language-switcher.h"
-#include "object-enchant/special-object-flags.h"
 #include "system/angband-exceptions.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/dungeon/dungeon-definition.h"
@@ -160,7 +160,7 @@ public:
     {
         ItemEntity item(artifact_rumor.bi_id);
         item.fa_id = artifact_rumor.fa_id;
-        item.ident = IDENT_STORE;
+        item.set_identification_flag(IdentificationFlag::STORE);
         const auto artifact_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
         this->print_rumor(artifact_name);
     }

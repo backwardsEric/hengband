@@ -34,6 +34,7 @@
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "tracking/lore-tracker.h"
+#include "util/enum-converter.h"
 #include "view/display-lore.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
@@ -474,7 +475,7 @@ static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::BLDG) && !floor.inside_arena) {
-        return buildings[ge_ptr->terrain_ptr->subtype].name;
+        return buildings[enum2i(ge_ptr->terrain_ptr->building_type)].name;
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::ENTRANCE)) {

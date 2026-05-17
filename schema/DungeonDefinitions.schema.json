@@ -175,7 +175,7 @@
     "wall": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tiles", "outer", "inner", "stream1", "stream2"],
+      "required": ["tiles", "outer", "inner", "streams"],
       "properties": {
         "tiles": {
           "type": "array",
@@ -190,11 +190,11 @@
         "inner": {
           "$ref": "#/$defs/wallTerrain"
         },
-        "stream1": {
-          "$ref": "#/$defs/wallTerrain"
-        },
-        "stream2": {
-          "$ref": "#/$defs/wallTerrain"
+        "streams": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stream"
+          }
         }
       }
     },
@@ -426,6 +426,31 @@
         "CHAPEL",
         "UNDEAD"
       ]
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "count", "chance", "priority"],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/wallTerrain"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "chance": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      }
     }
   }
 }

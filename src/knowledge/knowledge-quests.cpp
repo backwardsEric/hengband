@@ -13,12 +13,11 @@
 #include "info-reader/fixed-map-parser.h"
 #include "io-dump/dump-util.h"
 #include "locale/english.h"
-#include "object-enchant/special-object-flags.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
 #include "system/dungeon/dungeon-record.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
@@ -101,10 +100,9 @@ static void do_cmd_knowledge_quests_current(PlayerType *player_ptr, FILE *fff)
                 case QuestKindType::FIND_ARTIFACT: {
                     std::string item_name("");
                     if (quest.has_reward()) {
-                        const auto &artifact = quest.get_reward();
-                        ItemEntity item(artifact.bi_key);
-                        item.fa_id = quest.reward_fa_id;
-                        item.ident = IDENT_STORE;
+                        ItemEntity item(quest.get_reward_bi_id());
+                        item.fa_id = quest.get_reward().value_or(FixedArtifactId::NONE);
+                        item.set_identification_flag(IdentificationFlag::STORE);
                         item_name = describe_flavor(player_ptr, item, OD_NAME_ONLY);
                     }
 

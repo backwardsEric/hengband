@@ -18,7 +18,6 @@
 #include "object-enchant/item-magic-applier.h"
 #include "object-enchant/object-boost.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/trc-types.h"
 #include "object-enchant/trg-types.h"
 #include "object-hook/hook-armor.h"
@@ -31,10 +30,12 @@
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-scroll-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-key.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -102,12 +103,11 @@ struct AmusementRewardItemVisitor {
 
     tl::optional<ItemEntity> operator()(const FixedArtifactId &fa_id) const
     {
-        const auto &artifact = ArtifactList::get_instance().get_artifact(fa_id);
-        if (artifact.is_generated) {
+        if (ArtifactRecords::get_instance().get_generated(fa_id)) {
             return tl::nullopt;
         }
 
-        ItemEntity item(artifact.bi_key);
+        ItemEntity item(ArtifactList::get_instance().get_artifact(fa_id).bi_key);
         item.fa_id = fa_id;
         ItemMagicApplier(player_ptr, &item, 1, AM_NO_FIXED_ART).execute();
 
@@ -226,7 +226,7 @@ bool curse_armor(PlayerType *player_ptr)
     item.damage_dice = Dice(0, 0);
     item.art_flags.clear();
     item.curse_flags.set(CurseTraitType::CURSED);
-    item.ident |= IDENT_BROKEN;
+    item.set_identification_flag(IdentificationFlag::BROKEN);
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
@@ -280,7 +280,7 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity &item)
     item.damage_dice = Dice(0, 0);
     item.art_flags.clear();
     item.curse_flags.set(CurseTraitType::CURSED);
-    item.ident |= IDENT_BROKEN;
+    item.set_identification_flag(IdentificationFlag::BROKEN);
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
@@ -347,7 +347,7 @@ static void break_curse(ItemEntity &item)
 
     msg_print(_("かけられていた呪いが打ち破られた！", "The curse is broken!"));
     item.curse_flags.clear();
-    item.ident |= IDENT_SENSE;
+    item.set_identification_flag(IdentificationFlag::SENSE);
     item.feeling = FEEL_NONE;
 }
 

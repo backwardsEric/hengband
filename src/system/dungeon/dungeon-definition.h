@@ -41,6 +41,13 @@ enum class MonsterSex;
 enum class TerrainCharacteristics;
 enum class TerrainTag;
 class MonraceDefinition;
+struct DungeonStreamDefinition {
+    FEAT_IDX terrain_id{};
+    int count{};
+    int chance{};
+    int priority{};
+};
+
 class DungeonDefinition {
 public:
     std::string name; /* Name */
@@ -50,8 +57,7 @@ public:
     ProbabilityTable<short> prob_table_wall{}; /* Cave wall probability */
     short outer_wall{}; /* 外壁の地形ID */
     short inner_wall{}; /* 内壁の地形ID */
-    FEAT_IDX stream1{}; /* stream tile */
-    FEAT_IDX stream2{}; /* stream tile */
+    std::vector<DungeonStreamDefinition> streams{}; /* Stream definitions */
 
     DEPTH mindepth{}; /* Minimal depth */
     DEPTH maxdepth{}; /* Maximal depth */
@@ -95,6 +101,8 @@ public:
     const MonraceDefinition &get_guardian() const;
     short convert_terrain_id(short terrain_id, TerrainCharacteristics action) const;
     short convert_terrain_id(short terrain_id) const;
+    void sort_streams_by_priority();
+    short select_stream_terrain_id(short terrain_id, int stream_index) const;
     bool is_open(short terrain_id) const;
     bool is_conquered() const;
     std::string build_entrance_message() const;

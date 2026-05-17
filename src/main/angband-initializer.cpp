@@ -15,7 +15,6 @@
 #include "main/angband-initializer.h"
 #include "dungeon/quest.h"
 #include "floor/wild.h"
-#include "info-reader/feature-reader.h"
 #include "io/files-util.h"
 #include "io/read-pref-file.h"
 #include "io/uid-checker.h"

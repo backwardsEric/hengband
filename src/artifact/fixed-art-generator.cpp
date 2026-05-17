@@ -16,11 +16,12 @@
 #include "floor/floor-object.h"
 #include "object-enchant/object-boost.h"
 #include "object-enchant/object-curse.h"
-#include "object-enchant/special-object-flags.h"
 #include "player-base/player-class.h"
 #include "specific-object/bloody-moon.h"
-#include "system/artifact-type-definition.h"
-#include "system/item-entity.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
+#include "system/item/item-entity.h"
 
 /*!
  * @brief 恐怖の仮面への特殊処理
@@ -124,7 +125,7 @@ static void invest_special_artifact_abilities(PlayerType *player_ptr, ItemEntity
  * @param a_ptr 固定アーティファクト情報への参照ポインタ
  * @param q_ptr オブジェクト情報への参照ポインタ
  */
-static void fixed_artifact_random_abilities(PlayerType *player_ptr, const ArtifactType &artifact, ItemEntity &item)
+static void fixed_artifact_random_abilities(PlayerType *player_ptr, const ArtifactDefinition &artifact, ItemEntity &item)
 {
     auto give_power = false;
     auto give_resistance = false;
@@ -178,10 +179,10 @@ static void fixed_artifact_random_abilities(PlayerType *player_ptr, const Artifa
  * @param a_ptr 固定アーティファクト情報への参照ポインタ
  * @param q_ptr オブジェクト情報への参照ポインタ
  */
-static void invest_curse_to_fixed_artifact(const ArtifactType &artifact, ItemEntity *o_ptr)
+static void invest_curse_to_fixed_artifact(const ArtifactDefinition &artifact, ItemEntity *o_ptr)
 {
     if (!artifact.cost) {
-        set_bits(o_ptr->ident, IDENT_BROKEN);
+        o_ptr->set_identification_flag(IdentificationFlag::BROKEN);
     }
 
     if (artifact.gen_flags.has(ItemGenerationTraitType::CURSED)) {
@@ -235,7 +236,7 @@ void apply_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
  * @brief フロアの指定された位置に固定アーティファクトを生成する。 / Create the artifact of the specified number
  * @details 固定アーティファクト構造体から基本ステータスをコピーした後、所定の座標でdrop_item()で落とす。
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param a_idx 生成する固定アーティファクト構造体のID
+ * @param fa_id 生成する固定アーティファクト構造体のID
  * @param y アイテムを落とす地点のy座標
  * @param x アイテムを落とす地点のx座標
  * @return 生成が成功したか否か、失敗はIDの不全、ベースアイテムの不全、drop_item()の失敗時に起こる。
@@ -243,16 +244,16 @@ void apply_artifact(PlayerType *player_ptr, ItemEntity *o_ptr)
  * 仮に2個以上存在可能かつ装備品以外の固定アーティファクトが作成されれば
  * drop_near()関数の返り値は信用できなくなる.
  */
-bool create_named_art(PlayerType *player_ptr, FixedArtifactId a_idx, POSITION y, POSITION x)
+bool create_named_art(PlayerType *player_ptr, FixedArtifactId fa_id, POSITION y, POSITION x)
 {
-    auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
+    auto &artifact = ArtifactList::get_instance().get_artifact(fa_id);
     ItemEntity item(artifact.bi_key);
-    item.fa_id = a_idx;
+    item.fa_id = fa_id;
     apply_artifact(player_ptr, &item);
     if (drop_near(player_ptr, item, { y, x }) == 0) {
         return false;
     }
 
-    artifact.is_generated = true;
+    ArtifactRecords::get_instance().set_generated(fa_id, true);
     return true;
 }

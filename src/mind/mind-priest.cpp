@@ -4,14 +4,13 @@
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "object-enchant/item-feeling.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-weapon.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "racial/racial-android.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
@@ -57,7 +56,7 @@ bool bless_weapon(PlayerType *player_ptr)
         msg_format("A malignant aura leaves %s %s.", ((i_idx >= 0) ? "your" : "the"), item_name.data());
 #endif
         item->curse_flags.clear();
-        set_bits(item->ident, IDENT_SENSE);
+        item->set_identification_flag(IdentificationFlag::SENSE);
         item->feeling = FEEL_NONE;
         rfu.set_flag(StatusRecalculatingFlag::BONUS);
         static constexpr auto flags = {

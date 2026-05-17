@@ -22,7 +22,7 @@
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "system/terrain/terrain-definition.h"
@@ -73,7 +73,7 @@ void do_cmd_store(PlayerType *player_ptr)
     //   inner_town_num は、施設内で C コマンドなどを使ったときにそのままでは現在地の偽装がバレる
     //   ため、それを糊塗するためのグローバル変数。
     //   この辺はリファクタしたい。
-    const auto store_num = i2enum<StoreSaleType>(grid.get_terrain().subtype);
+    const auto store_num = grid.get_terrain().store_sale_type;
     old_town_num = player_ptr->town_num;
     if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) {
         player_ptr->town_num = 1;

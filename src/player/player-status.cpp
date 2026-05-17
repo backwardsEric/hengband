@@ -34,7 +34,6 @@
 #include "mutation/mutation-flag-types.h"
 #include "mutation/mutation-investor-remover.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-armor.h"
@@ -91,10 +90,11 @@
 #include "status/base-status.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-weapon-types.h"
+#include "system/enums/terrain/pattern-tile-type.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -2718,7 +2718,7 @@ void wreck_the_pattern(PlayerType *player_ptr)
     const auto &floor = *player_ptr->current_floor_ptr;
     const auto p_pos = player_ptr->get_position();
     const auto &terrain = floor.get_grid(p_pos).get_terrain();
-    if (terrain.subtype == PATTERN_TILE_WRECKED) {
+    if (terrain.pattern_tile_type == PatternTileType::WRECKED) {
         return;
     }
 
@@ -2731,7 +2731,7 @@ void wreck_the_pattern(PlayerType *player_ptr)
     auto to_ruin = randint1(45) + 35;
     while (to_ruin--) {
         const auto pos = scatter(floor, p_pos, 4, PROJECT_NONE);
-        if (floor.has_terrain_characteristics(pos, TerrainCharacteristics::PATTERN) && (floor.get_grid(pos).get_terrain().subtype != PATTERN_TILE_WRECKED)) {
+        if (floor.has_terrain_characteristics(pos, TerrainCharacteristics::PATTERN) && (floor.get_grid(pos).get_terrain().pattern_tile_type != PatternTileType::WRECKED)) {
             set_terrain_id_to_grid(player_ptr, pos, TerrainTag::PATTERN_CORRUPTED);
         }
     }

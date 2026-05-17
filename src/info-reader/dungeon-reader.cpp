@@ -8,7 +8,8 @@
 #include "info-reader/race-info-tokens-table.h"
 #include "io/tokenizer.h"
 #include "main/angband-headers.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/dungeon/dungeon-definition.h"
@@ -253,6 +254,50 @@ static errr set_dungeon_floor(const nlohmann::json &floor_obj, DungeonDefinition
     return info_set_integer(floor_obj["tunnelRate"], dungeon.tunnel_percent, true);
 }
 
+static errr set_dungeon_streams(const nlohmann::json &streams_obj, DungeonDefinition &dungeon)
+{
+    if (streams_obj.is_null()) {
+        return PARSE_ERROR_NONE;
+    }
+    if (!streams_obj.is_array()) {
+        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
+    }
+
+    const auto &terrains = TerrainList::get_instance();
+    for (const auto &stream_obj : streams_obj) {
+        if (!stream_obj.is_object() || !stream_obj["type"].is_string()) {
+            return PARSE_ERROR_TOO_FEW_ARGUMENTS;
+        }
+
+        DungeonStreamDefinition stream;
+        try {
+            stream.terrain_id = terrains.get_terrain_id(stream_obj["type"].get<std::string>());
+        } catch (const std::exception &) {
+            return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
+        }
+
+        if (auto err = info_set_integer(stream_obj["count"], stream.count, true, Range(1, 255))) {
+            return err;
+        }
+        if (auto err = info_set_integer(stream_obj["chance"], stream.chance, true, Range(1, 65535))) {
+            return err;
+        }
+        if (auto err = info_set_integer(stream_obj["priority"], stream.priority, true, Range(0, 255))) {
+            return err;
+        }
+
+        if (stream.count <= 0 || stream.chance <= 0) {
+            return PARSE_ERROR_INVALID_VALUE;
+        }
+
+        dungeon.streams.emplace_back(stream);
+    }
+
+    dungeon.sort_streams_by_priority();
+
+    return PARSE_ERROR_NONE;
+}
+
 static errr set_dungeon_wall(const nlohmann::json &wall_obj, DungeonDefinition &dungeon)
 {
     if (wall_obj.is_null() || !wall_obj.is_object()) {
@@ -269,13 +314,11 @@ static errr set_dungeon_wall(const nlohmann::json &wall_obj, DungeonDefinition &
     try {
         dungeon.outer_wall = terrains.get_terrain_id(wall_obj["outer"].get<std::string>());
         dungeon.inner_wall = terrains.get_terrain_id(wall_obj["inner"].get<std::string>());
-        dungeon.stream1 = terrains.get_terrain_id(wall_obj["stream1"].get<std::string>());
-        dungeon.stream2 = terrains.get_terrain_id(wall_obj["stream2"].get<std::string>());
     } catch (const std::exception &) {
         return PARSE_ERROR_UNDEFINED_TERRAIN_TAG;
     }
 
-    return PARSE_ERROR_NONE;
+    return set_dungeon_streams(wall_obj["streams"], dungeon);
 }
 
 static errr set_dungeon_flags(const nlohmann::json &flags_obj, DungeonDefinition &dungeon)

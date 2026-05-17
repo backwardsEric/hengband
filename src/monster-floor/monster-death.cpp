@@ -23,11 +23,11 @@
 #include "player/patron.h"
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-scroll-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-record.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -156,17 +156,16 @@ static void drop_artifact_from_unique(PlayerType *player_ptr, MonsterDeath *md_p
  * @brief 特定アーティファクトのドロップ処理
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param md_ptr モンスター死亡構造体への参照ポインタ
- * @param a_ix ドロップを試みるアーティファクトID
+ * @param fa_id ドロップを試みるアーティファクトID
  * @return ドロップするならtrue
  */
-bool drop_single_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, FixedArtifactId a_idx)
+bool drop_single_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr, FixedArtifactId fa_id)
 {
-    auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
-    if (artifact.is_generated) {
+    if (ArtifactRecords::get_instance().get_generated(fa_id)) {
         return false;
     }
 
-    return create_named_art(player_ptr, a_idx, md_ptr->md_y, md_ptr->md_x);
+    return create_named_art(player_ptr, fa_id, md_ptr->md_y, md_ptr->md_x);
 }
 
 static tl::optional<short> drop_dungeon_final_artifact(PlayerType *player_ptr, MonsterDeath *md_ptr)
@@ -178,13 +177,12 @@ static tl::optional<short> drop_dungeon_final_artifact(PlayerType *player_ptr, M
         return bi_id;
     }
 
-    const auto a_idx = dungeon.final_artifact;
-    const auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
-    if (artifact.is_generated) {
+    const auto fa_id = dungeon.final_artifact;
+    if (ArtifactRecords::get_instance().get_generated(fa_id)) {
         return bi_id;
     }
 
-    create_named_art(player_ptr, a_idx, md_ptr->md_y, md_ptr->md_x);
+    create_named_art(player_ptr, fa_id, md_ptr->md_y, md_ptr->md_x);
     return dungeon.final_object ? tl::make_optional<short>(bi_id) : tl::nullopt;
 }
 

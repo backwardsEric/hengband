@@ -13,14 +13,13 @@
 #include "inventory/inventory-object.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "player-base/player-class.h"
 #include "player-status/player-energy.h"
 #include "status/experience.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -88,7 +87,7 @@ void ObjectUseEntity::execute()
         }
 
         msg_print(_("この杖にはもう魔力が残っていない。", "The staff has no charges left."));
-        item->ident |= IDENT_EMPTY;
+        item->set_identification_flag(IdentificationFlag::EMPTY);
         auto &rfu = RedrawingFlagsUpdater::get_instance();
         static constexpr auto flags = {
             StatusRecalculatingFlag::COMBINATION,

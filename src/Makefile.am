@@ -32,7 +32,7 @@ hengband_SOURCES = \
 	autopick/autopick.cpp autopick/autopick.h \
 	autopick/autopick-commands-table.h autopick/autopick-dirty-flags.h \
 	autopick/autopick-flags-table.h \
-	autopick/autopick-key-flag-process.h autopick/autopick-keys-table.h \
+	autopick/autopick-keys-table.h \
 	autopick/autopick-menu-data-table.cpp autopick/autopick-menu-data-table.h \
 	autopick/autopick-methods-table.h \
 	autopick/autopick-util.cpp autopick/autopick-util.h \
@@ -598,7 +598,6 @@ hengband_SOURCES = \
 	info-reader/dungeon-reader.cpp info-reader/dungeon-reader.h \
 	info-reader/ego-reader.cpp info-reader/ego-reader.h \
 	info-reader/feature-info-tokens-table.cpp info-reader/feature-info-tokens-table.h \
-	info-reader/feature-reader.cpp info-reader/feature-reader.h \
 	info-reader/fixed-map-parser.cpp info-reader/fixed-map-parser.h \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
 	info-reader/info-reader-util.cpp info-reader/info-reader-util.h \
@@ -949,7 +948,7 @@ hengband_SOURCES = \
 	object-enchant/object-curse.cpp object-enchant/object-curse.h \
 	object-enchant/object-ego.cpp object-enchant/object-ego.h \
 	object-enchant/item-apply-magic.h object-enchant/item-feeling.h \
-	object-enchant/old-ego-extra-values.h object-enchant/special-object-flags.h \
+	object-enchant/old-ego-extra-values.h \
 	object-enchant/tr-flags.h \
 	object-enchant/tr-types.h object-enchant/trc-types.h \
 	object-enchant/trg-types.h \
@@ -1256,13 +1255,15 @@ hengband_SOURCES = \
 	system/angband-exceptions.h \
 	system/angband-system.h system/angband-system.cpp \
 	system/angband-version.cpp system/angband-version.h \
-	system/artifact-type-definition.cpp system/artifact-type-definition.h \
+	system/artifact/artifact-definition.cpp system/artifact/artifact-definition.h \
+	system/artifact/artifact-list.cpp system/artifact/artifact-list.h \
+	system/artifact/artifact-record.cpp system/artifact/artifact-record.h \
+	system/artifact/artifact-service.cpp system/artifact/artifact-service.h \
 	system/building-type-definition.cpp system/building-type-definition.h \
 	system/grid-type-definition.cpp system/grid-type-definition.h \
 	system/h-basic.h system/h-config.h \
 	system/h-system.h system/h-type.h \
 	system/inner-game-data.cpp system/inner-game-data.h \
-	system/item-entity.cpp system/item-entity.h \
 	system/monster-entity.cpp system/monster-entity.h \
 	system/player-type-definition.cpp system/player-type-definition.h \
 	system/redrawing-flags-updater.cpp system/redrawing-flags-updater.h \
@@ -1288,7 +1289,12 @@ hengband_SOURCES = \
 	system/enums/terrain/terrain-characteristics.h \
 	system/enums/terrain/terrain-kind.h \
 	system/enums/terrain/terrain-tag.h \
+	system/enums/terrain/building-type.h \
+	system/enums/terrain/pattern-tile-type.h \
+	system/enums/terrain/terrain-conversion-type.h \
+	system/enums/terrain/trap.h \
 	system/enums/terrain/wilderness-terrain.h \
+	system/enums/store-sale-type.h \
 	\
 	system/floor/floor-info.cpp system/floor/floor-info.h \
 	system/floor/floor-list.cpp system/floor/floor-list.h \
@@ -1296,6 +1302,9 @@ hengband_SOURCES = \
 	system/floor/town-list.cpp system/floor/town-list.h \
 	system/floor/town-records.cpp system/floor/town-records.h \
 	system/floor/wilderness-grid.cpp system/floor/wilderness-grid.h \
+	\
+	system/item/item-entity.cpp system/item/item-entity.h \
+	system/item/identification-flags.h \
 	\
 	system/monrace/monrace-allocation.cpp system/monrace/monrace-allocation.h \
 	system/monrace/monrace-definition.cpp system/monrace/monrace-definition.h \

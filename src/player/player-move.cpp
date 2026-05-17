@@ -38,7 +38,7 @@
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -310,7 +310,7 @@ bool trap_can_be_ignored(PlayerType *player_ptr, FEAT_IDX feat)
         return true;
     }
 
-    switch (i2enum<TrapType>(terrain.subtype)) {
+    switch (terrain.trap_type) {
     case TrapType::TRAPDOOR:
     case TrapType::PIT:
     case TrapType::SPIKED_PIT:

@@ -30,13 +30,14 @@
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "term/z-rand.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "window/main-window-util.h"
@@ -300,6 +301,33 @@ void wipe_generate_random_floor_flags(FloorType &floor)
     }
 }
 
+static short select_terrain_generation_change(short terrain_id)
+{
+    const auto &terrain = TerrainList::get_instance().get_terrain(terrain_id);
+    if (terrain.generation_changes.empty()) {
+        return terrain_id;
+    }
+
+    const auto chance = randint1(100);
+    auto cumulative_probability = 0;
+    for (const auto &change : terrain.generation_changes) {
+        cumulative_probability += change.probability;
+        if (chance <= cumulative_probability) {
+            return change.result;
+        }
+    }
+
+    return terrain_id;
+}
+
+void apply_terrain_generation_changes(FloorType &floor)
+{
+    for (const auto &pos : floor.get_area()) {
+        auto &grid = floor.get_grid(pos);
+        grid.feat = select_terrain_generation_change(grid.feat);
+    }
+}
+
 /*!
  * @brief フロアの全情報を初期化する / Clear and empty floor.
  * @parama player_ptr プレイヤーへの参照ポインタ
@@ -440,6 +468,7 @@ void generate_floor(PlayerType *player_ptr)
     const auto is_wild_mode = AngbandWorld::get_instance().is_wild_mode();
     for (int num = 0; true; num++) {
         tl::optional<std::string> why;
+        auto should_apply_terrain_generation_changes = true;
         clear_cave(player_ptr);
         player_ptr->x = player_ptr->y = 0;
         if (floor.inside_arena) {
@@ -459,6 +488,11 @@ void generate_floor(PlayerType *player_ptr)
             panel_row_min = floor.height;
             panel_col_min = floor.width;
             why = cave_gen(player_ptr);
+            should_apply_terrain_generation_changes = false;
+        }
+
+        if (!why && should_apply_terrain_generation_changes) {
+            apply_terrain_generation_changes(floor);
         }
 
         if (floor.o_list.size() >= MAX_FLOOR_ITEMS) {

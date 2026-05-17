@@ -6,10 +6,9 @@
 #include "floor/floor-object.h"
 #include "inventory/inventory-slot-types.h"
 #include "market/building-util.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/item-use-flags.h"
 #include "spell-kind/spells-perception.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -138,7 +137,7 @@ void building_recharge(PlayerType *player_ptr)
 
         price *= charges;
         item->pval += static_cast<short>(charges);
-        item->ident &= ~(IDENT_EMPTY);
+        item->reset_identification_flag(IdentificationFlag::EMPTY);
     }
 
     const auto item_name = describe_flavor(player_ptr, *item, 0);
@@ -249,14 +248,14 @@ void building_recharge_all(PlayerType *player_ptr)
                 o_ptr->pval = base_pval;
             }
 
-            o_ptr->ident &= ~(IDENT_EMPTY);
+            o_ptr->reset_identification_flag(IdentificationFlag::EMPTY);
             break;
         case ItemKindType::WAND:
             if (o_ptr->pval < o_ptr->number * base_pval) {
                 o_ptr->pval = o_ptr->number * base_pval;
             }
 
-            o_ptr->ident &= ~(IDENT_EMPTY);
+            o_ptr->reset_identification_flag(IdentificationFlag::EMPTY);
             break;
         default:
             break;

@@ -15,7 +15,6 @@
 #include "monster/monster-list.h"
 #include "monster/monster-status.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-mark-types.h"
 #include "object/object-value.h"
 #include "object/tval-types.h"
@@ -28,7 +27,7 @@
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -158,7 +157,7 @@ static int get_dungeon_feeling(const auto &floor)
 
     for (const auto &item_ptr : floor.o_list) {
         auto delta = 0;
-        if (!item_ptr->is_valid() || (item_ptr->is_known() && item_ptr->marked.has(OmType::TOUCHED)) || ((item_ptr->ident & IDENT_SENSE) != 0)) {
+        if (!item_ptr->is_valid() || (item_ptr->is_known() && item_ptr->marked.has(OmType::TOUCHED)) || item_ptr->has_identification_flag(IdentificationFlag::SENSE)) {
             continue;
         }
 

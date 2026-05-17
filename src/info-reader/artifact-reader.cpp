@@ -8,7 +8,8 @@
 #include "locale/japanese.h"
 #include "main/angband-headers.h"
 #include "object-enchant/tr-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/string-processor.h"
@@ -21,7 +22,7 @@
  * @param what 参照元の文字列ポインタ
  * @return 見つかったらtrue
  */
-static bool grab_one_artifact_flag(ArtifactType *a_ptr, std::string_view what)
+static bool grab_one_artifact_flag(ArtifactDefinition *a_ptr, std::string_view what)
 {
     if (TrFlags::grab_one_flag(a_ptr->flags, baseitem_flags, what)) {
         return true;
@@ -41,7 +42,7 @@ static bool grab_one_artifact_flag(ArtifactType *a_ptr, std::string_view what)
  * @param artifact 保管先のアーティファクト
  * @return エラーコード
  */
-static errr set_art_baseitem(nlohmann::json &baseitem_data, ArtifactType &artifact)
+static errr set_art_baseitem(nlohmann::json &baseitem_data, ArtifactDefinition &artifact)
 {
     if (baseitem_data.is_null()) {
         return PARSE_ERROR_TOO_FEW_ARGUMENTS;
@@ -67,7 +68,7 @@ static errr set_art_baseitem(nlohmann::json &baseitem_data, ArtifactType &artifa
  * @param artifact 保管先のアーティファクト
  * @return エラーコード
  */
-static errr set_art_activate(const nlohmann::json &act_data, ArtifactType &artifact)
+static errr set_art_activate(const nlohmann::json &act_data, ArtifactDefinition &artifact)
 {
     if (!act_data.is_string()) {
         return PARSE_ERROR_NONE;
@@ -89,7 +90,7 @@ static errr set_art_activate(const nlohmann::json &act_data, ArtifactType &artif
  * @param artifact 保管先のアーティファクト
  * @return エラーコード
  */
-static errr set_art_flags(const nlohmann::json &flag_data, ArtifactType &artifact)
+static errr set_art_flags(const nlohmann::json &flag_data, ArtifactDefinition &artifact)
 {
     if (flag_data.is_null()) {
         return PARSE_ERROR_NONE;
@@ -125,7 +126,7 @@ errr parse_artifacts_info(nlohmann::json &art_data, angband_header *)
     const auto artifact_id = i2enum<FixedArtifactId>(int_id);
 
     error_idx = int_id;
-    ArtifactType artifact;
+    ArtifactDefinition artifact;
     artifact.flags.set(TR_IGNORE_ACID);
     artifact.flags.set(TR_IGNORE_ELEC);
     artifact.flags.set(TR_IGNORE_FIRE);

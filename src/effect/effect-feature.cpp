@@ -170,7 +170,7 @@ bool affect_feature(PlayerType *player_ptr, MONSTER_IDX src_idx, POSITION r, POS
             cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::DISARM);
         }
 
-        if (floor.has_closed_door_at(pos) && terrain.power && terrain.flags.has(TerrainCharacteristics::OPEN)) {
+        if (floor.has_closed_door_at(pos) && terrain.door_power && terrain.flags.has(TerrainCharacteristics::OPEN)) {
             FEAT_IDX old_feat = grid.feat;
             cave_alter_feat(player_ptr, y, x, TerrainCharacteristics::DISARM);
             if (known && (old_feat != grid.feat)) {

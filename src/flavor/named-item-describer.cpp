@@ -7,18 +7,18 @@
 #include "locale/english.h"
 #include "mind/mind-weaponsmith.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "perception/object-perception.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
 #include "system/baseitem/baseitem-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #ifdef JP
 #else
 #include "object/tval-types.h"
+#include "system/artifact/artifact-list.h"
 #include "system/monrace/monrace-definition.h"
 #endif
 #include <sstream>

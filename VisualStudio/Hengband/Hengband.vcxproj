@@ -310,6 +310,9 @@
     <ClCompile Include="..\..\src\io\macro-configurations-store.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-movement-direction-list.cpp" />
     <ClCompile Include="..\..\src\player-info\bluemage-data.cpp" />
+    <ClCompile Include="..\..\src\system\artifact\artifact-list.cpp" />
+    <ClCompile Include="..\..\src\system\artifact\artifact-record.cpp" />
+    <ClCompile Include="..\..\src\system\artifact\artifact-service.cpp" />
     <ClCompile Include="..\..\src\system\floor\town-records.cpp" />
     <ClCompile Include="..\..\src\system\floor\wilderness-grid.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-monrace-service.cpp" />
@@ -455,7 +458,6 @@
     <ClCompile Include="..\..\src\info-reader\dungeon-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\ego-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\feature-info-tokens-table.cpp" />
-    <ClCompile Include="..\..\src\info-reader\feature-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\general-parser.cpp" />
     <ClCompile Include="..\..\src\info-reader\info-reader-util.cpp" />
     <ClCompile Include="..\..\src\info-reader\json-reader-util.cpp" />
@@ -662,7 +664,7 @@
     <ClCompile Include="..\..\src\store\service-checker.cpp" />
     <ClCompile Include="..\..\src\system\angband-version.cpp" />
     <ClCompile Include="..\..\src\system\monster-entity.cpp" />
-    <ClCompile Include="..\..\src\system\item-entity.cpp" />
+    <ClCompile Include="..\..\src\system\item\item-entity.cpp" />
     <ClCompile Include="..\..\src\system\monrace\monrace-definition.cpp" />
     <ClCompile Include="..\..\src\system\monrace\monrace-message.cpp" />
     <ClCompile Include="..\..\src\system\player-type-definition.cpp" />
@@ -788,7 +790,7 @@
     <ClCompile Include="..\..\src\mspell\mspell-attack\mspell-particularity.cpp" />
     <ClCompile Include="..\..\src\mspell\mspell-special.cpp" />
     <ClCompile Include="..\..\src\mspell\mspell-status.cpp" />
-    <ClCompile Include="..\..\src\system\artifact-type-definition.cpp" />
+    <ClCompile Include="..\..\src\system\artifact\artifact-definition.cpp" />
     <ClCompile Include="..\..\src\autopick\autopick-command-menu.cpp" />
     <ClCompile Include="..\..\src\autopick\autopick-describer.cpp" />
     <ClCompile Include="..\..\src\autopick\autopick-destroyer.cpp" />
@@ -1037,10 +1039,20 @@
     <ClInclude Include="..\..\src\external-lib\include-json.h" />
     <ClInclude Include="..\..\src\io\macro-configurations-store.h" />
     <ClInclude Include="..\..\src\monster-floor\monster-movement-direction-list.h" />
+    <ClInclude Include="..\..\src\system\enums\store-sale-type.h" />
+    <ClInclude Include="..\..\src\system\enums\terrain\building-type.h" />
+    <ClInclude Include="..\..\src\system\enums\terrain\pattern-tile-type.h" />
+    <ClInclude Include="..\..\src\system\artifact\artifact-list.h" />
+    <ClInclude Include="..\..\src\system\artifact\artifact-record.h" />
+    <ClInclude Include="..\..\src\system\artifact\artifact-service.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\terrain-kind.h" />
+    <ClInclude Include="..\..\src\system\enums\terrain\terrain-conversion-type.h" />
+    <ClInclude Include="..\..\src\system\enums\terrain\trap.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h" />
+    <ClInclude Include="..\..\src\system\artifact\artifact-list.h" />
     <ClInclude Include="..\..\src\system\floor\town-records.h" />
     <ClInclude Include="..\..\src\system\floor\wilderness-grid.h" />
+    <ClInclude Include="..\..\src\system\item\identification-flags.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-monrace-service.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-service.h" />
     <ClInclude Include="..\..\src\system\enums\dungeon\dungeon-id.h" />
@@ -1260,7 +1272,6 @@
     <ClInclude Include="..\..\src\info-reader\dungeon-reader.h" />
     <ClInclude Include="..\..\src\info-reader\ego-reader.h" />
     <ClInclude Include="..\..\src\info-reader\feature-info-tokens-table.h" />
-    <ClInclude Include="..\..\src\info-reader\feature-reader.h" />
     <ClInclude Include="..\..\src\info-reader\general-parser.h" />
     <ClInclude Include="..\..\src\info-reader\info-reader-util.h" />
     <ClInclude Include="..\..\src\info-reader\json-reader-util.h" />
@@ -1641,7 +1652,7 @@
     <ClInclude Include="..\..\src\mspell\mspell-attack\mspell-particularity.h" />
     <ClInclude Include="..\..\src\mspell\mspell-special.h" />
     <ClInclude Include="..\..\src\mspell\mspell-status.h" />
-    <ClInclude Include="..\..\src\system\artifact-type-definition.h" />
+    <ClInclude Include="..\..\src\system\artifact\artifact-definition.h" />
     <ClInclude Include="..\..\src\autopick\autopick-command-menu.h" />
     <ClInclude Include="..\..\src\autopick\autopick-commands-table.h" />
     <ClInclude Include="..\..\src\autopick\autopick-describer.h" />
@@ -1655,7 +1666,6 @@
     <ClInclude Include="..\..\src\autopick\autopick-flags-table.h" />
     <ClInclude Include="..\..\src\autopick\autopick-initializer.h" />
     <ClInclude Include="..\..\src\autopick\autopick-inserter-killer.h" />
-    <ClInclude Include="..\..\src\autopick\autopick-key-flag-process.h" />
     <ClInclude Include="..\..\src\autopick\autopick-keys-table.h" />
     <ClInclude Include="..\..\src\autopick\autopick-matcher.h" />
     <ClInclude Include="..\..\src\autopick\autopick-menu-data-table.h" />
@@ -1674,9 +1684,8 @@
     <ClInclude Include="..\..\src\game-option\game-option-page.h" />
     <ClInclude Include="..\..\src\system\monrace\monrace-definition.h" />
     <ClInclude Include="..\..\src\system\monrace\monrace-message.h" />
-    <ClInclude Include="..\..\src\system\item-entity.h" />
+    <ClInclude Include="..\..\src\system\item\item-entity.h" />
     <ClInclude Include="..\..\src\object-enchant\old-ego-extra-values.h" />
-    <ClInclude Include="..\..\src\object-enchant\special-object-flags.h" />
     <ClInclude Include="..\..\src\realm\realm-hex-numbers.h" />
     <ClInclude Include="..\..\src\realm\realm-song-numbers.h" />
     <ClInclude Include="..\..\src\spell-kind\earthquake.h" />

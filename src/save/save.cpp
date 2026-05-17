@@ -12,6 +12,7 @@
  */
 
 #include "save/save.h"
+#include "artifact/fixed-art-types.h"
 #include "core/object-compressor.h"
 #include "dungeon/quest.h"
 #include "inventory/inventory-slot-types.h"
@@ -27,7 +28,9 @@
 #include "save/lore-writer.h"
 #include "save/player-writer.h"
 #include "save/save-util.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
@@ -140,7 +143,7 @@ static bool wr_savefile_new(PlayerType *player_ptr)
         wr_s16b((int16_t)quest.max_num);
         wr_s16b(enum2i(quest.type));
         wr_s16b(enum2i(quest.r_idx));
-        wr_s16b(enum2i(quest.reward_fa_id));
+        wr_s16b(enum2i(quest.get_reward().value_or(FixedArtifactId::NONE)));
         wr_byte((byte)quest.flags);
         wr_byte((byte)quest.dungeon);
     }
@@ -161,14 +164,15 @@ static bool wr_savefile_new(PlayerType *player_ptr)
     }
 
     const auto &artifacts = ArtifactList::get_instance();
+    const auto &artifact_records = ArtifactRecords::get_instance();
     auto max_a_num = enum2i(artifacts.rbegin()->first);
     tmp16u = max_a_num + 1;
     wr_u16b(tmp16u);
     for (auto i = 0U; i < tmp16u; i++) {
-        const auto a_idx = i2enum<FixedArtifactId>(i);
-        const auto &artifact = artifacts.get_artifact(a_idx);
-        wr_bool(artifact.is_generated);
-        wr_s16b(artifact.floor_id);
+        const auto fa_id = i2enum<FixedArtifactId>(i);
+        wr_bool(artifact_records.get_generated(fa_id));
+        const auto floor_id = artifact_records.get_floor_id(fa_id);
+        wr_s16b(floor_id ? *floor_id : 0);
     }
 
     wr_u32b(world.sf_play_time);

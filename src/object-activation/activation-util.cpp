@@ -1,8 +1,8 @@
 #include "object-activation/activation-util.h"
 #include "object-enchant/activation-info-table.h"
 #include "object/object-info.h"
-#include "system/artifact-type-definition.h"
-#include "system/item-entity.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 
 ae_type::ae_type(PlayerType *player_ptr, short i_idx)

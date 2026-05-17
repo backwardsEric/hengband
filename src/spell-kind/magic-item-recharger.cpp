@@ -16,13 +16,12 @@
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "inventory/inventory-object.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-hook/hook-magic.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
 #include "player-base/player-class.h"
 #include "system/angband-exceptions.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -107,8 +106,7 @@ bool recharge(PlayerType *player_ptr, int power)
             }
 
             item->pval += recharge_amount;
-            item->ident &= ~(IDENT_KNOWN);
-            item->ident &= ~(IDENT_EMPTY);
+            item->reset_identification_flags({ IdentificationFlag::KNOWN, IdentificationFlag::EMPTY });
         }
     }
 

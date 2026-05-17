@@ -70,6 +70,64 @@ bool TerrainType::has(TerrainCharacteristics tc) const
     return this->flags.has(tc);
 }
 
+bool TerrainType::init_trap_type(TrapType type)
+{
+    if (this->flags.has_not(TerrainCharacteristics::TRAP)) {
+        return false;
+    }
+
+    this->trap_type = type;
+    return true;
+}
+
+bool TerrainType::init_pattern_tile_type(PatternTileType type)
+{
+    if (this->flags.has_not(TerrainCharacteristics::PATTERN)) {
+        return false;
+    }
+
+    this->pattern_tile_type = type;
+    return true;
+}
+
+bool TerrainType::init_store_sale_type(StoreSaleType type)
+{
+    if (this->flags.has_not(TerrainCharacteristics::STORE)) {
+        return false;
+    }
+
+    this->store_sale_type = type;
+    return true;
+}
+
+bool TerrainType::init_building_type(BuildingType type)
+{
+    if (this->flags.has_not(TerrainCharacteristics::BLDG)) {
+        return false;
+    }
+
+    this->building_type = type;
+    return true;
+}
+
+bool TerrainType::init_conversion_type(TerrainConversionType type, int index)
+{
+    if (this->flags.has_not(TerrainCharacteristics::CONVERT)) {
+        return false;
+    }
+
+    if (type == TerrainConversionType::STREAM) {
+        if (index < 0) {
+            return false;
+        }
+
+        this->stream_index = index;
+    }
+    this->conversion_type = type;
+
+    return true;
+}
+
 /*!
  * @brief 地形のライティング状況をリセットする
  * @param is_config 設定値ならばtrue、定義値ならばfalse (定義値が入るのは初期化時のみ)

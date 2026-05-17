@@ -101,6 +101,9 @@ void TerrainList::retouch()
         for (auto &ts : terrain.state) {
             ts.result = this->search_real_terrain(ts.result_tag).value_or(ts.result);
         }
+        for (auto &change : terrain.generation_changes) {
+            change.result = this->search_real_terrain(change.result_tag).value_or(change.result);
+        }
     }
 }
 

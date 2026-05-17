@@ -18,16 +18,15 @@
 #include "main/sound-of-music.h"
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-info.h"
 #include "object/object-kind-hook.h"
 #include "perception/object-perception.h"
 #include "range/v3/range/conversion.hpp"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
 #include "system/baseitem/baseitem-allocation.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -50,7 +49,7 @@ static void object_mention(PlayerType *player_ptr, ItemEntity &item)
 {
     object_aware(player_ptr, item);
     item.mark_as_known();
-    item.ident |= (IDENT_FULL_KNOWN);
+    item.set_identification_flag(IdentificationFlag::FULL_KNOWN);
     const auto item_name = describe_flavor(player_ptr, item, 0);
     msg_format_wizard(player_ptr, CHEAT_OBJECT, _("%sを生成しました。", "%s was generated."), item_name.data());
 }
@@ -106,8 +105,7 @@ static void handle_item_disappearance(PlayerType *player_ptr, ItemEntity &disapp
     }
 
     if (disappearing_item.is_fixed_artifact() && !disappearing_item.is_known() && preserve_mode) {
-        auto &artifact = disappearing_item.get_fixed_artifact();
-        artifact.is_generated = false;
+        disappearing_item.set_fixed_artifact_generated(false);
     }
 }
 
@@ -456,8 +454,7 @@ short drop_near(PlayerType *player_ptr, ItemEntity &drop_item, const Pos2D &pos,
     }
 
     if (drop_item.is_fixed_artifact() && world.character_dungeon) {
-        auto &artifact = drop_item.get_fixed_artifact();
-        artifact.floor_id = player_ptr->floor_id;
+        drop_item.set_fixed_artifact_floor_id(player_ptr->floor_id);
     }
 
     note_spot(player_ptr, pos_drop);

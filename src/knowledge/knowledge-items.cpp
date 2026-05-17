@@ -14,16 +14,17 @@
 #include "io-dump/dump-util.h"
 #include "io/input-key-acceptor.h"
 #include "knowledge/item-group-table.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/tval-types.h"
 #include "perception/identification.h"
 #include "perception/object-perception.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
@@ -43,8 +44,8 @@ auto collect_known_fixed_artifacts(PlayerType *player_ptr)
     const auto &artifacts = ArtifactList::get_instance();
     const auto comparer = [&artifacts](auto id1, auto id2) { return artifacts.order(id1, id2); };
     std::set<FixedArtifactId, decltype(comparer)> fa_ids(comparer);
-    for (const auto &[fa_id, artifact] : artifacts) {
-        if (!artifact.is_generated) {
+    for (const auto &[fa_id, record] : ArtifactRecords::get_instance()) {
+        if (!record.get_generated()) {
             continue;
         }
 
@@ -104,7 +105,7 @@ void do_cmd_knowledge_artifacts(PlayerType *player_ptr)
         constexpr auto template_basename = _("     %s\n", "     The %s\n");
         ItemEntity item(artifact.bi_key);
         item.fa_id = fa_id;
-        item.ident |= IDENT_STORE;
+        item.set_identification_flag(IdentificationFlag::STORE);
         const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
         fprintf(fff, template_basename, item_name.data());
     }
@@ -218,7 +219,7 @@ static void display_object_list(int col, int row, int per_page, const std::vecto
 static void desc_obj_fake(PlayerType *player_ptr, short bi_id)
 {
     ItemEntity item(bi_id);
-    item.ident |= IDENT_KNOWN;
+    item.set_identification_flag(IdentificationFlag::KNOWN);
     handle_stuff(player_ptr);
     if (screen_object(player_ptr, item, SCROBJ_FAKE_OBJECT | SCROBJ_FORCE_DETAIL)) {
         return;
