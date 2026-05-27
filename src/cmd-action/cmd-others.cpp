@@ -32,6 +32,7 @@
 #include "status/action-setter.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "system/terrain/terrain-definition.h"
@@ -126,7 +127,7 @@ void do_cmd_alter(PlayerType *player_ptr)
  */
 static bool decide_suicide()
 {
-    if (AngbandWorld::get_instance().noscore) {
+    if (InnerGameData::get_instance().is_no_score()) {
         return true;
     }
 
@@ -191,7 +192,7 @@ void do_cmd_suicide(PlayerType *player_ptr)
     player_ptr->leaving = true;
     if (world.total_winner) {
         accept_winner_message(player_ptr);
-        world.add_retired_class(player_ptr->pclass);
+        InnerGameData::get_instance().add_retired_class(player_ptr->pclass);
     } else {
         play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_GAMEOVER);
         const auto &floor = *player_ptr->current_floor_ptr;

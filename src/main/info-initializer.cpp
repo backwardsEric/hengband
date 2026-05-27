@@ -8,6 +8,7 @@
 #include "floor/wild.h"
 #include "info-reader/artifact-reader.h"
 #include "info-reader/baseitem-reader.h"
+#include "info-reader/definition-hash-data.h"
 #include "info-reader/dungeon-reader.h"
 #include "info-reader/ego-reader.h"
 #include "info-reader/fixed-map-parser.h"
@@ -21,7 +22,6 @@
 #include "info-reader/vault-reader.h"
 #include "io/files-util.h"
 #include "io/uid-checker.h"
-#include "main/angband-headers.h"
 #include "main/init-error-messages-table.h"
 #include "object-enchant/object-ego.h"
 #include "player-info/class-info.h"
@@ -64,18 +64,6 @@ concept HasShrinkToFit = requires(T t) {
     t.shrink_to_fit();
 };
 // clang-format on
-}
-
-/*!
- * @brief ヘッダ構造体の更新
- * Initialize the header of an *_info.raw file.
- * @param head ヘッダ構造体
- * @return エラーコード
- */
-static void init_header(angband_header *head)
-{
-    head->digest = {};
-}
 
 /*!
  * @brief 各種設定データをlib/edit/のテキストから読み込み
@@ -88,16 +76,15 @@ static void init_header(angband_header *head)
  * even if the string happens to be empty (everyone has a unique '\0').
  */
 template <typename InfoType>
-static void init_info(std::string_view filename, angband_header &head, InfoType &info, Parser parser, std::function<void()> retouch = nullptr)
+void init_info(std::string_view filename, DefinitionHashDataType dhdt, InfoType &info, Parser parser, std::function<void()> retouch = nullptr)
 {
     const auto path = path_build(ANGBAND_DIR_EDIT, filename);
-    auto *fp = angband_fopen(path, FileOpenMode::READ);
-    if (!fp) {
+    auto ifs = std::ifstream(path);
+    if (!ifs) {
         quit(fmt::format(_("'{}'ファイルをオープンできません。", "Cannot open '{}' file."), filename));
     }
 
-    const auto &[error_code, error_line, line] = init_info_txt(fp, &head, parser);
-    angband_fclose(fp);
+    const auto &[error_code, error_line, line] = init_info_txt(ifs, dhdt, parser);
     if (error_code != PARSE_ERROR_NONE) {
         const auto oops = (((error_code > 0) && (error_code < PARSE_ERROR_MAX)) ? err_str[error_code] : _("未知の", "unknown"));
 #ifdef JP
@@ -131,13 +118,13 @@ static void init_info(std::string_view filename, angband_header &head, InfoType 
  * even if the string happens to be empty (everyone has a unique '\0').
  */
 template <typename InfoType>
-static void init_json(std::string_view filename, std::string_view keyname, angband_header &head, InfoType &info, JSONParser parser, std::function<void()> retouch = nullptr)
+void init_json(std::string_view filename, std::string_view keyname, DefinitionHashDataType dhdt, InfoType &info, std::function<int(nlohmann::json &)> json_parser, std::function<void()> retouch = nullptr)
 {
     const auto path = path_build(ANGBAND_DIR_EDIT, filename);
     std::ifstream ifs(path);
 
     if (!ifs) {
-        quit_fmt(_("'%s'ファイルをオープンできません。", "Cannot open '%s' file."), filename.data());
+        quit(fmt::format(_("'{}'ファイルをオープンできません。", "Cannot open '{}' file."), filename));
     }
 
     std::istreambuf_iterator<char> ifs_iter(ifs);
@@ -147,16 +134,16 @@ static void init_json(std::string_view filename, std::string_view keyname, angba
     error_idx = -1;
 
     for (auto &element : json_object[keyname]) {
-        const auto error_code = parser(element, &head);
+        const auto error_code = json_parser(element);
         if (error_code != PARSE_ERROR_NONE) {
             msg_erase();
-            quit_fmt(_("'%s'ファイルにエラー", "Error in '%s' file."), filename.data());
+            quit(fmt::format(_("'{}'ファイルにエラー", "Error in '{}' file."), filename));
         }
     }
 
     util::SHA256 sha256;
     sha256.update(json_object.dump());
-    head.digest = sha256.digest();
+    DefinitionHashData::get_instance().set_digest(dhdt, sha256.digest());
 
     if constexpr (HasShrinkToFit<InfoType>) {
         info.shrink_to_fit();
@@ -166,6 +153,7 @@ static void init_json(std::string_view filename, std::string_view keyname, angba
         retouch();
     }
 }
+}
 
 /*!
  * @brief 固定アーティファクト情報読み込みのメインルーチン
@@ -173,8 +161,7 @@ static void init_json(std::string_view filename, std::string_view keyname, angba
 void init_artifacts_info()
 {
     auto &artifacts = ArtifactList::get_instance();
-    init_header(&artifacts_header);
-    init_json("ArtifactDefinitions.jsonc", "artifacts", artifacts_header, artifacts, parse_artifacts_info);
+    init_json("ArtifactDefinitions.jsonc", "artifacts", DefinitionHashDataType::ARTIFACTS, ArtifactList::get_instance(), parse_artifacts_info);
     ArtifactRecords::get_instance().initialize(artifacts.size());
 }
 
@@ -183,8 +170,7 @@ void init_artifacts_info()
  */
 void init_baseitems_info()
 {
-    init_header(&baseitems_header);
-    init_json("BaseitemDefinitions.jsonc", "baseitems", baseitems_header, BaseitemList::get_instance(), parse_baseitems_info);
+    init_json("BaseitemDefinitions.jsonc", "baseitems", DefinitionHashDataType::BASEITEMS, BaseitemList::get_instance(), parse_baseitems_info);
 }
 
 /*!
@@ -192,9 +178,8 @@ void init_baseitems_info()
  */
 void init_class_magics_info()
 {
-    init_header(&class_magics_header);
     class_magics_info.assign(PLAYER_CLASS_TYPE_MAX, {});
-    init_json("ClassMagicDefinitions.jsonc", "classes", class_magics_header, class_magics_info, parse_class_magics_info);
+    init_json("ClassMagicDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_MAGICS, class_magics_info, parse_class_magics_info);
 }
 
 /*!
@@ -202,18 +187,17 @@ void init_class_magics_info()
  */
 void init_class_skills_info()
 {
-    init_header(&class_skills_header);
     class_skills_info.assign(PLAYER_CLASS_TYPE_MAX, {});
-    init_info("ClassSkillDefinitions.txt", class_skills_header, class_skills_info, parse_class_skills_info);
+    init_info("ClassSkillDefinitions.txt", DefinitionHashDataType::CLASS_SKILLS, class_skills_info, parse_class_skills_info);
 }
+
 /*!
  * @brief ダンジョン情報読み込みのメインルーチン
  */
 void init_dungeons_info()
 {
-    init_header(&dungeons_header);
     auto &dungeons = DungeonList::get_instance();
-    init_json("DungeonDefinitions.jsonc", "dungeons", dungeons_header, dungeons, parse_dungeons_info, [&dungeons] { dungeons.retouch(); });
+    init_json("DungeonDefinitions.jsonc", "dungeons", DefinitionHashDataType::DUNGEONS, dungeons, parse_dungeons_info, [&dungeons] { dungeons.retouch(); });
 }
 
 /*!
@@ -221,8 +205,7 @@ void init_dungeons_info()
  */
 void init_egos_info()
 {
-    init_header(&egos_header);
-    init_info("EgoDefinitions.txt", egos_header, egos_info, parse_egos_info);
+    init_info("EgoDefinitions.txt", DefinitionHashDataType::EGOS, egos_info, parse_egos_info);
 }
 
 /*!
@@ -230,9 +213,8 @@ void init_egos_info()
  */
 void init_terrains_info()
 {
-    init_header(&terrains_header);
     auto &terrains = TerrainList::get_instance();
-    init_json("TerrainDefinitions.jsonc", "terrains", terrains_header, terrains, parse_terrains_json_info, [&terrains] { terrains.retouch(); });
+    init_json("TerrainDefinitions.jsonc", "terrains", DefinitionHashDataType::TERRAINS, terrains, parse_terrains_json_info, [&terrains] { terrains.retouch(); });
 }
 
 /*!
@@ -249,8 +231,7 @@ void init_feat_variables()
  */
 void init_monrace_definitions()
 {
-    init_header(&monraces_header);
-    init_json("MonraceDefinitions.jsonc", "monsters", monraces_header, MonraceList::get_instance(), parse_monraces_info);
+    init_json("MonraceDefinitions.jsonc", "monsters", DefinitionHashDataType::MONRACES, MonraceList::get_instance(), parse_monraces_info);
 }
 
 /*!
@@ -258,8 +239,7 @@ void init_monrace_definitions()
  */
 void init_monster_message_definitions()
 {
-    init_header(&monster_messages_header);
-    init_json("MonsterMessages.jsonc", "groups", monster_messages_header, MonraceMessageList::get_instance(), parse_monster_messages_info);
+    init_json("MonsterMessages.jsonc", "groups", DefinitionHashDataType::MONSTER_MESSAGES, MonraceMessageList::get_instance(), parse_monster_messages_info);
 }
 
 /*!
@@ -267,13 +247,12 @@ void init_monster_message_definitions()
  */
 void init_spell_info()
 {
-    init_header(&spells_header);
     auto &spell_info_list = SpellInfoList::get_instance();
     spell_info_list.initialize();
-    auto parser = [&spell_info_list](nlohmann::json &spell_data, angband_header *) {
+    auto parser = [&spell_info_list](nlohmann::json &spell_data) {
         return spell_info_list.parse(spell_data);
     };
-    init_json("SpellDefinitions.jsonc", "realms", spells_header, spell_info_list, parser);
+    init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser);
 }
 
 /*!
@@ -284,8 +263,7 @@ void init_spell_info()
  */
 void init_vaults_info()
 {
-    init_header(&vaults_header);
-    init_info("VaultDefinitions.txt", vaults_header, vaults_info, parse_vaults_info);
+    init_info("VaultDefinitions.txt", DefinitionHashDataType::VAULTS, vaults_info, parse_vaults_info);
 }
 
 static bool read_wilderness_definition(std::ifstream &ifs)

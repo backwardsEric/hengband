@@ -3,13 +3,13 @@
 #include "io/input-key-acceptor.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
-#include "world/world.h"
 #include <sstream>
 
 static std::string birth_class_label(int cs, concptr sym)
@@ -45,7 +45,7 @@ static void enumerate_class_list(char *sym)
         }
 
         auto cs = i2enum<PlayerClassType>(n);
-        c_put_str(AngbandWorld::get_instance().get_birth_class_color(cs), birth_class_label(n, sym), 13 + (n / 4), 2 + 19 * (n % 4));
+        c_put_str(InnerGameData::get_instance().get_birth_class_color(cs), birth_class_label(n, sym), 13 + (n / 4), 2 + 19 * (n % 4));
     }
 }
 
@@ -56,7 +56,7 @@ static std::string display_class_stat(int cs, int *os, const std::string &cur, c
     }
 
     auto pclass = i2enum<PlayerClassType>(*os);
-    c_put_str(AngbandWorld::get_instance().get_birth_class_color(pclass), cur, 13 + (*os / 4), 2 + 19 * (*os % 4));
+    c_put_str(InnerGameData::get_instance().get_birth_class_color(pclass), cur, 13 + (*os / 4), 2 + 19 * (*os % 4));
     put_str("                                   ", 3, 40);
     auto result = birth_class_label(cs, sym);
     if (cs == PLAYER_CLASS_TYPE_MAX) {

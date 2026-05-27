@@ -11,6 +11,7 @@
 #include "store/store-util.h"
 #include "system/angband-system.h"
 #include "system/angband.h"
+#include "system/inner-game-data.h"
 #include "system/item/item-entity.h"
 #include "util/enum-converter.h"
 #include "world/world.h"
@@ -199,7 +200,7 @@ void save_quick_start(void)
 
     /* UNUSED : Was number of random quests */
     wr_byte(0);
-    if (AngbandWorld::get_instance().noscore) {
+    if (InnerGameData::get_instance().is_no_score()) {
         previous_char.quick_ok = false;
     }
 

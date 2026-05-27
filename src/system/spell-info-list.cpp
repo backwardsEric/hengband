@@ -33,7 +33,7 @@ const SpellInfo &SpellInfoList::get_spell_info(RealmType realm, int spell_id) co
     return this->spell_list[enum2i(realm)][spell_id];
 }
 
-errr SpellInfoList::parse(nlohmann::json &spell_data)
+int SpellInfoList::parse(nlohmann::json &spell_data)
 {
     return parse_spell_info(spell_data, this->spell_list);
 }

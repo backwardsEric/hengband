@@ -128,7 +128,7 @@ static errr process_pref_file_aux(PlayerType *player_ptr, const std::filesystem:
                 break;
             }
 
-            process_autopick_file_command(line_str->data());
+            process_autopick_file_command(*line_str);
             err = 0;
         }
     }

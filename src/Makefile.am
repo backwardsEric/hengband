@@ -32,7 +32,7 @@ hengband_SOURCES = \
 	autopick/autopick.cpp autopick/autopick.h \
 	autopick/autopick-commands-table.h autopick/autopick-dirty-flags.h \
 	autopick/autopick-flags-table.h \
-	autopick/autopick-keys-table.h \
+	autopick/autopick-keys-table.cpp autopick/autopick-keys-table.h \
 	autopick/autopick-menu-data-table.cpp autopick/autopick-menu-data-table.h \
 	autopick/autopick-methods-table.h \
 	autopick/autopick-util.cpp autopick/autopick-util.h \
@@ -594,6 +594,7 @@ hengband_SOURCES = \
 	info-reader/artifact-reader.cpp info-reader/artifact-reader.h \
 	info-reader/baseitem-reader.cpp info-reader/baseitem-reader.h \
 	info-reader/baseitem-tokens-table.cpp info-reader/baseitem-tokens-table.h \
+	info-reader/definition-hash-data.cpp info-reader/definition-hash-data.h \
 	info-reader/dungeon-info-tokens-table.cpp info-reader/dungeon-info-tokens-table.h \
 	info-reader/dungeon-reader.cpp info-reader/dungeon-reader.h \
 	info-reader/ego-reader.cpp info-reader/ego-reader.h \
@@ -721,7 +722,6 @@ hengband_SOURCES = \
 	\
 	main.cpp main-x11.cpp main-gcu.cpp \
 	\
-	main/angband-headers.cpp main/angband-headers.h \
 	main/angband-initializer.cpp main/angband-initializer.h \
 	main/game-data-initializer.cpp main/game-data-initializer.h \
 	main/info-initializer.cpp main/info-initializer.h \

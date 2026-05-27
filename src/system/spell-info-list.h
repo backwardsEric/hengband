@@ -49,7 +49,7 @@ public:
     ~SpellInfoList() = default;
 
     void initialize();
-    errr parse(nlohmann::json &spell_data);
+    int parse(nlohmann::json &spell_data);
 
     static SpellInfoList &get_instance();
 

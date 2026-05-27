@@ -172,7 +172,7 @@ void rd_global_configurations(PlayerType *player_ptr)
     system.set_panic_save(rd_u16b() > 0);
     auto &world = AngbandWorld::get_instance();
     world.total_winner = rd_u16b();
-    world.noscore = rd_u16b();
+    InnerGameData::get_instance().add_no_score(rd_u16b());
 
     player_ptr->is_dead = rd_bool();
 

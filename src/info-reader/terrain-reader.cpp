@@ -471,7 +471,12 @@ static errr set_terrain_interactions(const nlohmann::json &interactions_obj, Ter
     return PARSE_ERROR_NONE;
 }
 
-errr parse_terrains_json_info(nlohmann::json &element, angband_header *)
+/*!
+ * @brief 地形定義(TerrainDefinitions)のパース関数
+ * @param element 地形情報の格納されたJSON Object
+ * @return エラーコード
+ */
+int parse_terrains_json_info(nlohmann::json &element)
 {
     if (element.is_null() || !element.is_object()) {
         return PARSE_ERROR_TOO_FEW_ARGUMENTS;

@@ -453,8 +453,7 @@ bool check_score(PlayerType *player_ptr)
     }
 
     /* Wizard-mode pre-empts scoring */
-    auto &world = AngbandWorld::get_instance();
-    const auto no_score = world.noscore;
+    const auto no_score = InnerGameData::get_instance().get_no_score();
     if (no_score & 0x000F) {
         msg_print(_("ウィザード・モードではスコアが記録されません。", "Score not registered for wizards."));
         msg_erase();
@@ -469,7 +468,7 @@ bool check_score(PlayerType *player_ptr)
     }
 
     /* Interupted */
-    const auto is_total_winner = world.total_winner != 0;
+    const auto is_total_winner = AngbandWorld::get_instance().total_winner != 0;
     if (!is_total_winner && streq(player_ptr->died_from, _("強制終了", "Interrupting"))) {
         msg_print(_("強制終了のためスコアが記録されません。", "Score not registered due to interruption."));
         msg_erase();

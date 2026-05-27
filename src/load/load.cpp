@@ -43,6 +43,7 @@
 #include "system/angband-exceptions.h"
 #include "system/angband-system.h"
 #include "system/angband-version.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "system/system-variables.h"
 #include "util/angband-files.h"
@@ -91,7 +92,7 @@ static void rd_total_play_time()
         return;
     }
 
-    AngbandWorld::get_instance().sf_play_time = rd_u32b();
+    InnerGameData::get_instance().set_total_play_time(rd_u32b());
 }
 
 /*!
@@ -103,8 +104,13 @@ static void rd_winner_class()
         return;
     }
 
-    rd_FlagGroup(AngbandWorld::get_instance().sf_winner, rd_byte);
-    rd_FlagGroup(AngbandWorld::get_instance().sf_retired, rd_byte);
+    auto &igd = InnerGameData::get_instance();
+    EnumClassFlagGroup<PlayerClassType> winner_classes{};
+    rd_FlagGroup(winner_classes, rd_byte);
+    igd.set_won_classes(winner_classes);
+    EnumClassFlagGroup<PlayerClassType> retired_classes{};
+    rd_FlagGroup(retired_classes, rd_byte);
+    igd.set_retired_classes(retired_classes);
 }
 
 static void load_player_world(PlayerType *player_ptr)
@@ -301,7 +307,6 @@ static bool reset_save_data(PlayerType *player_ptr, bool *new_game)
 {
     *new_game = true;
     player_ptr->is_dead = false;
-    AngbandWorld::get_instance().sf_lives++;
     return true;
 }
 

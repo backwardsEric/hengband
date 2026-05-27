@@ -86,6 +86,7 @@
 #include "store/store-util.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
@@ -105,25 +106,26 @@
  */
 bool enter_wizard_mode(const FloorType &floor)
 {
-    auto &world = AngbandWorld::get_instance();
-    if (!world.noscore) {
-        if (!allow_debug_opts) {
-            msg_print(_("ウィザードモードは許可されていません。 ", "Wizard mode is not permitted."));
-            return false;
-        }
-
-        msg_print(_("ウィザードモードはデバッグと実験のためのモードです。 ", "Wizard mode is for debugging and experimenting."));
-        msg_print(_("一度ウィザードモードに入るとスコアは記録されません。", "The game will not be scored if you enter wizard mode."));
-        msg_erase();
-        if (!input_check(_("本当にウィザードモードに入りたいのですか? ", "Are you sure you want to enter wizard mode? "))) {
-            return false;
-        }
-
-        constexpr auto mes = _("ウィザードモードに突入してスコアを残せなくなった。", "gave up recording score to enter wizard mode.");
-        exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, mes);
-        world.noscore |= 0x0002;
+    auto &igd = InnerGameData::get_instance();
+    if (igd.is_no_score()) {
+        return true;
     }
 
+    if (!allow_debug_opts) {
+        msg_print(_("ウィザードモードは許可されていません。 ", "Wizard mode is not permitted."));
+        return false;
+    }
+
+    msg_print(_("ウィザードモードはデバッグと実験のためのモードです。 ", "Wizard mode is for debugging and experimenting."));
+    msg_print(_("一度ウィザードモードに入るとスコアは記録されません。", "The game will not be scored if you enter wizard mode."));
+    msg_erase();
+    if (!input_check(_("本当にウィザードモードに入りたいのですか? ", "Are you sure you want to enter wizard mode? "))) {
+        return false;
+    }
+
+    constexpr auto mes = _("ウィザードモードに突入してスコアを残せなくなった。", "gave up recording score to enter wizard mode.");
+    exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, mes);
+    igd.add_no_score(0x0002);
     return true;
 }
 
@@ -135,25 +137,26 @@ bool enter_wizard_mode(const FloorType &floor)
  */
 static bool enter_debug_mode(const FloorType &floor)
 {
-    auto &world = AngbandWorld::get_instance();
-    if (!world.noscore) {
-        if (!allow_debug_opts) {
-            msg_print(_("デバッグコマンドは許可されていません。 ", "Use of debug command is not permitted."));
-            return false;
-        }
-
-        msg_print(_("デバッグ・コマンドはデバッグと実験のためのコマンドです。 ", "The debug commands are for debugging and experimenting."));
-        msg_print(_("デバッグ・コマンドを使うとスコアは記録されません。", "The game will not be scored if you use debug commands."));
-        msg_erase();
-        if (!input_check(_("本当にデバッグ・コマンドを使いますか? ", "Are you sure you want to use debug commands? "))) {
-            return false;
-        }
-
-        constexpr auto mes = _("デバッグモードに突入してスコアを残せなくなった。", "gave up sending score to use debug commands.");
-        exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, mes);
-        world.noscore |= 0x0008;
+    auto &igd = InnerGameData::get_instance();
+    if (igd.is_no_score()) {
+        return true;
     }
 
+    if (!allow_debug_opts) {
+        msg_print(_("デバッグコマンドは許可されていません。 ", "Use of debug command is not permitted."));
+        return false;
+    }
+
+    msg_print(_("デバッグ・コマンドはデバッグと実験のためのコマンドです。 ", "The debug commands are for debugging and experimenting."));
+    msg_print(_("デバッグ・コマンドを使うとスコアは記録されません。", "The game will not be scored if you use debug commands."));
+    msg_erase();
+    if (!input_check(_("本当にデバッグ・コマンドを使いますか? ", "Are you sure you want to use debug commands? "))) {
+        return false;
+    }
+
+    constexpr auto mes = _("デバッグモードに突入してスコアを残せなくなった。", "gave up sending score to use debug commands.");
+    exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, mes);
+    igd.add_no_score(0x0008);
     return true;
 }
 

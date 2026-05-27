@@ -73,6 +73,46 @@ static bool see_wall(PlayerType *player_ptr, const Direction &dir, const Pos2D &
     return false;
 }
 
+static bool can_ignore_damaging_terrain(PlayerType *player_ptr, const TerrainType &terrain)
+{
+    if (is_invuln(player_ptr)) {
+        return true;
+    }
+
+    const auto &flags = terrain.flags;
+    if (flags.has(TerrainCharacteristics::LAVA) && !has_immune_fire(player_ptr)) {
+        return false;
+    }
+
+    if (flags.has(TerrainCharacteristics::COLD_PUDDLE) && !has_immune_cold(player_ptr)) {
+        return false;
+    }
+
+    if (flags.has(TerrainCharacteristics::ELEC_PUDDLE) && !has_immune_elec(player_ptr)) {
+        return false;
+    }
+
+    if (flags.has(TerrainCharacteristics::ACID_PUDDLE) && !has_immune_acid(player_ptr)) {
+        return false;
+    }
+
+    if (flags.has(TerrainCharacteristics::POISON_PUDDLE)) {
+        return false;
+    }
+
+    if (flags.has_all_of({ TerrainCharacteristics::WATER, TerrainCharacteristics::DEEP })) {
+        const auto can_ignore_water = player_ptr->levitation ||
+                                      player_ptr->can_swim ||
+                                      has_resist_water(player_ptr) ||
+                                      (calc_inventory_weight(player_ptr) <= calc_weight_limit(player_ptr));
+        if (!can_ignore_water) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /*!
  * @brief ダッシュ処理の導入 /
  * Initialize the running algorithm for a new direction.
@@ -229,15 +269,15 @@ static bool run_test(PlayerType *player_ptr)
         auto inv = true;
         if (grid.is_mark()) {
             const auto &terrain = grid.get_terrain(TerrainKind::MIMIC);
-            auto notice = terrain.flags.has(TerrainCharacteristics::NOTICE);
+            const auto is_damaging = terrain.can_damage_player();
+            auto notice = terrain.flags.has(TerrainCharacteristics::NOTICE) || is_damaging;
+
             if (notice && terrain.flags.has(TerrainCharacteristics::MOVE)) {
                 if (find_ignore_doors && terrain.flags.has_all_of({ TerrainCharacteristics::DOOR, TerrainCharacteristics::CLOSE })) {
                     notice = false;
                 } else if (find_ignore_stairs && terrain.flags.has(TerrainCharacteristics::STAIRS)) {
                     notice = false;
-                } else if (terrain.flags.has(TerrainCharacteristics::LAVA) && (has_immune_fire(player_ptr) || is_invuln(player_ptr))) {
-                    notice = false;
-                } else if (terrain.flags.has_all_of({ TerrainCharacteristics::WATER, TerrainCharacteristics::DEEP }) && (player_ptr->levitation || player_ptr->can_swim || (calc_inventory_weight(player_ptr) <= calc_weight_limit(player_ptr)))) {
+                } else if (is_damaging && can_ignore_damaging_terrain(player_ptr, terrain)) {
                     notice = false;
                 }
             }

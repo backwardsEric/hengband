@@ -51,11 +51,9 @@ void rd_version_info(void)
         system.set_version({ major, minor, patch, extra });
     }
 
-    auto &world = AngbandWorld::get_instance();
-    world.sf_system = rd_u32b();
-    world.sf_when = rd_u32b();
-    world.sf_lives = rd_u16b();
-    world.sf_saves = rd_u16b();
+    if (h_older_than(3, 0, 2, 3)) {
+        strip_bytes(12);
+    }
 
     loading_savefile_version = rd_u32b();
 

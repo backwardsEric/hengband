@@ -133,12 +133,12 @@ void auto_destroy_item(PlayerType *player_ptr, ItemEntity *o_ptr, int autopick_i
         destroy = true;
     }
 
-    if (autopick_idx >= 0 && !(autopick_list[autopick_idx].action & DO_AUTODESTROY)) {
+    if (autopick_idx >= 0 && !(autopick_list[autopick_idx].action.has(AutopickMethod::AUTODESTROY))) {
         destroy = false;
     }
 
     if (!always_pickup) {
-        if (autopick_idx >= 0 && (autopick_list[autopick_idx].action & DO_AUTODESTROY)) {
+        if (autopick_idx >= 0 && (autopick_list[autopick_idx].action.has(AutopickMethod::AUTODESTROY))) {
             destroy = true;
         }
     }

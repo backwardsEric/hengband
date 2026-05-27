@@ -272,6 +272,7 @@
     <ClCompile Include="..\..\src\artifact\random-art-misc.cpp" />
     <ClCompile Include="..\..\src\artifact\random-art-resistance.cpp" />
     <ClCompile Include="..\..\src\artifact\random-art-slay.cpp" />
+    <ClCompile Include="..\..\src\autopick\autopick-keys-table.cpp" />
     <ClCompile Include="..\..\src\avatar\avatar-changer.cpp" />
     <ClCompile Include="..\..\src\birth\auto-roller.cpp" />
     <ClCompile Include="..\..\src\birth\birth-body-spec.cpp" />
@@ -307,6 +308,7 @@
     <ClCompile Include="..\..\src\action\movement-execution.cpp" />
     <ClCompile Include="..\..\src\core\score-util.cpp" />
     <ClCompile Include="..\..\src\external-lib\fmt\format.cc" />
+    <ClCompile Include="..\..\src\info-reader\definition-hash-data.cpp" />
     <ClCompile Include="..\..\src\io\macro-configurations-store.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-movement-direction-list.cpp" />
     <ClCompile Include="..\..\src\player-info\bluemage-data.cpp" />
@@ -488,7 +490,6 @@
     <ClCompile Include="..\..\src\main-win\main-win-music.cpp" />
     <ClCompile Include="..\..\src\main-win\main-win-sound.cpp" />
     <ClCompile Include="..\..\src\main-win\main-win-tokenizer.cpp" />
-    <ClCompile Include="..\..\src\main\angband-headers.cpp" />
     <ClCompile Include="..\..\src\main\game-data-initializer.cpp" />
     <ClCompile Include="..\..\src\main\info-initializer.cpp" />
     <ClCompile Include="..\..\src\main\init-error-messages-table.cpp" />
@@ -1049,7 +1050,7 @@
     <ClInclude Include="..\..\src\system\enums\terrain\terrain-conversion-type.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\trap.h" />
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h" />
-    <ClInclude Include="..\..\src\system\artifact\artifact-list.h" />
+    <ClInclude Include="..\..\src\info-reader\definition-hash-data.h" />
     <ClInclude Include="..\..\src\system\floor\town-records.h" />
     <ClInclude Include="..\..\src\system\floor\wilderness-grid.h" />
     <ClInclude Include="..\..\src\system\item\identification-flags.h" />
@@ -1310,7 +1311,6 @@
     <ClInclude Include="..\..\src\main-win\main-win-sound.h" />
     <ClInclude Include="..\..\src\main-win\main-win-define.h" />
     <ClInclude Include="..\..\src\main-win\main-win-tokenizer.h" />
-    <ClInclude Include="..\..\src\main\angband-headers.h" />
     <ClInclude Include="..\..\src\main\game-data-initializer.h" />
     <ClInclude Include="..\..\src\main\info-initializer.h" />
     <ClInclude Include="..\..\src\main\init-error-messages-table.h" />

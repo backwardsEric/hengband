@@ -13,6 +13,7 @@
  */
 
 #include "main/angband-initializer.h"
+#include "autopick/autopick-menu-data-table.h"
 #include "dungeon/quest.h"
 #include "floor/wild.h"
 #include "io/files-util.h"
@@ -310,6 +311,7 @@ void init_angband(PlayerType *player_ptr, bool no_term)
 
     init_note(_("[データの初期化中... (その他)]", "[Initializing arrays... (other)]"));
     init_other(player_ptr);
+    CommandMenuData::get_instance().initialize();
 
     init_note(_("[データの初期化中... (モンスターアロケーション)]", "[Initializing arrays... (monsters alloc)]"));
     init_monsters_alloc();

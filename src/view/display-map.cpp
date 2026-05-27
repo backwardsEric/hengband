@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <span>
 
-uint8_t display_autopick; /*!< 自動拾い状態の設定フラグ */
+EnumClassFlagGroup<AutopickMethod> display_autopick{}; /*!< 自動拾い状態の設定フラグ */
 
 namespace {
 /* 一般的にオブジェクトシンボルとして扱われる記号を定義する(幻覚処理向け) /  Hack -- Legal object codes */
@@ -227,14 +227,14 @@ DisplaySymbolPair map_info(PlayerType *player_ptr, const Pos2D &pos)
             continue;
         }
 
-        if (display_autopick) {
+        if (display_autopick.any()) {
             match_autopick = find_autopick_list(player_ptr, &item);
             if (match_autopick == -1) {
                 continue;
             }
 
-            const auto act = autopick_list[match_autopick].action;
-            if ((act & DO_DISPLAY) && (act & display_autopick)) {
+            const auto &act = autopick_list[match_autopick].action;
+            if (act.has(AutopickMethod::DISPLAY) && (act.has_any_of(display_autopick))) {
                 autopick_obj = &item;
             } else {
                 match_autopick = -1;
@@ -251,7 +251,7 @@ DisplaySymbolPair map_info(PlayerType *player_ptr, const Pos2D &pos)
         break;
     }
 
-    if (grid.has_monster() && display_autopick != 0) {
+    if (grid.has_monster() && display_autopick.any()) {
         symbol_pair.symbol_foreground = set_term_color(player_ptr, pos, symbol_pair.symbol_foreground);
         return symbol_pair;
     }

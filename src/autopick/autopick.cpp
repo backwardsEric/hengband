@@ -105,7 +105,7 @@ void autopick_pickup_items(PlayerType *player_ptr, const Grid &grid)
         auto &item = *player_ptr->current_floor_ptr->o_list[this_o_idx];
         int idx = find_autopick_list(player_ptr, &item);
         auto_inscribe_item(&item, idx);
-        if ((idx < 0) || (autopick_list[idx].action & (DO_AUTOPICK | DO_QUERY_AUTOPICK)) == 0) {
+        if ((idx < 0) || (autopick_list[idx].action.has_none_of({ AutopickMethod::AUTOPICK, AutopickMethod::QUERY_AUTOPICK }))) {
             auto_destroy_item(player_ptr, &item, idx);
             continue;
         }
@@ -118,7 +118,7 @@ void autopick_pickup_items(PlayerType *player_ptr, const Grid &grid)
             continue;
         }
 
-        if (!(autopick_list[idx].action & DO_QUERY_AUTOPICK)) {
+        if (!(autopick_list[idx].action.has(AutopickMethod::QUERY_AUTOPICK))) {
             process_player_pickup_item(player_ptr, this_o_idx);
             continue;
         }
