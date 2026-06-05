@@ -643,6 +643,7 @@ hengband_SOURCES = \
 	io/report.cpp io/report.h \
 	io/screen-util.cpp io/screen-util.h \
 	io/signal-handlers.cpp io/signal-handlers.h \
+	io/temp-file.cpp io/temp-file.h \
 	io/tokenizer.cpp io/tokenizer.h \
 	io/uid-checker.cpp io/uid-checker.h \
 	io/write-diary.cpp io/write-diary.h \
@@ -1310,6 +1311,9 @@ hengband_SOURCES = \
 	system/monrace/monrace-definition.cpp system/monrace/monrace-definition.h \
 	system/monrace/monrace-list.cpp system/monrace/monrace-list.h \
 	system/monrace/monrace-message.cpp system/monrace/monrace-message.h \
+	system/monrace/monrace-record.cpp system/monrace/monrace-record.h \
+	system/monrace/monrace-records.cpp system/monrace/monrace-records.h \
+	system/monrace/monrace-service.cpp system/monrace/monrace-service.h \
 	\
 	system/services/baseitem-monrace-service.cpp system/services/baseitem-monrace-service.h \
 	system/services/dungeon-service.cpp system/services/dungeon-service.h \
@@ -1422,6 +1426,7 @@ hengband_SOURCES = \
 	wizard/wizard-spoiler.cpp wizard/wizard-spoiler.h\
 	wizard/wizard-special-process.cpp wizard/wizard-special-process.h \
 	\
+	world/town-info-service.cpp world/town-info-service.h \
 	world/world.cpp world/world.h \
 	world/world-movement-processor.cpp world/world-movement-processor.h \
 	world/world-turn-processor.cpp world/world-turn-processor.h

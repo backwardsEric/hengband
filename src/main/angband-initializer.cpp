@@ -23,8 +23,9 @@
 #include "main/info-initializer.h"
 #include "market/building-initializer.h"
 #include "system/angband-system.h"
-#include "system/dungeon/dungeon-definition.h"
-#include "system/monrace/monrace-definition.h"
+#include "system/floor/town-list.h"
+#include "system/monrace/monrace-list.h"
+#include "system/monrace/monrace-records.h"
 #include "system/services/baseitem-monrace-service.h"
 #include "system/system-variables.h"
 #include "term/gameterm.h"
@@ -274,6 +275,8 @@ void init_angband(PlayerType *player_ptr, bool no_term)
 
     init_note(_("[データの初期化中... (モンスター)]", "[Initializing arrays... (monsters)]"));
     init_monrace_definitions();
+    const auto monraces_size = MonraceList::get_instance().size();
+    MonraceRecords::get_instance().initialize(monraces_size);
     const auto error = BaseitemMonraceService::check_specific_drop_gold_flags_duplication();
     if (error) {
         quit(*error);
@@ -294,11 +297,11 @@ void init_angband(PlayerType *player_ptr, bool no_term)
     init_note(_("[データの初期化中... (熟練度)]", "[Initializing arrays... (skill)]"));
     init_class_skills_info();
 
+    init_note(_("[配列を初期化しています... (街)]", "[Initializing arrays... (towns)]"));
+    TownList::get_instance().initialize();
+
     init_note(_("[配列を初期化しています... (荒野)]", "[Initializing arrays... (wilderness)]"));
     init_wilderness();
-
-    init_note(_("[配列を初期化しています... (街)]", "[Initializing arrays... (towns)]"));
-    init_towns();
 
     init_note(_("[配列を初期化しています... (建物)]", "[Initializing arrays... (buildings)]"));
     init_buildings();

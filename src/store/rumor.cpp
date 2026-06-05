@@ -13,11 +13,11 @@
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
 #include "system/enums/dungeon/dungeon-id.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/floor/town-records.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
+#include "system/monrace/monrace-records.h"
 #include "system/player-type-definition.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -115,7 +115,7 @@ public:
         const auto &town_name = tokens[1];
         while (true) {
             this->t_idx = get_rumor_num<int>(town_name, VALID_TOWNS);
-            if (!towns_info[this->t_idx].name.empty()) {
+            if (!TownList::get_instance().get_town(this->t_idx).get_name().empty()) {
                 return;
             }
         }
@@ -170,9 +170,9 @@ public:
         auto &monraces = MonraceList::get_instance();
         auto &monrace = monraces.get_monrace(monster_rumor.monrace_id);
         this->print_rumor(monrace.name);
-
-        if (monrace.r_sights == 0) {
-            monrace.r_sights = 1;
+        auto &monrace_records = MonraceRecords::get_instance();
+        if (!monrace_records.has_been_seen(monster_rumor.monrace_id)) {
+            monrace_records.increment_seen_count(monster_rumor.monrace_id);
         }
     }
 
@@ -193,7 +193,7 @@ public:
 
     void operator()(const TownRumor &town_rumor)
     {
-        const auto &town_name = towns_info[town_rumor.t_idx].name;
+        const auto &town_name = TownList::get_instance().get_town(town_rumor.t_idx).get_name();
         this->print_rumor(town_name);
 
         const auto town_id = i2enum<TownId>(town_rumor.t_idx - 1);
