@@ -2021,9 +2021,6 @@
     <ClCompile Include="..\..\src\system\angband-version.cpp">
       <Filter>system</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\locale\utf-8.cpp">
-      <Filter>locale</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\wizard\wizard-game-modifier.cpp">
       <Filter>wizard</Filter>
     </ClCompile>
@@ -2594,6 +2591,21 @@
     </ClCompile>
     <ClCompile Include="..\..\src\io\temp-file.cpp">
       <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon\quest-definition.cpp">
+      <Filter>system\dungeon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon\quest-list.cpp">
+      <Filter>system\dungeon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\save\artifact-record-writer.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\load\artifact-record-loader.cpp">
+      <Filter>load\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\locale\character-encoding.cpp">
+      <Filter>locale</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -4865,9 +4877,6 @@
     <ClInclude Include="..\..\src\artifact\random-art-effects.h">
       <Filter>artifact</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\locale\utf-8.h">
-      <Filter>locale</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\wizard\wizard-game-modifier.h">
       <Filter>wizard</Filter>
     </ClInclude>
@@ -5415,9 +5424,6 @@
     <ClInclude Include="..\..\src\util\stack-trace.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\external-lib\include-json.h">
-      <Filter>external-lib</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\net\report-error.h">
       <Filter>net</Filter>
     </ClInclude>
@@ -5627,6 +5633,18 @@
     </ClInclude>
     <ClInclude Include="..\..\src\io\temp-file.h">
       <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon\quest-definition.h">
+      <Filter>system\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon\quest-list.h">
+      <Filter>system\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\save\artifact-record-writer.h">
+      <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\load\artifact-record-loader.h">
+      <Filter>load\item</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

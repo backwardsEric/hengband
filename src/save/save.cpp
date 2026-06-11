@@ -14,7 +14,6 @@
 #include "save/save.h"
 #include "artifact/fixed-art-types.h"
 #include "core/object-compressor.h"
-#include "dungeon/quest.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/files-util.h"
 #include "io/report.h"
@@ -22,6 +21,7 @@
 #include "locale/character-encoding.h"
 #include "monster/monster-compaction.h"
 #include "player/player-status.h"
+#include "save/artifact-record-writer.h"
 #include "save/floor-writer.h"
 #include "save/info-writer.h"
 #include "save/item-writer.h"
@@ -31,6 +31,8 @@
 #include "system/artifact/artifact-definition.h"
 #include "system/artifact/artifact-list.h"
 #include "system/artifact/artifact-record.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/town-list.h"
 #include "system/floor/wilderness-grid.h"
@@ -155,18 +157,6 @@ static bool wr_savefile_new(PlayerType *player_ptr)
         }
     }
 
-    const auto &artifacts = ArtifactList::get_instance();
-    const auto &artifact_records = ArtifactRecords::get_instance();
-    auto max_a_num = enum2i(artifacts.rbegin()->first);
-    tmp16u = max_a_num + 1;
-    wr_u16b(tmp16u);
-    for (auto i = 0U; i < tmp16u; i++) {
-        const auto fa_id = i2enum<FixedArtifactId>(i);
-        wr_bool(artifact_records.get_generated(fa_id));
-        const auto floor_id = artifact_records.get_floor_id(fa_id);
-        wr_s16b(floor_id ? *floor_id : 0);
-    }
-
     wr_u32b(InnerGameData::get_instance().get_total_play_time());
     const auto &igd = InnerGameData::get_instance();
     wr_FlagGroup(igd.get_won_classes(), wr_byte);
@@ -230,6 +220,7 @@ static bool wr_savefile_new(PlayerType *player_ptr)
         wr_s32b(0);
     }
 
+    wr_artifact_records();
     wr_u32b(v_stamp);
     wr_u32b(x_stamp);
     return !ferror(saving_savefile) && (fflush(saving_savefile) != EOF);

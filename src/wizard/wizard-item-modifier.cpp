@@ -403,7 +403,7 @@ static void wiz_display_item(PlayerType *player_ptr, ItemEntity *o_ptr)
     prt(format("number = %-3d  wgt = %-6d  ac = %-5d    damage = %s", o_ptr->number, o_ptr->weight, o_ptr->ac, o_ptr->damage_dice.to_string().data()), ++line, j);
     prt(format("pval = %-5d  toac = %-5d  tohit = %-4d  todam = %-4d", o_ptr->pval, o_ptr->to_a, o_ptr->to_h, o_ptr->to_d), ++line, j);
     prt(format("fixed_artifact_id = %-4d  ego_idx = %-4d  cost = %d", enum2i(o_ptr->fa_id), enum2i(o_ptr->ego_idx), object_value_real(o_ptr)), ++line, j);
-    prt(format("special flags = %02x  activation_id = %-4d  timeout = %-d", static_cast<uint8_t>(o_ptr->get_special_flags().to_ulong()), enum2i(o_ptr->activation_id), o_ptr->timeout), ++line, j);
+    prt(format("special flags = %02x  activation_id = %-4d  timeout = %-d", static_cast<uint8_t>(o_ptr->get_identification_flags().to_ulong()), enum2i(o_ptr->activation_id), o_ptr->timeout), ++line, j);
     prt(format("chest_level = %-4d  fuel = %-d", o_ptr->chest_level, o_ptr->fuel), ++line, j);
     prt(format("smith_hit = %-4d  smith_damage = %-4d", o_ptr->smith_hit, o_ptr->smith_damage), ++line, j);
     prt(format("cursed  = %-4lX  captured_monster_speed = %-4d", o_ptr->curse_flags.to_ulong(), o_ptr->captured_monster_speed), ++line, j);
@@ -801,19 +801,13 @@ void wiz_modify_item(PlayerType *player_ptr)
     }
 }
 
-static std::vector<FixedArtifactId> find_wishing_fixed_artifact(PlayerType *player_ptr, std::string_view pray_chars)
+static std::vector<FixedArtifactId> find_wishing_fixed_artifact(std::string_view pray_chars)
 {
     std::vector<FixedArtifactId> fa_ids;
     for (const auto &[fa_id, artifact] : ArtifactList::get_instance()) {
-        ItemEntity item(artifact.bi_key);
-        item.fa_id = fa_id;
-#ifdef JP
-        const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE));
-#else
-        const auto item_name = str_tolower(describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY | OD_STORE)));
-#endif
         std::string art_description = artifact.name;
 #ifdef JP
+        const auto item_name = artifact.build_full_name();
         if (art_description.starts_with("『")) {
             art_description = art_description.substr(2);
             if (art_description.ends_with("』")) {
@@ -825,6 +819,7 @@ static std::vector<FixedArtifactId> find_wishing_fixed_artifact(PlayerType *play
             }
         }
 #else
+        const auto item_name = str_tolower(artifact.build_full_name());
         if (art_description.starts_with('\'')) {
             art_description = art_description.substr(1);
             const auto find_pos = art_description.find('\'');
@@ -840,9 +835,10 @@ static std::vector<FixedArtifactId> find_wishing_fixed_artifact(PlayerType *play
 
         art_description = str_tolower(art_description);
 #endif
-        const std::string match_name(_(item_name.substr(2), item_name));
+        //!< 先頭の「★」(日本語)、「The 」(英語)を除去する.
+        const auto match_name = item_name.substr(_(2, 4));
         if (cheat_xtra) {
-            msg_format("Matching artifact No.%d %s(%s)", enum2i(fa_id), art_description.data(), match_name.data());
+            msg_print("Matching artifact No.{} {}({})", enum2i(fa_id), art_description.data(), match_name.data());
         }
 
         std::vector<std::string> candidates = { match_name, artifact.name, art_description };
@@ -1057,7 +1053,7 @@ WishResultType do_cmd_wishing(PlayerType *player_ptr, int prob, bool allow_art, 
         }
     }
 
-    const auto wishing_fa_ids = allow_art ? find_wishing_fixed_artifact(player_ptr, pray_chars) : std::vector<FixedArtifactId>{};
+    const auto wishing_fa_ids = allow_art ? find_wishing_fixed_artifact(pray_chars) : std::vector<FixedArtifactId>{};
     if (AngbandWorld::get_instance().wizard && ((wishing_fa_ids.size() > 1) || (ego_ids.size() > 1))) {
         msg_print(_("候補が多すぎる！", "Too many matches!"));
         return WishResultType::FAIL;

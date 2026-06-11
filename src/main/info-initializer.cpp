@@ -4,7 +4,6 @@
  */
 
 #include "main/info-initializer.h"
-#include "external-lib/include-json.h"
 #include "floor/wild.h"
 #include "info-reader/artifact-reader.h"
 #include "info-reader/baseitem-reader.h"
@@ -18,10 +17,12 @@
 #include "info-reader/message-reader.h"
 #include "info-reader/race-reader.h"
 #include "info-reader/skill-reader.h"
+#include "info-reader/spell-reader.h"
 #include "info-reader/terrain-reader.h"
 #include "info-reader/vault-reader.h"
 #include "io/files-util.h"
 #include "io/uid-checker.h"
+#include "locale/character-encoding.h"
 #include "main/init-error-messages-table.h"
 #include "object-enchant/object-ego.h"
 #include "player-info/class-info.h"
@@ -49,6 +50,7 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <functional>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
 #include <sys/stat.h>
@@ -159,7 +161,10 @@ void init_json(std::string_view filename, std::string_view keyname, DefinitionHa
 void init_artifacts_info()
 {
     auto &artifacts = ArtifactList::get_instance();
-    init_json("ArtifactDefinitions.jsonc", "artifacts", DefinitionHashDataType::ARTIFACTS, ArtifactList::get_instance(), parse_artifacts_info);
+    auto parser = [](nlohmann::json &art_data) {
+        return ArtifactReader(art_data).read();
+    };
+    init_json("ArtifactDefinitions.jsonc", "artifacts", DefinitionHashDataType::ARTIFACTS, ArtifactList::get_instance(), parser);
     ArtifactRecords::get_instance().initialize(artifacts.size());
 }
 
@@ -248,7 +253,7 @@ void init_spell_info()
     auto &spell_info_list = SpellInfoList::get_instance();
     spell_info_list.initialize();
     auto parser = [&spell_info_list](nlohmann::json &spell_data) {
-        return spell_info_list.parse(spell_data);
+        return parse_spell_info(spell_data, spell_info_list);
     };
     init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser);
 }

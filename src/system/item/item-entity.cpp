@@ -29,6 +29,8 @@
 #include "system/artifact/artifact-service.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
@@ -1294,6 +1296,15 @@ bool ItemEntity::has_knowledge(ItemKindType tval) const
            this->is_special();
 }
 
+std::string ItemEntity::get_fixed_artifact_name() const
+{
+    if (this->fa_id == FixedArtifactId::NONE) {
+        return "";
+    }
+
+    return ArtifactList::get_instance().get_artifact(this->fa_id).build_full_name();
+}
+
 std::string ItemEntity::build_timeout_description(const ActivationType &act) const
 {
     const auto description = act.build_timeout_description();
@@ -1467,7 +1478,7 @@ bool ItemEntity::any_identification_flag() const
     return this->identification_flags.any();
 }
 
-const EnumClassFlagGroup<IdentificationFlag> &ItemEntity::get_special_flags() const
+const EnumClassFlagGroup<IdentificationFlag> &ItemEntity::get_identification_flags() const
 {
     return this->identification_flags;
 }
