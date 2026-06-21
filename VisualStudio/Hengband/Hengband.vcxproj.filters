@@ -2208,9 +2208,6 @@
     <ClCompile Include="..\..\src\object-use\zapwand-execution.cpp">
       <Filter>object-use</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\util\rng-xoshiro.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\load\old\load-v1-5-0.cpp">
       <Filter>load\old</Filter>
     </ClCompile>
@@ -2606,6 +2603,24 @@
     </ClCompile>
     <ClCompile Include="..\..\src\locale\character-encoding.cpp">
       <Filter>locale</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-definition.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-list.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-service.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-config.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-configs.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-service.cpp">
+      <Filter>system\baseitem</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -5136,9 +5151,6 @@
     <ClInclude Include="..\..\src\player-info\ninja-data-type.h">
       <Filter>player-info</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\util\rng-xoshiro.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\monster-race\monster-aura-types.h">
       <Filter>monster-race</Filter>
     </ClInclude>
@@ -5646,6 +5658,27 @@
     <ClInclude Include="..\..\src\load\artifact-record-loader.h">
       <Filter>load\item</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-definition.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-list.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-service.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-rarity.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-config.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-configs.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-service.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\wall.bmp" />
@@ -5951,6 +5984,9 @@
     </Filter>
     <Filter Include="system\item">
       <UniqueIdentifier>{f7624169-a38b-4935-92a4-9334ddd4c76a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="rumor">
+      <UniqueIdentifier>{c62f5f7a-ab76-464e-ad5b-3342523e5520}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

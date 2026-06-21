@@ -21,7 +21,9 @@
 #include "main/game-data-initializer.h"
 #include "main/info-initializer.h"
 #include "market/building-initializer.h"
+#include "rumor/rumor-service.h"
 #include "system/angband-system.h"
+#include "system/baseitem/baseitem-service.h"
 #include "system/dungeon/quest-list.h"
 #include "system/floor/town-list.h"
 #include "system/monrace/monrace-list.h"
@@ -35,6 +37,7 @@
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <string_view>
 #include <time.h>
 
 /*!
@@ -150,7 +153,7 @@ void create_needed_dirs(void)
  * @brief 画面左下にシステムメッセージを表示する / Take notes on line 23
  * @param str 初期化中のコンテンツ文字列
  */
-static void init_note_term(concptr str)
+static void init_note_term(std::string_view str)
 {
     term_erase(0, 23);
     term_putstr(20, 23, -1, TERM_WHITE, str);
@@ -161,7 +164,7 @@ static void init_note_term(concptr str)
  * @brief ゲーム画面無しの時の初期化メッセージ出力
  * @param str 初期化中のコンテンツ文字列
  */
-static void init_note_no_term(concptr str)
+static void init_note_no_term(std::string_view str)
 {
     /* Don't show initialization message when there is no game terminal. */
     (void)str;
@@ -255,7 +258,7 @@ void init_angband(PlayerType *player_ptr, bool no_term)
         put_title();
     }
 
-    void (*init_note)(concptr) = (no_term ? init_note_no_term : init_note_term);
+    void (*init_note)(std::string_view) = (no_term ? init_note_no_term : init_note_term);
 
     init_note(_("[データの初期化中... (地形)]", "[Initializing arrays... (features)]"));
     try {
@@ -267,6 +270,7 @@ void init_angband(PlayerType *player_ptr, bool no_term)
 
     init_note(_("[データの初期化中... (アイテム)]", "[Initializing arrays... (objects)]"));
     init_baseitems_info();
+    BaseitemService::initialize_baseitem_configs();
 
     init_note(_("[データの初期化中... (伝説のアイテム)]", "[Initializing arrays... (artifacts)]"));
     init_artifacts_info();
@@ -320,6 +324,14 @@ void init_angband(PlayerType *player_ptr, bool no_term)
 
     init_note(_("[データの初期化中... (宝物庫)]", "[Initializing arrays... (vaults)]"));
     init_vaults_info();
+
+    init_note(_("[データの初期化中... (噂)]", "[Initializing arrays... (rumors)]"));
+    try {
+        RumorService::initialize();
+        RumorService::retouch();
+    } catch (const std::exception &e) {
+        quit(fmt::format(_("噂の初期化に失敗: {}", "Error of rumors initializing: {}"), e.what()));
+    }
 
     init_note(_("[データの初期化中... (その他)]", "[Initializing arrays... (other)]"));
     init_other(player_ptr);

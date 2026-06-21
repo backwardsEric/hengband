@@ -528,6 +528,7 @@ hengband_SOURCES = \
 	external-lib/include/fmt/std.h \
 	external-lib/include/fmt/printf.h \
 	external-lib/include/fmt/ostream.h \
+	external-lib/include/xoshiro.h \
 	external-lib/fmt/format.cc \
 	\
 	flavor/flag-inscriptions-table.cpp flavor/flag-inscriptions-table.h \
@@ -1135,6 +1136,11 @@ hengband_SOURCES = \
 	room/treasure-deployment.cpp room/treasure-deployment.h \
 	room/vault-builder.cpp room/vault-builder.h \
 	\
+	rumor/rumor-definition.cpp rumor/rumor-definition.h \
+	rumor/rumor-list.cpp rumor/rumor-list.h \
+	rumor/rumor-rarity.h \
+	rumor/rumor-service.cpp rumor/rumor-service.h \
+	\
 	save/artifact-record-writer.cpp save/artifact-record-writer.h \
 	save/floor-writer.cpp save/floor-writer.h \
 	save/info-writer.cpp save/info-writer.h \
@@ -1273,9 +1279,12 @@ hengband_SOURCES = \
 	system/gamevalue.h \
 	\
 	system/baseitem/baseitem-allocation.cpp system/baseitem/baseitem-allocation.h \
+	system/baseitem/baseitem-config.cpp system/baseitem/baseitem-config.h \
+	system/baseitem/baseitem-configs.cpp system/baseitem/baseitem-configs.h \
 	system/baseitem/baseitem-definition.cpp system/baseitem/baseitem-definition.h \
 	system/baseitem/baseitem-key.cpp system/baseitem/baseitem-key.h \
 	system/baseitem/baseitem-list.cpp system/baseitem/baseitem-list.h \
+	system/baseitem/baseitem-service.cpp system/baseitem/baseitem-service.h \
 	\
 	system/dungeon/dungeon-data-definition.cpp system/dungeon/dungeon-data-definition.h \
 	system/dungeon/dungeon-definition.cpp system/dungeon/dungeon-definition.h \
@@ -1374,7 +1383,6 @@ hengband_SOURCES = \
 	util/object-sort.cpp util/object-sort.h \
 	util/point-2d.h \
 	util/probability-table.h \
-	util/rng-xoshiro.cpp util/rng-xoshiro.h \
 	util/sha256.cpp util/sha256.h \
 	util/stack-trace.h \
 	util/string-processor.cpp util/string-processor.h \
