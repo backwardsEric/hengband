@@ -185,7 +185,10 @@ void init_baseitems_info()
 void init_class_magics_info()
 {
     class_magics_info.assign(PLAYER_CLASS_TYPE_MAX, {});
-    init_json("ClassMagicDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_MAGICS, class_magics_info, parse_class_magics_info);
+    auto parser = [](nlohmann::json &class_data) {
+        return MagicReader(class_data).read();
+    };
+    init_json("ClassMagicDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_MAGICS, class_magics_info, parser);
 }
 
 /*!
@@ -203,7 +206,10 @@ void init_class_skills_info()
 void init_dungeons_info()
 {
     auto &dungeons = DungeonList::get_instance();
-    init_json("DungeonDefinitions.jsonc", "dungeons", DefinitionHashDataType::DUNGEONS, dungeons, parse_dungeons_info, [&dungeons] { dungeons.retouch(); });
+    auto parser = [](nlohmann::json &dungeon_data) {
+        return DungeonReader(dungeon_data).read();
+    };
+    init_json("DungeonDefinitions.jsonc", "dungeons", DefinitionHashDataType::DUNGEONS, dungeons, parser, [&dungeons] { dungeons.retouch(); });
 }
 
 /*!
@@ -220,7 +226,10 @@ void init_egos_info()
 void init_terrains_info()
 {
     auto &terrains = TerrainList::get_instance();
-    init_json("TerrainDefinitions.jsonc", "terrains", DefinitionHashDataType::TERRAINS, terrains, parse_terrains_json_info, [&terrains] { terrains.retouch(); });
+    auto parser = [](nlohmann::json &terrain_data) {
+        return TerrainReader(terrain_data).read();
+    };
+    init_json("TerrainDefinitions.jsonc", "terrains", DefinitionHashDataType::TERRAINS, terrains, parser, [&terrains] { terrains.retouch(); });
 }
 
 /*!
@@ -237,7 +246,10 @@ void init_feat_variables()
  */
 void init_monrace_definitions()
 {
-    init_json("MonraceDefinitions.jsonc", "monsters", DefinitionHashDataType::MONRACES, MonraceList::get_instance(), parse_monraces_info);
+    auto parser = [](nlohmann::json &monrace_data) {
+        return RaceReader(monrace_data).read();
+    };
+    init_json("MonraceDefinitions.jsonc", "monsters", DefinitionHashDataType::MONRACES, MonraceList::get_instance(), parser);
 }
 
 /*!
@@ -245,7 +257,10 @@ void init_monrace_definitions()
  */
 void init_monster_message_definitions()
 {
-    init_json("MonsterMessages.jsonc", "groups", DefinitionHashDataType::MONSTER_MESSAGES, MonraceMessageList::get_instance(), parse_monster_messages_info);
+    auto parser = [](nlohmann::json &message_data) {
+        return MessageReader(message_data).read();
+    };
+    init_json("MonsterMessages.jsonc", "groups", DefinitionHashDataType::MONSTER_MESSAGES, MonraceMessageList::get_instance(), parser);
 }
 
 /*!
@@ -256,7 +271,7 @@ void init_spell_info()
     auto &spell_info_list = SpellInfoList::get_instance();
     spell_info_list.initialize();
     auto parser = [&spell_info_list](nlohmann::json &spell_data) {
-        return parse_spell_info(spell_data, spell_info_list);
+        return SpellReader(spell_data, spell_info_list).read();
     };
     init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser);
 }
