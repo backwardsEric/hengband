@@ -84,6 +84,8 @@ hengband_SOURCES = \
 	blue-magic/learnt-info.cpp blue-magic/learnt-info.h \
 	blue-magic/learnt-power-getter.cpp blue-magic/learnt-power-getter.h \
 	\
+	bot/bot-json-output.cpp bot/bot-json-output.h \
+	\
 	cmd-action/cmd-attack.cpp cmd-action/cmd-attack.h \
 	cmd-action/cmd-hissatsu.cpp cmd-action/cmd-hissatsu.h \
 	cmd-action/cmd-mane.cpp cmd-action/cmd-mane.h \
@@ -606,6 +608,7 @@ hengband_SOURCES = \
 	info-reader/magic-reader.cpp info-reader/magic-reader.h \
 	info-reader/message-reader.cpp info-reader/message-reader.h \
 	info-reader/parse-error-types.h \
+	info-reader/quest-reader.cpp info-reader/quest-reader.h \
 	info-reader/race-info-tokens-table.cpp info-reader/race-info-tokens-table.h \
 	info-reader/race-reader.cpp info-reader/race-reader.h \
 	info-reader/random-grid-effect-types.h \
@@ -1291,6 +1294,7 @@ hengband_SOURCES = \
 	system/dungeon/dungeon-list.cpp system/dungeon/dungeon-list.h \
 	system/dungeon/dungeon-record.cpp system/dungeon/dungeon-record.h \
 	system/dungeon/quest-definition.cpp system/dungeon/quest-definition.h \
+	system/dungeon/quest-fixed-map.cpp system/dungeon/quest-fixed-map.h \
 	system/dungeon/quest-list.cpp system/dungeon/quest-list.h \
 	\
 	system/enums/grid-flow.h \
@@ -1569,8 +1573,8 @@ endif
 # The "-I$(top_builddir)/src/cocoa" is there so can use the same include
 # directives in the cocoa/*.{h,mm} files when building here or rebuilding the
 # nib files in Xcode according to the procedure in cocoa/AppDelegate.m.
-DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(srcdir)/external-lib/include \
-	-I$(top_builddir)/src -I$(top_builddir)/src/external-lib/include \
+DEFAULT_INCLUDES = -I. -I$(srcdir) -isystem $(srcdir)/external-lib/include \
+	-I$(top_builddir)/src -isystem $(top_builddir)/src/external-lib/include \
 	-I$(top_builddir)/src/cocoa
 CPPFLAGS += $(XFT_CFLAGS) $(libcurl_CFLAGS)
 LIBS += $(XFT_LIBS) $(libcurl_LIBS)
@@ -1581,7 +1585,7 @@ endif
 
 if USE_NKF
 CXXCOMPILE_WRAPPER = $(srcdir)/gcc-wrap
-DEFAULT_INCLUDES += -I$(top_builddir)/src -I$(top_builddir)/src/external-lib/include
+DEFAULT_INCLUDES += -I$(top_builddir)/src -isystem $(top_builddir)/src/external-lib/include
 if COMPILER_IS_CLANG
 AM_OBJCXXFLAGS += -Wno-invalid-source-encoding
 AM_CXXFLAGS += -Wno-invalid-source-encoding
