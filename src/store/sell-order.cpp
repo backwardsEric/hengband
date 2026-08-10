@@ -14,7 +14,6 @@
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "object-enchant/item-feeling.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/item-use-flags.h"
 #include "object/object-info.h"
 #include "object/object-stack.h"
@@ -26,13 +25,13 @@
 #include "store/service-checker.h"
 #include "store/store-owners.h"
 #include "store/store.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "view/display-messages.h"
 #include "view/display-store.h"
 #include "view/object-describer.h"
+#include "world/world.h"
 #include <fmt/format.h>
 #include <tl/optional.hpp>
 
@@ -84,31 +83,30 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         break;
     }
 
-    short i_idx;
     const auto options = USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT;
-    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s_none, options, FuncItemTester(store_will_buy, player_ptr, store_num));
-    if (o_ptr == nullptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s_none, options, FuncItemTester(store_will_buy, player_ptr, store_num));
+    if (!item) {
         return;
     }
 
-    if ((i_idx >= INVEN_MAIN_HAND) && o_ptr->is_cursed()) {
+    if ((i_idx >= INVEN_MAIN_HAND) && item->is_cursed()) {
         msg_print(_("ふーむ、どうやらそれは呪われているようだね。", "Hmmm, it seems to be cursed."));
         return;
     }
 
     auto amt = 1;
-    if (o_ptr->number > 1) {
-        amt = input_quantity(o_ptr->number);
+    if (item->number > 1) {
+        amt = input_quantity(item->number);
         if (amt <= 0) {
             return;
         }
     }
 
-    auto selling_item = o_ptr->clone();
+    auto selling_item = item->clone();
     selling_item.number = amt;
 
-    if (o_ptr->is_wand_rod()) {
-        selling_item.pval = o_ptr->pval * amt / o_ptr->number;
+    if (item->is_wand_rod()) {
+        selling_item.pval = item->pval * amt / item->number;
     }
 
     if ((store_num != StoreSaleType::HOME) && (store_num != StoreSaleType::MUSEUM)) {
@@ -131,14 +129,14 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         placed = res.has_value();
         if (placed) {
             const auto price = *res;
-            store_owner_says_comment(player_ptr, store_num);
+            store_owner_says_comment(price, store_num);
 
             sound(SoundKind::SELL);
             if (store_num == StoreSaleType::BLACK) {
                 chg_virtue(player_ptr, Virtue::JUSTICE, -1);
             }
 
-            const auto tval = o_ptr->bi_key.tval();
+            const auto tval = item->bi_key.tval();
             if ((tval == ItemKindType::BOTTLE) && (store_num != StoreSaleType::HOME)) {
                 chg_virtue(player_ptr, Virtue::NATURE, 1);
             }
@@ -147,13 +145,13 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             store_prt_gold(player_ptr->au);
             const auto dummy = selling_item.calc_price() * selling_item.number;
 
-            identify_item(player_ptr, o_ptr);
-            auto sold_item = o_ptr->clone();
+            identify_item(player_ptr, item.get());
+            auto sold_item = item->clone();
             sold_item.number = amt;
-            sold_item.ident |= IDENT_STORE;
+            sold_item.set_identification_flag(IdentificationFlag::STORE);
 
-            if (o_ptr->is_wand_rod()) {
-                sold_item.pval = o_ptr->pval * amt / o_ptr->number;
+            if (item->is_wand_rod()) {
+                sold_item.pval = item->pval * amt / item->number;
             }
 
             const auto value = sold_item.calc_price() * sold_item.number;
@@ -168,16 +166,16 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
                 purchase_analyze(player_ptr, price, value, dummy);
             }
 
-            distribute_charges(o_ptr, &sold_item, amt);
+            distribute_charges(item.get(), &sold_item, amt);
             sold_item.timeout = 0;
             inven_item_increase(player_ptr, i_idx, -amt);
             inven_item_describe(player_ptr, i_idx);
-            if (o_ptr->number > 0) {
+            if (item->number > 0) {
                 autopick_alter_item(player_ptr, i_idx, false);
             }
 
             inven_item_optimize(player_ptr, i_idx);
-            auto &store = towns_info[player_ptr->town_num].get_store(store_num);
+            auto &store = AngbandWorld::get_instance().get_town().get_store(store_num);
             const auto item_pos = store.carry(sold_item);
             if (item_pos) {
                 store_top = (*item_pos / store_bottom) * store_bottom;
@@ -197,9 +195,9 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
         }
 
         identify_item(player_ptr, &selling_item);
-        selling_item.ident |= IDENT_FULL_KNOWN;
+        selling_item.set_identification_flag(IdentificationFlag::FULL_KNOWN);
 
-        distribute_charges(o_ptr, &selling_item, amt);
+        distribute_charges(item.get(), &selling_item, amt);
         msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), museum_item_name.data(), index_to_label(i_idx));
         placed = true;
 
@@ -211,7 +209,7 @@ void store_sell(PlayerType *player_ptr, StoreSaleType store_num)
             display_store_inventory(player_ptr, store_num);
         }
     } else {
-        distribute_charges(o_ptr, &selling_item, amt);
+        distribute_charges(item.get(), &selling_item, amt);
         const auto item_name = describe_flavor(player_ptr, selling_item, 0);
         msg_format(_("%sを置いた。(%c)", "You drop %s (%c)."), item_name.data(), index_to_label(i_idx));
         placed = true;

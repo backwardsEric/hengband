@@ -81,8 +81,8 @@
     {
       "id": 0,
       "name": {
-        "ja": "何",
-        "en": "something",
+        "ja": "異常アイテム",
+        "en": "Invalid item",
       },
       "symbol": {
         "character": "&",
@@ -22082,6 +22082,36 @@
           "rarity": 5,
         },
       ],
+    },
+    {
+      "id": 683,
+      "name": {
+        "ja": "耐電",
+        "en": "Resist Elec",
+      },
+      "flavor_name": {
+        "ja": "竜骨の",
+        "en": "Dragonbone",
+      },
+      "symbol": {
+        "character": "\"",
+        "color": "Light Blue",
+      },
+      "itemkind": {
+        "type_value": 40,
+        "subtype_value": 30,
+      },
+      "parameter_value": 0,
+      "level": 12,
+      "weight": 2,
+      "cost": 300,
+      "allocations": [
+        {
+          "depth": 12,
+          "rarity": 1,
+        },
+      ],
+      "flags": ["RES_ELEC", "IGNORE_ELEC"],
     },
   ],
 }

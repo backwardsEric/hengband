@@ -391,6 +391,9 @@ tl::optional<std::string> do_crusade_spell(PlayerType *player_ptr, SPELL_IDX spe
         if (cast) {
             const POSITION rad = 7;
             const auto dir = get_aim_dir(player_ptr);
+            if (!dir) {
+                return tl::nullopt;
+            }
             fire_ball(player_ptr, AttributeType::DISINTEGRATE, dir, dam, rad);
         }
     } break;

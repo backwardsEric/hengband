@@ -1,7 +1,6 @@
 #include "info-reader/vault-reader.h"
 #include "info-reader/info-reader-util.h"
 #include "info-reader/parse-error-types.h"
-#include "main/angband-headers.h"
 #include "room/rooms-vault.h"
 #include "util/string-processor.h"
 
@@ -11,7 +10,7 @@
  * @param head ヘッダ構造体
  * @return エラーコード
  */
-errr parse_vaults_info(std::string_view buf, angband_header *)
+int parse_vaults_info(std::string_view buf)
 {
     static vault_type *v_ptr = nullptr;
     const auto &tokens = str_split(buf, ':', false, 5);

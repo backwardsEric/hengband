@@ -28,11 +28,12 @@
 #include "object/object-mark-types.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
+#include <range/v3/view.hpp>
 #include <sstream>
 
 /*!
@@ -40,14 +41,14 @@
  */
 static void autopick_delayed_alter_aux(PlayerType *player_ptr, INVENTORY_IDX i_idx)
 {
-    const auto *o_ptr = ref_item(player_ptr, i_idx);
-    if (!o_ptr->is_valid() || o_ptr->marked.has_not(OmType::AUTODESTROY)) {
+    const auto &item = ref_item(player_ptr, i_idx);
+    if (!item->is_valid() || item->marked.has_not(OmType::AUTODESTROY)) {
         return;
     }
 
-    const auto item_name = describe_flavor(player_ptr, *o_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, *item, 0);
     if (i_idx >= 0) {
-        inven_item_increase(player_ptr, i_idx, -(o_ptr->number));
+        inven_item_increase(player_ptr, i_idx, -(item->number));
         inven_item_optimize(player_ptr, i_idx);
     } else {
         delete_object_idx(player_ptr, 0 - i_idx);
@@ -64,7 +65,7 @@ static void autopick_delayed_alter_aux(PlayerType *player_ptr, INVENTORY_IDX i_i
  */
 void autopick_delayed_alter(PlayerType *player_ptr)
 {
-    for (INVENTORY_IDX i_idx = INVEN_TOTAL - 1; i_idx >= 0; i_idx--) {
+    for (const auto i_idx : INVEN_ALL_SLOTS | ranges::views::reverse) {
         autopick_delayed_alter_aux(player_ptr, i_idx);
     }
 
@@ -87,12 +88,11 @@ void autopick_delayed_alter(PlayerType *player_ptr)
  */
 void autopick_alter_item(PlayerType *player_ptr, INVENTORY_IDX i_idx, bool destroy)
 {
-    ItemEntity *o_ptr;
-    o_ptr = ref_item(player_ptr, i_idx);
-    int idx = find_autopick_list(player_ptr, o_ptr);
-    auto_inscribe_item(o_ptr, idx);
+    auto item = ref_item(player_ptr, i_idx);
+    int idx = find_autopick_list(player_ptr, item.get());
+    auto_inscribe_item(item.get(), idx);
     if (destroy && i_idx <= INVEN_PACK) {
-        auto_destroy_item(player_ptr, o_ptr, idx);
+        auto_destroy_item(player_ptr, item.get(), idx);
     }
 }
 
@@ -106,7 +106,7 @@ void autopick_pickup_items(PlayerType *player_ptr, const Grid &grid)
         auto &item = *player_ptr->current_floor_ptr->o_list[this_o_idx];
         int idx = find_autopick_list(player_ptr, &item);
         auto_inscribe_item(&item, idx);
-        if ((idx < 0) || (autopick_list[idx].action & (DO_AUTOPICK | DO_QUERY_AUTOPICK)) == 0) {
+        if ((idx < 0) || (autopick_list[idx].action.has_none_of({ AutopickMethod::AUTOPICK, AutopickMethod::QUERY_AUTOPICK }))) {
             auto_destroy_item(player_ptr, &item, idx);
             continue;
         }
@@ -119,7 +119,7 @@ void autopick_pickup_items(PlayerType *player_ptr, const Grid &grid)
             continue;
         }
 
-        if (!(autopick_list[idx].action & DO_QUERY_AUTOPICK)) {
+        if (!(autopick_list[idx].action.has(AutopickMethod::QUERY_AUTOPICK))) {
             process_player_pickup_item(player_ptr, this_o_idx);
             continue;
         }

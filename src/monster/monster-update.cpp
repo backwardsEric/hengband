@@ -34,6 +34,7 @@
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
+#include "system/monrace/monrace-records.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -495,17 +496,15 @@ static void update_invisible_monster(PlayerType *player_ptr, um_type *um_ptr, MO
     }
 
     if (!player_ptr->effects()->hallucination().is_hallucinated()) {
-        auto &monrace = monster.get_monrace();
-        auto &shadower = MonraceList::get_instance().get_monrace(MonraceId::KAGE);
-        if ((monster.ap_r_idx == MonraceId::KAGE) && (shadower.r_sights < MAX_SHORT)) {
-            shadower.r_sights++;
-        } else if (monster.is_original_ap() && (monrace.r_sights < MAX_SHORT)) {
-            monrace.r_sights++;
+        if (monster.ap_r_idx == MonraceId::KAGE) {
+            MonraceRecords::get_instance().increment_seen_count(MonraceId::KAGE);
+        } else if (monster.is_original_ap()) {
+            monster.increment_seen_count();
         }
     }
 
     const auto &world = AngbandWorld::get_instance();
-    if (world.is_loading_now && world.character_dungeon && !AngbandSystem::get_instance().is_phase_out() && monster.get_appearance_monrace().misc_flags.has(MonsterMiscType::ELDRITCH_HORROR)) {
+    if (world.is_loading_now && world.character_dungeon && !AngbandSystem::get_instance().is_phase_out() && monster.get_apparent_monrace().misc_flags.has(MonsterMiscType::ELDRITCH_HORROR)) {
         monster.mflag.set(MonsterTemporaryFlagType::SANITY_BLAST);
     }
 
@@ -566,8 +565,8 @@ void update_monster(PlayerType *player_ptr, MONSTER_IDX m_idx, bool full)
     um_type tmp_um;
     um_type *um_ptr = initialize_um_type(player_ptr, &tmp_um, m_idx, full);
     if (disturb_high) {
-        auto *ap_r_ptr = &um_ptr->m_ptr->get_appearance_monrace();
-        if (ap_r_ptr->r_tkills && ap_r_ptr->level >= player_ptr->lev) {
+        const auto &apparent_monrace = um_ptr->m_ptr->get_apparent_monrace();
+        if (apparent_monrace.r_tkills && apparent_monrace.level >= player_ptr->lev) {
             um_ptr->do_disturb = true;
         }
     }

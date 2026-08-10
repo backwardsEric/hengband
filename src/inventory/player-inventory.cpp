@@ -26,7 +26,7 @@
 #include "spell-kind/spells-perception.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
@@ -49,8 +49,8 @@
  */
 bool can_get_item(PlayerType *player_ptr, const ItemTester &item_tester)
 {
-    for (int j = 0; j < INVEN_TOTAL; j++) {
-        if (item_tester.okay(player_ptr->inventory[j].get())) {
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        if (item_tester.okay(player_ptr->inventory[i_idx].get())) {
             return true;
         }
     }
@@ -143,8 +143,8 @@ static void py_pickup_multiple_items(PlayerType *player_ptr, bool pickup)
     for (auto pick_count = 0; pick_count < count_of_pickable_items; ++pick_count) {
         constexpr auto q = _("どれを拾いますか？", "Get which item? ");
         constexpr auto s = _("もうザックには床にあるどのアイテムも入らない。", "You no longer have any room for the objects on the floor.");
-        short i_idx;
-        if (!choose_object(player_ptr, &i_idx, q, s, (USE_FLOOR), tester)) {
+        const auto &[item, i_idx] = choose_item(player_ptr, q, s, USE_FLOOR, tester);
+        if (!item) {
             break;
         }
         process_player_pickup_item(player_ptr, -i_idx);

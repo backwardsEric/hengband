@@ -19,7 +19,7 @@
 #include "status/experience.h"
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-rod-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
@@ -44,14 +44,14 @@ ObjectZapRodEntity::ObjectZapRodEntity(PlayerType *player_ptr)
 void ObjectZapRodEntity::execute(INVENTORY_IDX i_idx)
 {
     auto use_charge = true;
-    auto *o_ptr = ref_item(this->player_ptr, i_idx);
-    if ((i_idx < 0) && (o_ptr->number > 1)) {
+    auto item = ref_item(this->player_ptr, i_idx);
+    if ((i_idx < 0) && (item->number > 1)) {
         msg_print(_("まずはロッドを拾わなければ。", "You must first pick up the rods."));
         return;
     }
 
     auto dir = Direction::none();
-    if (o_ptr->is_aiming_rod() || !o_ptr->is_aware()) {
+    if (item->is_aiming_rod() || !item->is_aware()) {
         dir = get_aim_dir(this->player_ptr);
         if (!dir) {
             return;
@@ -63,7 +63,7 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX i_idx)
         return;
     }
 
-    const auto item_level = o_ptr->get_baseitem_level();
+    const auto item_level = item->get_baseitem_level();
     auto chance = this->player_ptr->skill_dev;
     if (this->player_ptr->effects()->confusion().is_confused()) {
         chance = chance / 2;
@@ -103,15 +103,15 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX i_idx)
         return;
     }
 
-    const auto base_pval = o_ptr->get_baseitem_pval();
-    if ((o_ptr->number == 1) && (o_ptr->timeout)) {
+    const auto base_pval = item->get_baseitem_pval();
+    if ((item->number == 1) && (item->timeout)) {
         if (flush_failure) {
             flush();
         }
 
         msg_print(_("このロッドはまだ魔力を充填している最中だ。", "The rod is still charging."));
         return;
-    } else if ((o_ptr->number > 1) && (o_ptr->timeout > base_pval * (o_ptr->number - 1))) {
+    } else if ((item->number > 1) && (item->timeout > base_pval * (item->number - 1))) {
         if (flush_failure) {
             flush();
         }
@@ -121,9 +121,9 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX i_idx)
     }
 
     sound(SoundKind::ZAP);
-    auto ident = rod_effect(this->player_ptr, *o_ptr->bi_key.sval(), dir, &use_charge, false);
+    auto ident = rod_effect(this->player_ptr, *item->bi_key.sval(), dir, &use_charge, false);
     if (use_charge) {
-        o_ptr->timeout += base_pval;
+        item->timeout += base_pval;
     }
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
@@ -132,15 +132,15 @@ void ObjectZapRodEntity::execute(INVENTORY_IDX i_idx)
         StatusRecalculatingFlag::REORDER,
     };
     rfu.set_flags(flags_srf);
-    if (!(o_ptr->is_aware())) {
+    if (!(item->is_aware())) {
         chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
         chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
         chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
-    o_ptr->mark_as_tried();
-    if ((ident != 0) && !o_ptr->is_aware()) {
-        object_aware(this->player_ptr, *o_ptr);
+    item->mark_as_tried();
+    if ((ident != 0) && !item->is_aware()) {
+        object_aware(this->player_ptr, *item);
         gain_exp(this->player_ptr, (item_level + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 

@@ -2,6 +2,8 @@
 #include "core/disturbance.h"
 #include "core/stuff-handler.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "player/player-status.h"
 #include "realm/realm-song-numbers.h"
 #include "spell-realm/spells-song.h"
@@ -58,6 +60,7 @@ bool set_tim_esp(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_esp && !music_singing(player_ptr, MUSIC_MIND)) {
             msg_print(_("意識は元に戻った。", "Your consciousness contracts again."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -94,6 +97,7 @@ bool set_tim_invis(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_invis) {
             msg_print(_("目の敏感さがなくなったようだ。", "Your eyes feel less sensitive."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -130,6 +134,7 @@ bool set_tim_infra(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tim_infra) {
             msg_print(_("目の輝きがなくなった。", "Your eyes stop tingling."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

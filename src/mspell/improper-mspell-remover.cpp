@@ -31,7 +31,7 @@ void remove_bad_spells(MONSTER_IDX m_idx, PlayerType *player_ptr, EnumClassFlagG
 {
     msr_type tmp_msr(player_ptr, m_idx, ability_flags);
     auto *msr_ptr = &tmp_msr;
-    if (msr_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID)) {
+    if (msr_ptr->monrace->behavior_flags.has(MonsterBehaviorType::STUPID)) {
         return;
     }
 

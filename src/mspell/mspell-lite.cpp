@@ -125,7 +125,7 @@ static void feature_projection(const FloorType &floor, msa_type *msa_ptr)
         return;
     }
 
-    if (msa_ptr->ability_flags.has(MonsterAbilityType::BR_DISI) && terrain.flags.has(TerrainCharacteristics::HURT_DISI) && one_in_(2)) {
+    if (msa_ptr->ability_flags.has(MonsterAbilityType::BR_DISI) && terrain.flags.has(TerrainCharacteristics::CAN_DISINTEGRATE) && one_in_(2)) {
         msa_ptr->do_spell = DO_SPELL_BR_DISI;
         return;
     }
@@ -235,11 +235,11 @@ void decide_lite_area(PlayerType *player_ptr, msa_type *msa_ptr)
 
     PlayerClass pc(player_ptr);
     auto can_use_lite_area = pc.equals(PlayerClassType::NINJA);
-    can_use_lite_area &= msa_ptr->r_ptr->kind_flags.has_not(MonsterKindType::UNDEAD);
-    can_use_lite_area &= msa_ptr->r_ptr->resistance_flags.has_not(MonsterResistanceType::HURT_LITE);
-    can_use_lite_area &= (msa_ptr->r_ptr->brightness_flags.has_none_of(dark_mask));
+    can_use_lite_area &= msa_ptr->monrace->kind_flags.has_not(MonsterKindType::UNDEAD);
+    can_use_lite_area &= msa_ptr->monrace->resistance_flags.has_not(MonsterResistanceType::HURT_LITE);
+    can_use_lite_area &= (msa_ptr->monrace->brightness_flags.has_none_of(dark_mask));
 
-    if (msa_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID)) {
+    if (msa_ptr->monrace->behavior_flags.has(MonsterBehaviorType::STUPID)) {
         return;
     }
 

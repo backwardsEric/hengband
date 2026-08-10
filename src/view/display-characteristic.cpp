@@ -9,14 +9,13 @@
 #include "view/display-characteristic.h"
 #include "flavor/flavor-util.h"
 #include "inventory/inventory-slot-types.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "perception/object-perception.h"
 #include "player/permanent-resistances.h"
 #include "player/race-resistances.h"
 #include "player/temporary-resistances.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -105,11 +104,11 @@ static std::array<tr_type, 6> lite_flags = {
  */
 static void process_cursed_equipment_characteristics(PlayerType *player_ptr, uint16_t mode, char_stat &char_stat)
 {
-    int max_i = (mode & DP_WP) ? INVEN_BOW + 1 : INVEN_TOTAL;
-    for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
-        auto *o_ptr = player_ptr->inventory[i].get();
+    const auto range = (mode & DP_WP) ? INVEN_WEAPON_SLOTS : INVEN_WIELDING_SLOTS;
+    for (const auto i_idx : range) {
+        auto *o_ptr = player_ptr->inventory[i_idx].get();
         auto is_known = o_ptr->is_known();
-        auto is_sensed = is_known || o_ptr->ident & IDENT_SENSE;
+        auto is_sensed = is_known || o_ptr->has_identification_flag(IdentificationFlag::SENSE);
         auto flags = o_ptr->get_flags_known();
 
         if (flags.has(TR_ADD_L_CURSE) || flags.has(TR_ADD_H_CURSE)) {
@@ -154,9 +153,9 @@ static void process_cursed_equipment_characteristics(PlayerType *player_ptr, uin
  */
 static void process_light_equipment_characteristics(PlayerType *player_ptr, all_player_flags *f, uint16_t mode, char_stat &char_stat)
 {
-    int max_i = (mode & DP_WP) ? INVEN_BOW + 1 : INVEN_TOTAL;
-    for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
-        auto *o_ptr = player_ptr->inventory[i].get();
+    const auto range = (mode & DP_WP) ? INVEN_WEAPON_SLOTS : INVEN_WIELDING_SLOTS;
+    for (const auto i_idx : range) {
+        auto *o_ptr = player_ptr->inventory[i_idx].get();
         auto flags = o_ptr->get_flags_known();
 
         auto b = false;
@@ -209,9 +208,9 @@ static void process_light_equipment_characteristics(PlayerType *player_ptr, all_
  */
 static void process_inventory_characteristic(PlayerType *player_ptr, tr_type flag, all_player_flags *f, uint16_t mode, char_stat &char_stat)
 {
-    int max_i = (mode & DP_WP) ? INVEN_BOW + 1 : INVEN_TOTAL;
-    for (int i = INVEN_MAIN_HAND; i < max_i; i++) {
-        auto *o_ptr = player_ptr->inventory[i].get();
+    const auto range = (mode & DP_WP) ? INVEN_WEAPON_SLOTS : INVEN_WIELDING_SLOTS;
+    for (const auto i_idx : range) {
+        auto *o_ptr = player_ptr->inventory[i_idx].get();
         auto flags = o_ptr->get_flags_known();
 
         auto f_imm = flag_to_greater_flag.find(flag);

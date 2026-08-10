@@ -75,7 +75,7 @@ static bool process_wall(PlayerType *player_ptr, turn_flags *turn_flags_ptr, con
     const auto &monrace = monster.get_monrace();
     auto can_kill_wall = monrace.feature_flags.has(Mft::KILL_WALL);
     can_kill_wall &= can_cross ? terrain.flags.has_not(Tc::LOS) : !turn_flags_ptr->is_riding_mon;
-    can_kill_wall &= terrain.flags.has(Tc::HURT_DISI);
+    can_kill_wall &= terrain.flags.has(Tc::CAN_DISINTEGRATE);
     can_kill_wall &= terrain.flags.has_not(Tc::PERMANENT);
     can_kill_wall &= check_hp_for_terrain_destruction(terrain, monster);
     if (can_kill_wall) {
@@ -123,13 +123,13 @@ static bool bash_normal_door(PlayerType *player_ptr, turn_flags *turn_flags_ptr,
         return true;
     }
 
-    if (terrain.power == 0) {
+    if (terrain.door_power == 0) {
         turn_flags_ptr->did_open_door = true;
         turn_flags_ptr->do_turn = true;
         return false;
     }
 
-    if (randint0(monster.hp / 10) > terrain.power) {
+    if (randint0(monster.hp / 10) > terrain.door_power) {
         cave_alter_feat(player_ptr, pos.y, pos.x, Tc::DISARM);
         turn_flags_ptr->do_turn = true;
         return false;
@@ -158,7 +158,7 @@ static void bash_glass_door(PlayerType *player_ptr, turn_flags *turn_flags_ptr, 
         return;
     }
 
-    if (!check_hp_for_terrain_destruction(terrain, monster) || (randint0(monster.hp / 10) <= terrain.power)) {
+    if (!check_hp_for_terrain_destruction(terrain, monster) || (randint0(monster.hp / 10) <= terrain.door_power)) {
         return;
     }
 
@@ -322,7 +322,7 @@ static bool process_post_dig_wall(PlayerType *player_ptr, turn_flags *turn_flags
         }
     }
 
-    cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::HURT_DISI);
+    cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::CAN_DISINTEGRATE);
 
     if (!monster.is_valid()) {
         auto &rfu = RedrawingFlagsUpdater::get_instance();
@@ -468,7 +468,7 @@ bool process_monster_movement(PlayerType *player_ptr, turn_flags *turn_flags_ptr
             break;
         }
 
-        const auto &apparent_monrace = monster.get_appearance_monrace();
+        const auto &apparent_monrace = monster.get_apparent_monrace();
         const auto p_pos = player_ptr->get_position(); //!< @details 関数が長すぎてプレイヤーの座標が不変であることを保証できない.
         const auto m_pos = monster.get_position();
         const auto is_projectable = projectable(floor, p_pos, m_pos);
@@ -514,7 +514,7 @@ static bool can_speak(const MonraceDefinition &ap_r_ref, MonsterSpeakType mon_sp
 
 static tl::optional<MonsterMessageType> get_speak_type(const MonsterEntity &monster)
 {
-    const auto &ap_monrace = monster.get_appearance_monrace();
+    const auto &ap_monrace = monster.get_apparent_monrace();
     if (monster.is_fearful() && can_speak(ap_monrace, MonsterSpeakType::SPEAK_FEAR)) {
         return MonsterMessageType::SPEAK_FEAR;
     }
@@ -609,7 +609,7 @@ void process_speak(PlayerType *player_ptr, MONSTER_IDX m_idx, POSITION oy, POSIT
     const auto &monster = floor.m_list[m_idx];
     const auto &monrace = monster.get_monrace();
     const auto p_pos = player_ptr->get_position();
-    const auto can_speak = monster.get_appearance_monrace().speak_flags.any();
+    const auto can_speak = monster.get_apparent_monrace().speak_flags.any();
     if (!can_speak || !aware || !floor.has_los_at({ oy, ox }) || !projectable(floor, pos, p_pos)) {
         return;
     }

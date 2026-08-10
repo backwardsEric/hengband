@@ -30,13 +30,13 @@
 #include "monster/monster-update.h"
 #include "player-base/player-class.h"
 #include "spell-kind/spells-floor.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-record.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -97,7 +97,7 @@ static std::pair<short, Pos2D> decide_pet_index(PlayerType *player_ptr, const in
     for (d = 1; d < A_MAX; d++) {
         int j;
         for (j = 1000; j > 0; j--) {
-            pos = scatter(player_ptr, p_pos, d, PROJECT_NONE);
+            pos = scatter(floor, p_pos, d, PROJECT_NONE);
             if (monster_can_enter(player_ptr, pos.y, pos.x, party_mon[current_monster].get_monrace(), 0)) {
                 break;
             }
@@ -201,7 +201,7 @@ static void update_unique_artifact(const FloorType &floor, int16_t cur_floor_id)
         }
 
         if (item_ptr->is_fixed_artifact()) {
-            item_ptr->get_fixed_artifact().floor_id = cur_floor_id;
+            item_ptr->set_fixed_artifact_floor_id(cur_floor_id);
         }
     }
 }
@@ -276,12 +276,12 @@ static void reset_unique_by_floor_change(PlayerType *player_ptr)
 
         if (!monster.is_pet()) {
             monster.hp = monster.maxhp = monster.max_maxhp;
-            (void)set_monster_fast(player_ptr, i, 0);
-            (void)set_monster_slow(player_ptr, i, 0);
-            (void)set_monster_stunned(player_ptr, i, 0);
-            (void)set_monster_confused(player_ptr, i, 0);
-            (void)set_monster_monfear(player_ptr, i, 0);
-            (void)set_monster_invulner(player_ptr, i, 0, false);
+            (void)set_monster_fast(floor, i, 0);
+            (void)set_monster_slow(floor, i, 0);
+            (void)set_monster_stunned(floor, i, 0);
+            (void)set_monster_confused(floor, i, 0);
+            (void)set_monster_monfear(floor, i, 0);
+            (void)set_monster_invulner(floor, i, 0, false);
         }
 
         const auto &monrace = monster.get_real_monrace();
@@ -299,7 +299,7 @@ static void allocate_loaded_floor(PlayerType *player_ptr, saved_floor_type *sf_p
 {
     GAME_TURN tmp_last_visit = sf_ptr->last_visit;
     const auto &floor = *player_ptr->current_floor_ptr;
-    auto alloc_chance = floor.get_dungeon_definition().max_m_alloc_chance;
+    auto alloc_chance = floor.get_dungeon_definition().additional_monster_spawn_chance;
     const auto &world = AngbandWorld::get_instance();
     while (tmp_last_visit > world.game_turn) {
         tmp_last_visit -= TURNS_PER_TICK * TOWN_DAWN;
@@ -313,9 +313,8 @@ static void allocate_loaded_floor(PlayerType *player_ptr, saved_floor_type *sf_p
             continue;
         }
 
-        auto &artifact = item_ptr->get_fixed_artifact();
-        if (artifact.floor_id == new_floor_id) {
-            artifact.is_generated = true;
+        if (item_ptr->get_fixed_artifact_floor_id() == new_floor_id) {
+            item_ptr->set_fixed_artifact_generated(true);
         } else {
             delete_i_idx_list.push_back(static_cast<OBJECT_IDX>(i_idx));
         }

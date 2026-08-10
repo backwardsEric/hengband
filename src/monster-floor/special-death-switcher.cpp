@@ -27,11 +27,11 @@
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-allocation.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -87,7 +87,7 @@ static tl::optional<bool> final_summon(PlayerType *player_ptr, MonsterDeath *md_
         auto m_pos = md_ptr->get_position();
         auto attempts = 0;
         for (; attempts < 100; attempts++) {
-            m_pos = scatter(player_ptr, md_ptr->get_position(), summon_data.radius, PROJECT_NONE);
+            m_pos = scatter(floor, md_ptr->get_position(), summon_data.radius, PROJECT_NONE);
             if (floor.contains(m_pos, FloorBoundary::OUTER_WALL_EXCLUSIVE) && floor.can_generate_monster_at(m_pos) && (p_pos != m_pos)) {
                 break;
             }
@@ -97,7 +97,7 @@ static tl::optional<bool> final_summon(PlayerType *player_ptr, MonsterDeath *md_
         }
 
         BIT_FLAGS mode = dead_mode(md_ptr);
-        const auto summon_src = md_ptr->m_ptr->is_pet() ? -1 : md_ptr->m_idx;
+        const short summon_src = md_ptr->m_ptr->is_pet() ? -1 : md_ptr->m_idx;
         if (summon_named_creature(player_ptr, summon_src, m_pos.y, m_pos.x, summon_data.id, mode) && player_can_see_bold(player_ptr, m_pos.y, m_pos.x)) {
             notice = true;
         }
@@ -144,9 +144,8 @@ static void on_dead_sacred_treasures(PlayerType *player_ptr, MonsterDeath *md_pt
 
     std::vector<FixedArtifactId> candidates;
     std::copy_if(namake_equipments.begin(), namake_equipments.end(), std::back_inserter(candidates),
-        [](FixedArtifactId a_idx) {
-            const auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
-            return !artifact.is_generated;
+        [](FixedArtifactId fa_id) {
+            return !ArtifactRecords::get_instance().get_generated(fa_id);
         });
 
     if (candidates.empty()) {
@@ -188,7 +187,7 @@ static void on_dead_can_angel(PlayerType *player_ptr, MonsterDeath *md_ptr)
 {
     auto is_drop_can = md_ptr->drop_chosen_item;
     auto is_silver = md_ptr->m_ptr->r_idx == MonraceId::A_SILVER;
-    is_silver &= md_ptr->r_ptr->r_akills % 5 == 0;
+    is_silver &= md_ptr->monrace->r_akills % 5 == 0;
     is_drop_can &= (md_ptr->m_ptr->r_idx == MonraceId::A_GOLD) || is_silver;
     if (!is_drop_can) {
         return;
@@ -287,7 +286,7 @@ static void on_dead_mimics(PlayerType *player_ptr, MonsterDeath *md_ptr)
         return;
     }
 
-    switch (md_ptr->r_ptr->symbol_definition.character) {
+    switch (md_ptr->monrace->symbol_definition.character) {
     case '(':
         if (player_ptr->current_floor_ptr->dun_level <= 0) {
             return;
@@ -346,7 +345,7 @@ static void on_dead_swordfish(PlayerType *player_ptr, MonsterDeath *md_ptr, Attr
 
 void switch_special_death(PlayerType *player_ptr, MonsterDeath *md_ptr, AttributeFlags attribute_flags)
 {
-    auto &monrace = MonraceList::get_instance().get_monrace(md_ptr->ap_r_ptr->idx);
+    auto &monrace = MonraceList::get_instance().get_monrace(md_ptr->apparent_monrace->idx);
     const auto &summon_list = monrace.get_final_summons();
     if (!summon_list.empty()) {
         auto do_message = false;
@@ -365,7 +364,7 @@ void switch_special_death(PlayerType *player_ptr, MonsterDeath *md_ptr, Attribut
         return;
     }
 
-    switch (md_ptr->ap_r_ptr->idx) {
+    switch (md_ptr->apparent_monrace->idx) {
     case MonraceId::BLOODLETTER:
         on_dead_bloodletter(player_ptr, md_ptr);
         return;

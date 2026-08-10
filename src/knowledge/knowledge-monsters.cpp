@@ -21,6 +21,7 @@
 #include "system/floor/floor-info.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
+#include "system/monrace/monrace-records.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
@@ -53,33 +54,34 @@ static std::vector<MonraceId> collect_monsters(short grp_cur, monster_lore_mode 
     const auto grp_amberite = (MONRACE_CHARACTERS_GROUP[grp_cur] == "Amberites");
 
     const auto &monraces = MonraceList::get_instance();
+    const auto &monrace_records = MonraceRecords::get_instance();
     std::vector<MonraceId> monrace_ids;
     for (const auto &[monrace_id, monrace] : monraces) {
-        if (((mode != MONSTER_LORE_DEBUG) && (mode != MONSTER_LORE_RESEARCH)) && !cheat_know && !monrace.r_sights) {
+        if (((mode != MONSTER_LORE_DEBUG) && (mode != MONSTER_LORE_RESEARCH)) && !cheat_know && !monrace_records.has_been_seen(monrace_id)) {
             continue;
         }
 
         if (grp_unique) {
-            if (monrace.kind_flags.has_not(MonsterKindType::UNIQUE)) {
+            if (monrace->kind_flags.has_not(MonsterKindType::UNIQUE)) {
                 continue;
             }
         } else if (grp_riding) {
-            if (monrace.misc_flags.has_not(MonsterMiscType::RIDING)) {
+            if (monrace->misc_flags.has_not(MonsterMiscType::RIDING)) {
                 continue;
             }
         } else if (grp_wanted) {
             const auto &world = AngbandWorld::get_instance();
             auto wanted = world.knows_daily_bounty && (world.today_mon == monrace_id);
-            wanted |= monrace.is_bounty(false);
+            wanted |= monrace->is_bounty(false);
             if (!wanted) {
                 continue;
             }
         } else if (grp_amberite) {
-            if (monrace.kind_flags.has_not(MonsterKindType::AMBERITE)) {
+            if (monrace->kind_flags.has_not(MonsterKindType::AMBERITE)) {
                 continue;
             }
         } else {
-            if (angband_strchr(group_char.data(), monrace.symbol_definition.character) == nullptr) {
+            if (angband_strchr(group_char.data(), monrace->symbol_definition.character) == nullptr) {
                 continue;
             }
         }

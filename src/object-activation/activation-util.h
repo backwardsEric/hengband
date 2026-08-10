@@ -1,17 +1,19 @@
 #pragma once
 
-#include "system/angband.h"
+#include <memory>
 
 // Activation Execution.
 class ItemEntity;
-struct ae_type {
-    DIRECTION dir;
-    bool success;
-    ItemEntity *o_ptr;
-    DEPTH lev;
-    int chance;
-    int fail;
-};
-
 class PlayerType;
-ae_type *initialize_ae_type(PlayerType *player_ptr, ae_type *ae_ptr, const INVENTORY_IDX i_idx);
+struct ae_type {
+    int dir = 0;
+    bool success = false;
+    std::shared_ptr<ItemEntity> item = nullptr;
+    int lev = 0;
+    int chance = 0;
+    int fail = 0;
+
+    ae_type(PlayerType *player_ptr, short i_idx);
+
+    void decide_activation_level();
+};

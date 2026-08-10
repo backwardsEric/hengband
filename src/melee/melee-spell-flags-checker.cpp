@@ -113,10 +113,10 @@ static void check_darkness(PlayerType *player_ptr, melee_spell_type *ms_ptr)
     }
 
     const auto vs_ninja = PlayerClass(player_ptr).equals(PlayerClassType::NINJA) && !ms_ptr->t_ptr->is_hostile();
-    auto can_use_lite_area = vs_ninja && ms_ptr->r_ptr->kind_flags.has_not(MonsterKindType::UNDEAD);
-    can_use_lite_area &= ms_ptr->r_ptr->resistance_flags.has_not(MonsterResistanceType::HURT_LITE);
-    can_use_lite_area &= ms_ptr->r_ptr->brightness_flags.has_none_of(dark_mask);
-    if (ms_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID)) {
+    auto can_use_lite_area = vs_ninja && ms_ptr->monrace->kind_flags.has_not(MonsterKindType::UNDEAD);
+    can_use_lite_area &= ms_ptr->monrace->resistance_flags.has_not(MonsterResistanceType::HURT_LITE);
+    can_use_lite_area &= ms_ptr->monrace->brightness_flags.has_none_of(dark_mask);
+    if (ms_ptr->monrace->behavior_flags.has(MonsterBehaviorType::STUPID)) {
         return;
     }
 
@@ -132,7 +132,7 @@ static void check_darkness(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 
 static void check_stupid(melee_spell_type *ms_ptr)
 {
-    if (!ms_ptr->in_no_magic_dungeon || ms_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID)) {
+    if (!ms_ptr->in_no_magic_dungeon || ms_ptr->monrace->behavior_flags.has(MonsterBehaviorType::STUPID)) {
         return;
     }
 
@@ -226,7 +226,7 @@ static void check_melee_spell_breath(PlayerType *player_ptr, melee_spell_type *m
         return;
     }
 
-    POSITION rad = ms_ptr->r_ptr->misc_flags.has(MonsterMiscType::POWERFUL) ? 3 : 2;
+    POSITION rad = ms_ptr->monrace->misc_flags.has(MonsterMiscType::POWERFUL) ? 3 : 2;
     if (!breath_direct(player_ptr, ms_ptr->m_ptr->get_position(), ms_ptr->t_ptr->get_position(), rad, AttributeType::NONE, true)) {
         ms_ptr->ability_flags.reset(RF_ABILITY_BREATH_MASK);
         return;
@@ -258,7 +258,7 @@ static void check_melee_spell_special(PlayerType *player_ptr, melee_spell_type *
         return;
     }
 
-    if (ms_ptr->r_ptr->symbol_char_is_any_of("B")) {
+    if (ms_ptr->monrace->symbol_char_is_any_of("B")) {
         if ((player_ptr->pet_extra_flags & (PF_ATTACK_SPELL | PF_TELEPORT)) != (PF_ATTACK_SPELL | PF_TELEPORT)) {
             ms_ptr->ability_flags.reset(MonsterAbilityType::SPECIAL);
         }
@@ -309,7 +309,7 @@ static void check_pet(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 
 static void check_non_stupid(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 {
-    if (ms_ptr->r_ptr->behavior_flags.has(MonsterBehaviorType::STUPID)) {
+    if (ms_ptr->monrace->behavior_flags.has(MonsterBehaviorType::STUPID)) {
         return;
     }
 
@@ -336,7 +336,7 @@ static void check_non_stupid(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 
 static void check_smart(PlayerType *player_ptr, melee_spell_type *ms_ptr)
 {
-    if (ms_ptr->r_ptr->behavior_flags.has_not(MonsterBehaviorType::SMART)) {
+    if (ms_ptr->monrace->behavior_flags.has_not(MonsterBehaviorType::SMART)) {
         return;
     }
 
@@ -367,7 +367,7 @@ bool check_melee_spell_set(PlayerType *player_ptr, melee_spell_type *ms_ptr)
         return false;
     }
 
-    ms_ptr->ability_flags = ms_ptr->r_ptr->ability_flags;
+    ms_ptr->ability_flags = ms_ptr->monrace->ability_flags;
     decide_melee_spell_target(player_ptr, ms_ptr);
     decide_indirection_melee_spell(player_ptr, ms_ptr);
     if (!check_melee_spell_projection(player_ptr, ms_ptr)) {
@@ -382,7 +382,7 @@ bool check_melee_spell_set(PlayerType *player_ptr, melee_spell_type *ms_ptr)
         ms_ptr->ability_flags.reset(MonsterAbilityType::BR_LITE);
     }
 
-    if (ms_ptr->ability_flags.has(MonsterAbilityType::SPECIAL) && (ms_ptr->m_ptr->r_idx != MonraceId::ROLENTO) && !ms_ptr->r_ptr->symbol_char_is_any_of("B")) {
+    if (ms_ptr->ability_flags.has(MonsterAbilityType::SPECIAL) && (ms_ptr->m_ptr->r_idx != MonraceId::ROLENTO) && !ms_ptr->monrace->symbol_char_is_any_of("B")) {
         ms_ptr->ability_flags.reset(MonsterAbilityType::SPECIAL);
     }
 

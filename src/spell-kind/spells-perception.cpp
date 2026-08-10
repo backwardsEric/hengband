@@ -12,7 +12,6 @@
 #include "inventory/inventory-slot-types.h"
 #include "inventory/player-inventory.h"
 #include "io/write-diary.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-hook/hook-perception.h"
 #include "object-hook/hook-weapon.h"
 #include "object/item-tester-hooker.h"
@@ -21,7 +20,8 @@
 #include "object/object-mark-types.h"
 #include "perception/identification.h"
 #include "perception/object-perception.h"
-#include "system/item-entity.h"
+#include "system/artifact/artifact-record.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
@@ -38,14 +38,14 @@
  */
 void identify_pack(PlayerType *player_ptr)
 {
-    for (INVENTORY_IDX i = 0; i < INVEN_TOTAL; i++) {
-        auto *o_ptr = player_ptr->inventory[i].get();
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        auto *o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }
 
         identify_item(player_ptr, o_ptr);
-        autopick_alter_item(player_ptr, i, false);
+        autopick_alter_item(player_ptr, i_idx, false);
     }
 }
 
@@ -59,7 +59,7 @@ void identify_pack(PlayerType *player_ptr)
 bool identify_item(PlayerType *player_ptr, ItemEntity *o_ptr)
 {
     const auto known_item_name = describe_flavor(player_ptr, *o_ptr, 0);
-    const auto old_known = any_bits(o_ptr->ident, IDENT_KNOWN);
+    const auto old_known = o_ptr->has_identification_flag(IdentificationFlag::KNOWN);
     if (!o_ptr->is_fully_known()) {
         if (o_ptr->is_fixed_or_random_artifact() || one_in_(5)) {
             chg_virtue(player_ptr, Virtue::KNOWLEDGE, 1);
@@ -69,6 +69,11 @@ bool identify_item(PlayerType *player_ptr, ItemEntity *o_ptr)
     object_aware(player_ptr, *o_ptr);
     o_ptr->mark_as_known();
     o_ptr->marked.set(OmType::TOUCHED);
+    if (o_ptr->is_fixed_artifact()) {
+        auto &records = ArtifactRecords::get_instance();
+        records.set_known(o_ptr->fa_id);
+        records.set_identified(o_ptr->fa_id);
+    }
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     static constexpr auto flags_srf = {
@@ -128,14 +133,13 @@ bool ident_spell(PlayerType *player_ptr, bool only_equip)
     }
 
     constexpr auto s = _("鑑定するべきアイテムがない。", "You have nothing to identify.");
-    short i_idx;
-    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
-    if (!o_ptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
+    if (!item) {
         return false;
     }
 
-    auto old_known = identify_item(player_ptr, o_ptr);
-    const auto item_name = describe_flavor(player_ptr, *o_ptr, 0);
+    auto old_known = identify_item(player_ptr, item.get());
+    const auto item_name = describe_flavor(player_ptr, *item, 0);
     if (i_idx >= INVEN_MAIN_HAND) {
         msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, i_idx), item_name.data(), index_to_label(i_idx));
     } else if (i_idx >= 0) {
@@ -175,16 +179,15 @@ bool identify_fully(PlayerType *player_ptr, bool only_equip)
     }
 
     constexpr auto s = _("*鑑定*するべきアイテムがない。", "You have nothing to *identify*.");
-    short i_idx;
-    auto *o_ptr = choose_object(player_ptr, &i_idx, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
-    if (o_ptr == nullptr) {
+    const auto &[item, i_idx] = choose_item(player_ptr, q, s, (USE_EQUIP | USE_INVEN | USE_FLOOR | IGNORE_BOTHHAND_SLOT), *item_tester);
+    if (!item) {
         return false;
     }
 
-    auto old_known = identify_item(player_ptr, o_ptr);
-    o_ptr->ident |= (IDENT_FULL_KNOWN);
+    auto old_known = identify_item(player_ptr, item.get());
+    item->set_identification_flag(IdentificationFlag::FULL_KNOWN);
     window_stuff(player_ptr);
-    const auto item_name = describe_flavor(player_ptr, *o_ptr, 0);
+    const auto item_name = describe_flavor(player_ptr, *item, 0);
     if (i_idx >= INVEN_MAIN_HAND) {
         msg_format(_("%s^: %s(%c)。", "%s^: %s (%c)."), describe_use(player_ptr, i_idx), item_name.data(), index_to_label(i_idx));
     } else if (i_idx >= 0) {
@@ -193,7 +196,7 @@ bool identify_fully(PlayerType *player_ptr, bool only_equip)
         msg_format(_("床上: %s。", "On the ground: %s."), item_name.data());
     }
 
-    (void)screen_object(player_ptr, *o_ptr, 0L);
+    (void)screen_object(player_ptr, *item, 0L);
     autopick_alter_item(player_ptr, i_idx, (bool)(destroy_identify && !old_known));
     return true;
 }

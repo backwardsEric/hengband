@@ -8,13 +8,14 @@
 #include "autopick/autopick-entry.h"
 #include "autopick/autopick-initializer.h"
 #include "autopick/autopick-inserter-killer.h"
+#include "autopick/autopick-menu-data-table.h"
 #include "autopick/autopick-pref-processor.h"
 #include "autopick/autopick-reader-writer.h"
 #include "autopick/autopick-util.h"
 #include "cmd-io/cmd-save.h"
 #include "io/input-key-acceptor.h"
 #include "io/read-pref-file.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
@@ -202,7 +203,7 @@ void do_cmd_edit_autopick(PlayerType *player_ptr)
 
             insert_single_letter(tb, key);
         } else {
-            com_id = get_com_id((char)key);
+            com_id = CommandMenuData::get_instance().get_com_id((char)key);
         }
 
         if (com_id) {

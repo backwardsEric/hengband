@@ -4,10 +4,12 @@
 #include "floor/floor-util.h"
 #include "grid/grid.h"
 #include "object-enchant/item-apply-magic.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -220,7 +222,7 @@ Pos2D QuestCompletionChecker::make_stairs(const bool create_stairs)
     auto &floor = *this->player_ptr->current_floor_ptr;
     const auto *grid_ptr = &floor.get_grid(m_pos);
     while (floor.has_terrain_characteristics(m_pos, TerrainCharacteristics::PERMANENT) || !grid_ptr->o_idx_list.empty() || grid_ptr->is_object()) {
-        m_pos = scatter(this->player_ptr, m_pos, 1, PROJECT_NONE);
+        m_pos = scatter(floor, m_pos, 1, PROJECT_NONE);
         grid_ptr = &floor.get_grid(m_pos);
     }
 

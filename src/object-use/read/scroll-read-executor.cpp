@@ -13,6 +13,7 @@
 #include "player/digestion-processor.h"
 #include "player/player-damage.h"
 #include "player/player-status-flags.h"
+#include "rumor/rumor-service.h"
 #include "spell-kind/magic-item-recharger.h"
 #include "spell-kind/spells-curse-removal.h"
 #include "spell-kind/spells-detection.h"
@@ -37,7 +38,7 @@
 #include "store/rumor.h"
 #include "sv-definition/sv-scroll-types.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -93,7 +94,7 @@ bool ScrollReadExecutor::read()
             k = INVEN_SUB_HAND;
         }
 
-        if (k && curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[k].get())) {
+        if (k && curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[k])) {
             this->ident = true;
         }
 
@@ -397,14 +398,16 @@ bool ScrollReadExecutor::read()
 
         this->ident = true;
         break;
-    case SV_SCROLL_RUMOR:
+    case SV_SCROLL_RUMOR: {
         msg_print(_("巻物にはメッセージが書かれている:", "There is message on the scroll. It says:"));
         msg_erase();
-        display_rumor(this->player_ptr, true);
+        const auto &rumor = RumorService::pick_rumor(tl::nullopt);
+        display_selected_rumor(rumor);
         msg_erase();
         msg_print(_("巻物は煙を立てて消え去った！", "The scroll disappears in a puff of smoke!"));
         this->ident = true;
         break;
+    }
     case SV_SCROLL_ARTIFACT:
         this->ident = true;
         if (!artifact_scroll(this->player_ptr)) {

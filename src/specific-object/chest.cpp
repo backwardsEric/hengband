@@ -21,7 +21,7 @@
 #include "status/element-resistance.h"
 #include "sv-definition/sv-other-types.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
 
@@ -74,11 +74,11 @@ void Chest::open(bool scatter, const Pos2D &pos, short item_idx)
         if (small && one_in_(4)) {
             item_inner_chest = floor.make_gold();
         } else {
-            auto item = make_object(this->player_ptr, mode);
-            if (!item) {
+            auto item_inner_chest_opt = make_object(this->player_ptr, mode);
+            if (!item_inner_chest_opt) {
                 continue;
             }
-            item_inner_chest = std::move(*item);
+            item_inner_chest = std::move(*item_inner_chest_opt);
         }
 
         if (!scatter) {

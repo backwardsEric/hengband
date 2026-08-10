@@ -32,6 +32,7 @@
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "object/object-broken.h"
 #include "object/object-info.h"
 #include "object/object-mark-types.h"
@@ -43,13 +44,14 @@
 #include "player/player-skill.h"
 #include "player/player-status-table.h"
 #include "sv-definition/sv-bow-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-key.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/enums/terrain/terrain-characteristics.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -615,7 +617,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             /* Shatter Arrow */
             auto &grid = floor.get_grid(pos_impact);
             if (snipe_type == SP_KILL_WALL) {
-                if (grid.has(TerrainCharacteristics::HURT_ROCK) && !grid.has_monster()) {
+                if (grid.has(TerrainCharacteristics::STONE) && !grid.has_monster()) {
                     if (any_bits(grid.info, (CAVE_MARK))) {
                         msg_print(_("岩が砕け散った。", "Wall rocks were shattered."));
                     }
@@ -630,7 +632,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                     RedrawingFlagsUpdater::get_instance().set_flags(flags);
 
                     /* Destroy the wall */
-                    cave_alter_feat(player_ptr, pos_impact.y, pos_impact.x, TerrainCharacteristics::HURT_ROCK);
+                    cave_alter_feat(player_ptr, pos_impact.y, pos_impact.x, TerrainCharacteristics::STONE);
 
                     hit_body = true;
                     break;
@@ -848,8 +850,6 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                             //!< @details プレイヤーの場所が同一であることが保証できないので変数を再宣言する.
                             const auto p_pos1 = player_ptr->get_position();
                             auto n = randint1(5) + 3;
-                            const auto n0 = n;
-                            const auto m_idx = c_mon_ptr->m_idx;
                             for (; cur_dis <= tdis;) {
                                 const Pos2D pos_orig = { y, x };
                                 if (n == 0) {
@@ -874,17 +874,10 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                                     break;
                                 }
 
-                                floor.get_grid(pos_to).m_idx = m_idx;
-                                floor.get_grid(pos_orig).m_idx = 0;
-                                monster.set_position(pos_to);
-                                update_monster(player_ptr, m_idx, true);
+                                move_monster_to(player_ptr, monster, pos_to);
                                 if (delay_factor > 0) {
-                                    lite_spot(player_ptr, pos_to);
-                                    lite_spot(player_ptr, pos_orig);
                                     term_fresh();
                                     term_xtra(TERM_XTRA_DELAY, delay_factor);
-                                } else if (n == n0) {
-                                    lite_spot(player_ptr, pos_orig);
                                 }
 
                                 x = pos_to.x;
@@ -916,7 +909,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
             if (item_idx == 0) {
                 msg_format(_("%sはどこかへ行った。", "The %s went somewhere."), item_name.data());
                 if (fire_item.is_fixed_artifact()) {
-                    ArtifactList::get_instance().get_artifact(j_ptr->fa_id).is_generated = false;
+                    ArtifactRecords::get_instance().set_generated(j_ptr->fa_id, false);
                 }
                 return;
             }
@@ -1184,19 +1177,19 @@ int calc_expect_crit(PlayerType *player_ptr, WEIGHT weight, int plus, int dam, i
         i = 0;
     }
 
-    auto num = 0;
+    int64_t num = 0;
 
     if (impact) {
         // 強撃クリティカル(クリティカル強度: weight + d650 + d650)のときの期待値
-        auto sum = 0;
+        int64_t sum = 0;
         for (auto d = 2; d <= CRITICAL_DIE_SIDES * 2; ++d) { // d650 + d650 で出る 2～1300 について計算する
-            const auto count = (d <= CRITICAL_DIE_SIDES + 1) ? (d - 1) : (CRITICAL_DIE_SIDES * 2 - d + 1); // d650 + d650 で出る 650*650 通りのうちdが出るパターンの数
+            const int64_t count = (d <= CRITICAL_DIE_SIDES + 1) ? (d - 1) : (CRITICAL_DIE_SIDES * 2 - d + 1); // d650 + d650 で出る 650*650 通りのうちdが出るパターンの数
             sum += std::get<0>(apply_critical_norm_damage(weight + d, dam, mult)) * count;
         }
         num = sum / (CRITICAL_DIE_SIDES * CRITICAL_DIE_SIDES);
     } else {
         // 通常クリティカル(クリティカル強度: weight + d650)のときの期待値
-        auto sum = 0;
+        int64_t sum = 0;
         for (auto d = 1; d <= CRITICAL_DIE_SIDES; ++d) {
             sum += std::get<0>(apply_critical_norm_damage(weight + d, dam, mult));
         }

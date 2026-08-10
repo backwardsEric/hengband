@@ -24,6 +24,7 @@
 #include "player/process-death.h"
 #include "save/save.h"
 #include "system/floor/floor-info.h"
+#include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
@@ -171,7 +172,7 @@ void close_game(PlayerType *player_ptr)
     auto do_send = true;
     if (!cheat_save || input_check(_("死んだデータをセーブしますか？ ", "Save death? "))) {
         world.play_time.update();
-        world.sf_play_time += world.play_time.elapsed_sec();
+        InnerGameData::get_instance().add_play_time(world.play_time.elapsed_sec());
 
         if (!save_player(player_ptr, SaveType::CLOSE_GAME)) {
             msg_print(_("セーブ失敗！", "death save failed!"));

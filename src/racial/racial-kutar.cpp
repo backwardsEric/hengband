@@ -3,6 +3,8 @@
 #include "core/disturbance.h"
 #include "core/stuff-handler.h"
 #include "game-option/disturbance-options.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "view/display-messages.h"
@@ -35,6 +37,7 @@ bool set_leveling(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->tsubureru) {
             msg_print(_("もう横に伸びていない。", "Your body returns to normal."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

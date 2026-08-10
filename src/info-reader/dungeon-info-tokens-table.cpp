@@ -1,5 +1,7 @@
 #include "info-reader/dungeon-info-tokens-table.h"
 #include "dungeon/dungeon-flag-types.h"
+#include "room/pit-nest-util.h"
+#include "system/dungeon/dungeon-definition.h"
 
 /*!
  * ダンジョン特性トークンの定義 /
@@ -8,9 +10,11 @@
 const std::unordered_map<std::string_view, DungeonFeatureType> dungeon_flags = {
     { "WINNER", DungeonFeatureType::WINNER },
     { "MAZE", DungeonFeatureType::MAZE },
-    { "SMALLEST", DungeonFeatureType::SMALLEST },
     { "BEGINNER", DungeonFeatureType::BEGINNER },
-    { "BIG", DungeonFeatureType::BIG },
+    { "SMALLEST", DungeonFeatureType::SMALLEST },
+    { "SMALL", DungeonFeatureType::SMALL },
+    { "LARGE", DungeonFeatureType::LARGE },
+    { "LARGEST", DungeonFeatureType::LARGEST },
     { "NO_DOORS", DungeonFeatureType::NO_DOORS },
     { "WATER_RIVER", DungeonFeatureType::WATER_RIVER },
     { "LAVA_RIVER", DungeonFeatureType::LAVA_RIVER },
@@ -38,4 +42,49 @@ const std::unordered_map<std::string_view, DungeonFeatureType> dungeon_flags = {
     { "DARKNESS", DungeonFeatureType::DARKNESS },
     { "ACID_RIVER", DungeonFeatureType::ACID_RIVER },
     { "POISONOUS_RIVER", DungeonFeatureType::POISONOUS_RIVER },
+};
+/*!
+ * モンスター生成条件フラグの結合モードトークンの定義 /
+ * Dungeon monster flag matching modes
+ */
+const std::unordered_map<std::string_view, DungeonMode> dungeon_modes = {
+    { "NONE", DungeonMode::NONE },
+    { "AND", DungeonMode::AND },
+    { "NAND", DungeonMode::NAND },
+    { "OR", DungeonMode::OR },
+    { "NOR", DungeonMode::NOR },
+};
+
+/*!
+ * pit種別トークンの定義 /
+ * Dungeon pit kinds
+ */
+const std::unordered_map<std::string_view, PitKind> dungeon_pit_kinds = {
+    { "ORC", PitKind::ORC },
+    { "TROLL", PitKind::TROLL },
+    { "GIANT", PitKind::GIANT },
+    { "HORROR", PitKind::HORROR },
+    { "SYMBOL_GOOD", PitKind::SYMBOL_GOOD },
+    { "SYMBOL_EVIL", PitKind::SYMBOL_EVIL },
+    { "CHAPEL", PitKind::CHAPEL },
+    { "DRAGON", PitKind::DRAGON },
+    { "DEMON", PitKind::DEMON },
+    { "DARK_ELF", PitKind::DARK_ELF },
+};
+
+/*!
+ * nest種別トークンの定義 /
+ * Dungeon nest kinds
+ */
+const std::unordered_map<std::string_view, NestKind> dungeon_nest_kinds = {
+    { "CLONE", NestKind::CLONE },
+    { "JELLY", NestKind::JELLY },
+    { "SYMBOL_GOOD", NestKind::SYMBOL_GOOD },
+    { "SYMBOL_EVIL", NestKind::SYMBOL_EVIL },
+    { "MIMIC", NestKind::MIMIC },
+    { "HORROR", NestKind::HORROR },
+    { "KENNEL", NestKind::KENNEL },
+    { "ANIMAL", NestKind::ANIMAL },
+    { "CHAPEL", NestKind::CHAPEL },
+    { "UNDEAD", NestKind::UNDEAD },
 };

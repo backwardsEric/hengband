@@ -13,18 +13,21 @@
 #include "player-info/race-types.h"
 #include "player/digestion-processor.h"
 #include "player/player-spell-status.h"
-#include "system/artifact-type-definition.h"
-#include "system/baseitem/baseitem-definition.h"
-#include "system/baseitem/baseitem-list.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-record.h"
+#include "system/baseitem/baseitem-records.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/floor-list.h"
+#include "system/floor/town-records.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/inner-game-data.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
@@ -50,34 +53,23 @@ void player_wipe_without_name(PlayerType *player_ptr)
         player_ptr->history[i][0] = '\0';
     }
 
-    auto &quests = QuestList::get_instance();
-    for (auto &[quest_id, quest] : quests) {
-        quest.status = QuestStatusType::UNTAKEN;
-        quest.cur_num = 0;
-        quest.max_num = 0;
-        quest.type = QuestKindType::NONE;
-        quest.level = 0;
-        quest.r_idx = MonraceList::empty_id();
-        quest.complev = 0;
-        quest.comptime = 0;
-    }
-
+    QuestList::get_instance().reset_all();
     player_ptr->inven_cnt = 0;
     player_ptr->equip_cnt = 0;
-    for (int i = 0; i < INVEN_TOTAL; i++) {
-        player_ptr->inventory[i]->wipe();
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        player_ptr->inventory[i_idx]->wipe();
     }
 
-    ArtifactList::get_instance().reset_generated_flags();
-    BaseitemList::get_instance().reset_identification_flags();
+    ArtifactRecords::get_instance().reset_all_without_knowledge();
+    BaseitemRecords::get_instance().reset_identification_flags();
     for (auto &[_, monrace] : MonraceList::get_instance()) {
-        if (!monrace.is_valid()) {
+        if (!monrace->is_valid()) {
             continue;
         }
-        monrace.reset_current_numbers();
-        monrace.reset_max_number();
-        monrace.r_pkills = 0;
-        monrace.r_akills = 0;
+        monrace->reset_current_numbers();
+        monrace->reset_max_number();
+        monrace->r_pkills = 0;
+        monrace->r_akills = 0;
     }
 
     player_ptr->food = PY_FOOD_FULL - 1;
@@ -108,13 +100,13 @@ void player_wipe_without_name(PlayerType *player_ptr)
     auto &system = AngbandSystem::get_instance();
     system.set_panic_save(false);
 
-    world.noscore = 0;
+    InnerGameData::get_instance().initialize_no_score();
     world.wizard = false;
     system.set_awaiting_report_score(false);
     player_ptr->pet_follow_distance = PET_FOLLOW_DIST;
     player_ptr->pet_extra_flags = (PF_TELEPORT | PF_ATTACK_SPELL | PF_SUMMON_SPELL);
     DungeonRecords::get_instance().reset_all();
-    player_ptr->visit = 1;
+    TownRecords::get_instance().initialize();
     world.set_wild_mode(false);
     WildernessGrids::get_instance().initialize_position();
 
@@ -145,13 +137,11 @@ void player_wipe_without_name(PlayerType *player_ptr)
  */
 void init_dungeon_quests(PlayerType *player_ptr)
 {
-    init_flags = INIT_ASSIGN;
     auto &floor = *player_ptr->current_floor_ptr;
     auto &quests = QuestList::get_instance();
-    floor.quest_number = QuestId::RANDOM_QUEST1;
-    parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
     floor.quest_number = QuestId::NONE;
     for (auto quest_id : RANDOM_QUEST_ID_RANGE) {
+        assign_json_quest_metadata(quest_id);
         auto &quest = quests.get_quest(quest_id);
         quest.status = QuestStatusType::TAKEN;
         determine_random_questor(player_ptr, quest);
@@ -160,13 +150,10 @@ void init_dungeon_quests(PlayerType *player_ptr)
         quest.max_num = 1;
     }
 
-    init_flags = INIT_ASSIGN;
-    floor.quest_number = QuestId::OBERON;
-    parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
+    assign_json_quest_metadata(QuestId::OBERON);
     quests.get_quest(QuestId::OBERON).status = QuestStatusType::TAKEN;
 
-    floor.quest_number = QuestId::SERPENT;
-    parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
+    assign_json_quest_metadata(QuestId::SERPENT);
     quests.get_quest(QuestId::SERPENT).status = QuestStatusType::TAKEN;
     floor.quest_number = QuestId::NONE;
 }

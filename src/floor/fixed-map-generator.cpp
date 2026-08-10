@@ -5,6 +5,7 @@
 #include "floor/floor-object.h"
 #include "floor/wild.h"
 #include "grid/object-placer.h"
+#include "info-reader/fixed-map-parser.h"
 #include "info-reader/general-parser.h"
 #include "info-reader/parse-error-types.h"
 #include "info-reader/random-grid-effect-types.h"
@@ -16,22 +17,23 @@
 #include "object-enchant/item-apply-magic.h"
 #include "object-enchant/item-magic-applier.h"
 #include "sv-definition/sv-scroll-types.h"
-#include "system/artifact-type-definition.h"
+#include "system/angband-system.h"
+#include "system/artifact/artifact-definition.h"
+#include "system/artifact/artifact-list.h"
+#include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-fixed-map.h"
 #include "system/floor/floor-info.h"
-#include "system/floor/town-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "window/main-window-util.h"
-
-// PARSE_ERROR_MAXが既にあり扱い辛いのでここでconst宣言.
-static const int PARSE_CONTINUE = 255;
 
 qtwg_type *initialize_quest_generator_type(qtwg_type *qtwg_ptr, int ymin, int xmin, int ymax, int xmax, int *y, int *x)
 {
@@ -65,14 +67,13 @@ static void drop_here(FloorType &floor, ItemEntity &&item, POSITION y, POSITION 
     grid.o_idx_list.add(floor, item_idx);
 }
 
-static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId a_idx)
+static void generate_artifact(PlayerType *player_ptr, qtwg_type *qtwg_ptr, const FixedArtifactId fa_id)
 {
-    if (a_idx == FixedArtifactId::NONE) {
+    if (fa_id == FixedArtifactId::NONE) {
         return;
     }
 
-    const auto &artifact = ArtifactList::get_instance().get_artifact(a_idx);
-    if (!artifact.is_generated && create_named_art(player_ptr, a_idx, *qtwg_ptr->y, *qtwg_ptr->x)) {
+    if (!ArtifactRecords::get_instance().get_generated(fa_id) && create_named_art(player_ptr, fa_id, *qtwg_ptr->y, *qtwg_ptr->x)) {
         return;
     }
 
@@ -179,147 +180,7 @@ static void parse_qtw_D(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char *s)
     }
 }
 
-static bool parse_qtw_QQ(QuestType *q_ptr, char **zz, int num)
-{
-    if (zz[1][0] != 'Q') {
-        return false;
-    }
-
-    if ((init_flags & INIT_ASSIGN) == 0) {
-        return true;
-    }
-
-    if (num < 9) {
-        return true;
-    }
-
-    q_ptr->type = i2enum<QuestKindType>(atoi(zz[2]));
-    q_ptr->num_mon = (MONSTER_NUMBER)atoi(zz[3]);
-    q_ptr->cur_num = (MONSTER_NUMBER)atoi(zz[4]);
-    q_ptr->max_num = (MONSTER_NUMBER)atoi(zz[5]);
-    q_ptr->level = (DEPTH)atoi(zz[6]);
-    q_ptr->r_idx = i2enum<MonraceId>(atoi(zz[7]));
-    const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[8]));
-    q_ptr->reward_fa_id = fa_id;
-    q_ptr->dungeon = i2enum<DungeonId>(std::atoi(zz[9]));
-
-    if (num > 10) {
-        q_ptr->flags = atoi(zz[10]);
-    }
-
-    auto &monrace = q_ptr->get_bounty();
-    if (monrace.kind_flags.has(MonsterKindType::UNIQUE)) {
-        monrace.misc_flags.set(MonsterMiscType::QUESTOR);
-    }
-
-    if (fa_id == FixedArtifactId::NONE) {
-        return true;
-    }
-
-    auto &artifact = q_ptr->get_reward();
-    artifact.gen_flags.set(ItemGenerationTraitType::QUESTITEM);
-    return true;
-}
-
-/*!
- * @todo 処理がどうなっているのかいずれチェックする
- */
-static bool parse_qtw_QR(QuestType *q_ptr, char **zz, int num)
-{
-    if (zz[1][0] != 'R') {
-        return false;
-    }
-
-    if ((init_flags & INIT_ASSIGN) == 0) {
-        return true;
-    }
-
-    int count = 0;
-    auto reward_idx = FixedArtifactId::NONE;
-    auto &artifacts = ArtifactList::get_instance();
-    for (auto idx = 2; idx < num; idx++) {
-        const auto fa_id = i2enum<FixedArtifactId>(atoi(zz[idx]));
-        if (fa_id == FixedArtifactId::NONE) {
-            continue;
-        }
-
-        if (artifacts.get_artifact(fa_id).is_generated) {
-            continue;
-        }
-
-        count++;
-        if (one_in_(count)) {
-            reward_idx = fa_id;
-        }
-    }
-
-    if (reward_idx != FixedArtifactId::NONE) {
-        q_ptr->reward_fa_id = reward_idx;
-        artifacts.get_artifact(reward_idx).gen_flags.set(ItemGenerationTraitType::QUESTITEM);
-    } else {
-        q_ptr->type = QuestKindType::KILL_ALL;
-    }
-
-    return true;
-}
-
-/*!
- * @brief t_info、q_info、w_infoにおけるQトークンをパースする
- * @param qtwg_ptr トークンパース構造体への参照ポインタ
- * @param zz トークン保管文字列
- * @return エラーコード、但しPARSE_CONTINUEの時は処理続行
- */
-static int parse_qtw_Q(qtwg_type *qtwg_ptr, char **zz)
-{
-    if (qtwg_ptr->buf[0] != 'Q') {
-        return PARSE_CONTINUE;
-    }
-
-#ifdef JP
-    if (qtwg_ptr->buf[2] == '$') {
-        return PARSE_ERROR_NONE;
-    }
-#else
-    if (qtwg_ptr->buf[2] != '$') {
-        return PARSE_ERROR_NONE;
-    }
-#endif
-
-    int num = tokenize(qtwg_ptr->buf + _(2, 3), 33, zz, 0);
-    if (num < 3) {
-        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
-    }
-
-    auto &quests = QuestList::get_instance();
-    auto &quest = quests.get_quest(i2enum<QuestId>(atoi(zz[0])));
-    if (parse_qtw_QQ(&quest, zz, num)) {
-        return PARSE_ERROR_NONE;
-    }
-
-    if (parse_qtw_QR(&quest, zz, num)) {
-        return PARSE_ERROR_NONE;
-    }
-
-    if (zz[1][0] == 'N') {
-        if (init_flags & (INIT_ASSIGN | INIT_SHOW_TEXT | INIT_NAME_ONLY)) {
-            quest.name = zz[2];
-        }
-
-        return PARSE_ERROR_NONE;
-    }
-
-    if (zz[1][0] == 'T') {
-        if ((init_flags & INIT_SHOW_TEXT) && (std::ssize(quest_text_lines) < QUEST_TEST_LINES_MAX)) {
-            quest_text_lines.emplace_back(zz[2]);
-        }
-
-        return PARSE_ERROR_NONE;
-    }
-
-    return PARSE_ERROR_GENERIC;
-}
-
-static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
+static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr)
 {
     if (qtwg_ptr->buf[0] != 'P') {
         return false;
@@ -329,7 +190,8 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
         return true;
     }
 
-    if (tokenize(qtwg_ptr->buf + 2, 2, zz, 0) != 2) {
+    const auto tokens = tokenize(qtwg_ptr->buf + 2, 2);
+    if (tokens.size() != 2) {
         return true;
     }
 
@@ -349,17 +211,15 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
     panel_row_min = floor.height;
     panel_col_min = floor.width;
     if (floor.is_in_quest()) {
-        POSITION py = atoi(zz[0]);
-        POSITION px = atoi(zz[1]);
-        player_ptr->y = py;
-        player_ptr->x = px;
+        Pos2D p_pos(std::stoi(tokens[0]), std::stoi(tokens[1]));
+        player_ptr->set_position(p_pos);
         delete_monster(player_ptr, player_ptr->get_position());
         return true;
     }
 
     if (!player_ptr->oldpx && !player_ptr->oldpy) {
-        player_ptr->oldpy = atoi(zz[0]);
-        player_ptr->oldpx = atoi(zz[1]);
+        player_ptr->oldpy = std::stoi(tokens[0]);
+        player_ptr->oldpx = std::stoi(tokens[1]);
     }
 
     return true;
@@ -381,7 +241,6 @@ static bool parse_qtw_P(PlayerType *player_ptr, qtwg_type *qtwg_ptr, char **zz)
  */
 parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtwg_ptr, process_dungeon_file_pf parse_fixed_map)
 {
-    char *zz[33];
     if (!qtwg_ptr->buf[0]) {
         return PARSE_ERROR_NONE;
     }
@@ -418,11 +277,6 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
         return PARSE_ERROR_NONE;
     }
 
-    parse_error_type parse_result_Q = i2enum<parse_error_type>(parse_qtw_Q(qtwg_ptr, zz));
-    if (parse_result_Q != PARSE_CONTINUE) {
-        return parse_result_Q;
-    }
-
     if (qtwg_ptr->buf[0] == 'W') {
         const Pos2D pos_initial(*qtwg_ptr->y, *qtwg_ptr->x);
         const auto pos = parse_line_wilderness(qtwg_ptr->buf, qtwg_ptr->xmin, qtwg_ptr->xmax, pos_initial);
@@ -434,7 +288,7 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
         return pos.error_or(PARSE_ERROR_NONE);
     }
 
-    if (parse_qtw_P(player_ptr, qtwg_ptr, zz)) {
+    if (parse_qtw_P(player_ptr, qtwg_ptr)) {
         return PARSE_ERROR_NONE;
     }
 
@@ -448,4 +302,80 @@ parse_error_type generate_fixed_map_floor(PlayerType *player_ptr, qtwg_type *qtw
     }
 
     return PARSE_ERROR_GENERIC;
+}
+
+/*!
+ * @brief startVariants から現在の退出クエストに合う開始位置を選ぶ
+ */
+static const QuestStartPosition *select_quest_start(const QuestFixedMap &fixed_map)
+{
+    if (fixed_map.starts.empty()) {
+        return nullptr;
+    }
+
+    const auto current_leaving = enum2i(leaving_quest);
+    const QuestStartPosition *fallback = nullptr;
+    for (const auto &start : fixed_map.starts) {
+        if (!start.leaving_quest) {
+            fallback = &start;
+            continue;
+        }
+
+        if (*start.leaving_quest == current_leaving) {
+            return &start;
+        }
+    }
+
+    // 条件付きのみで一致が無い場合は配置しない (旧挙動: 該当 ?: が無ければ P: を実行しない)
+    return fallback;
+}
+
+parse_error_type generate_quest_floor_from_json(PlayerType *player_ptr, QuestType &quest, const QuestFixedMap &fixed_map)
+{
+    // 1. 共通ベース凡例 (X/./%/D/< など) を letter[] へ適用 (旧 QuestPreferences.txt、起動時に読込済み)
+    for (const auto &[symbol, cell] : QuestFixedMapList::get_instance().get_base_legend()) {
+        letter[static_cast<uint8_t>(symbol)] = cell.grid;
+    }
+
+    // 2. このクエスト固有の凡例を letter[] に上書き (報酬は受託時 resolve_quest_reward で解決済み)
+    for (const auto &[symbol, cell] : fixed_map.legend) {
+        auto grid = cell.grid;
+        if (cell.object_is_quest_reward && quest.has_reward() && !quest.is_reward_instant_artifact()) {
+            grid.object = quest.get_reward_bi_id();
+        }
+        if (cell.artifact_is_quest_reward) {
+            grid.artifact = quest.get_reward().value_or(FixedArtifactId::NONE);
+        }
+
+        letter[static_cast<uint8_t>(symbol)] = grid;
+    }
+
+    if (!fixed_map.has_map()) {
+        return PARSE_ERROR_NONE;
+    }
+
+    // 3. マップバリアント選択: 旧 $RANDOMn は seed_town % n で決まる (乱数ではなくキャラ毎に固定)
+    const auto variant_count = fixed_map.maps.size();
+    const auto variant_index = (variant_count <= 1) ? 0 : (AngbandSystem::get_instance().get_seed_town() % variant_count);
+    const auto &rows = fixed_map.maps[variant_index];
+
+    // 4. 既存のセル配置ロジックでグリッドを敷く
+    auto y = 0;
+    auto x = 0;
+    qtwg_type qg;
+    initialize_quest_generator_type(&qg, 0, 0, MAX_HGT, MAX_WID, &y, &x);
+    for (const auto &row : rows) {
+        std::string buffer(row);
+        parse_qtw_D(player_ptr, &qg, buffer.data());
+        (*qg.y)++;
+    }
+
+    // 5. 開始位置とフロアサイズ (parse_qtw_P を "P:y:x" で再利用)
+    if (const auto *start = select_quest_start(fixed_map); start != nullptr) {
+        std::string p_line = "P:" + std::to_string(start->y) + ":" + std::to_string(start->x);
+        qg.buf = p_line.data();
+        parse_qtw_P(player_ptr, &qg);
+    }
+
+    return PARSE_ERROR_NONE;
 }

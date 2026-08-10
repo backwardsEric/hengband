@@ -2,6 +2,7 @@
 
 #include "system/angband.h"
 #include "util/point-2d.h"
+#include <memory>
 #include <string>
 
 enum class AttributeType;
@@ -42,7 +43,7 @@ public:
     Grid *g_ptr;
     MonsterEntity *m_ptr;
     MonsterEntity *m_caster_ptr;
-    MonraceDefinition *r_ptr;
+    std::shared_ptr<MonraceDefinition> monrace;
     bool seen;
     bool seen_msg;
     bool slept;

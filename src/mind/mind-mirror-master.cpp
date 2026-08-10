@@ -22,6 +22,8 @@
 #include "grid/grid.h"
 #include "io/cursor.h"
 #include "io/screen-util.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "mind/mind-magic-resistance.h"
 #include "mind/mind-numbers.h"
 #include "pet/pet-util.h"
@@ -272,6 +274,7 @@ bool set_multishadow(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->multishadow) {
             msg_print(_("幻影が消えた。", "Your Shadow disappears."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -320,6 +323,7 @@ bool set_dustrobe(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->dustrobe) {
             msg_print(_("鏡のオーラが消えた。", "The mirror shards disappear."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }

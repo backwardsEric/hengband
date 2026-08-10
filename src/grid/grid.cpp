@@ -31,7 +31,7 @@
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -197,7 +197,7 @@ tl::optional<Pos2D> new_player_spot(PlayerType *player_ptr)
         }
 
         /* Refuse to start on anti-teleport grids */
-        if (grid.is_icky()) {
+        if (grid.is_no_teleport_dest()) {
             continue;
         }
 
@@ -315,7 +315,7 @@ void print_rel(PlayerType *player_ptr, const DisplaySymbol &symbol, const Pos2D 
 
 void print_bolt_pict(PlayerType *player_ptr, const Pos2D &pos_src, const Pos2D &pos_dst, AttributeType typ)
 {
-    const auto symbol = bolt_pict(pos_src, pos_dst, typ);
+    const auto &symbol = bolt_pict(pos_src, pos_dst, typ);
     print_rel(player_ptr, symbol, pos_dst);
 }
 
@@ -566,7 +566,7 @@ void lite_spot(PlayerType *player_ptr, const Pos2D &pos)
  * and should be illuminated by "lite room" and "darkness" spells.
  *
  *
- * A grid may be marked as "CAVE_ICKY" which means it is part of a "vault",
+ * A grid may be marked as "CAVE_NO_TELEPORT_DEST" which means it is part of a "vault",
  * and should be unavailable for "teleportation" destinations.
  *
  *
@@ -801,7 +801,8 @@ void cave_alter_feat(PlayerType *player_ptr, POSITION y, POSITION x, TerrainChar
         /* Handle gold */
         if (old_terrain.flags.has(TerrainCharacteristics::HAS_GOLD) && new_terrain.flags.has_not(TerrainCharacteristics::HAS_GOLD)) {
             /* Place some gold */
-            place_gold(player_ptr, pos);
+            const auto drop_count = old_terrain.gold_drop.is_valid() ? old_terrain.gold_drop.roll() : 1;
+            place_gold(player_ptr, pos, drop_count);
             found = true;
         }
 
@@ -890,7 +891,7 @@ bool cave_player_teleportable_bold(PlayerType *player_ptr, POSITION y, POSITION 
     }
 
     /* No magical teleporting into vaults and such */
-    if (!(mode & TELEPORT_NONMAGICAL) && grid.is_icky()) {
+    if (!(mode & TELEPORT_NONMAGICAL) && grid.is_no_teleport_dest()) {
         return false;
     }
     const auto &floor = *player_ptr->current_floor_ptr;

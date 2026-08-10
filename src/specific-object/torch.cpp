@@ -11,7 +11,7 @@
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
@@ -70,8 +70,8 @@ void torch_lost_fuel(ItemEntity *o_ptr)
 void update_lite_radius(PlayerType *player_ptr)
 {
     player_ptr->cur_lite = 0;
-    for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        const auto *o_ptr = player_ptr->inventory[i].get();
+    for (const auto i_idx : INVEN_WIELDING_SLOTS) {
+        const auto *o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }

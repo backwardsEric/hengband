@@ -18,12 +18,14 @@
 #include "system/building-type-definition.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/grid-flow.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/grid-type-definition.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -34,6 +36,7 @@
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "tracking/lore-tracker.h"
+#include "util/enum-converter.h"
 #include "view/display-lore.h"
 #include "view/display-messages.h"
 #include "window/display-sub-windows.h"
@@ -106,7 +109,7 @@ bool show_gold_on_floor = false;
  */
 static std::string evaluate_monster_exp(PlayerType *player_ptr, const MonsterEntity &monster)
 {
-    const auto &monrace = monster.get_appearance_monrace();
+    const auto &monrace = monster.get_apparent_monrace();
     if ((player_ptr->lev >= PY_MAX_LEVEL) || PlayerRace(player_ptr).equals(PlayerRaceType::ANDROID)) {
         return "**";
     }
@@ -233,7 +236,7 @@ static void describe_grid_monster(PlayerType *player_ptr, GridExamination *ge_pt
 
 static void describe_monster_person(GridExamination *ge_ptr)
 {
-    const auto &monrace = ge_ptr->m_ptr->get_appearance_monrace();
+    const auto &monrace = ge_ptr->m_ptr->get_apparent_monrace();
     ge_ptr->s1 = _("それは", "It is ");
     if (monrace.is_female()) {
         ge_ptr->s1 = _("彼女は", "She is ");
@@ -458,23 +461,16 @@ static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *
 {
     auto &floor = *player_ptr->current_floor_ptr;
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::QUEST_ENTER)) {
-        const auto old_quest = floor.quest_number;
         const auto &quests = QuestList::get_instance();
         const auto quest_id = i2enum<QuestId>(ge_ptr->g_ptr->special);
         const auto &quest = quests.get_quest(quest_id);
         constexpr auto fmt = _("クエスト「%s」(%d階相当)", "the entrance to the quest '%s'(level %d)");
 
-        quest_text_lines.clear();
-
-        floor.quest_number = quest_id;
-        init_flags = INIT_NAME_ONLY;
-        parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
-        floor.quest_number = old_quest;
         return format(fmt, quest.name.data(), quest.level);
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::BLDG) && !floor.inside_arena) {
-        return buildings[ge_ptr->terrain_ptr->subtype].name;
+        return buildings[enum2i(ge_ptr->terrain_ptr->building_type)].name;
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::ENTRANCE)) {
@@ -484,7 +480,7 @@ static std::string decide_target_floor(PlayerType *player_ptr, GridExamination *
     }
 
     if (ge_ptr->terrain_ptr->flags.has(TerrainCharacteristics::TOWN)) {
-        return towns_info[ge_ptr->g_ptr->special].name;
+        return TownList::get_instance().get_town(ge_ptr->g_ptr->special).get_name();
     }
 
     if (AngbandWorld::get_instance().is_wild_mode() && (ge_ptr->matches_terrain(TerrainTag::FLOOR))) {

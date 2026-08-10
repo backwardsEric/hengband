@@ -283,10 +283,10 @@ void WorldTurnProcessor::shuffle_shopkeeper()
         return;
     }
 
-    int n;
+    StoreSaleType store_sale_type;
     while (true) {
-        n = randint0(MAX_STORES);
-        if ((n == enum2i(StoreSaleType::HOME)) || (n == enum2i(StoreSaleType::MUSEUM))) {
+        store_sale_type = randnum0<StoreSaleType>(MAX_STORES);
+        if ((store_sale_type != StoreSaleType::HOME) && (store_sale_type != StoreSaleType::MUSEUM)) {
             break;
         }
     }
@@ -296,7 +296,7 @@ void WorldTurnProcessor::shuffle_shopkeeper()
             continue;
         }
 
-        if (terrain.subtype != n) {
+        if (terrain.store_sale_type != store_sale_type) {
             continue;
         }
 
@@ -304,7 +304,7 @@ void WorldTurnProcessor::shuffle_shopkeeper()
             msg_format(_("%sの店主をシャッフルします。", "Shuffle a Shopkeeper of %s."), terrain.name.data());
         }
 
-        store_shuffle(this->player_ptr, i2enum<StoreSaleType>(n));
+        store_shuffle(store_sale_type);
         break;
     }
 }
@@ -312,7 +312,7 @@ void WorldTurnProcessor::shuffle_shopkeeper()
 void WorldTurnProcessor::decide_alloc_monster()
 {
     const auto &floor = *this->player_ptr->current_floor_ptr;
-    auto should_alloc = one_in_(floor.get_dungeon_definition().max_m_alloc_chance);
+    auto should_alloc = one_in_(floor.get_dungeon_definition().additional_monster_spawn_chance);
     should_alloc &= !floor.inside_arena;
     should_alloc &= !floor.is_in_quest();
     should_alloc &= !AngbandSystem::get_instance().is_phase_out();

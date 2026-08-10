@@ -52,7 +52,7 @@
 @private
 	/**
 	 * These are sentinels for the beginning and end, respectively, of
-	 * the background muisc tracks currently playing in the order they
+	 * the background music tracks currently playing in the order they
 	 * were started.
 	 */
 	AngbandActiveAudio *tracksPlayingHead;

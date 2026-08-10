@@ -7,13 +7,12 @@
 #include "artifact/random-art-effects.h"
 #include "object-enchant/object-boost.h"
 #include "object-enchant/object-curse.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-weapon.h"
 #include "object/tval-types.h"
 #include "sv-definition/sv-protector-types.h"
 #include "sv-definition/sv-weapon-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/probability-table.h"
@@ -259,7 +258,7 @@ void apply_ego(ItemEntity *o_ptr, DEPTH lev)
     ego_interpret_extra_abilities(o_ptr, ego, gen_flags);
 
     if (!ego.cost) {
-        o_ptr->ident |= (IDENT_BROKEN);
+        o_ptr->set_identification_flag(IdentificationFlag::BROKEN);
     }
 
     ego_invest_curse(o_ptr, gen_flags);

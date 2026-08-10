@@ -1,6 +1,7 @@
 #include "core/player-processor.h"
 #include "action/run-execution.h"
 #include "action/travel-execution.h"
+#include "bot/bot-json-output.h"
 #include "core/disturbance.h"
 #include "core/special-internal-keys.h"
 #include "core/speed-table.h"
@@ -29,7 +30,7 @@
 #include "monster/monster-util.h"
 #include "mutation/mutation-investor-remover.h"
 #include "player-base/player-class.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/mane-data-type.h"
 #include "player-info/samurai-data-type.h"
 #include "player-info/sniper-data-type.h"
@@ -170,14 +171,15 @@ void process_player(PlayerType *player_ptr)
     if (player_ptr->riding && !effects->confusion().is_confused() && !effects->blindness().is_blind()) {
         const auto &monster = player_ptr->current_floor_ptr->m_list[player_ptr->riding];
         const auto &monrace = monster.get_monrace();
+        auto &floor = *player_ptr->current_floor_ptr;
         if (monster.is_asleep()) {
             const auto m_name = monster_desc(player_ptr, monster, 0);
-            (void)set_monster_csleep(player_ptr, player_ptr->riding, 0);
+            (void)set_monster_csleep(floor, player_ptr->riding, 0);
             msg_format(_("%s^を起こした。", "You have woken %s up."), m_name.data());
         }
 
         if (monster.is_stunned()) {
-            if (set_monster_stunned(player_ptr, player_ptr->riding,
+            if (set_monster_stunned(floor, player_ptr->riding,
                     (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster.get_remaining_stun() - 1))) {
                 const auto m_name = monster_desc(player_ptr, monster, 0);
                 msg_format(_("%s^を朦朧状態から立ち直らせた。", "%s^ is no longer stunned."), m_name.data());
@@ -185,7 +187,7 @@ void process_player(PlayerType *player_ptr)
         }
 
         if (monster.is_confused()) {
-            if (set_monster_confused(player_ptr, player_ptr->riding,
+            if (set_monster_confused(floor, player_ptr->riding,
                     (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster.get_remaining_confusion() - 1))) {
                 const auto m_name = monster_desc(player_ptr, monster, 0);
                 msg_format(_("%s^を混乱状態から立ち直らせた。", "%s^ is no longer confused."), m_name.data());
@@ -193,7 +195,7 @@ void process_player(PlayerType *player_ptr)
         }
 
         if (monster.is_fearful()) {
-            if (set_monster_monfear(player_ptr, player_ptr->riding,
+            if (set_monster_monfear(floor, player_ptr->riding,
                     (randint0(monrace.level) < player_ptr->skill_exp[PlayerSkillKindType::RIDING]) ? 0 : (monster.get_remaining_fear() - 1))) {
                 const auto m_name = monster_desc(player_ptr, monster, 0);
                 msg_format(_("%s^を恐怖から立ち直らせた。", "%s^ is no longer fearful."), m_name.data());
@@ -307,6 +309,7 @@ void process_player(PlayerType *player_ptr)
             window_stuff(player_ptr);
 
             can_save = true;
+            output_bot_json_snapshot(player_ptr);
             InputKeyRequestor(player_ptr, false).request_command();
             can_save = false;
             mark_monsters_present(player_ptr);
@@ -331,7 +334,7 @@ void process_player(PlayerType *player_ptr)
                     continue;
                 }
 
-                const auto &monrace = monster.get_appearance_monrace();
+                const auto &monrace = monster.get_apparent_monrace();
 
                 // モンスターのシンボル/カラーの更新
                 if (monster.ml && monrace.visual_flags.has_any_of({ MonsterVisualType::MULTI_COLOR, MonsterVisualType::SHAPECHANGER })) {
@@ -379,7 +382,7 @@ void process_player(PlayerType *player_ptr)
             }
 
             if (player_ptr->action == ACTION_LEARN) {
-                auto mane_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
+                auto mane_data = PlayerClass(player_ptr).get_specific_data<BluemageData>();
                 mane_data->new_magic_learned = false;
                 rfu.set_flag(MainWindowRedrawingFlag::ACTION);
             }

@@ -1,23 +1,21 @@
 #pragma once
 
-#include "system/angband.h"
-
 #include <map>
+#include <string_view>
 
 enum class MonsterAbilityType;
 
 /* Imitator */
 struct monster_power {
-    PLAYER_LEVEL level;
-    MANA_POINT smana;
-    PERCENTAGE fail;
+    short level;
+    int smana;
+    int fail;
     int manedam;
     int manefail;
     int use_stat;
-    concptr name;
+    std::string_view name;
 };
 
 #define MAX_MONSPELLS 96
 
 extern const std::map<MonsterAbilityType, const monster_power> monster_powers;
-extern const std::map<MonsterAbilityType, concptr> monster_powers_short;

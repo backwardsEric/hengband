@@ -10,16 +10,12 @@
  */
 
 #include "floor/floor-generator.h"
-#include "dungeon/dungeon-flag-types.h"
-#include "dungeon/quest.h"
 #include "floor/cave-generator.h"
+#include "floor/fixed-map-generator.h"
 #include "floor/floor-events.h"
 #include "floor/floor-save.h" //!< @todo precalc_cur_num_of_pet() が依存している、違和感.
 #include "floor/floor-util.h"
 #include "floor/wild.h"
-#include "game-option/birth-options.h"
-#include "game-option/cheat-types.h"
-#include "game-option/game-play-options.h"
 #include "game-option/play-record-options.h"
 #include "grid/grid.h"
 #include "info-reader/fixed-map-parser.h"
@@ -28,29 +24,26 @@
 #include "monster-floor/monster-generator.h"
 #include "monster-floor/monster-remover.h"
 #include "monster-floor/place-monster-types.h"
-#include "monster/monster-flag-types.h"
-#include "monster/monster-status-setter.h"
-#include "monster/monster-status.h"
 #include "monster/monster-update.h"
 #include "monster/monster-util.h"
-#include "system/angband-system.h"
 #include "system/building-type-definition.h"
-#include "system/dungeon/dungeon-definition.h"
-#include "system/dungeon/dungeon-list.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-fixed-map.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "term/z-rand.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 #include "window/main-window-util.h"
-#include "wizard/wizard-messages.h"
 #include "world/world.h"
 #include <algorithm>
 #include <array>
@@ -281,8 +274,13 @@ static void generate_fixed_floor(PlayerType *player_ptr)
         place_bold(player_ptr, pos.y, pos.x, GB_SOLID_PERM);
     }
 
-    const auto &quests = QuestList::get_instance();
-    floor.base_level = quests.get_quest(floor.quest_number).level;
+    auto &quest = QuestList::get_instance().get_quest(floor.quest_number);
+    const auto fixed_map = QuestFixedMapList::get_instance().find(floor.quest_number);
+    if (fixed_map) {
+        apply_quest_metadata(*fixed_map, quest);
+    }
+
+    floor.base_level = quest.level;
     floor.dun_level = floor.base_level;
     floor.object_level = floor.base_level;
     floor.monster_level = floor.base_level;
@@ -292,61 +290,9 @@ static void generate_fixed_floor(PlayerType *player_ptr)
 
     get_mon_num_prep_enum(player_ptr, floor.get_monrace_hook());
     init_flags = INIT_CREATE_DUNGEON;
-    parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID);
-}
-
-/*!
- * @brief ダンジョン時のランダムフロア生成 / Make a real level
- * @param player_ptr プレイヤーへの参照ポインタ
- * @param concptr
- * @return フロアの生成に成功したらTRUE
- */
-static tl::optional<std::string> level_gen(PlayerType *player_ptr)
-{
-    auto &floor = *player_ptr->current_floor_ptr;
-    const auto &dungeon = floor.get_dungeon_definition();
-    constexpr auto chance_small_floor = 3;
-    auto is_small_level = always_small_levels || ironman_small_levels;
-    is_small_level |= one_in_(chance_small_floor) && small_levels;
-    is_small_level |= dungeon.flags.has(DungeonFeatureType::BEGINNER);
-    is_small_level |= dungeon.flags.has(DungeonFeatureType::SMALLEST);
-    if (is_small_level && dungeon.flags.has_not(DungeonFeatureType::BIG)) {
-        int level_height;
-        int level_width;
-        if (dungeon.flags.has(DungeonFeatureType::SMALLEST)) {
-            level_height = 1;
-            level_width = 1;
-        } else if (dungeon.flags.has(DungeonFeatureType::BEGINNER)) {
-            level_height = 2;
-            level_width = 2;
-        } else {
-            level_height = randint1(MAX_HGT / SCREEN_HGT);
-            level_width = randint1(MAX_WID / SCREEN_WID);
-            bool is_first_level_area = true;
-            bool is_max_area = (level_height == MAX_HGT / SCREEN_HGT) && (level_width == MAX_WID / SCREEN_WID);
-            while (is_first_level_area || is_max_area) {
-                level_height = randint1(MAX_HGT / SCREEN_HGT);
-                level_width = randint1(MAX_WID / SCREEN_WID);
-                is_first_level_area = false;
-                is_max_area = (level_height == MAX_HGT / SCREEN_HGT) && (level_width == MAX_WID / SCREEN_WID);
-            }
-        }
-
-        floor.height = level_height * SCREEN_HGT;
-        floor.width = level_width * SCREEN_WID;
-        panel_row_min = floor.height;
-        panel_col_min = floor.width;
-
-        msg_format_wizard(
-            player_ptr, CHEAT_DUNGEON, _("小さなフロア: X:%d, Y:%d", "A 'small' dungeon level: X:%d, Y:%d."), floor.width, floor.height);
-    } else {
-        floor.height = MAX_HGT;
-        floor.width = MAX_WID;
-        panel_row_min = floor.height;
-        panel_col_min = floor.width;
+    if (fixed_map && fixed_map->has_map()) {
+        generate_quest_floor_from_json(player_ptr, quest, *fixed_map);
     }
-
-    return cave_gen(player_ptr);
 }
 
 /*!
@@ -362,6 +308,33 @@ void wipe_generate_random_floor_flags(FloorType &floor)
         for (const auto &pos : floor.get_area(FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
             floor.get_grid(pos).info |= CAVE_UNSAFE;
         }
+    }
+}
+
+static short select_terrain_generation_change(short terrain_id)
+{
+    const auto &terrain = TerrainList::get_instance().get_terrain(terrain_id);
+    if (terrain.generation_changes.empty()) {
+        return terrain_id;
+    }
+
+    const auto chance = randint1(100);
+    auto cumulative_probability = 0;
+    for (const auto &change : terrain.generation_changes) {
+        cumulative_probability += change.probability;
+        if (chance <= cumulative_probability) {
+            return change.result;
+        }
+    }
+
+    return terrain_id;
+}
+
+void apply_terrain_generation_changes(FloorType &floor)
+{
+    for (const auto &pos : floor.get_area()) {
+        auto &grid = floor.get_grid(pos);
+        grid.feat = select_terrain_generation_change(grid.feat);
     }
 }
 
@@ -505,6 +478,7 @@ void generate_floor(PlayerType *player_ptr)
     const auto is_wild_mode = AngbandWorld::get_instance().is_wild_mode();
     for (int num = 0; true; num++) {
         tl::optional<std::string> why;
+        auto should_apply_terrain_generation_changes = true;
         clear_cave(player_ptr);
         player_ptr->x = player_ptr->y = 0;
         if (floor.inside_arena) {
@@ -520,7 +494,15 @@ void generate_floor(PlayerType *player_ptr)
                 wilderness_gen(player_ptr);
             }
         } else {
-            why = level_gen(player_ptr);
+            floor.decide_floor_size();
+            panel_row_min = floor.height;
+            panel_col_min = floor.width;
+            why = cave_gen(player_ptr);
+            should_apply_terrain_generation_changes = false;
+        }
+
+        if (!why && should_apply_terrain_generation_changes) {
+            apply_terrain_generation_changes(floor);
         }
 
         if (floor.o_list.size() >= MAX_FLOOR_ITEMS) {
@@ -533,7 +515,7 @@ void generate_floor(PlayerType *player_ptr)
         // 狂戦士でのプレイに支障をきたしうるので再生成する。
         // 地上、荒野マップ、クエストでは連結性判定は行わない。
         // TODO: 本来はダンジョン生成アルゴリズム自身で連結性を保証するのが理想ではある。
-        const auto check_conn = why && floor.is_underground() && !floor.is_in_quest();
+        const auto check_conn = !why && floor.is_underground() && !floor.is_in_quest();
         if (check_conn && !floor_is_connected(floor, is_permanent_blocker)) {
             // 一定回数試しても連結にならないなら諦める。
             if (num >= 1000) {

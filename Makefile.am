@@ -28,9 +28,13 @@ schema_files = \
 	schema/ArtifactDefinitions.schema.json \
 	schema/BaseitemDefinitions.schema.json \
 	schema/ClassMagicDefinitions.schema.json \
+	schema/DungeonDefinitions.schema.json \
 	schema/MonraceDefinitions.schema.json \
 	schema/MonsterMessages.schema.json \
-	schema/SpellDefinitions.schema.json
+	schema/Quest.schema.json \
+	schema/QuestPreferences.schema.json \
+	schema/SpellDefinitions.schema.json \
+	schema/TerrainDefinitions.schema.json
 
 EXTRA_DIST = \
 	autopick.txt \

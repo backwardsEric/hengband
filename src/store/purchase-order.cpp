@@ -12,7 +12,6 @@
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "object-enchant/item-feeling.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-info.h"
 #include "object/object-stack.h"
 #include "perception/object-perception.h"
@@ -122,7 +121,7 @@ static void take_item_from_home(PlayerType *player_ptr, ItemEntity &item_home, I
     chg_virtue(player_ptr, Virtue::SACRIFICE, 1);
 }
 
-static void shuffle_store(PlayerType *player_ptr, StoreSaleType store_num)
+static void shuffle_store(StoreSaleType store_num)
 {
     if (!one_in_(STORE_SHUFFLE)) {
         msg_print(_("店主は新たな在庫を取り出した。", "The shopkeeper brings out some new stock."));
@@ -130,7 +129,7 @@ static void shuffle_store(PlayerType *player_ptr, StoreSaleType store_num)
     }
 
     msg_print(_("店主は引退した。", "The shopkeeper retires."));
-    store_shuffle(player_ptr, store_num);
+    store_shuffle(store_num);
     prt("", 3, 0);
     put_str(format("%s (%s)", ot_ptr->owner_name, race_info[enum2i(ot_ptr->owner_race)].title.data()), 3, 10);
     const auto &terrains = TerrainList::get_instance();
@@ -140,8 +139,8 @@ static void shuffle_store(PlayerType *player_ptr, StoreSaleType store_num)
 static void switch_store_stock(PlayerType *player_ptr, const int i, const COMMAND_CODE item, StoreSaleType store_num)
 {
     if (st_ptr->stock_num == 0) {
-        shuffle_store(player_ptr, store_num);
-        store_maintenance(player_ptr, player_ptr->town_num, store_num, 10);
+        shuffle_store(store_num);
+        store_maintenance(player_ptr, AngbandWorld::get_instance().get_town_index(), store_num, 10);
 
         store_top = 0;
         display_store_inventory(player_ptr, store_num);
@@ -261,7 +260,7 @@ void store_purchase(PlayerType *player_ptr, StoreSaleType store_num)
         return;
     }
 
-    store_owner_says_comment(player_ptr, store_num);
+    store_owner_says_comment(price, store_num);
     if (store_num == StoreSaleType::BLACK) {
         chg_virtue(player_ptr, Virtue::JUSTICE, -1);
     }
@@ -289,7 +288,7 @@ void store_purchase(PlayerType *player_ptr, StoreSaleType store_num)
 
     item.inscription.reset();
     item.feeling = FEEL_NONE;
-    item.ident &= ~(IDENT_STORE);
+    item.reset_identification_flag(IdentificationFlag::STORE);
 
     const auto idx = find_autopick_list(player_ptr, &item);
     auto_inscribe_item(&item, idx);

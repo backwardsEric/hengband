@@ -17,7 +17,7 @@
 #include "player-base/player-class.h"
 #include "save/save.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h" //!< @todo 相互依存している、後で何とかする.
 #include "util/int-char-converter.h"
@@ -305,8 +305,8 @@ int InputKeyRequestor::get_caret_command() const
 void InputKeyRequestor::sweep_confirmation_equipments()
 {
     auto caret_command = this->get_caret_command();
-    for (auto i = enum2i(INVEN_MAIN_HAND); i < INVEN_TOTAL; i++) {
-        auto &item = *this->player_ptr->inventory[i];
+    for (const auto i_idx : INVEN_WIELDING_SLOTS) {
+        auto &item = *this->player_ptr->inventory[i_idx];
         if (!item.is_valid() || !item.is_inscribed()) {
             continue;
         }

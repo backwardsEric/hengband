@@ -33,6 +33,8 @@
 #include "spell-realm/spells-song.h"
 #include "status/action-setter.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-list.h"
 #include "system/enums/dungeon/dungeon-id.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/wilderness-grid.h"
@@ -84,7 +86,7 @@ void do_cmd_go_up(PlayerType *player_ptr)
     const auto &terrain = grid.get_terrain();
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
 
-    if (terrain.flags.has_not(TerrainCharacteristics::LESS)) {
+    if (terrain.flags.has_not(TerrainCharacteristics::UP_STAIRS)) {
         msg_print(_("ここには上り階段が見当たらない。", "I see no up staircase here."));
         return;
     }
@@ -108,8 +110,7 @@ void do_cmd_go_up(PlayerType *player_ptr)
         auto &quest = quests.get_quest(quest_id);
         if (quest.status == QuestStatusType::UNTAKEN) {
             if (quest.type != QuestKindType::RANDOM) {
-                init_flags = INIT_ASSIGN;
-                parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
+                assign_json_quest_metadata(floor.quest_number);
             }
 
             quest.status = QuestStatusType::TAKEN;
@@ -207,7 +208,7 @@ void do_cmd_go_down(PlayerType *player_ptr)
     auto &floor = *player_ptr->current_floor_ptr;
     auto &grid = floor.grid_array[player_ptr->y][player_ptr->x];
     auto &terrain = grid.get_terrain();
-    if (terrain.flags.has_not(TerrainCharacteristics::MORE)) {
+    if (terrain.flags.has_not(TerrainCharacteristics::DOWN_STAIRS)) {
         msg_print(_("ここには下り階段が見当たらない。", "I see no down staircase here."));
         return;
     }
@@ -239,8 +240,7 @@ void do_cmd_go_down(PlayerType *player_ptr)
         auto &quest = quests.get_quest(floor.quest_number);
         if (quest.status == QuestStatusType::UNTAKEN) {
             if (quest.type != QuestKindType::RANDOM) {
-                init_flags = INIT_ASSIGN;
-                parse_fixed_map(player_ptr, QUEST_DEFINITION_LIST, 0, 0, 0, 0);
+                assign_json_quest_metadata(floor.quest_number);
             }
 
             quest.status = QuestStatusType::TAKEN;

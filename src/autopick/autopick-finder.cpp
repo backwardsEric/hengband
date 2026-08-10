@@ -16,7 +16,7 @@
 #include "io/input-key-acceptor.h"
 #include "main/sound-of-music.h"
 #include "object/item-use-flags.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -56,14 +56,13 @@ bool get_object_for_search(PlayerType *player_ptr, AutopickSearch &as)
 {
     constexpr auto q = _("どのアイテムを検索しますか? ", "Enter which item? ");
     constexpr auto s = _("アイテムを持っていない。", "You have nothing to enter.");
-    ItemEntity *o_ptr;
-    o_ptr = choose_object(player_ptr, nullptr, q, s, USE_INVEN | USE_FLOOR | USE_EQUIP);
-    if (!o_ptr) {
+    const auto &[item, _] = choose_item(player_ptr, q, s, USE_INVEN | USE_FLOOR | USE_EQUIP);
+    if (!item) {
         return false;
     }
 
-    as.item_ptr = o_ptr;
-    const auto item_name = describe_flavor(player_ptr, *as.item_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    as.item = item;
+    const auto item_name = describe_flavor(player_ptr, *as.item, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
     as.search_str = format("<%s>", item_name.data());
     return true;
 }
@@ -77,8 +76,8 @@ bool get_destroyed_object_for_search(PlayerType *player_ptr, AutopickSearch &as)
         return false;
     }
 
-    as.item_ptr = &autopick_last_destroyed_object;
-    const auto item_name = describe_flavor(player_ptr, *as.item_ptr, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
+    as.item = std::shared_ptr<ItemEntity>(&autopick_last_destroyed_object, [](ItemEntity *) {});
+    const auto item_name = describe_flavor(player_ptr, *as.item, (OD_NO_FLAVOR | OD_OMIT_PREFIX | OD_NO_PLURAL));
     as.search_str = format("<%s>", item_name.data());
     return true;
 }
@@ -96,7 +95,7 @@ AutopickSearch get_string_for_search(PlayerType *player_ptr, const AutopickSearc
     std::string buf = as.search_str;
     constexpr auto max_len = 80;
     uint8_t color = TERM_YELLOW;
-    if (as.item_ptr != nullptr) {
+    if (as.item) {
         color = TERM_L_GREEN;
     }
 
@@ -143,12 +142,11 @@ AutopickSearch get_string_for_search(PlayerType *player_ptr, const AutopickSearc
         case '\r':
         case KTRL('s'): {
             as.result = back ? AutopickSearchResult::BACK : AutopickSearchResult::FORWARD;
-            if (as.item_ptr != nullptr) {
+            if (as.item) {
                 return as;
             }
 
             as.search_str = buf;
-            as.item_ptr = nullptr;
             return as;
         }
         case KTRL('i'):
@@ -194,7 +192,7 @@ AutopickSearch get_string_for_search(PlayerType *player_ptr, const AutopickSearc
             const auto c = static_cast<char>(skey);
             if (color != TERM_WHITE) {
                 if (color == TERM_L_GREEN) {
-                    as.item_ptr = nullptr;
+                    as.item.reset();
                     as.search_str = "";
                 }
 
@@ -227,11 +225,11 @@ AutopickSearch get_string_for_search(PlayerType *player_ptr, const AutopickSearc
         }
         }
 
-        if (as.item_ptr == nullptr || color == TERM_L_GREEN) {
+        if (!as.item || color == TERM_L_GREEN) {
             continue;
         }
 
-        as.item_ptr = nullptr;
+        as.item.reset();
         as.search_str = "";
         pos = 0;
         buf = "";

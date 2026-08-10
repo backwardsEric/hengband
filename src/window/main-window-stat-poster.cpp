@@ -3,7 +3,7 @@
 #include "mind/stances-table.h"
 #include "monster/monster-status.h"
 #include "player-base/player-class.h"
-#include "player-info/bluemage-data-type.h"
+#include "player-info/bluemage-data.h"
 #include "player-info/mane-data-type.h"
 #include "player-info/monk-data-type.h"
 #include "player-info/ninja-data-type.h"
@@ -180,7 +180,7 @@ void print_state(PlayerType *player_ptr)
 
     case ACTION_LEARN: {
         text = _("学習", "lear");
-        auto bluemage_data = PlayerClass(player_ptr).get_specific_data<bluemage_data_type>();
+        auto bluemage_data = PlayerClass(player_ptr).get_specific_data<BluemageData>();
         if (bluemage_data->new_magic_learned) {
             attr = TERM_L_RED;
         }

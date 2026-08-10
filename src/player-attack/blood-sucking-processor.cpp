@@ -12,7 +12,7 @@
 #include "player-attack/player-attack.h"
 #include "player-info/equipment-info.h"
 #include "spell-realm/spells-hex.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
@@ -147,7 +147,7 @@ static void drain_result(PlayerType *player_ptr, player_attack_type *pa_ptr, boo
     }
 
     if (*drain_msg) {
-        if (has_melee_weapon(player_ptr, pa_ptr->hand)) {
+        if (has_melee_weapon(player_ptr, enum2i(INVEN_MAIN_HAND) + pa_ptr->hand)) {
             msg_format(_("刃が%sから生命力を吸い取った！", "Your weapon drains life from %s!"), pa_ptr->m_name);
         } else {
             msg_format(_("手が%sから生命力を吸い取った！", "Your hands drain life from %s!"), pa_ptr->m_name);

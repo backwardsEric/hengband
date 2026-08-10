@@ -12,7 +12,6 @@
 #include "game-option/auto-destruction-options.h"
 #include "game-option/input-options.h"
 #include "object-enchant/object-ego.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-hook/hook-expendable.h"
 #include "object-hook/hook-weapon.h"
 #include "object/object-mark-types.h"
@@ -24,7 +23,7 @@
 #include "player-info/race-types.h"
 #include "sv-definition/sv-other-types.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
@@ -134,12 +133,12 @@ void auto_destroy_item(PlayerType *player_ptr, ItemEntity *o_ptr, int autopick_i
         destroy = true;
     }
 
-    if (autopick_idx >= 0 && !(autopick_list[autopick_idx].action & DO_AUTODESTROY)) {
+    if (autopick_idx >= 0 && !(autopick_list[autopick_idx].action.has(AutopickMethod::AUTODESTROY))) {
         destroy = false;
     }
 
     if (!always_pickup) {
-        if (autopick_idx >= 0 && (autopick_list[autopick_idx].action & DO_AUTODESTROY)) {
+        if (autopick_idx >= 0 && (autopick_list[autopick_idx].action.has(AutopickMethod::AUTODESTROY))) {
             destroy = true;
         }
     }

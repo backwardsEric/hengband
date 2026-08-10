@@ -67,8 +67,6 @@ public:
 
     PLAYER_LEVEL lev{}; /* Level */
 
-    int16_t town_num{}; /* Current town number */
-
     int mhp{}; /* Max hit pts */
     int chp{}; /* Cur hit pts */
     uint32_t chp_frac{}; /* Cur hit frac (times 2^16) */
@@ -203,7 +201,6 @@ public:
 #define KNOW_STAT 0x01
 #define KNOW_HPRATE 0x02
     BIT_FLAGS8 knowledge{}; /* Knowledge about yourself */
-    BIT_FLAGS visit{}; /* Visited towns */
 
     BIT_FLAGS old_race1{}; /* Record of race changes */
     BIT_FLAGS old_race2{}; /* Record of race changes */

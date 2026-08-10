@@ -1,6 +1,6 @@
 /*!
  * @file movement-execution.cpp
- * @brief プレイヤーの歩行勝利実行定義
+ * @brief プレイヤーの歩行処理実装
  */
 
 #include "action/movement-execution.h"
@@ -34,7 +34,7 @@
 #include "system/floor/floor-info.h"
 #include "system/floor/wilderness-grid.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -143,7 +143,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
 
     auto &terrain = grid.get_terrain();
     auto p_can_kill_walls = has_kill_wall(player_ptr);
-    p_can_kill_walls &= terrain.flags.has(TerrainCharacteristics::HURT_DISI);
+    p_can_kill_walls &= terrain.flags.has(TerrainCharacteristics::CAN_DISINTEGRATE);
     p_can_kill_walls &= !p_can_enter || terrain.flags.has_not(TerrainCharacteristics::LOS);
     p_can_kill_walls &= terrain.flags.has_not(TerrainCharacteristics::PERMANENT);
     std::string m_name;
@@ -160,7 +160,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
         can_cast &= !is_stunned;
         can_cast &= player_ptr->muta.has_not(PlayerMutationType::BERS_RAGE) || !is_shero(player_ptr);
         if (!monster.is_hostile() && can_cast && pattern_seq(player_ptr, pos) && (p_can_enter || p_can_kill_walls)) {
-            (void)set_monster_csleep(player_ptr, grid.m_idx, 0);
+            (void)set_monster_csleep(*player_ptr->current_floor_ptr, grid.m_idx, 0);
             m_name = monster_desc(player_ptr, monster, 0);
             if (monster.ml) {
                 if (!is_hallucinated) {
@@ -277,7 +277,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
                     energy.reset_player_turn();
                 }
             } else {
-                if (easy_open && floor.has_closed_door_at(pos, true) && easy_open_door(player_ptr, pos.y, pos.x)) {
+                if (easy_open && floor.has_closed_door_at(pos, true) && easy_open_door(player_ptr, pos)) {
                     return;
                 }
 
@@ -315,7 +315,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
         return;
     }
 
-    if (player_ptr->warning && (!process_warning(player_ptr, pos.x, pos.y))) {
+    if (player_ptr->warning && (!process_warning(player_ptr, pos))) {
         energy.set_player_turn_energy(25);
         return;
     }
@@ -347,7 +347,7 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
     }
 
     if (p_can_kill_walls) {
-        cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::HURT_DISI);
+        cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::CAN_DISINTEGRATE);
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
     }
 

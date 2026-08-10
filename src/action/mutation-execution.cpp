@@ -46,7 +46,7 @@
 #include "status/shape-changer.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -162,8 +162,8 @@ bool exe_mutation_power(PlayerType *player_ptr, PlayerMutationType power)
         (void)lite_area(player_ptr, Dice::roll(2, (lvl / 2)), (lvl / 10) + 1);
         return true;
     case PlayerMutationType::DET_CURSE:
-        for (int i = 0; i < INVEN_TOTAL; i++) {
-            auto *o_ptr = player_ptr->inventory[i].get();
+        for (const auto i_idx : INVEN_ALL_SLOTS) {
+            auto *o_ptr = player_ptr->inventory[i_idx].get();
             if (!o_ptr->is_valid() || !o_ptr->is_cursed()) {
                 continue;
             }

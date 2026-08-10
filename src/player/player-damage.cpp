@@ -53,8 +53,10 @@
 #include "status/element-resistance.h"
 #include "system/building-type-definition.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/inner-game-data.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -434,7 +436,7 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 
         world.total_winner = false;
         if (is_seppuku_by_won) {
-            world.add_retired_class(player_ptr->pclass);
+            InnerGameData::get_instance().add_retired_class(player_ptr->pclass);
             exe_write_diary(floor, DiaryKind::DESCRIPTION, 0, _("勝利の後切腹した。", "committed seppuku after the winning."));
         } else {
             std::string place;

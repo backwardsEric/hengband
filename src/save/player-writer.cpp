@@ -15,9 +15,11 @@
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
 #include "system/floor/floor-info.h"
+#include "system/floor/town-records.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/timed-effects.h"
+#include "util/flag-group.h"
 #include "world/world.h"
 #include <variant>
 
@@ -108,7 +110,8 @@ void wr_player(PlayerType *player_ptr)
 
     std::visit(PlayerClassSpecificDataWriter(), player_ptr->class_specific_data);
 
-    wr_byte(static_cast<uint8_t>(InnerGameData::get_instance().get_start_race()));
+    const auto &igd = InnerGameData::get_instance();
+    wr_byte(static_cast<uint8_t>(igd.get_start_race()));
     wr_s32b(player_ptr->old_race1);
     wr_s32b(player_ptr->old_race2);
     wr_s16b(player_ptr->old_realm);
@@ -125,7 +128,7 @@ void wr_player(PlayerType *player_ptr)
         wr_u32b(gladiator.odds);
     }
 
-    wr_s16b(player_ptr->town_num);
+    wr_s16b(static_cast<int16_t>(world.get_town_index()));
     const auto &entries = ArenaEntryList::get_instance();
     wr_s16b(static_cast<int16_t>(entries.get_current_entry()));
     const auto defeated_entry = entries.get_defeated_entry();
@@ -263,7 +266,7 @@ void wr_player(PlayerType *player_ptr)
     wr_u32b(system.get_seed_town());
     wr_u16b(system.is_panic_save_executed() ? 1 : 0);
     wr_u16b(world.total_winner);
-    wr_u16b(world.noscore);
+    wr_u16b(igd.get_no_score());
     wr_bool(player_ptr->is_dead);
     const auto &df = DungeonFeeling::get_instance();
     wr_byte(static_cast<uint8_t>(df.get_feeling()));
@@ -280,6 +283,6 @@ void wr_player(PlayerType *player_ptr)
     /* Save temporary preserved pets (obsolated) */
     wr_s16b(0);
     wr_u32b(world.play_time.elapsed_sec());
-    wr_s32b(player_ptr->visit);
+    wr_FlagGroup(TownRecords::get_instance().get_ids(), wr_byte);
     wr_u32b(player_ptr->count);
 }

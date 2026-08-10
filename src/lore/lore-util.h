@@ -15,6 +15,7 @@
 #include "system/angband.h"
 #include "term/term-color-types.h"
 #include "util/flag-group.h"
+#include <memory>
 #include <string>
 #include <string_view>
 #include <tl/optional.hpp>
@@ -33,6 +34,7 @@ enum monster_lore_mode {
 };
 
 class MonraceDefinition;
+class MonraceRecord;
 struct lore_msg {
     lore_msg(std::string_view msg, byte color = TERM_WHITE);
     std::string msg;
@@ -67,7 +69,8 @@ struct lore_type {
     RaceBlowMethodType method;
 
     bool nightmare;
-    MonraceDefinition *r_ptr;
+    std::shared_ptr<const MonraceDefinition> monrace;
+    std::shared_ptr<const MonraceRecord> record;
     byte speed;
     ITEM_NUMBER drop_gold;
     ITEM_NUMBER drop_item;
@@ -86,6 +89,7 @@ struct lore_type {
     bool has_reinforce() const;
     bool is_details_known() const;
     bool is_blow_damage_known(int num_blow) const;
+    term_color_type get_speed_color() const;
 
     tl::optional<std::vector<lore_msg>> build_kill_unique_description() const;
     std::string build_revenge_description(bool has_defeated) const;

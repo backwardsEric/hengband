@@ -3,6 +3,7 @@
 #include "dungeon/quest-monster-placer.h"
 #include "floor/dungeon-tunnel-util.h"
 #include "floor/floor-allocation-types.h"
+#include "floor/floor-generator.h"
 #include "floor/floor-streams.h"
 #include "floor/geometry.h"
 #include "floor/object-allocator.h"
@@ -225,19 +226,13 @@ static void make_aqua_streams(PlayerType *player_ptr, DungeonData *dd_ptr, const
         return;
     }
 
-    if (dungeon.stream2 > 0) {
-        constexpr auto num_quartz = 4;
-        constexpr auto chance_quartz = 15;
-        for (auto i = 0; i < num_quartz; i++) {
-            build_streamer(player_ptr, dungeon.stream2, chance_quartz);
+    for (const auto &stream : dungeon.streams) {
+        if (stream.terrain_id <= 0) {
+            continue;
         }
-    }
 
-    if (dungeon.stream1 > 0) {
-        constexpr auto num_magma = 6;
-        constexpr auto chance_magma = 30;
-        for (auto i = 0; i < num_magma; i++) {
-            build_streamer(player_ptr, dungeon.stream1, chance_magma);
+        for (auto i = 0; i < stream.count; i++) {
+            build_streamer(player_ptr, stream.terrain_id, stream.chance);
         }
     }
 }
@@ -300,7 +295,7 @@ static void decide_dungeon_data_allocation(PlayerType *player_ptr, DungeonData *
         dd_ptr->alloc_object_num = 2;
     }
 
-    dd_ptr->alloc_monster_num = dungeon.min_m_alloc_level;
+    dd_ptr->alloc_monster_num = dungeon.min_monster_count_on_floor;
     if (floor.height >= MAX_HGT && floor.width >= MAX_WID) {
         return;
     }
@@ -378,7 +373,7 @@ tl::optional<std::string> cave_gen(PlayerType *player_ptr)
     DungeonData dd({ floor.height, floor.width });
     auto &dungeon = floor.get_dungeon_definition();
     constexpr auto chance_empty_floor = 24;
-    if (ironman_empty_levels || (dungeon.flags.has(DungeonFeatureType::ARENA) && (empty_levels && one_in_(chance_empty_floor)))) {
+    if (ironman_force_arena_floor || (dungeon.flags.has(DungeonFeatureType::ARENA) && (allow_arena_floor && one_in_(chance_empty_floor)))) {
         dd.empty_level = true;
         msg_print_wizard(player_ptr, CHEAT_DUNGEON, _("アリーナレベルを生成。", "Arena level."));
     }
@@ -391,6 +386,7 @@ tl::optional<std::string> cave_gen(PlayerType *player_ptr)
 
     make_aqua_streams(player_ptr, &dd, dungeon);
     make_perm_walls(player_ptr);
+    apply_terrain_generation_changes(floor);
     if (!check_place_necessary_objects(player_ptr, &dd)) {
         return dd.why;
     }

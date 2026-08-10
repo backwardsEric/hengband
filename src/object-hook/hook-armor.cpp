@@ -3,7 +3,7 @@
 #include "object/object-info.h"
 #include "player/player-sex.h"
 #include "sv-definition/sv-armor-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 
 /*!
@@ -20,7 +20,7 @@ bool item_tester_hook_wear(PlayerType *player_ptr, const ItemEntity *o_ptr)
     }
 
     /* Check for a usable slot */
-    if (wield_slot(player_ptr, o_ptr) >= INVEN_MAIN_HAND) {
+    if (wield_slot(player_ptr, *o_ptr) >= INVEN_MAIN_HAND) {
         return true;
     }
 

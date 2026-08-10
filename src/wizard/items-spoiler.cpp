@@ -2,13 +2,13 @@
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "io/files-util.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/trg-types.h"
 #include "object/object-value.h"
 #include "system/angband-system.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "system/item-entity.h"
+#include "system/baseitem/baseitem-service.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/z-form.h"
 #include "util/angband-files.h"
@@ -103,7 +103,7 @@ static std::string describe_weight(const ItemEntity &item)
 static ItemEntity prepare_item_for_obj_desc(short bi_id)
 {
     ItemEntity item(bi_id);
-    item.ident |= IDENT_KNOWN;
+    item.set_identification_flag(IdentificationFlag::KNOWN);
     switch (item.bi_key.tval()) {
     case ItemKindType::FIGURINE:
     case ItemKindType::STATUE:
@@ -137,15 +137,18 @@ SpoilerOutputResultType spoil_obj_desc()
     ofs << format("%-37s%8s%7s%5s %40s%9s\n", "Description", "Dam/AC", "Wgt", "Lev", "Chance", "Cost");
     ofs << format("%-37s%8s%7s%5s %40s%9s\n", "-------------------------------------", "------", "---", "---", "----------------", "----");
 
+    const auto &baseitems = BaseitemList::get_instance();
     for (const auto &[tval_list, name] : group_item_list) {
         std::vector<short> whats;
         for (auto tval : tval_list) {
-            for (const auto &baseitem : BaseitemList::get_instance()) {
+            for (short bi_id : baseitems.collect_valid_bi_ids()) {
+                const auto &baseitem = baseitems.get_baseitem(bi_id);
                 if ((baseitem.bi_key.tval() == tval) && baseitem.gen_flags.has_not(ItemGenerationTraitType::INSTA_ART)) {
-                    whats.push_back(baseitem.idx);
+                    whats.push_back(bi_id);
                 }
             }
         }
+
         if (whats.empty()) {
             continue;
         }

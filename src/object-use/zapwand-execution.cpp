@@ -8,7 +8,6 @@
 #include "game-option/input-options.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-use/item-use-checker.h"
 #include "object/object-info.h"
 #include "perception/object-perception.h"
@@ -16,7 +15,7 @@
 #include "player-status/player-energy.h"
 #include "status/experience.h"
 #include "sv-definition/sv-wand-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-getter.h"
@@ -38,14 +37,14 @@ ObjectZapWandEntity::ObjectZapWandEntity(PlayerType *player_ptr)
 void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
 {
     auto old_target_pet = target_pet;
-    auto *o_ptr = ref_item(this->player_ptr, i_idx);
-    if ((i_idx < 0) && (o_ptr->number > 1)) {
+    auto item = ref_item(this->player_ptr, i_idx);
+    if ((i_idx < 0) && (item->number > 1)) {
         msg_print(_("まずは魔法棒を拾わなければ。", "You must first pick up the wands."));
         return;
     }
 
-    const auto sval = o_ptr->bi_key.sval();
-    if (o_ptr->is_aware() && (sval == SV_WAND_HEAL_MONSTER || sval == SV_WAND_HASTE_MONSTER)) {
+    const auto sval = item->bi_key.sval();
+    if (item->is_aware() && (sval == SV_WAND_HEAL_MONSTER || sval == SV_WAND_HASTE_MONSTER)) {
         target_pet = true;
     }
 
@@ -61,7 +60,7 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
         return;
     }
 
-    auto item_level = o_ptr->get_baseitem_level();
+    auto item_level = item->get_baseitem_level();
     if (item_level > 50) {
         item_level = 50 + (item_level - 50) / 2;
     }
@@ -87,13 +86,13 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
     }
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (o_ptr->pval <= 0) {
+    if (item->pval <= 0) {
         if (flush_failure) {
             flush();
         }
 
         msg_print(_("この魔法棒にはもう魔力が残っていない。", "The wand has no charges left."));
-        o_ptr->ident |= IDENT_EMPTY;
+        item->set_identification_flag(IdentificationFlag::EMPTY);
         static constexpr auto flags = {
             StatusRecalculatingFlag::COMBINATION,
             StatusRecalculatingFlag::REORDER,
@@ -112,15 +111,15 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
     }
 
     rfu.reset_flags(flags_srf);
-    if (!o_ptr->is_aware()) {
+    if (!item->is_aware()) {
         chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
         chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
         chg_virtue(this->player_ptr, Virtue::KNOWLEDGE, -1);
     }
 
-    o_ptr->mark_as_tried();
-    if (ident && !o_ptr->is_aware()) {
-        object_aware(this->player_ptr, *o_ptr);
+    item->mark_as_tried();
+    if (ident && !item->is_aware()) {
+        object_aware(this->player_ptr, *item);
         gain_exp(this->player_ptr, (item_level + (this->player_ptr->lev >> 1)) / this->player_ptr->lev);
     }
 
@@ -133,7 +132,7 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
     };
     rfu.set_flags(flags_swrf);
     rfu.set_flags(flags_srf);
-    o_ptr->pval--;
+    item->pval--;
     if (i_idx >= 0) {
         inven_item_charges(*this->player_ptr->inventory[i_idx]);
         return;

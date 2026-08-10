@@ -8,6 +8,8 @@
 #include "floor/geometry.h"
 #include "game-option/disturbance-options.h"
 #include "grid/grid.h"
+#include "main/sound-definitions-table.h"
+#include "main/sound-of-music.h"
 #include "mind/mind-magic-resistance.h"
 #include "mind/mind-numbers.h"
 #include "monster-floor/monster-summon.h"
@@ -16,6 +18,7 @@
 #include "monster/monster-describer.h"
 #include "monster/monster-status.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "pet/pet-util.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
@@ -124,6 +127,7 @@ void set_lightspeed(PlayerType *player_ptr, TIME_EFFECT v, bool do_dec)
     } else {
         if (player_ptr->lightspeed) {
             msg_print(_("動きの素早さがなくなったようだ。", "You feel yourself slow down."));
+            sound(SoundKind::BUFF_EXPIRE);
             notice = true;
         }
     }
@@ -243,14 +247,8 @@ bool shock_power(PlayerType *player_ptr)
     }
 
     msg_format(_("%sを吹き飛ばした！", "You blow %s away!"), m_name.data());
-    floor.get_grid(pos_origin).m_idx = 0;
-    floor.get_grid(pos_target).m_idx = m_idx;
-    monster.fy = pos_target.y;
-    monster.fx = pos_target.x;
-
-    update_monster(player_ptr, m_idx, true);
-    lite_spot(player_ptr, pos_origin);
-    lite_spot(player_ptr, pos_target);
+    monster.set_target(player_ptr->get_position());
+    move_monster_to(player_ptr, monster, pos_target);
 
     if (monrace.brightness_flags.has_any_of(ld_mask)) {
         RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_LITE);

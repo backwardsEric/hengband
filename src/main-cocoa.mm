@@ -2194,7 +2194,7 @@ static int compare_advances(const void *ap, const void *bp)
 
 - (void)requestRedraw
 {
-    if (! self->terminal) return;
+    if (!self->terminal || !self->terminal->mapped_flag) return;
     
     term_type *old = game_term;
     
@@ -4183,12 +4183,6 @@ static void Term_init_cocoa(term_type *t)
 	if (autosaveName) [window setFrameAutosaveName:autosaveName];
 
 	/*
-	 * Tell it about its term. Do this after we've sized it so that the
-	 * sizing doesn't trigger redrawing and such.
-	 */
-	[context setTerm:t];
-
-	/*
 	 * Only order front if it's the first term. Other terms will be ordered
 	 * front from AngbandUpdateWindowVisibility(). This is to work around a
 	 * problem where Angband aggressively tells us to initialize terms that
@@ -4197,8 +4191,11 @@ static void Term_init_cocoa(term_type *t)
 	if (t == angband_terms[0])
 	    [context.primaryWindow makeKeyAndOrderFront: nil];
 
-	/* Set "mapped" flag */
-	t->mapped_flag = true;
+	/*
+	 * Tell it about its term. Do this after we've sized it so that the
+	 * sizing doesn't trigger redrawing and such.
+	 */
+	[context setTerm:t];
     }
 }
 
@@ -4858,7 +4855,7 @@ static void wakeup_event_loop(void)
 static void quit_calmly(void)
 {
     /* Quit immediately if game's not started */
-    if (!game_in_progress || !AngbandWorld::get_instance().character_generated) quit(NULL);
+    if (!game_in_progress || !AngbandWorld::get_instance().character_generated) quit("");
 
     /* Save the game and Quit (if it's safe) */
     if (inkey_flag)
@@ -4872,7 +4869,7 @@ static void quit_calmly(void)
         record_current_savefile();
 
         /* Quit */
-        quit(NULL);
+        quit("");
     }
 
     /* Wait until inkey_flag is set */
@@ -5806,7 +5803,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
     term_fresh();
     play_game(p_ptr, new_game, false);
 
-    quit(NULL);
+    quit("");
 }
 
 /**

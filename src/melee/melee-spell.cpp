@@ -87,10 +87,10 @@ static void process_rememberance(melee_spell_type *ms_ptr)
         return;
     }
 
-    ms_ptr->r_ptr->r_ability_flags.set(ms_ptr->thrown_spell);
+    ms_ptr->monrace->r_ability_flags.set(ms_ptr->thrown_spell);
 
-    if (ms_ptr->r_ptr->r_cast_spell < MAX_UCHAR) {
-        ms_ptr->r_ptr->r_cast_spell++;
+    if (ms_ptr->monrace->r_cast_spell < MAX_UCHAR) {
+        ms_ptr->monrace->r_cast_spell++;
     }
 }
 
@@ -130,8 +130,8 @@ bool monst_spell_monst(PlayerType *player_ptr, MONSTER_IDX m_idx)
     ms_ptr->dam = res.dam;
     process_special_melee_spell(player_ptr, ms_ptr);
     process_rememberance(ms_ptr);
-    if (player_ptr->is_dead && (ms_ptr->r_ptr->r_deaths < MAX_SHORT) && !player_ptr->current_floor_ptr->inside_arena) {
-        ms_ptr->r_ptr->r_deaths++;
+    if (player_ptr->is_dead && (ms_ptr->monrace->r_deaths < MAX_SHORT) && !player_ptr->current_floor_ptr->inside_arena) {
+        ms_ptr->monrace->r_deaths++;
     }
 
     return true;

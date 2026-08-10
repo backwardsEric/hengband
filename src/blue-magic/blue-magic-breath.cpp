@@ -6,7 +6,6 @@
 #include "blue-magic/blue-magic-breath.h"
 #include "blue-magic/blue-magic-util.h"
 #include "effect/attribute-types.h"
-#include "mind/mind-blue-mage.h"
 #include "monster-race/race-ability-flags.h"
 #include "mspell/mspell-damage-calculator.h"
 #include "spell-kind/spells-launcher.h"

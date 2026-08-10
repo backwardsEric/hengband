@@ -10,7 +10,7 @@
 #include "player/player-status-table.h"
 #include "player/special-defense-types.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -213,8 +213,8 @@ void regenerate_monsters(PlayerType *player_ptr)
 void regenerate_captured_monsters(PlayerType *player_ptr)
 {
     bool heal = false;
-    for (int i = 0; i < INVEN_TOTAL; i++) {
-        auto *o_ptr = player_ptr->inventory[i].get();
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        auto *o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }

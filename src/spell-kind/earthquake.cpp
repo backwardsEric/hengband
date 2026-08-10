@@ -11,11 +11,13 @@
 #include "monster/monster-description-types.h"
 #include "monster/monster-status-setter.h"
 #include "monster/monster-update.h"
+#include "monster/monster-util.h"
 #include "player/player-damage.h"
 #include "player/player-move.h"
 #include "player/player-status-flags.h"
 #include "status/bad-status-setter.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
@@ -47,7 +49,7 @@ void reset_grid_info(FloorType &floor, std::span<const Pos2D> area)
 {
     for (const auto &pos : area) {
         auto &grid = floor.get_grid(pos);
-        grid.info &= ~(CAVE_ROOM | CAVE_ICKY | CAVE_UNSAFE);
+        grid.info &= ~(CAVE_ROOM | CAVE_NO_TELEPORT_DEST | CAVE_UNSAFE);
         grid.info &= ~(CAVE_GLOW | CAVE_MARK | CAVE_KNOWN);
     }
 }
@@ -176,25 +178,12 @@ tl::optional<Pos2D> decide_monster_dodge_position(const FloorType &floor, const 
     return pos_candidates.empty() ? tl::nullopt : tl::make_optional(rand_choice(pos_candidates));
 }
 
-void move_monster_to(PlayerType *player_ptr, MonsterEntity &monster, const Pos2D &pos_to)
-{
-    auto &floor = *player_ptr->current_floor_ptr;
-    const auto pos_from = monster.get_position();
-    auto &grid_from = floor.get_grid(pos_from);
-    auto &grid_to = floor.get_grid(pos_to);
-    grid_to.m_idx = std::exchange(grid_from.m_idx, {});
-    monster.set_position(pos_to);
-    update_monster(player_ptr, grid_to.m_idx, true);
-    lite_spot(player_ptr, pos_from);
-    lite_spot(player_ptr, pos_to);
-}
-
 bool process_monster_damage(PlayerType *player_ptr, MonsterEntity &monster, bool has_dodged)
 {
     auto &floor = *player_ptr->current_floor_ptr;
     auto &grid = floor.get_grid(monster.get_position());
     const auto damage = (has_dodged ? Dice::roll(4, 8) : (monster.hp + 1));
-    (void)set_monster_csleep(player_ptr, grid.m_idx, 0);
+    (void)set_monster_csleep(floor, grid.m_idx, 0);
     monster.hp -= damage;
     if (monster.hp >= 0) {
         return false;

@@ -1,15 +1,17 @@
 #include "monster/monster-util.h"
-#include "dungeon/quest.h"
 #include "game-option/cheat-options.h"
+#include "grid/grid.h"
 #include "monster-floor/place-monster-types.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster-race/race-ability-mask.h"
 #include "monster/monster-info.h"
+#include "monster/monster-update.h"
 #include "mspell/summon-checker.h"
 #include "room/pit-nest-util.h"
 #include "spell/summon-types.h"
 #include "system/angband-exceptions.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/enums/terrain/wilderness-terrain.h"
 #include "system/floor/floor-info.h"
@@ -102,7 +104,7 @@ static bool restrict_monster_to_dungeon(const DungeonDefinition &dungeon, int fl
         }
     }
 
-    if (dungeon.special_div >= 64) {
+    if (dungeon.normal_monster_rate >= 100) {
         return true;
     }
 
@@ -111,6 +113,8 @@ static bool restrict_monster_to_dungeon(const DungeonDefinition &dungeon, int fl
     }
 
     switch (dungeon.mode) {
+    case DungeonMode::NONE:
+        return true;
     case DungeonMode::AND:
     case DungeonMode::NAND: {
         std::vector<bool> is_possible = {
@@ -292,7 +296,7 @@ void get_mon_num_prep_enum(PlayerType *player_ptr, MonraceHook hook1, MonraceHoo
         const auto in_random_quest = floor.is_in_quest() && !QuestType::is_fixed(floor.quest_number);
         const auto cond = !system.is_phase_out() && floor.is_underground() && !in_random_quest;
         if (cond && !restrict_monster_to_dungeon(dungeon, dungeon_level, monrace_id)) {
-            entry.update_prob2(dungeon.special_div);
+            entry.update_prob2(dungeon.normal_monster_rate);
         }
 
         mfdi.update(entry.prob2, entry.level);
@@ -401,7 +405,7 @@ void get_mon_num_prep_escort(PlayerType *player_ptr, MonraceId escorted_monrace_
         const auto in_random_quest = floor.is_in_quest() && !QuestType::is_fixed(floor.quest_number);
         const auto cond = !system.is_phase_out() && floor.is_underground() && !in_random_quest;
         if (cond && !restrict_monster_to_dungeon(dungeon, dungeon_level, monrace_id)) {
-            entry.update_prob2(dungeon.special_div);
+            entry.update_prob2(dungeon.normal_monster_rate);
         }
 
         mfdi.update(entry.prob2, entry.level);
@@ -506,7 +510,7 @@ void get_mon_num_prep_summon(PlayerType *player_ptr, const SummonCondition &cond
         const auto in_random_quest = floor.is_in_quest() && !QuestType::is_fixed(floor.quest_number);
         const auto cond = !system.is_phase_out() && floor.is_underground() && !in_random_quest;
         if (cond && !restrict_monster_to_dungeon(dungeon, dungeon_level, monrace_id, true)) {
-            entry.update_prob2(dungeon.special_div);
+            entry.update_prob2(dungeon.normal_monster_rate);
         }
 
         mfdi.update(entry.prob2, entry.level);
@@ -642,7 +646,7 @@ void get_mon_num_prep_chameleon(PlayerType *player_ptr, const ChameleonTransform
         const auto in_random_quest = floor.is_in_quest() && !QuestType::is_fixed(floor.quest_number);
         const auto cond = !system.is_phase_out() && floor.is_underground() && !in_random_quest;
         if (cond && !restrict_monster_to_dungeon(dungeon, dungeon_level, monrace_id, false, true)) {
-            entry.update_prob2(dungeon.special_div);
+            entry.update_prob2(dungeon.normal_monster_rate);
         }
 
         mfdi.update(entry.prob2, entry.level);
@@ -715,4 +719,17 @@ bool is_player(MONSTER_IDX m_idx)
 bool is_monster(MONSTER_IDX m_idx)
 {
     return m_idx > 0;
+}
+
+void move_monster_to(PlayerType *player_ptr, MonsterEntity &monster, const Pos2D &pos_to)
+{
+    auto &floor = *player_ptr->current_floor_ptr;
+    const auto pos_from = monster.get_position();
+    auto &grid_from = floor.get_grid(pos_from);
+    auto &grid_to = floor.get_grid(pos_to);
+    grid_to.m_idx = std::exchange(grid_from.m_idx, {});
+    monster.set_position(pos_to);
+    update_monster(player_ptr, grid_to.m_idx, true);
+    lite_spot(player_ptr, pos_from);
+    lite_spot(player_ptr, pos_to);
 }

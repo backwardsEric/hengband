@@ -15,6 +15,7 @@
 #include "monster-race/race-special-flags.h"
 #include "monster-race/race-visual-flags.h"
 #include "monster-race/race-wilderness-flags.h"
+#include "room/pit-nest-util.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
 #include "util/point-2d.h"
@@ -25,6 +26,7 @@
 #include <vector>
 
 enum class DungeonMode {
+    NONE = 0,
     AND = 1,
     NAND = 2,
     OR = 3,
@@ -39,6 +41,13 @@ enum class MonsterSex;
 enum class TerrainCharacteristics;
 enum class TerrainTag;
 class MonraceDefinition;
+struct DungeonStreamDefinition {
+    FEAT_IDX terrain_id{};
+    int count{};
+    int chance{};
+    int priority{};
+};
+
 class DungeonDefinition {
 public:
     std::string name; /* Name */
@@ -48,18 +57,17 @@ public:
     ProbabilityTable<short> prob_table_wall{}; /* Cave wall probability */
     short outer_wall{}; /* 外壁の地形ID */
     short inner_wall{}; /* 内壁の地形ID */
-    FEAT_IDX stream1{}; /* stream tile */
-    FEAT_IDX stream2{}; /* stream tile */
+    std::vector<DungeonStreamDefinition> streams{}; /* Stream definitions */
 
     DEPTH mindepth{}; /* Minimal depth */
     DEPTH maxdepth{}; /* Maximal depth */
     PLAYER_LEVEL min_plev{}; /* Minimal plev needed to enter -- it's an anti-cheating mesure */
-    BIT_FLAGS16 pit{};
-    BIT_FLAGS16 nest{};
+    EnumClassFlagGroup<PitKind> pit{};
+    EnumClassFlagGroup<NestKind> nest{};
     DungeonMode mode{}; /* Mode of combinaison of the monster flags */
 
-    int min_m_alloc_level{}; /* Minimal number of monsters per level */
-    int max_m_alloc_chance{}; /* There is a 1/max_m_alloc_chance chance per round of creating a new monster */
+    int min_monster_count_on_floor{}; /* Minimal number of monsters per floor */
+    int additional_monster_spawn_chance{}; /* There is a 1/extra_monster_spawn_chance chance per round of creating a new monster */
 
     EnumClassFlagGroup<DungeonFeatureType> flags{}; /* Dungeon Flags */
 
@@ -83,7 +91,7 @@ public:
     FixedArtifactId final_artifact{}; /* The artifact you'll find at the bottom */
     MonraceId final_guardian{}; /* The artifact's guardian. If an artifact is specified, then it's NEEDED */
 
-    PROB special_div{}; /* % of monsters affected by the flags/races allowed, to add some variety */
+    PROB normal_monster_rate{}; /* % of normal monsters not affected by dungeon monster flags/races, to add some variety */
     int tunnel_percent{};
     int obj_great{};
     int obj_good{};
@@ -93,6 +101,8 @@ public:
     const MonraceDefinition &get_guardian() const;
     short convert_terrain_id(short terrain_id, TerrainCharacteristics action) const;
     short convert_terrain_id(short terrain_id) const;
+    void sort_streams_by_priority();
+    short select_stream_terrain_id(short terrain_id, int stream_index) const;
     bool is_open(short terrain_id) const;
     bool is_conquered() const;
     std::string build_entrance_message() const;
@@ -108,6 +118,7 @@ public:
 
     //!< @details ここから下は、地形など全ての定義ファイルを読み込んだ後に呼び出される初期化処理.
     void set_guardian_flag();
+    void set_no_vault_flag_if_smallest();
 
 private:
     Pos2D pos = { 0, 0 };

@@ -1,5 +1,4 @@
 #include "spell-realm/spells-chaos.h"
-#include "dungeon/quest.h"
 #include "effect/effect-characteristics.h"
 #include "effect/effect-processor.h"
 #include "grid/grid.h"
@@ -10,6 +9,7 @@
 #include "spell-kind/spells-floor.h"
 #include "spell-kind/spells-launcher.h"
 #include "system/dungeon/dungeon-definition.h"
+#include "system/dungeon/quest-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monster-entity.h"
@@ -95,12 +95,12 @@ static void erase_wall(FloorType &floor, const Pos2D &pos)
 {
     auto &grid = floor.get_grid(pos);
     const auto &terrain = grid.get_terrain(TerrainKind::MIMIC_RAW);
-    grid.info &= ~(CAVE_ROOM | CAVE_ICKY);
-    if ((grid.mimic == 0) || terrain.flags.has_not(TerrainCharacteristics::HURT_DISI)) {
+    grid.info &= ~(CAVE_ROOM | CAVE_NO_TELEPORT_DEST);
+    if ((grid.mimic == 0) || terrain.flags.has_not(TerrainCharacteristics::CAN_DISINTEGRATE)) {
         return;
     }
 
-    grid.mimic = floor.get_dungeon_definition().convert_terrain_id(grid.mimic, TerrainCharacteristics::HURT_DISI);
+    grid.mimic = floor.get_dungeon_definition().convert_terrain_id(grid.mimic, TerrainCharacteristics::CAN_DISINTEGRATE);
     const auto &terrain_changed = grid.get_terrain(TerrainKind::MIMIC_RAW);
     if (terrain_changed.flags.has_not(TerrainCharacteristics::REMEMBER)) {
         grid.info &= ~(CAVE_MARK);
@@ -138,18 +138,18 @@ bool vanish_dungeon(PlayerType *player_ptr)
     for (const auto &pos : floor.get_area(FloorBoundary::OUTER_WALL_EXCLUSIVE)) {
         auto &grid = floor.get_grid(pos);
         const auto &terrrain = grid.get_terrain();
-        grid.info &= ~(CAVE_ROOM | CAVE_ICKY);
+        grid.info &= ~(CAVE_ROOM | CAVE_NO_TELEPORT_DEST);
         const auto &monster = floor.m_list[grid.m_idx];
         if (grid.has_monster() && monster.is_asleep()) {
-            (void)set_monster_csleep(player_ptr, grid.m_idx, 0);
+            (void)set_monster_csleep(floor, grid.m_idx, 0);
             if (monster.ml) {
                 const auto m_name = monster_desc(player_ptr, monster, 0);
                 msg_format(_("%s^が目を覚ました。", "%s^ wakes up."), m_name.data());
             }
         }
 
-        if (terrrain.flags.has(TerrainCharacteristics::HURT_DISI)) {
-            cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::HURT_DISI);
+        if (terrrain.flags.has(TerrainCharacteristics::CAN_DISINTEGRATE)) {
+            cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::CAN_DISINTEGRATE);
         }
     }
 

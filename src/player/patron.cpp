@@ -24,7 +24,7 @@
 #include "status/experience.h"
 #include "status/shape-changer.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "view/display-messages.h"
 
 std::vector<Patron> patron_list = {
@@ -316,6 +316,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             break;
         case REW_HEAL_FUL:
             msg_format(_("%sの声が響き渡った:", "The voice of %s booms out:"), this->name.data());
+            msg_print(_("「甦るがよい、我が下僕よ！」", "'Rise, my servant!'"));
             (void)restore_level(this->player_ptr);
             (void)restore_all_status(this->player_ptr);
             (void)true_healing(this->player_ptr, 5000);
@@ -338,7 +339,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
             }
 
             const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
-            (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+            (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
             reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
             break;
         }
@@ -381,7 +382,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                     }
 
                     const auto item_name = describe_flavor(this->player_ptr, *this->player_ptr->inventory[slot], OD_NAME_ONLY);
-                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+                    (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
                     reward = format(_("%sが破壊された。", "destroying %s"), item_name.data());
                 } else {
                     if (!this->player_ptr->inventory[INVEN_BODY]->is_valid()) {
@@ -425,7 +426,7 @@ void Patron::gain_level_reward(PlayerType *player_ptr_, int chosen_reward)
                 }
 
                 if (slot) {
-                    (void)curse_weapon_object(this->player_ptr, false, this->player_ptr->inventory[slot].get());
+                    (void)curse_weapon_object(this->player_ptr, false, *this->player_ptr->inventory[slot]);
                 }
             }
 

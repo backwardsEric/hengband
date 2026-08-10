@@ -28,7 +28,7 @@
 #include "spell-kind/spells-teleport.h"
 #include "spell-realm/spells-hex.h"
 #include "system/floor/floor-info.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -54,7 +54,7 @@ static void attack_confuse(PlayerType *player_ptr, player_attack_type *pa_ptr, b
         RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     }
 
-    auto &monrace = *pa_ptr->r_ptr;
+    auto &monrace = *pa_ptr->monrace;
     if (monrace.resistance_flags.has(MonsterResistanceType::NO_CONF)) {
         if (is_original_ap_and_seen(player_ptr, *pa_ptr->m_ptr)) {
             monrace.r_resistance_flags.set(MonsterResistanceType::NO_CONF);
@@ -65,7 +65,7 @@ static void attack_confuse(PlayerType *player_ptr, player_attack_type *pa_ptr, b
         msg_format(_("%s^には効果がなかった。", "%s^ is unaffected."), pa_ptr->m_name);
     } else {
         msg_format(_("%s^は混乱したようだ。", "%s^ appears confused."), pa_ptr->m_name);
-        (void)set_monster_confused(player_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_confusion() + 10 + randint0(player_ptr->lev) / 5);
+        (void)set_monster_confused(*player_ptr->current_floor_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_confusion() + 10 + randint0(player_ptr->lev) / 5);
     }
 }
 
@@ -79,7 +79,7 @@ static void attack_confuse(PlayerType *player_ptr, player_attack_type *pa_ptr, b
  */
 static void attack_stun(PlayerType *player_ptr, player_attack_type *pa_ptr, bool can_resist = true)
 {
-    auto &monrace = *pa_ptr->r_ptr;
+    auto &monrace = *pa_ptr->monrace;
     if (monrace.resistance_flags.has(MonsterResistanceType::NO_STUN)) {
         if (is_original_ap_and_seen(player_ptr, *pa_ptr->m_ptr)) {
             monrace.resistance_flags.set(MonsterResistanceType::NO_STUN);
@@ -89,7 +89,7 @@ static void attack_stun(PlayerType *player_ptr, player_attack_type *pa_ptr, bool
         msg_format(_("%s^には効果がなかった。", "%s^ is unaffected."), pa_ptr->m_name);
     } else {
         msg_format(_("%s^は朦朧としたようだ。", "%s^ appears stunned."), pa_ptr->m_name);
-        (void)set_monster_stunned(player_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_stun() + 10 + randint0(player_ptr->lev) / 5);
+        (void)set_monster_stunned(*player_ptr->current_floor_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_stun() + 10 + randint0(player_ptr->lev) / 5);
     }
 }
 
@@ -103,7 +103,7 @@ static void attack_stun(PlayerType *player_ptr, player_attack_type *pa_ptr, bool
  */
 static void attack_scare(PlayerType *player_ptr, player_attack_type *pa_ptr, bool can_resist = true)
 {
-    auto &monrace = *pa_ptr->r_ptr;
+    auto &monrace = *pa_ptr->monrace;
     if (monrace.resistance_flags.has(MonsterResistanceType::NO_FEAR)) {
         if (is_original_ap_and_seen(player_ptr, *pa_ptr->m_ptr)) {
             monrace.resistance_flags.set(MonsterResistanceType::NO_FEAR);
@@ -113,7 +113,7 @@ static void attack_scare(PlayerType *player_ptr, player_attack_type *pa_ptr, boo
         msg_format(_("%s^には効果がなかった。", "%s^ is unaffected."), pa_ptr->m_name);
     } else {
         msg_format(_("%s^は恐怖して逃げ出した！", "%s^ flees in terror!"), pa_ptr->m_name);
-        (void)set_monster_monfear(player_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_fear() + 10 + randint0(player_ptr->lev) / 5);
+        (void)set_monster_monfear(*player_ptr->current_floor_ptr, pa_ptr->m_idx, pa_ptr->m_ptr->get_remaining_fear() + 10 + randint0(player_ptr->lev) / 5);
     }
 }
 
@@ -126,7 +126,7 @@ static void attack_scare(PlayerType *player_ptr, player_attack_type *pa_ptr, boo
  */
 static void attack_dispel(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    if (pa_ptr->r_ptr->ability_flags.has_none_of(RF_ABILITY_ATTACK_MASK) && pa_ptr->r_ptr->ability_flags.has_none_of(RF_ABILITY_INDIRECT_MASK)) {
+    if (pa_ptr->monrace->ability_flags.has_none_of(RF_ABILITY_ATTACK_MASK) && pa_ptr->monrace->ability_flags.has_none_of(RF_ABILITY_INDIRECT_MASK)) {
         return;
     }
 
@@ -160,7 +160,7 @@ static void attack_probe(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
     msg_print(_("刃が敵を調査した...", "The blade probed your enemy..."));
     msg_erase();
-    msg_print(probed_monster_info(player_ptr, *pa_ptr->m_ptr, *pa_ptr->r_ptr));
+    msg_print(probed_monster_info(player_ptr, *pa_ptr->m_ptr, *pa_ptr->monrace));
     msg_erase();
     const auto mes = MonraceList::get_instance().probe_lore(pa_ptr->r_idx);
     if (mes) {
@@ -177,7 +177,7 @@ static void attack_probe(PlayerType *player_ptr, player_attack_type *pa_ptr)
  */
 static bool judge_tereprt_resistance(PlayerType *player_ptr, player_attack_type *pa_ptr)
 {
-    auto &monrace = *pa_ptr->r_ptr;
+    auto &monrace = *pa_ptr->monrace;
     if (monrace.resistance_flags.has_not(MonsterResistanceType::RESIST_TELEPORT)) {
         return false;
     }
@@ -230,7 +230,7 @@ static void attack_teleport_away(PlayerType *player_ptr, player_attack_type *pa_
  */
 static void attack_polymorph(PlayerType *player_ptr, player_attack_type *pa_ptr, POSITION y, POSITION x)
 {
-    const auto &monrace = *pa_ptr->r_ptr;
+    const auto &monrace = *pa_ptr->monrace;
     if (monrace.kind_flags.has(MonsterKindType::UNIQUE) || monrace.misc_flags.has(MonsterMiscType::QUESTOR) || monrace.resistance_flags.has_any_of(RFR_EFF_RESIST_CHAOS_MASK)) {
         return;
     }

@@ -2,7 +2,7 @@
 #include "game-option/input-options.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
@@ -195,8 +195,8 @@ void target_sensing_monsters_prepare(PlayerType *player_ptr, std::vector<MONSTER
     auto comp_importance = [&floor = *player_ptr->current_floor_ptr](MONSTER_IDX idx1, MONSTER_IDX idx2) {
         const auto &monster1 = floor.m_list[idx1];
         const auto &monster2 = floor.m_list[idx2];
-        const auto &monrace1 = monster1.get_appearance_monrace();
-        const auto &monrace2 = monster2.get_appearance_monrace();
+        const auto &monrace1 = monster1.get_apparent_monrace();
+        const auto &monrace2 = monster2.get_apparent_monrace();
 
         /* Unique monsters first */
         if (monrace1.kind_flags.has(MonsterKindType::UNIQUE) != monrace2.kind_flags.has(MonsterKindType::UNIQUE)) {
@@ -255,8 +255,8 @@ std::vector<MONSTER_IDX> target_pets_prepare(PlayerType *player_ptr)
     auto comp_importance = [&floor](MONSTER_IDX idx1, MONSTER_IDX idx2) {
         const auto &monster1 = floor.m_list[idx1];
         const auto &monster2 = floor.m_list[idx2];
-        const auto &ap_monrace1 = monster1.get_appearance_monrace();
-        const auto &ap_monrace2 = monster2.get_appearance_monrace();
+        const auto &ap_monrace1 = monster1.get_apparent_monrace();
+        const auto &ap_monrace2 = monster2.get_apparent_monrace();
 
         if (monster1.is_riding() != monster2.is_riding()) {
             return monster1.is_riding();

@@ -477,9 +477,9 @@
               "says, 'Saruman is a fool, and a dirty treacherous fool.'",
               "says, 'I left a fool.'",
               "yells, 'Nazgul, Nazgul!'",
-              "says, 'Fine leadership!　I hope the great Ugluk will lead us out again.'",
+              "says, 'Fine leadership! I hope the great Ugluk will lead us out again.'",
               "hisses, 'My dear tender little fools.'",
-              "says, 'Well, my little ones!　Enjoying your nice rest?'",
+              "says, 'Well, my little ones! Enjoying your nice rest?'",
               "snarls, 'Have you got it -- either of you?'",
             ],
           },
@@ -3438,10 +3438,10 @@
             ],
             "en": [
               "trampled the wreckage of the Internet Exploder.",
-              "ridiculed when he saw the Internet Exploder.",
+              "scoffed at the Internet Exploder.",
               "is sending sensitive data without your permission.",
               "sent an ad to your email address.",
-              "was attempted to crack by someone, but the protection was not breached.",
+              "was relieved when a cracker could not breach its sandbox.",
               "grasped your propensity.",
             ],
           },
@@ -4109,6 +4109,7 @@
         {
           "action": "MESSAGE_REFLECT",
           "chance": 1,
+          "use_name": false,
           "message": {
             "ja": ["攻撃は跳ね返った！"],
             "en": ["The attack bounces!"],
@@ -4125,6 +4126,7 @@
         {
           "action": "MESSAGE_TIMESTART",
           "chance": 1,
+          "use_name": false,
           "message": {
             "ja": ["「時は動きだす…」"],
             "en": ["You feel time flowing around you once more."],

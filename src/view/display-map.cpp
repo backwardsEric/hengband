@@ -5,10 +5,12 @@
 #include "game-option/map-screen-options.h"
 #include "game-option/special-options.h"
 #include "player/player-status.h"
+#include "system/baseitem/baseitem-config.h"
+#include "system/baseitem/baseitem-service.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
@@ -23,7 +25,7 @@
 #include <algorithm>
 #include <span>
 
-uint8_t display_autopick; /*!< 自動拾い状態の設定フラグ */
+EnumClassFlagGroup<AutopickMethod> display_autopick{}; /*!< 自動拾い状態の設定フラグ */
 
 namespace {
 /* 一般的にオブジェクトシンボルとして扱われる記号を定義する(幻覚処理向け) /  Hack -- Legal object codes */
@@ -39,8 +41,7 @@ const std::string image_monsters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR
 DisplaySymbol image_object()
 {
     if (use_graphics) {
-        const auto &baseitem = BaseitemList::get_instance().pick_one_at_random();
-        return baseitem.symbol_config;
+        return BaseitemService::pick_one_at_random().get_symbol();
     }
 
     const auto color = randnum1<uint8_t>(15);
@@ -88,7 +89,7 @@ DisplaySymbol image_random()
  * 周り全てが壁に囲まれている壁についてはオプション状態による。
  * 1か所でも空きがあるか、壁ではない地形、金を含む地形、永久岩は表示。
  */
-static bool is_revealed_wall(const FloorType &floor, const Pos2D &pos)
+bool is_revealed_wall(const FloorType &floor, const Pos2D &pos)
 {
     const auto &grid = floor.get_grid(pos);
     if (view_hidden_walls) {
@@ -227,14 +228,14 @@ DisplaySymbolPair map_info(PlayerType *player_ptr, const Pos2D &pos)
             continue;
         }
 
-        if (display_autopick) {
+        if (display_autopick.any()) {
             match_autopick = find_autopick_list(player_ptr, &item);
             if (match_autopick == -1) {
                 continue;
             }
 
-            const auto act = autopick_list[match_autopick].action;
-            if ((act & DO_DISPLAY) && (act & display_autopick)) {
+            const auto &act = autopick_list[match_autopick].action;
+            if (act.has(AutopickMethod::DISPLAY) && (act.has_any_of(display_autopick))) {
                 autopick_obj = &item;
             } else {
                 match_autopick = -1;
@@ -251,7 +252,7 @@ DisplaySymbolPair map_info(PlayerType *player_ptr, const Pos2D &pos)
         break;
     }
 
-    if (grid.has_monster() && display_autopick != 0) {
+    if (grid.has_monster() && display_autopick.any()) {
         symbol_pair.symbol_foreground = set_term_color(player_ptr, pos, symbol_pair.symbol_foreground);
         return symbol_pair;
     }
@@ -262,7 +263,7 @@ DisplaySymbolPair map_info(PlayerType *player_ptr, const Pos2D &pos)
         return symbol_pair;
     }
 
-    const auto &monrace_ap = monster.get_appearance_monrace();
+    const auto &monrace_ap = monster.get_apparent_monrace();
     feat_priority = 30;
     if (is_hallucinated) {
         if (!monrace_ap.visual_flags.has_all_of({ MonsterVisualType::CLEAR, MonsterVisualType::CLEAR_COLOR })) {

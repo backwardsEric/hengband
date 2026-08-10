@@ -17,11 +17,10 @@
 #include "inventory/inventory-describer.h"
 #include "inventory/inventory-slot-types.h"
 #include "mutation/mutation-flag-types.h"
-#include "object-enchant/special-object-flags.h"
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "player/player-status-flags.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
@@ -36,7 +35,7 @@
 static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool heavy)
 {
     auto &item = *player_ptr->inventory[slot];
-    if (any_bits(item.ident, IDENT_SENSE) || item.is_known()) {
+    if (item.has_identification_flag(IdentificationFlag::SENSE) || item.is_known()) {
         return;
     }
 
@@ -114,7 +113,7 @@ static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool
 #endif
     }
 
-    item.ident |= (IDENT_SENSE);
+    item.set_identification_flag(IdentificationFlag::SENSE);
     item.feeling = feel;
 
     autopick_alter_item(player_ptr, slot, destroy_feeling);
@@ -279,8 +278,8 @@ void sense_inventory1(PlayerType *player_ptr)
         heavy = true;
     }
 
-    for (INVENTORY_IDX i = 0; i < INVEN_TOTAL; i++) {
-        o_ptr = player_ptr->inventory[i].get();
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        o_ptr = player_ptr->inventory[i_idx].get();
 
         if (!o_ptr->is_valid()) {
             continue;
@@ -316,7 +315,7 @@ void sense_inventory1(PlayerType *player_ptr)
             continue;
         }
 
-        if ((i < INVEN_MAIN_HAND) && (0 != randint0(5))) {
+        if ((i_idx < INVEN_MAIN_HAND) && (0 != randint0(5))) {
             continue;
         }
 
@@ -324,7 +323,7 @@ void sense_inventory1(PlayerType *player_ptr)
             heavy = true;
         }
 
-        sense_inventory_aux(player_ptr, i, heavy);
+        sense_inventory_aux(player_ptr, i_idx, heavy);
     }
 }
 
@@ -407,9 +406,9 @@ void sense_inventory2(PlayerType *player_ptr)
         break;
     }
 
-    for (INVENTORY_IDX i = 0; i < INVEN_TOTAL; i++) {
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
         bool okay = false;
-        o_ptr = player_ptr->inventory[i].get();
+        o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }
@@ -431,11 +430,11 @@ void sense_inventory2(PlayerType *player_ptr)
             continue;
         }
 
-        if ((i < INVEN_MAIN_HAND) && (0 != randint0(5))) {
+        if ((i_idx < INVEN_MAIN_HAND) && (0 != randint0(5))) {
             continue;
         }
 
-        sense_inventory_aux(player_ptr, i, true);
+        sense_inventory_aux(player_ptr, i_idx, true);
     }
 }
 

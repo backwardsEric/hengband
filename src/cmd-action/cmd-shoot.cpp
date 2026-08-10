@@ -14,7 +14,7 @@
 #include "status/action-setter.h"
 #include "status/bad-status-setter.h"
 #include "sv-definition/sv-bow-types.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
@@ -32,15 +32,15 @@ void do_cmd_fire(PlayerType *player_ptr, SPELL_IDX snipe_type)
     }
 
     player_ptr->is_fired = false;
-    auto *item_ptr = player_ptr->inventory[INVEN_BOW].get();
-    const auto tval = item_ptr->bi_key.tval();
+    auto *bow_ptr = player_ptr->inventory[INVEN_BOW].get();
+    const auto tval = bow_ptr->bi_key.tval();
     if (tval == ItemKindType::NONE) {
         msg_print(_("射撃用の武器を持っていない。", "You have nothing to fire with."));
         flush();
         return;
     }
 
-    const auto sval = item_ptr->bi_key.sval();
+    const auto sval = bow_ptr->bi_key.sval();
     if (sval == SV_CRIMSON) {
         msg_print(_("この武器は発動して使うもののようだ。", "It's already activated."));
         flush();
@@ -56,14 +56,13 @@ void do_cmd_fire(PlayerType *player_ptr, SPELL_IDX snipe_type)
     PlayerClass(player_ptr).break_samurai_stance({ SamuraiStanceType::MUSOU });
     constexpr auto q = _("どれを撃ちますか? ", "Fire which item? ");
     constexpr auto s = _("発射されるアイテムがありません。", "You have nothing to fire.");
-    short i_idx;
-    const auto *ammo_ptr = choose_object(player_ptr, &i_idx, q, s, USE_INVEN | USE_FLOOR, TvalItemTester(player_ptr->tval_ammo));
-    if (!ammo_ptr) {
+    const auto &[ammo, ammo_idx] = choose_item(player_ptr, q, s, USE_INVEN | USE_FLOOR, TvalItemTester(player_ptr->tval_ammo));
+    if (!ammo) {
         flush();
         return;
     }
 
-    exe_fire(player_ptr, i_idx, item_ptr, snipe_type);
+    exe_fire(player_ptr, ammo_idx, bow_ptr, snipe_type);
     if (!player_ptr->is_fired || !PlayerClass(player_ptr).equals(PlayerClassType::SNIPER)) {
         return;
     }

@@ -10,15 +10,13 @@
 #include "flavor/object-flavor-types.h"
 #include "inventory/inventory-slot-types.h"
 #include "io-dump/dump-util.h"
-#include "object-enchant/special-object-flags.h"
 #include "object-enchant/tr-types.h"
 #include "object-hook/hook-weapon.h"
 #include "object/tval-types.h"
 #include "perception/object-perception.h"
 #include "store/store-util.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "util/bit-flags-calculator.h"
@@ -173,8 +171,8 @@ static void pad_and_print_header(int label_number, FILE *fff)
 static int show_wearing_equipment_resistances(PlayerType *player_ptr, ItemKindType tval, int label_number_initial, FILE *fff)
 {
     auto label_number = label_number_initial;
-    for (short i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        const auto &item = *player_ptr->inventory[i];
+    for (const auto i_idx : INVEN_WIELDING_SLOTS) {
+        const auto &item = *player_ptr->inventory[i_idx];
         if (!item.has_knowledge(tval)) {
             continue;
         }
@@ -197,8 +195,8 @@ static int show_wearing_equipment_resistances(PlayerType *player_ptr, ItemKindTy
 static int show_holding_equipment_resistances(PlayerType *player_ptr, ItemKindType tval, int label_number_initial, FILE *fff)
 {
     auto label_number = label_number_initial;
-    for (short i = 0; i < INVEN_PACK; i++) {
-        const auto &item = *player_ptr->inventory[i];
+    for (const auto i_idx : INVEN_PACK_SLOTS) {
+        const auto &item = *player_ptr->inventory[i_idx];
         if (!item.has_knowledge(tval)) {
             continue;
         }
@@ -221,7 +219,7 @@ static int show_holding_equipment_resistances(PlayerType *player_ptr, ItemKindTy
 static int show_home_equipment_resistances(PlayerType *player_ptr, ItemKindType tval, int label_number_initial, FILE *fff)
 {
     auto label_number = label_number_initial;
-    const auto &store = towns_info[1].get_store(StoreSaleType::HOME);
+    const auto &store = TownList::get_instance().get_town(1).get_store(StoreSaleType::HOME);
     for (short i = 0; i < store.stock_num; i++) {
         const auto &item = *store.stock[i];
         if (!item.has_knowledge(tval)) {

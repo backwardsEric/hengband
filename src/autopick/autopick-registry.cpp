@@ -14,9 +14,8 @@
 #include "flavor/flavor-describer.h"
 #include "io/files-util.h"
 #include "object-enchant/item-feeling.h"
-#include "object-enchant/special-object-flags.h"
 #include "perception/object-perception.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "view/display-messages.h"
@@ -111,23 +110,23 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
     autopick_type an_entry, *entry = &an_entry;
     int autopick_registered = find_autopick_list(player_ptr, o_ptr);
     if (autopick_registered != -1) {
-        concptr what;
-        byte act = autopick_list[autopick_registered].action;
-        if (act & DO_AUTOPICK) {
+        std::string_view what;
+        const auto &act = autopick_list[autopick_registered].action;
+        if (act.has(AutopickMethod::AUTOPICK)) {
             what = _("自動で拾う", "auto-pickup");
-        } else if (act & DO_AUTODESTROY) {
+        } else if (act.has(AutopickMethod::AUTODESTROY)) {
             what = _("自動破壊する", "auto-destroy");
-        } else if (act & DONT_AUTOPICK) {
+        } else if (act.has(AutopickMethod::NOT_AUTOPICK)) {
             what = _("放置する", "leave on floor");
         } else {
             what = _("確認して拾う", "query auto-pickup");
         }
 
-        msg_format(_("そのアイテムは既に%sように設定されています。", "The object is already registered to %s."), what);
+        msg_print(_("そのアイテムは既に{}ように設定されています。", "The object is already registered to {}."), what);
         return false;
     }
 
-    if ((o_ptr->is_known() && o_ptr->is_fixed_or_random_artifact()) || ((o_ptr->ident & IDENT_SENSE) && (o_ptr->feeling == FEEL_TERRIBLE || o_ptr->feeling == FEEL_SPECIAL))) {
+    if ((o_ptr->is_known() && o_ptr->is_fixed_or_random_artifact()) || (o_ptr->has_identification_flag(IdentificationFlag::SENSE) && (o_ptr->feeling == FEEL_TERRIBLE || o_ptr->feeling == FEEL_SPECIAL))) {
         const auto item_name = describe_flavor(player_ptr, *o_ptr, 0);
         msg_format(_("%sは破壊不能だ。", "You cannot auto-destroy %s."), item_name.data());
         return false;
@@ -165,9 +164,11 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
         player_ptr->autopick_autoregister = false;
     }
 
-    pref_fff = angband_fopen(path_pref, FileOpenMode::APPEND);
+    /* If file was not there.  Create one specific to the player. */
+    const auto path_pref_append = !path_pref.empty() ? path_pref : path_build(ANGBAND_DIR_USER, pickpref_filename(player_ptr->base_name, PT_WITH_PNAME));
+    pref_fff = angband_fopen(path_pref_append, FileOpenMode::APPEND);
     if (!pref_fff) {
-        const auto filename_pref = path_pref.string();
+        const auto filename_pref = path_pref_append.string();
         msg_format(_("%s を開くことができませんでした。", "Failed to open %s."), filename_pref.data());
         msg_erase();
         return false;
@@ -184,7 +185,8 @@ bool autopick_autoregister(PlayerType *player_ptr, const ItemEntity *o_ptr)
     }
 
     autopick_entry_from_object(player_ptr, entry, o_ptr);
-    entry->action = DO_AUTODESTROY;
+    entry->action.clear();
+    entry->action.set(AutopickMethod::AUTODESTROY);
     autopick_list.push_back(*entry);
 
     const auto line = autopick_line_from_entry(*entry);

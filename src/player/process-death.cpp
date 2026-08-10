@@ -19,8 +19,8 @@
 #include "perception/object-perception.h"
 #include "player-info/class-info.h"
 #include "system/floor/floor-info.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
+#include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
@@ -99,10 +99,12 @@ static int show_killing_monster(PlayerType *player_ptr)
     }
 
     if (lines.size() >= 3) {
-        char buf[GRAVE_LINE_WIDTH + 1];
-        angband_strcpy(buf, lines[1], sizeof(buf) - 2);
-        angband_strcat(buf, "…", sizeof(buf));
         show_tomb_line(lines[0], GRAVE_KILLER_NAME_ROW);
+
+        //!< 文末を2文字削る文字数は日英で異なる.
+        //!< @todo 英語版は関数ごとプリプロで呼び分けているが、後で統一する.
+        const auto omit = _(2, 3);
+        const auto buf = fmt::format(_("{}…", "{}..."), str_substr(lines[1], 0, GRAVE_LINE_WIDTH - omit));
         show_tomb_line(buf, GRAVE_KILLER_NAME_ROW + 1);
         return 1;
     }
@@ -134,18 +136,19 @@ static void show_dead_place(PlayerType *player_ptr, int extra_line)
         return;
     }
 
+    const auto &floor = *player_ptr->current_floor_ptr;
     std::string place;
-    if (!player_ptr->current_floor_ptr->is_underground()) {
-        concptr field_name = player_ptr->town_num ? "街" : "荒野";
+    if (!floor.is_underground()) {
+        std::string_view field_name = AngbandWorld::get_instance().is_in_any_town() ? "街" : "荒野";
         if (streq(player_ptr->died_from, "途中終了")) {
-            place = format("%sで死んだ", field_name);
+            place = fmt::format("{}で死んだ", field_name);
         } else {
-            place = format("に%sで殺された", field_name);
+            place = fmt::format("に{}で殺された", field_name);
         }
     } else if (streq(player_ptr->died_from, "途中終了")) {
-        place = format("地下 %d 階で死んだ", (int)player_ptr->current_floor_ptr->dun_level);
+        place = fmt::format("地下 {} 階で死んだ", floor.dun_level);
     } else {
-        place = format("に地下 %d 階で殺された", (int)player_ptr->current_floor_ptr->dun_level);
+        place = fmt::format("に地下 {} 階で殺された", floor.dun_level);
     }
 
     show_tomb_line(place, GRAVE_DEAD_PLACE_ROW + extra_line);
@@ -235,8 +238,8 @@ void print_tomb(PlayerType *player_ptr)
 static void inventory_aware(PlayerType *player_ptr)
 {
     ItemEntity *o_ptr;
-    for (int i = 0; i < INVEN_TOTAL; i++) {
-        o_ptr = player_ptr->inventory[i].get();
+    for (const auto i_idx : INVEN_ALL_SLOTS) {
+        o_ptr = player_ptr->inventory[i_idx].get();
         if (!o_ptr->is_valid()) {
             continue;
         }
@@ -252,8 +255,9 @@ static void inventory_aware(PlayerType *player_ptr)
  */
 static void home_aware(PlayerType *player_ptr)
 {
-    for (size_t i = 1; i < towns_info.size(); i++) {
-        const auto &store = towns_info[i].get_store(StoreSaleType::HOME);
+    const auto &towns = TownList::get_instance();
+    for (size_t i = 1; i < towns.size(); i++) {
+        const auto &store = towns.get_town(i).get_store(StoreSaleType::HOME);
         for (auto j = 0; j < store.stock_num; j++) {
             auto &item = *store.stock[j];
             if (!item.is_valid()) {
@@ -301,8 +305,9 @@ static bool show_dead_player_items(PlayerType *player_ptr)
  */
 static void show_dead_home_items(PlayerType *player_ptr)
 {
-    for (size_t l = 1; l < towns_info.size(); l++) {
-        const auto &store = towns_info[l].get_store(StoreSaleType::HOME);
+    const auto &towns = TownList::get_instance();
+    for (size_t l = 1; l < towns.size(); l++) {
+        const auto &store = towns.get_town(l).get_store(StoreSaleType::HOME);
         if (store.stock_num == 0) {
             continue;
         }

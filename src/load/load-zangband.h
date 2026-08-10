@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dungeon/quest.h"
-#include "system/angband.h"
 
+enum class QuestId : short;
 class PlayerType;
 class QuestType;
 void load_zangband_options();
@@ -19,7 +19,7 @@ void set_zangband_game_turns(PlayerType *player_ptr);
 void set_zangband_special_attack(PlayerType *player_ptr);
 void set_zangband_special_defense(PlayerType *player_ptr);
 void set_zangband_action(PlayerType *player_ptr);
-void set_zangband_visited_towns(PlayerType *player_ptr);
+void set_zangband_visited_towns();
 void set_zangband_quest(PlayerType *player_ptr, QuestType *const q_ptr, const QuestId loading_quest_index, const QuestId old_inside_quest);
 void set_zangband_class(PlayerType *player_ptr);
 void set_zangband_learnt_spells(PlayerType *player_ptr);

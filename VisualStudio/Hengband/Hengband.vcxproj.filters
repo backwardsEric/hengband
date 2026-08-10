@@ -947,9 +947,6 @@
     <ClCompile Include="..\..\src\info-reader\json-reader-util.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\info-reader\feature-reader.cpp">
-      <Filter>info-reader</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\info-reader\feature-info-tokens-table.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
@@ -968,6 +965,9 @@
     <ClCompile Include="..\..\src\info-reader\dungeon-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\info-reader\quest-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\info-reader\skill-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
@@ -981,6 +981,9 @@
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\info-reader\race-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\info-reader\terrain-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\info-reader\general-parser.cpp">
@@ -1334,9 +1337,6 @@
     <ClCompile Include="..\..\src\inventory\floor-item-getter.cpp">
       <Filter>inventory</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\inventory\item-getter.cpp">
-      <Filter>inventory</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\floor\object-scanner.cpp">
       <Filter>floor</Filter>
     </ClCompile>
@@ -1538,9 +1538,6 @@
     <ClCompile Include="..\..\src\artifact\fixed-art-generator.cpp">
       <Filter>artifact</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\system\artifact-type-definition.cpp">
-      <Filter>system</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\view\display-store.cpp">
       <Filter>view</Filter>
     </ClCompile>
@@ -1612,6 +1609,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\blue-magic\learnt-power-getter.cpp">
       <Filter>blue-magic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-json-output.cpp">
+      <Filter>bot</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\mind\mind-blue-mage.cpp">
       <Filter>mind</Filter>
@@ -1943,9 +1943,6 @@
     <ClCompile Include="..\..\src\main\info-initializer.cpp">
       <Filter>main</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\main\angband-headers.cpp">
-      <Filter>main</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\main\init-error-messages-table.cpp">
       <Filter>main</Filter>
     </ClCompile>
@@ -2029,9 +2026,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\system\angband-version.cpp">
       <Filter>system</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\locale\utf-8.cpp">
-      <Filter>locale</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\wizard\wizard-game-modifier.cpp">
       <Filter>wizard</Filter>
@@ -2151,9 +2145,6 @@
     <ClCompile Include="..\..\src\view\display-scores.cpp">
       <Filter>view</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\system\item-entity.cpp">
-      <Filter>system</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\object\object-index-list.cpp">
       <Filter>object</Filter>
     </ClCompile>
@@ -2222,9 +2213,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\object-use\zapwand-execution.cpp">
       <Filter>object-use</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\util\rng-xoshiro.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\load\old\load-v1-5-0.cpp">
       <Filter>load\old</Filter>
@@ -2418,9 +2406,6 @@
     <ClCompile Include="..\..\src\monster\monster-pain-describer.cpp">
       <Filter>monster</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\item-info\flavor-initializer.cpp">
-      <Filter>item-info</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\system\redrawing-flags-updater.cpp">
       <Filter>system</Filter>
     </ClCompile>
@@ -2565,6 +2550,90 @@
     <ClCompile Include="..\..\src\io\macro-configurations-store.cpp">
       <Filter>io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\player-info\bluemage-data.cpp">
+      <Filter>player-info</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\floor\town-records.cpp">
+      <Filter>system\floor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\artifact\artifact-definition.cpp">
+      <Filter>system\artifact</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\artifact\artifact-list.cpp">
+      <Filter>system\artifact</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\artifact\artifact-record.cpp">
+      <Filter>system\artifact</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\artifact\artifact-service.cpp">
+      <Filter>system\artifact</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\item\item-entity.cpp">
+      <Filter>system\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\autopick\autopick-keys-table.cpp">
+      <Filter>autopick</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\info-reader\definition-hash-data.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\monrace\monrace-record.cpp">
+      <Filter>system\monrace</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\monrace\monrace-records.cpp">
+      <Filter>system\monrace</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\monrace\monrace-service.cpp">
+      <Filter>system\monrace</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\world\town-info-service.cpp">
+      <Filter>world</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\temp-file.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon\quest-definition.cpp">
+      <Filter>system\dungeon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon\quest-fixed-map.cpp">
+      <Filter>system\dungeon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\dungeon\quest-list.cpp">
+      <Filter>system\dungeon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\save\artifact-record-writer.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\load\artifact-record-loader.cpp">
+      <Filter>load\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\locale\character-encoding.cpp">
+      <Filter>locale</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-definition.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-list.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rumor\rumor-service.cpp">
+      <Filter>rumor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-config.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-configs.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-service.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-record.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system\baseitem\baseitem-records.cpp">
+      <Filter>system\baseitem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\combat\shoot.h">
@@ -2703,9 +2772,6 @@
       <Filter>autopick</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\autopick\autopick-dirty-flags.h">
-      <Filter>autopick</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\autopick\autopick-key-flag-process.h">
       <Filter>autopick</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\autopick\autopick-util.h">
@@ -3437,8 +3503,8 @@
     <ClInclude Include="..\..\src\object-enchant\old-ego-extra-values.h">
       <Filter>object-enchant</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\object-enchant\special-object-flags.h">
-      <Filter>object-enchant</Filter>
+    <ClInclude Include="..\..\src\system\item\identification-flags.h">
+      <Filter>system\item</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\object-enchant\trc-types.h">
       <Filter>object-enchant</Filter>
@@ -3644,9 +3710,6 @@
     <ClInclude Include="..\..\src\info-reader\parse-error-types.h">
       <Filter>info-reader</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\info-reader\feature-reader.h">
-      <Filter>info-reader</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\info-reader\feature-info-tokens-table.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -3665,6 +3728,9 @@
     <ClInclude Include="..\..\src\info-reader\dungeon-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\quest-reader.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\info-reader\skill-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -3678,6 +3744,9 @@
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\race-reader.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\terrain-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\general-parser.h">
@@ -3745,9 +3814,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\core\speed-table.h">
       <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\system\item-entity.h">
-      <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\monster\monster-util.h">
       <Filter>monster</Filter>
@@ -4106,9 +4172,6 @@
     <ClInclude Include="..\..\src\inventory\floor-item-getter.h">
       <Filter>inventory</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\inventory\item-getter.h">
-      <Filter>inventory</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\floor\object-scanner.h">
       <Filter>floor</Filter>
     </ClInclude>
@@ -4331,9 +4394,6 @@
     <ClInclude Include="..\..\src\artifact\fixed-art-generator.h">
       <Filter>artifact</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\system\artifact-type-definition.h">
-      <Filter>system</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\view\display-store.h">
       <Filter>view</Filter>
     </ClInclude>
@@ -4415,6 +4475,9 @@
     <ClInclude Include="..\..\src\blue-magic\learnt-power-getter.h">
       <Filter>blue-magic</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-json-output.h">
+      <Filter>bot</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\blue-magic\blue-magic-caster.h">
       <Filter>blue-magic</Filter>
     </ClInclude>
@@ -4483,9 +4546,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\player\player-status-flags.h">
       <Filter>player</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\room\room-types.h">
-      <Filter>room</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\room\lake-types.h">
       <Filter>room</Filter>
@@ -4763,9 +4823,6 @@
     <ClInclude Include="..\..\src\main\info-initializer.h">
       <Filter>main</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\main\angband-headers.h">
-      <Filter>main</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\main\init-error-messages-table.h">
       <Filter>main</Filter>
     </ClInclude>
@@ -4852,9 +4909,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\artifact\random-art-effects.h">
       <Filter>artifact</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\locale\utf-8.h">
-      <Filter>locale</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\wizard\wizard-game-modifier.h">
       <Filter>wizard</Filter>
@@ -5058,7 +5112,7 @@
     <ClInclude Include="..\..\src\timed-effect\player-cut.h">
       <Filter>timed-effect</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\player-info\bluemage-data-type.h">
+    <ClInclude Include="..\..\src\player-info\bluemage-data.h">
       <Filter>player-info</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\player-info\class-specific-data.h">
@@ -5114,9 +5168,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\player-info\ninja-data-type.h">
       <Filter>player-info</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\util\rng-xoshiro.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\monster-race\monster-aura-types.h">
       <Filter>monster-race</Filter>
@@ -5370,9 +5421,6 @@
     <ClInclude Include="..\..\src\monster\monster-pain-describer.h">
       <Filter>monster</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\item-info\flavor-initializer.h">
-      <Filter>item-info</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\system\redrawing-flags-updater.h">
       <Filter>system</Filter>
     </ClInclude>
@@ -5402,9 +5450,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\util\stack-trace.h">
       <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\external-lib\include-json.h">
-      <Filter>external-lib</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\net\report-error.h">
       <Filter>net</Filter>
@@ -5452,6 +5497,9 @@
       <Filter>save</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\system\enums\grid-flow.h">
+      <Filter>system\enums</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\enums\store-sale-type.h">
       <Filter>system\enums</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\timed-effect\player-protection.h">
@@ -5550,6 +5598,18 @@
     <ClInclude Include="..\..\src\system\enums\terrain\terrain-kind.h">
       <Filter>system\enums\terrain</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\system\enums\terrain\building-type.h">
+      <Filter>system\enums\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\enums\terrain\pattern-tile-type.h">
+      <Filter>system\enums\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\enums\terrain\terrain-conversion-type.h">
+      <Filter>system\enums\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\enums\terrain\trap.h">
+      <Filter>system\enums\terrain</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\system\enums\terrain\wilderness-terrain.h">
       <Filter>system\enums\terrain</Filter>
     </ClInclude>
@@ -5564,6 +5624,84 @@
     </ClInclude>
     <ClInclude Include="..\..\src\io\macro-configurations-store.h">
       <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\floor\town-records.h">
+      <Filter>system\floor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\artifact\artifact-definition.h">
+      <Filter>system\artifact</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\artifact\artifact-list.h">
+      <Filter>system\artifact</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\artifact\artifact-record.h">
+      <Filter>system\artifact</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\artifact\artifact-service.h">
+      <Filter>system\artifact</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\item\item-entity.h">
+      <Filter>system\item</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\definition-hash-data.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\monrace\monrace-record.h">
+      <Filter>system\monrace</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\monrace\monrace-records.h">
+      <Filter>system\monrace</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\monrace\monrace-service.h">
+      <Filter>system\monrace</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\world\town-info-service.h">
+      <Filter>world</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\io\temp-file.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon\quest-definition.h">
+      <Filter>system\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon\quest-fixed-map.h">
+      <Filter>system\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\dungeon\quest-list.h">
+      <Filter>system\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\save\artifact-record-writer.h">
+      <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\load\artifact-record-loader.h">
+      <Filter>load\item</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-definition.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-list.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-service.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rumor\rumor-rarity.h">
+      <Filter>rumor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-config.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-configs.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-service.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-record.h">
+      <Filter>system\baseitem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system\baseitem\baseitem-records.h">
+      <Filter>system\baseitem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -5757,6 +5895,9 @@
     <Filter Include="blue-magic">
       <UniqueIdentifier>{6b429e6d-e548-430e-9413-8bc2e0bda1ed}</UniqueIdentifier>
     </Filter>
+    <Filter Include="bot">
+      <UniqueIdentifier>{c28ed48c-6e2c-4c12-93cf-e3e54a1171c6}</UniqueIdentifier>
+    </Filter>
     <Filter Include="target">
       <UniqueIdentifier>{1789a1b0-5c89-4dfc-a4ba-1c3b711705b5}</UniqueIdentifier>
     </Filter>
@@ -5820,9 +5961,6 @@
     <Filter Include="mspell\mspell-attack">
       <UniqueIdentifier>{ab971e7b-4a9e-4f88-a557-eb89840abd61}</UniqueIdentifier>
     </Filter>
-    <Filter Include="item-info">
-      <UniqueIdentifier>{3aefd2e8-8dd8-41dd-bc6b-7dadd75dfd6b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{6f311bdc-4407-49b7-96ab-bc2ed187b61c}</UniqueIdentifier>
     </Filter>
@@ -5864,6 +6002,15 @@
     </Filter>
     <Filter Include="external-lib\fmt">
       <UniqueIdentifier>{de5173c3-9151-46e9-a937-8861a5a14c00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="system\artifact">
+      <UniqueIdentifier>{58714fb7-9c67-4cd4-b69f-a5b0d7d7964f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="system\item">
+      <UniqueIdentifier>{f7624169-a38b-4935-92a4-9334ddd4c76a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="rumor">
+      <UniqueIdentifier>{c62f5f7a-ab76-464e-ad5b-3342523e5520}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

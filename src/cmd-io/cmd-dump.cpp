@@ -28,7 +28,6 @@
 #include "system/angband-system.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/floor/floor-info.h"
-#include "system/floor/town-info.h"
 #include "system/floor/town-list.h"
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
@@ -56,8 +55,7 @@ void do_cmd_pref(PlayerType *player_ptr)
         return;
     }
 
-    auto buf(*input_str);
-    (void)interpret_pref_file(player_ptr, buf.data());
+    (void)interpret_pref_file(player_ptr, *input_str);
 }
 
 /*
@@ -233,7 +231,8 @@ void do_cmd_version()
  */
 void do_cmd_feeling(PlayerType *player_ptr)
 {
-    if (AngbandWorld::get_instance().is_wild_mode()) {
+    const auto &world = AngbandWorld::get_instance();
+    if (world.is_wild_mode()) {
         return;
     }
 
@@ -243,8 +242,8 @@ void do_cmd_feeling(PlayerType *player_ptr)
         return;
     }
 
-    if (player_ptr->town_num && !floor.is_underground()) {
-        if (towns_info[player_ptr->town_num].name == _("荒野", "wilderness")) {
+    if (world.is_in_any_town() && !floor.is_underground()) {
+        if (world.get_town().get_name() == _("荒野", "wilderness")) {
             msg_print(_("何かありそうな荒野のようだ。", "Looks like a strange wilderness."));
             return;
         }

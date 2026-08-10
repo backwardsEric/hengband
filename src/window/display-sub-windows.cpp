@@ -4,6 +4,7 @@
 #include "game-option/special-options.h"
 #include "game-option/text-display-options.h"
 #include "inventory/inventory-describer.h"
+#include "inventory/inventory-slot-types.h"
 #include "inventory/inventory-util.h"
 #include "locale/japanese.h"
 #include "main/sound-of-music.h"
@@ -24,11 +25,12 @@
 #include "player/player-status-table.h"
 #include "player/player-status.h"
 #include "spell/spells-execution.h"
+#include "system/baseitem/baseitem-service.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
-#include "system/item-entity.h"
+#include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/terrain/terrain-definition.h"
@@ -131,7 +133,7 @@ static void print_monster_line(TERM_LEN x, TERM_LEN y, const MonsterEntity &mons
 {
     term_erase(0, y);
     term_gotoxy(x, y);
-    const auto &monrace = monster.get_appearance_monrace();
+    const auto &monrace = monster.get_apparent_monrace();
     if (!monrace.is_valid()) {
         return;
     }
@@ -219,7 +221,7 @@ void print_monster_list(const FloorType &floor, const std::vector<MONSTER_IDX> &
 
 static void print_pet_list_oneline(PlayerType *player_ptr, const MonsterEntity &monster, TERM_LEN x, TERM_LEN y, TERM_LEN width)
 {
-    const auto &monrace = monster.get_appearance_monrace();
+    const auto &monrace = monster.get_apparent_monrace();
     const auto name = monster_desc(player_ptr, monster, MD_ASSUME_VISIBLE | MD_INDEF_VISIBLE | MD_NO_OWNER);
     const auto &[bar_color, bar_len] = monster.get_hp_bar_data();
     const auto is_visible = monster.ml && !player_ptr->effects()->hallucination().is_hallucinated();
@@ -307,19 +309,20 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
     }
 
     const auto &[wid, hgt] = term_get_size();
+    const auto &empty_symbol = BaseitemService::get_dummy_symbol();
     byte attr = TERM_WHITE;
-    for (int i = INVEN_MAIN_HAND; i < INVEN_TOTAL; i++) {
-        int cur_row = i - INVEN_MAIN_HAND;
+    for (const auto i_idx : INVEN_WIELDING_SLOTS) {
+        int cur_row = i_idx - INVEN_MAIN_HAND;
         if (cur_row >= hgt) {
             break;
         }
 
-        const auto &item = *player_ptr->inventory[i];
-        auto do_disp = player_ptr->select_ring_slot ? is_ring_slot(i) : item_tester.okay(&item);
+        const auto &item = *player_ptr->inventory[i_idx];
+        auto do_disp = player_ptr->select_ring_slot ? is_ring_slot(i_idx) : item_tester.okay(&item);
         std::string tmp_val = "   ";
 
         if (do_disp) {
-            tmp_val[0] = index_to_label(i);
+            tmp_val[0] = index_to_label(i_idx);
             tmp_val[1] = ')';
         }
 
@@ -328,8 +331,8 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
         term_putstr(0, cur_row, cur_col, TERM_WHITE, tmp_val);
 
         std::string item_name;
-        auto is_two_handed = (i == INVEN_MAIN_HAND) && can_attack_with_sub_hand(player_ptr);
-        is_two_handed |= (i == INVEN_SUB_HAND) && can_attack_with_main_hand(player_ptr);
+        auto is_two_handed = (i_idx == INVEN_MAIN_HAND) && can_attack_with_sub_hand(player_ptr);
+        is_two_handed |= (i_idx == INVEN_SUB_HAND) && can_attack_with_main_hand(player_ptr);
         if (is_two_handed && has_two_handed_weapons(player_ptr)) {
             item_name = _("(武器を両手持ち)", "(wielding with two-hands)");
             attr = TERM_WHITE;
@@ -344,7 +347,8 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
         }
 
         if (show_item_graph) {
-            term_queue_bigchar(cur_col, cur_row, { item.get_symbol(), {} });
+            const auto ds = item.is_valid() ? item.get_symbol() : empty_symbol;
+            term_queue_bigchar(cur_col, cur_row, { ds, {} });
             if (use_bigtile) {
                 cur_col++;
             }
@@ -361,7 +365,7 @@ static void display_equipment(PlayerType *player_ptr, const ItemTester &item_tes
 
         if (show_labels) {
             term_putstr(wid - 20, cur_row, -1, TERM_WHITE, " <-- ");
-            prt(mention_use(player_ptr, i), cur_row, wid - 15);
+            prt(mention_use(player_ptr, i_idx), cur_row, wid - 15);
         }
     }
 
@@ -567,7 +571,7 @@ static void display_floor_item_list(PlayerType *player_ptr, const Pos2D &pos)
             line = format(_("(X:%03d Y:%03d) 何か奇妙な物の足元の発見済みアイテム一覧", "Found items at (%03d,%03d) under something strange"), pos.x, pos.y);
         } else {
             const auto &monster = floor.m_list[grid.m_idx];
-            const auto &monrace = monster.get_appearance_monrace();
+            const auto &monrace = monster.get_apparent_monrace();
             line = format(_("(X:%03d Y:%03d) %sの足元の発見済みアイテム一覧", "Found items at (%03d,%03d) under %s"), pos.x, pos.y, monrace.name.data());
         }
     } else {

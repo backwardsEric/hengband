@@ -6,7 +6,6 @@
 
 #include "melee/melee-switcher.h"
 #include "core/disturbance.h"
-#include "dungeon/quest.h"
 #include "effect/attribute-types.h"
 #include "melee/melee-util.h"
 #include "monster-attack/monster-attack-effect.h"
@@ -19,6 +18,7 @@
 #include "spell-kind/spells-polymorph.h"
 #include "spell-kind/spells-teleport.h"
 #include "spell/spells-util.h"
+#include "system/dungeon/quest-definition.h"
 #include "system/floor/floor-info.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
@@ -304,8 +304,13 @@ void decide_monster_attack_effect(PlayerType *player_ptr, mam_type *mam_ptr)
 
         if (!has_resist) {
             if (one_in_(2)) {
-                msg_format(_(("%s^はどこかへ消えていった！"), ("%s^ disappears!")), mam_ptr->t_name);
-                teleport_away(player_ptr, mam_ptr->t_idx, 50, TELEPORT_PASSIVE);
+                if (mam_ptr->t_ptr->is_riding()) {
+                    msg_format(_("%s^はテレポートした！", "%s^ teleports away!"), mam_ptr->t_name);
+                    teleport_player_away(mam_ptr->m_idx, player_ptr, 50, false);
+                } else {
+                    msg_format(_("%s^はどこかへ消えていった！", "%s^ disappears!"), mam_ptr->t_name);
+                    teleport_away(player_ptr, mam_ptr->t_idx, 50, TELEPORT_PASSIVE);
+                }
             } else {
                 if (polymorph_monster(player_ptr, mam_ptr->t_ptr->fy, mam_ptr->t_ptr->fx)) {
                     msg_format(_("%s^は変化した！", "%s^ changes!"), mam_ptr->t_name);
@@ -323,7 +328,7 @@ void decide_monster_attack_effect(PlayerType *player_ptr, mam_type *mam_ptr)
     }
 }
 
-void describe_monster_missed_monster(PlayerType *player_ptr, mam_type *mam_ptr)
+void describe_monster_missed_monster(FloorType &floor, mam_type *mam_ptr)
 {
     switch (mam_ptr->method) {
     case RaceBlowMethodType::HIT:
@@ -338,7 +343,7 @@ void describe_monster_missed_monster(PlayerType *player_ptr, mam_type *mam_ptr)
     case RaceBlowMethodType::CRUSH:
     case RaceBlowMethodType::ENGULF:
     case RaceBlowMethodType::CHARGE: {
-        (void)set_monster_csleep(player_ptr, mam_ptr->t_idx, 0);
+        (void)set_monster_csleep(floor, mam_ptr->t_idx, 0);
         if (mam_ptr->see_m) {
 #ifdef JP
             msg_format("%sは%s^の攻撃をかわした。", mam_ptr->t_name, mam_ptr->m_name);
