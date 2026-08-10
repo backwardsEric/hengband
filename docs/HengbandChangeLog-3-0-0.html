@@ -11,10 +11,27 @@
     <P><A HREF="index.html">Binaries</A> | <A HREF="HengbandEnglishScreenshot.html">English screen shot</A> | <A HREF="HengbandJapaneseScreenshot.html">Japanese screen shot</A> | <A HREF="HengbandFeedback.html">Feedback</A> | <A HREF="HengbandSourceCode.html">Source code</A> | 3.0 Changes | <A HREF="HengbandChangeLog.html">2.2.1.7 Changes</A> | <A HREF="HengbandChangeLog-1-6-2.html">1.6.2 Changes</A>
     <H1>Changes</H1>
       <OL>
-        <LI>January 3, 2026.  3.0.2 Beta2 incorporates all of the changes in
-          Hengband's preliminary 3.0 versions up to 3.0.2Beta2.  You can
+        <LI>August 10, 2026.  3.0.2 Beta4 incorporates all of the changes in
+          Hengband's preliminary 3.0 version up to 3.0.2Beta4.  You can
           find Hengband's notes, in Japanese, on what has changed at
           <A HREF="https://hengband.github.io/history.html">https://hengband.github.io/history.html</A>.
+          The changes that are specific to the Mac interface or this fork are:
+          <UL>
+            <LI>Belatedly adapt to upstream's change to quit() from November
+              2024.  That resolves some problems with the Quit menu entry in
+              the Mac interface.
+            <LI>Put call to setTerm() last in the terminal initialization hook.
+              Ported from sil-q where it can avoid an infinite loop at startup.
+              That infinite loop has not been seen with Hengband.
+            <LI>Generate a PNG file to incorporate upstream's changes to the
+              tiles and adapt graf/osx_bmp2png.py to those changes.
+            <LI>Correct a typo in a comment.
+            <LI>This release was built on macOS 26.5.2 with Xcode 26.6.  There
+              are no changes to the minimum required version of macOS (still
+              10.15).
+          </UL>
+        <LI>January 3, 2026.  3.0.2 Beta2 incorporates all of the changes in
+          Hengband's preliminary 3.0 versions up to 3.0.2Beta2.
           The changes that are specific to the Mac interface or this fork are:
           <UL>
             <LI>Adapt to upstream's change to term_get_cursor().
