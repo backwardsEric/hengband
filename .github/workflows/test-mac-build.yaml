@@ -36,6 +36,7 @@ jobs:
       # by default with macos-latest).
       - name: Install Build Dependencies
         run: |
+          brew untap aws/tap
           brew install autoconf
           brew install automake
 
@@ -102,6 +103,7 @@ jobs:
       # macos-latest).
       - name: Install Build Dependencies
         run: |
+          brew untap aws/tap
           brew install autoconf
           brew install automake
           brew install nkf
