@@ -84,7 +84,11 @@ hengband_SOURCES = \
 	blue-magic/learnt-info.cpp blue-magic/learnt-info.h \
 	blue-magic/learnt-power-getter.cpp blue-magic/learnt-power-getter.h \
 	\
+	bot/bot-control-server.cpp bot/bot-control-server.h \
 	bot/bot-json-output.cpp bot/bot-json-output.h \
+	bot/bot-report.cpp bot/bot-report.h \
+	bot/bot-screen.cpp bot/bot-screen.h \
+	bot/bot-socket-server.cpp bot/bot-socket-server.h \
 	\
 	cmd-action/cmd-attack.cpp cmd-action/cmd-attack.h \
 	cmd-action/cmd-hissatsu.cpp cmd-action/cmd-hissatsu.h \
@@ -194,6 +198,7 @@ hengband_SOURCES = \
 	effect/effect-characteristics.h \
 	\
 	external-lib/include/nlohmann/json.hpp \
+	external-lib/include/nlohmann/json_fwd.hpp \
 	external-lib/include/simpleini/SimpleIni.h \
 	external-lib/include/std/detail/associated_types.hpp \
 	external-lib/include/std/iterator \
@@ -589,6 +594,8 @@ hengband_SOURCES = \
 	grid/lighting-colors-table.cpp grid/lighting-colors-table.h \
 	grid/object-placer.cpp grid/object-placer.h \
 	grid/trap.cpp grid/trap.h \
+	\
+	headless-term/headless-term.cpp headless-term/headless-term.h \
 	\
 	hpmp/hp-mp-processor.cpp hpmp/hp-mp-processor.h \
 	hpmp/hp-mp-regenerator.cpp hpmp/hp-mp-regenerator.h \

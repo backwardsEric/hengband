@@ -6,10 +6,12 @@
  * are included in all such copies.
  */
 
+#include "bot/bot-control-server.h"
 #include "core/asking-player.h"
 #include "core/game-play.h"
 #include "core/scores.h"
 #include "game-option/runtime-arguments.h"
+#include "headless-term/headless-term.h"
 #include "io/files-util.h"
 #include "io/record-play-movie.h"
 #include "io/signal-handlers.h"
@@ -56,6 +58,8 @@ static void quit_hook(std::string_view s)
 {
     /* Unused */
     (void)s;
+
+    shutdown_bot_control_server();
 
     /* Scan windows */
     for (auto it = angband_terms.rbegin(); it != angband_terms.rend(); ++it) {
@@ -160,6 +164,15 @@ static void display_usage(const char *program)
     puts("           Output auto generated spoilers and exit");
     puts("  --bot-json-output[=path]");
     puts("           Output bot-readable JSON Lines snapshots before player input");
+    puts("  --control-port=<port>");
+    puts("           Listen on 127.0.0.1:<port> to be controlled by an external program");
+    puts("  --fixed-seed=<seed>");
+    puts("           Fix the initial random seed to make a playthrough reproducible");
+    puts("  --headless");
+    puts("           Use the terminal which has no real display and no real input");
+    puts("           device (requires --control-port, conflicts with -s and -m)");
+    puts("  --headless-term-count=<num>");
+    puts("           Number of terminals the headless frontend creates (default 1)");
     puts("");
 
 #ifdef USE_X11
@@ -198,20 +211,14 @@ static void display_usage(const char *program)
  */
 static bool parse_long_opt(const char *opt)
 {
-    static constexpr std::string_view bot_json_output = "bot-json-output";
     const std::string_view option(opt + 2);
-    if (option == bot_json_output) {
-        arg_bot_json_output = true;
+    switch (parse_runtime_argument(option)) {
+    case RuntimeArgumentResult::HANDLED:
         return false;
-    }
-
-    if (option.starts_with(bot_json_output) && option[bot_json_output.size()] == '=') {
-        arg_bot_json_output = true;
-        const auto path = option.substr(bot_json_output.size() + 1);
-        if (!path.empty()) {
-            arg_bot_json_output_path = path;
-        }
-        return false;
+    case RuntimeArgumentResult::INVALID:
+        return true;
+    case RuntimeArgumentResult::NOT_HANDLED:
+        break;
     }
 
     if (option != "output-spoilers") {
@@ -385,8 +392,32 @@ int main(int argc, char *argv[])
         argv[1] = nullptr;
     }
 
+    // 実描画・実入力デバイスを持たない端末とは両立しないオプションを弾く。
+    // -m<sys> はヘッドレス端末が選ばれる時点で参照される機会が無く、-s<num> の display_scores() は
+    // 制御サーバの起動前に quit() する。どちらも無言で無視・終了すると、クライアントからは
+    // 接続拒否としか見えないため、使い方の誤りとして標準エラー出力へ理由を出して終了する
+    if (arg_headless) {
+        if (!mstr.empty()) {
+            quit("The --headless option cannot be used with the -m option.");
+        }
+
+        if (show_score > 0) {
+            quit("The --headless option cannot be used with the -s option.");
+        }
+    }
+
     process_player_name(p_ptr, true);
     quit_aux = quit_hook;
+
+    // 実描画・実入力デバイスを持たないため、-m の指定が無い時に暗黙で選ばれてはならない。
+    // 明示的に指定された以上、初期化に失敗した時に他のモジュールへ切り替えるのも誤りなので即座に終了する
+    if (arg_headless) {
+        if (0 != init_headless_term()) {
+            quit("Unable to prepare the headless terminal!");
+        }
+
+        done = true;
+    }
 
 #ifdef USE_X11
     if (!done && (mstr.empty() || (mstr == "x11"))) {
@@ -428,10 +459,19 @@ int main(int argc, char *argv[])
 
     signals_init();
 
+    // 端末が揃った後、最初のキー入力待ちより前に待ち受けを始める。
+    // これにより起動直後の画面もクライアントから操作できる
+    init_bot_control_server();
+
     {
         TermCenteredOffsetSetter tcos(MAIN_TERM_MIN_COLS, MAIN_TERM_MIN_ROWS);
         init_angband(p_ptr, false);
-        pause_line(MAIN_TERM_MIN_ROWS - 1);
+
+        // ヘッドレスではキーを押す相手が居らず、Windows版のヘッドレス起動 (run_headless_game())
+        // にもこの待ちが無い。省くことで、同じキー列がプラットフォームを問わず同じ結果になる
+        if (!arg_headless) {
+            pause_line(MAIN_TERM_MIN_ROWS - 1);
+        }
     }
 
     play_game(p_ptr, new_game, browsing_movie);

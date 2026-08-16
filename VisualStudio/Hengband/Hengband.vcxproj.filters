@@ -1610,7 +1610,19 @@
     <ClCompile Include="..\..\src\blue-magic\learnt-power-getter.cpp">
       <Filter>blue-magic</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-control-server.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\bot\bot-json-output.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-report.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-screen.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-socket-server.cpp">
       <Filter>bot</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\mind\mind-blue-mage.cpp">
@@ -2117,6 +2129,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\system\player-type-definition.cpp">
       <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\headless-term\headless-term.cpp">
+      <Filter>headless-term</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\hpmp\hp-mp-processor.cpp">
       <Filter>hpmp</Filter>
@@ -4475,7 +4490,19 @@
     <ClInclude Include="..\..\src\blue-magic\learnt-power-getter.h">
       <Filter>blue-magic</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-control-server.h">
+      <Filter>bot</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\bot\bot-json-output.h">
+      <Filter>bot</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-report.h">
+      <Filter>bot</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-screen.h">
+      <Filter>bot</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-socket-server.h">
       <Filter>bot</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\blue-magic\blue-magic-caster.h">
@@ -5030,6 +5057,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\player-status\player-hand-types.h">
       <Filter>player-status</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\headless-term\headless-term.h">
+      <Filter>headless-term</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\hpmp\hp-mp-processor.h">
       <Filter>hpmp</Filter>
@@ -5780,6 +5810,9 @@
     </Filter>
     <Filter Include="system">
       <UniqueIdentifier>{12dd43b2-8ba5-4fc4-8d11-1901ec804390}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="headless-term">
+      <UniqueIdentifier>{9ed35751-f784-4f57-ad94-7a1edcf48ff3}</UniqueIdentifier>
     </Filter>
     <Filter Include="grid">
       <UniqueIdentifier>{93b0c1d1-0841-44fe-8503-d6729d290350}</UniqueIdentifier>
