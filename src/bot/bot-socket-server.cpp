@@ -24,12 +24,11 @@
 #include <chrono>
 #include <fmt/format.h>
 
-#include "autoconf.h"
-#ifdef MACH_O_COCOA
 /*
  * macOS has htons() and htonl() as macros that fail when invoked as ::htons
  * and ::htonl.  Work around that.
  */
+#if defined(__APPLE__) && defined(__MACH__)
 #define my_htons(x) htons(x)
 #define my_htonl(x) htonl(x)
 #else
