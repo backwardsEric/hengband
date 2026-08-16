@@ -5,7 +5,7 @@ name: test-mac-build
 
 on:
   push:
-    branches: [ 'macos-develop', 'macos-2-2-1', 'macos-1-6-2' ]
+    branches: [ 'macos-develop', 'macos-2-2-1', 'macos-1-6-2', 'fix-ncurses' ]
   pull_request:
 
 env:
