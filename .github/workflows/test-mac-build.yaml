@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Requires automake and autoconf; install those via homebrew (available
       # by default with macos-latest).
@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Clone Project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Requires automake, autoconf, and, unless building the 1.6.2 version,
       # nkf; install those via homebrew (available by default with
