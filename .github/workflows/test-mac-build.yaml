@@ -38,6 +38,7 @@ jobs:
       # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
+          brew untap aws/tap
           brew install m4
           brew install autoconf
           brew install automake
@@ -117,6 +118,7 @@ jobs:
       # pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
+          brew untap aws/tap
           brew install m4
           brew install autoconf
           brew install automake
@@ -181,6 +183,7 @@ jobs:
       # by default).  Also need pkgconf or pkg-config if building Hengband 3.
       - name: Install Build Dependencies
         run: |
+          brew untap aws/tap
           brew install m4
           brew install autoconf
           brew install automake
