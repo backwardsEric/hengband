@@ -24,6 +24,19 @@
 #include <chrono>
 #include <fmt/format.h>
 
+#include "autoconf.h"
+#ifdef MACH_O_COCOA
+/*
+ * macOS has htons() and htonl() as macros that fail when invoked as ::htons
+ * and ::htonl.  Work around that.
+ */
+#define my_htons(x) htons(x)
+#define my_htonl(x) htonl(x)
+#else
+#define my_htons(x) ::htons(x)
+#define my_htonl(x) ::htonl(x)
+#endif
+
 namespace {
 
 /*!
@@ -386,9 +399,9 @@ bool BotSocketServer::listen_on_loopback()
 
     sockaddr_in address{};
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
+    address.sin_addr.s_addr = my_htonl(INADDR_LOOPBACK);
     // portが1〜65535に収まることはコンストラクタの事前条件
-    address.sin_port = ::htons(static_cast<uint16_t>(this->port));
+    address.sin_port = my_htons(static_cast<uint16_t>(this->port));
     if (::bind(native_socket(socket), reinterpret_cast<const sockaddr *>(&address), static_cast<socket_length_t>(sizeof(address))) != 0) {
         report_bot_message(fmt::format("failed to bind the listening socket (error {})", last_socket_error()));
         close_socket_handle(socket);
