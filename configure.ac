@@ -121,7 +121,7 @@ fi
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:
 AS_IF([test "x$enable_cocoa" != xyes],
-  [have_ncurses=no 
+  [have_ncurses=no
   curses_lib=
   AC_CHECK_LIB([ncursesw], [initscr],
       [have_ncurses=yes

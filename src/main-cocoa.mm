@@ -2195,18 +2195,18 @@ static int compare_advances(const void *ap, const void *bp)
 - (void)requestRedraw
 {
     if (!self->terminal || !self->terminal->mapped_flag) return;
-    
+
     term_type *old = game_term;
-    
+
     /* Activate the term */
     term_activate(self->terminal);
-    
+
     /* Redraw the contents */
     term_redraw();
-    
+
     /* Flush the output */
     term_fresh();
-    
+
     /* Restore the old term */
     term_activate(old);
 }
@@ -2227,7 +2227,7 @@ static int compare_advances(const void *ap, const void *bp)
         CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         CFTimeInterval timeSinceLastRefresh = now - self->lastRefreshTime;
         CFTimeInterval timeUntilNextRefresh = (1. / (double)frames_per_second) - timeSinceLastRefresh;
-        
+
         if (timeUntilNextRefresh > 0)
         {
             usleep((unsigned long)(timeUntilNextRefresh * 1000000.));
@@ -3654,8 +3654,8 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 #pragma mark NSWindowDelegate Methods
 
 /*- (void)windowWillStartLiveResize: (NSNotification *)notification
-{ 
-}*/ 
+{
+}*/
 
 - (void)windowDidEndLiveResize: (NSNotification *)notification
 {
@@ -3920,12 +3920,12 @@ static int compare_nsrect_yorigin_greater(const void *ap, const void *bp)
 static void set_color_for_index(int idx)
 {
     byte rv, gv, bv;
-    
+
     /* Extract the R,G,B data */
     rv = angband_color_table[idx][1];
     gv = angband_color_table[idx][2];
     bv = angband_color_table[idx][3];
-    
+
     CGContextSetRGBFillColor((CGContextRef) [[NSGraphicsContext currentContext] CGContext], rv/255., gv/255., bv/255., 1.);
 }
 
@@ -4229,7 +4229,7 @@ static void Term_nuke_cocoa(term_type *t)
 static CGImageRef create_angband_image(NSString *path)
 {
     CGImageRef decodedImage = NULL, result = NULL;
-    
+
     /* Try using ImageIO to load the image */
     if (path)
     {
@@ -4249,7 +4249,7 @@ static CGImageRef create_angband_image(NSString *path)
             }
         }
     }
-    
+
     /*
      * Draw the sucker to defeat ImageIO's weird desire to cache and decode on
      * demand. Our images aren't that big!
@@ -4257,11 +4257,11 @@ static CGImageRef create_angband_image(NSString *path)
     if (decodedImage)
     {
         size_t width = CGImageGetWidth(decodedImage), height = CGImageGetHeight(decodedImage);
-        
+
         /* Compute our own bitmap info */
         CGBitmapInfo imageBitmapInfo = CGImageGetBitmapInfo(decodedImage);
         CGBitmapInfo contextBitmapInfo = kCGBitmapByteOrderDefault;
-        
+
         switch (imageBitmapInfo & kCGBitmapAlphaInfoMask) {
             case kCGImageAlphaNone:
             case kCGImageAlphaNoneSkipLast:
@@ -4984,9 +4984,9 @@ static BOOL send_event(NSEvent *event)
         {
             /* Try performing a key equivalent */
             if ([[NSApp mainMenu] performKeyEquivalent:event]) break;
-            
+
             unsigned modifiers = [event modifierFlags];
-            
+
             /* Send all events with NSEventModifierFlagCommand through */
             if (modifiers & NSEventModifierFlagCommand)
             {
@@ -5040,7 +5040,7 @@ static BOOL send_event(NSEvent *event)
 
             /* Hide the mouse pointer */
             [NSCursor setHiddenUntilMouseMoves:YES];
-            
+
             /* Enqueue it */
             if (ch != '\0')
             {
@@ -5082,10 +5082,10 @@ static BOOL send_event(NSEvent *event)
 		/* End the macro trigger. */
 		send_key(13);
 	    }
-            
+
             break;
         }
-            
+
         case NSEventTypeLeftMouseDown:
 	case NSEventTypeRightMouseDown:
 	    AngbandHandleEventMouseDown(event);
@@ -5099,7 +5099,7 @@ static BOOL send_event(NSEvent *event)
             }
             break;
         }
-            
+
         default:
             [NSApp sendEvent:event];
             return YES;
@@ -5623,7 +5623,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
 
     /* Record it in the preferences */
     NSUserDefaults *defs = [NSUserDefaults angbandDefaults];
-    [defs setValue:[newFont fontName] 
+    [defs setValue:[newFont fontName]
         forKey:[NSString stringWithFormat:@"FontName-%d", mainTerm]];
     [defs setFloat:[newFont pointSize]
         forKey:[NSString stringWithFormat:@"FontSize-%d", mainTerm]];
@@ -5698,10 +5698,10 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
 {
     /* Forget messages */
     msg_flag = false;
-    
+
     /* Save the game */
     do_cmd_save_game(p_ptr, 0);
-    
+
     /*
      * Record the current save file so we can select it by default next time.
      * It's a little sketchy that this only happens when we save through the
@@ -6198,7 +6198,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
 - (void)applicationDidFinishLaunching:sender
 {
     [self beginGame];
-    
+
     /*
      * Once beginGame finished, the game is over - that's how Angband works,
      * and we should quit
@@ -6242,11 +6242,11 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
  * Dynamically build the Graphics menu
  */
 - (void)menuNeedsUpdate:(NSMenu *)menu {
-    
+
     /* Only the graphics menu is dynamic */
     if (! [menu isEqual:self.graphicsMenu])
         return;
-    
+
     /*
      * If it's non-empty, then we've already built it. Currently graphics modes
      * won't change once created; if they ever can we can remove this check.
@@ -6255,10 +6255,10 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
      */
     if ([menu numberOfItems] > 0)
         return;
-    
+
     /* This is the action for all these menu items */
     SEL action = @selector(setGraphicsMode:);
-    
+
     /* Add an initial Classic ASCII menu item */
     NSString *tblname = @"GraphicsMenu";
     NSString *key = @"Classic ASCII";
@@ -6266,7 +6266,7 @@ static void cocoa_file_open_hook(const std::filesystem::path &path, const FileOp
 	key, tblname, [NSBundle mainBundle], key, @"");
     NSMenuItem *classicItem = [menu addItemWithTitle:title action:action keyEquivalent:@""];
     [classicItem setTag:GRAPHICS_NONE];
-    
+
     /* Walk through the list of graphics modes */
     if (graphics_modes) {
 	NSInteger i;
