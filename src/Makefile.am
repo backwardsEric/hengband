@@ -1601,7 +1601,10 @@ appjadir = $(APPRES)/ja.lproj
 else
 AM_OBJCXXFLAGS =
 AM_CXXFLAGS =
-EXTRA_hengband_SOURCES += main-cocoa.mm system/grafmode.h system/grafmode.cpp \
+EXTRA_libhengband_a_SOURCES += \
+	main-cocoa.mm \
+	system/grafmode.h \
+	system/grafmode.cpp \
 	cocoa/AppDelegate.h
 hengband_LINK = $(CXXLINK)
 endif
