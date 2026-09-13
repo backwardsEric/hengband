@@ -1490,11 +1490,18 @@ hengband_test_SOURCES = \
 	test/test-main.cpp \
 	test/scoped-rng.h \
 	\
+	test/info-reader/test-info-reader-util.cpp \
+	test/info-reader/test-json-reader-util.cpp \
+	test/info-reader/test-skill-reader.cpp \
+	test/load/test-angband-version-comparer.cpp \
 	test/timed-effect/test-player-cut.cpp \
 	test/timed-effect/test-player-stun.cpp \
 	test/timed-effect/test-timed-effect.cpp \
+	test/util/test-dice.cpp \
+	test/util/test-flag-group.cpp \
 	test/util/test-probability-table.cpp \
-	test/util/test-sha256.cpp
+	test/util/test-sha256.cpp \
+	test/util/test-string-processor.cpp
 
 hengband_test_LDADD = libhengband.a
 
