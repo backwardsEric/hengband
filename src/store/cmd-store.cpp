@@ -15,7 +15,6 @@
 #include "player-status/player-energy.h"
 #include "store/home.h"
 #include "store/store-key-processor.h"
-#include "store/store-owners.h"
 #include "store/store-util.h"
 #include "store/store.h"
 #include "system/dungeon/dungeon-definition.h"
@@ -99,7 +98,7 @@ void do_cmd_store(PlayerType *player_ptr)
     }
 
     if (maintain_num > 0) {
-        store_maintenance(player_ptr, world.get_town_index(), store_num, maintain_num);
+        store_maintenance(player_ptr, store, maintain_num);
         store.last_visit = world.game_turn;
     }
 
@@ -112,7 +111,6 @@ void do_cmd_store(PlayerType *player_ptr)
     get_com_no_macros = true;
     cur_store_feat = grid.feat;
     st_ptr = &store;
-    ot_ptr = &owners.at(store_num)[st_ptr->owner];
     store_top = 0;
     play_music(TERM_XTRA_MUSIC_BASIC, MUSIC_BASIC_BUILD);
     display_store(player_ptr, store_num);
@@ -167,7 +165,7 @@ void do_cmd_store(PlayerType *player_ptr)
                 }
 
                 leave_store = true;
-            } else if (!store_check_num(&item_inventory, store_num)) {
+            } else if (!store_check_num(&item_inventory, store)) {
                 msg_print(_("ザックからアイテムがあふれそうなので、あわてて家から出た...", "Your pack is so full that you flee your home..."));
                 leave_store = true;
             } else {

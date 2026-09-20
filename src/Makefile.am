@@ -623,6 +623,7 @@ libhengband_a_SOURCES = \
 	info-reader/dungeon-info-tokens-table.cpp info-reader/dungeon-info-tokens-table.h \
 	info-reader/dungeon-reader.cpp info-reader/dungeon-reader.h \
 	info-reader/ego-reader.cpp info-reader/ego-reader.h \
+	info-reader/wilderness-reader.cpp info-reader/wilderness-reader.h \
 	info-reader/feature-info-tokens-table.cpp info-reader/feature-info-tokens-table.h \
 	info-reader/fixed-map-parser.cpp info-reader/fixed-map-parser.h \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
@@ -926,13 +927,11 @@ libhengband_a_SOURCES = \
 	mspell/mspell-attack/mspell-curse.cpp mspell/mspell-attack/mspell-curse.h \
 	mspell/mspell-attack/mspell-particularity.cpp mspell/mspell-attack/mspell-particularity.h \
 	\
-	mutation/gain-mutation-switcher.cpp mutation/gain-mutation-switcher.h \
-	mutation/lose-mutation-switcher.cpp mutation/lose-mutation-switcher.h \
 	mutation/mutation-calculator.cpp mutation/mutation-calculator.h \
 	mutation/mutation-investor-remover.cpp mutation/mutation-investor-remover.h \
-	mutation/mutation-util.cpp mutation/mutation-util.h \
 	mutation/mutation-flag-types.h \
 	mutation/mutation-processor.cpp mutation/mutation-processor.h \
+	mutation/mutation-roll-table.cpp mutation/mutation-roll-table.h \
 	mutation/mutation-techniques.cpp mutation/mutation-techniques.h \
 	\
 	net/curl-easy-session.cpp net/curl-easy-session.h \
@@ -1490,18 +1489,30 @@ hengband_test_SOURCES = \
 	test/test-main.cpp \
 	test/scoped-rng.h \
 	\
+	test/autopick/test-autopick-editor-util.cpp \
+	test/cmd-io/test-cmd-autopick.cpp \
+	test/game-option/test-runtime-arguments.cpp \
+	test/info-reader/test-ego-reader.cpp \
+	test/info-reader/test-wilderness-reader.cpp \
 	test/info-reader/test-info-reader-util.cpp \
 	test/info-reader/test-json-reader-util.cpp \
 	test/info-reader/test-skill-reader.cpp \
+	test/info-reader/test-vault-reader.cpp \
+	test/io/test-interpret-pref-file.cpp \
+	test/io/test-macro-configurations-store.cpp \
 	test/load/test-angband-version-comparer.cpp \
+	test/mutation/test-mutation-roll-table.cpp \
+	test/store/test-store-util.cpp \
 	test/timed-effect/test-player-cut.cpp \
 	test/timed-effect/test-player-stun.cpp \
 	test/timed-effect/test-timed-effect.cpp \
 	test/util/test-dice.cpp \
+	test/util/test-finalizer.cpp \
 	test/util/test-flag-group.cpp \
 	test/util/test-probability-table.cpp \
 	test/util/test-sha256.cpp \
-	test/util/test-string-processor.cpp
+	test/util/test-string-processor.cpp \
+	test/view/test-map-terrain-visibility.cpp
 
 hengband_test_LDADD = libhengband.a
 

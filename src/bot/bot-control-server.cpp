@@ -44,8 +44,6 @@
 
 namespace {
 
-constexpr auto BOT_CONTROL_PROTOCOL_VERSION = 1; //!< プロトコルの版。互換性を壊す変更で更新する
-
 /*!
  * @brief text_to_ascii()に渡す変換先バッファの大きさ
  * @details
@@ -211,7 +209,7 @@ nlohmann::json make_info_response()
     }
 
     return {
-        { "protocol_version", BOT_CONTROL_PROTOCOL_VERSION },
+        { "protocol_version", BOT_JSON_PROTOCOL_VERSION },
         { "system", std::string(ANGBAND_SYS) },
         { "version", to_json_utf8(AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL)) },
 #ifdef JP
@@ -224,13 +222,13 @@ nlohmann::json make_info_response()
 }
 
 /*!
- * @brief キー列のマクロ表記をtext_to_ascii()へ渡して安全か検証する
+ * @brief キー列のマクロ表記がtext_to_ascii()で意図どおりに変換できるか検証する
  * @param keys 検証するキー列
- * @return 渡してはならない場合はその理由。問題が無い場合はnullopt
+ * @return 変換させてはならない場合はその理由。問題が無い場合はnullopt
  * @details
- * text_to_ascii()はstring_viewの長さではなくNUL終端を頼りに走査するため、
- * 「\x」のように末尾でエスケープの引数が足りていないと文字列の外まで読み進めてしまう。
- * 同じ歩幅で先に走査し、そのような入力を変換前に弾く。
+ * text_to_ascii()は「\x」のように末尾で引数が足りていないエスケープを黙って捨てるため、
+ * そのまま渡すとキー列の一部が注入されないまま成功を返してしまう。
+ * 同じ歩幅で先に走査し、そのような入力を変換前にエラーとして弾く。
  * 以下の歩幅はio/macro-configurations-store.cppのtext_to_ascii()の分岐と対になっている。
  * 向こうを変更する場合はこちらも併せて見直すこと。
  */
@@ -264,7 +262,8 @@ tl::optional<std::string> find_invalid_key_notation(std::string_view keys)
             return incomplete_escape;
         }
 
-        // 「\[～]」はマクロトリガ表記だが、変換先の残量を見ずに書き込むため受け付けない
+        // 「\[～]」はマクロトリガ表記だが、展開結果がフロントエンドのprefファイル (T:行) の定義に依存し、
+        // 定義を持たない端末 (GCU版や--headless等) では通常の文字として注入されてしまうため受け付けない
         if (keys[i + 1] == '[') {
             return "the macro trigger notation is not supported";
         }
@@ -379,8 +378,8 @@ nlohmann::json handle_screen_request(const nlohmann::json &id, const nlohmann::j
  * @return レスポンスのJSONオブジェクト
  * @details
  * キャラクターが生成される前は内部状態を構築できないためエラーを返す。
- * nearby_gridsはフロア全域を走査して1万件規模の配列を作り、スナップショット1件の
- * バイト数の99%超を占めるため、地図が要らないクライアントが省けるようにする。
+ * grid_mapはフロア全域を走査して生成し、出力量は既知の地形に依存する。
+ * 地図が要らないクライアントは生成・転送を省略できる。
  */
 nlohmann::json handle_state_request(const nlohmann::json &id, const nlohmann::json &request)
 {

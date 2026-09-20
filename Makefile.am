@@ -35,15 +35,19 @@ schema_files = \
 	schema/ClassMagicDefinitions.schema.json \
 	schema/ClassSkillDefinitions.schema.json \
 	schema/DungeonDefinitions.schema.json \
+	schema/EgoDefinitions.schema.json \
 	schema/MonraceDefinitions.schema.json \
 	schema/MonsterMessages.schema.json \
 	schema/Quest.schema.json \
 	schema/QuestPreferences.schema.json \
 	schema/SpellDefinitions.schema.json \
-	schema/TerrainDefinitions.schema.json
+	schema/TerrainDefinitions.schema.json \
+	schema/VaultDefinitions.schema.json \
+	schema/WildernessDefinition.schema.json
 
 EXTRA_DIST = \
 	lib/edit/ClassSkillDefinitions.md \
+	lib/edit/VaultDefinitions.md \
 	autopick.txt \
 	autopick_eng.txt \
 	bootstrap \
