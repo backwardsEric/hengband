@@ -34,6 +34,7 @@ std::filesystem::path path_from_sjis(std::string_view src)
     return std::filesystem::path(wstr);
 }
 }
+#endif
 
 #ifdef SET_UID
 

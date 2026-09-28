@@ -515,3 +515,5 @@ int main(int argc, char *argv[])
     quit("");
     return 0;
 }
+
+#endif
