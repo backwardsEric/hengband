@@ -74,6 +74,33 @@ static void quit_hook(std::string_view s)
     }
 }
 
+#ifdef PRIVATE_USER_PATH
+
+/*
+ * Create an ".angband/" directory in the users home directory.
+ *
+ * ToDo: Add error handling.
+ * ToDo: Only create the directories when actually writing files.
+ */
+static void create_user_dir(void)
+{
+    // ホームディレクトリを決められない場合 (passwd に登録の無い UID で起動した場合など) は何も作らない。
+    // 空のパスのまま進めると、カレントディレクトリに作ってしまう
+    const auto &dirpath = path_parse(PRIVATE_USER_PATH);
+    if (dirpath.empty()) {
+        return;
+    }
+
+    const auto &dir_str = dirpath.string();
+    mkdir(dir_str.data(), 0700);
+
+    const auto &subdirpath = path_build(dirpath, VARIANT_NAME);
+    const auto &subdir_str = subdirpath.string();
+    mkdir(subdir_str.data(), 0700);
+}
+
+#endif /* PRIVATE_USER_PATH */
+
 static void init_stuff()
 {
     char libpath[1024]{};
@@ -340,7 +367,7 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            strcpy(p_ptr->name, &argv[i][2]);
+            angband_strcpy(p_ptr->name, &argv[i][2], sizeof(p_ptr->name));
             break;
         case 'm':
             if (!argv[i][2]) {
@@ -393,6 +420,14 @@ int main(int argc, char *argv[])
         argc = 1;
         argv[1] = nullptr;
     }
+
+#ifdef PRIVATE_USER_PATH
+    // ユーザーディレクトリを -du で指定せず、既定の場所 (~/.angband) のホームディレクトリも決められない場合は、
+    // 設定やダンプの読み書きがすべて失敗するため、指定を促して終了する
+    if (path_parse(ANGBAND_DIR_USER).empty()) {
+        quit_fmt("Unable to locate the user directory '%s'. Please specify it with the -du option.", ANGBAND_DIR_USER.string().data());
+    }
+#endif
 
     // 実描画・実入力デバイスを持たない端末とは両立しないオプションを弾く。
     // -m<sys> はヘッドレス端末が選ばれる時点で参照される機会が無く、-s<num> の display_scores() は
@@ -480,5 +515,3 @@ int main(int argc, char *argv[])
     quit("");
     return 0;
 }
-
-#endif

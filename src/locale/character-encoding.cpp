@@ -11,10 +11,9 @@
 #include "system/angband.h"
 #include "view/display-messages.h"
 #include <vector>
-#ifdef WIN32
+#ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
-#undef min
-#undef max
 #else
 #include "util/finalizer.h"
 #include <algorithm>
@@ -172,6 +171,9 @@ void euc2sjis(char *str)
  * @brief strを環境に合った文字コードに変換し、変換前の文字コードを返す。strの長さに制限はない。
  * @param str 変換する文字列のポインタ
  * @return 変換前の文字コード
+ *         ASCII と EUC-JP/Shift_JIS のどちらとも解釈できる文字のみの文字列や、壊れた文字列など、
+ *         文字コードを判定できなかった場合は UNKNOWN
+ *         (ASCII は判定に使わないので US_ASCII を返すことはない)
  */
 CharacterEncoding codeconv(char *str)
 {
@@ -180,9 +182,8 @@ CharacterEncoding codeconv(char *str)
         /* First byte */
         const auto c1 = static_cast<unsigned char>(str[i]);
 
-        /* ASCII? */
+        /* ASCII は判定に影響しないので読み飛ばす */
         if (!(c1 & 0x80)) {
-            encoding = CharacterEncoding::US_ASCII;
             continue;
         }
 
@@ -190,19 +191,30 @@ CharacterEncoding codeconv(char *str)
         i++;
         const auto c2 = static_cast<unsigned char>(str[i]);
 
-        const auto is_euc_jp = ((0xa1 <= c1 && c1 <= 0xdf) || (0xfd <= c1 && c1 <= 0xfe)) && (0xa1 <= c2 && c2 <= 0xfe);
-        auto is_cp932 = (0x81 <= c1 && c1 <= 0x9f) && ((0x40 <= c2 && c2 <= 0x7e) || (0x80 <= c2 && c2 <= 0xfc));
-        is_cp932 |= (0xe0 <= c1 && c1 <= 0xfc) && (0x40 <= c2 && c2 <= 0x7e);
+        /*
+         * Shift_JIS の1バイト目 F0-FC (ユーザー定義文字・IBM 拡張文字) は sjis2euc() で
+         * EUC-JP に変換できない (1バイト目が 0x00 や制御文字になる) ため、Shift_JIS とはみなさない。
+         * EUC-JP の1バイト目 F5-FE には JIS X 0208 の文字が無いため、EUC-JP ともみなさない。
+         * これで、髙 (FB FC) などの IBM 拡張文字を EUC-JP と誤判定しなくなる。
+         */
+        const auto in_range = [](unsigned char c, unsigned char lo, unsigned char hi) { return (lo <= c) && (c <= hi); };
+        const auto is_euc_jp = in_range(c1, 0xa1, 0xf4) && in_range(c2, 0xa1, 0xfe);
+        const auto is_cp932 = (in_range(c1, 0x81, 0x9f) || in_range(c1, 0xe0, 0xef)) && (in_range(c2, 0x40, 0x7e) || in_range(c2, 0x80, 0xfc));
+
+        /* どちらとも解釈できる文字 (1バイト目 E0-EF、2バイト目 A1-FC の第2水準漢字など) は判定に使わない */
+        if (is_euc_jp && is_cp932) {
+            continue;
+        }
 
         if (is_euc_jp) {
             /* Only EUC is allowed */
-            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::US_ASCII || encoding == CharacterEncoding::EUC_JP) {
+            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::EUC_JP) {
                 encoding = CharacterEncoding::EUC_JP;
                 continue;
             }
         } else if (is_cp932) {
             /* Only SJIS is allowed */
-            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::US_ASCII || encoding == CharacterEncoding::SHIFT_JIS) {
+            if (encoding == CharacterEncoding::UNKNOWN || encoding == CharacterEncoding::SHIFT_JIS) {
                 encoding = CharacterEncoding::SHIFT_JIS;
                 continue;
             }
@@ -423,7 +435,7 @@ static bool utf8_to_sys(std::string_view str, char *sys_str_buffer, size_t sys_s
     /* length() + 1 を渡して文字列終端('\0')を含めて変換する */
     return utf8_to_euc(utf8_str.data(), utf8_str.length() + 1, sys_str_buffer, sys_str_buflen) >= 0;
 
-#elif defined(SJIS) && defined(WINDOWS)
+#elif defined(SJIS) && defined(_WIN32)
 
     int input_len = utf8_str.length() + 1; /* include termination character */
 
@@ -459,7 +471,7 @@ tl::optional<std::string> sys_to_utf8(std::string_view str)
     const auto len = euc_to_utf8(str.data(), str.length(), utf8str.data(), utf8str.size());
 
     return (len >= 0) ? tl::make_optional(std::move(utf8str.erase(len))) : tl::nullopt;
-#elif defined(SJIS) && defined(WINDOWS)
+#elif defined(SJIS) && defined(_WIN32)
     /* SJIS(CP932) -> UTF-16 */
     std::vector<WCHAR> utf16buf(str.length());
     const auto utf16_len = MultiByteToWideChar(932, 0, str.data(), str.size(), utf16buf.data(), utf16buf.size());
@@ -543,7 +555,7 @@ std::string utf8_to_local(std::string_view str_utf8)
     }
 
 #ifdef JP
-#ifdef WIN32
+#ifdef _WIN32
     // UTF-8 -> UTF-16 (wide string)
     auto utf8_length = static_cast<int>(str_utf8.length());
     const auto wide_length = MultiByteToWideChar(CP_UTF8, 0, str_utf8.data(), utf8_length, NULL, 0);

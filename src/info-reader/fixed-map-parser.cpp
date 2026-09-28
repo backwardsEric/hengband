@@ -11,27 +11,249 @@
 #include "floor/fixed-map-generator.h"
 #include "game-option/birth-options.h"
 #include "game-option/runtime-arguments.h"
+#include "info-reader/general-parser.h"
 #include "info-reader/parse-error-types.h"
+#include "info-reader/quest-reader.h"
+#include "info-reader/town-map-reader.h"
 #include "io/files-util.h"
 #include "locale/character-encoding.h"
 #include "main/init-error-messages-table.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
 #include "player/player-realm.h"
+#include "player/process-name.h"
 #include "system/angband-exceptions.h"
 #include "system/angband-system.h"
+#include "system/building-type-definition.h"
 #include "system/dungeon/quest-definition.h"
+#include "system/dungeon/quest-fixed-map.h"
 #include "system/dungeon/quest-list.h"
 #include "system/floor/floor-info.h"
+#include "system/gamevalue.h"
 #include "system/player-type-definition.h"
 #include "util/angband-files.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <cstdint>
 #include <fstream>
+#include <iterator>
+#include <limits>
+#include <nlohmann/json.hpp>
 #include <string>
+#include <utility>
+#include <vector>
 
 static concptr variant = "ZANGBAND";
+
+static bool is_valid_town_special(const nlohmann::json &value)
+{
+    if (!value.is_number_integer()) {
+        return false;
+    }
+
+    constexpr auto minimum = std::numeric_limits<int16_t>::min();
+    constexpr auto maximum = std::numeric_limits<int16_t>::max();
+    if (value.is_number_unsigned()) {
+        return value.get<uint64_t>() <= static_cast<uint64_t>(maximum);
+    }
+
+    const auto special = value.get<int64_t>();
+    return special >= minimum && special <= maximum;
+}
+
+static parse_error_type load_town_preferences()
+{
+    if (init_flags & INIT_ONLY_BUILDINGS) {
+        return PARSE_ERROR_NONE;
+    }
+
+    std::ifstream ifs(path_build(ANGBAND_DIR_EDIT, TOWN_PREFERENCES));
+    if (!ifs) {
+        return PARSE_ERROR_GENERIC;
+    }
+
+    try {
+        const auto data = nlohmann::json::parse(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>(), nullptr, true, true, true);
+        if (!data.is_object() || !data.contains("version") || !data["version"].is_number_integer() || data["version"] != 1 ||
+            !data.contains("legend") || !data["legend"].is_object() || data["legend"].empty()) {
+            return PARSE_ERROR_INVALID_TYPE;
+        }
+
+        std::vector<std::pair<unsigned char, dungeon_grid>> legend;
+        for (const auto &[symbol, cell_data] : data["legend"].items()) {
+            if (symbol.size() != 1 || symbol.front() < '!' || symbol.front() > '~' || !cell_data.is_object() ||
+                !cell_data.contains("terrain") || !cell_data["terrain"].is_string() || !cell_data.contains("caveInfo") || !cell_data["caveInfo"].is_array()) {
+                return PARSE_ERROR_INVALID_TYPE;
+            }
+            for (const auto &flag : cell_data["caveInfo"]) {
+                if (!flag.is_string()) {
+                    return PARSE_ERROR_INVALID_TYPE;
+                }
+            }
+            if (cell_data.contains("special") && !is_valid_town_special(cell_data["special"])) {
+                return PARSE_ERROR_INVALID_VALUE;
+            }
+
+            QuestLegendCell cell;
+            if (const auto err = parse_quest_legend_cell(cell_data, cell); err != PARSE_ERROR_NONE) {
+                return err;
+            }
+            legend.emplace_back(static_cast<unsigned char>(symbol.front()), cell.grid);
+        }
+
+        for (const auto &[symbol, grid] : legend) {
+            letter[symbol] = grid;
+        }
+        return PARSE_ERROR_NONE;
+    } catch (const nlohmann::json::exception &) {
+        return PARSE_ERROR_INVALID_VALUE;
+    }
+}
+
+static parse_error_type load_town_definition_file(std::string &map_file)
+{
+    std::ifstream ifs(path_build(ANGBAND_DIR_EDIT, TOWN_DEFINITION_LIST));
+    if (!ifs) {
+        return PARSE_ERROR_GENERIC;
+    }
+
+    try {
+        const auto data = nlohmann::json::parse(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>(), nullptr, true, true, true);
+        if (!data.is_object() || !data.contains("version") || !data["version"].is_number_integer() || data["version"] != 1 ||
+            !data.contains("towns") || !data["towns"].is_object() || data["towns"].empty()) {
+            return PARSE_ERROR_INVALID_TYPE;
+        }
+
+        const auto &towns = data["towns"];
+        const auto town = towns.find(std::to_string(AngbandWorld::get_instance().get_town_index()));
+        if (town == towns.end()) {
+            return PARSE_ERROR_NONE;
+        }
+
+        const nlohmann::json *selected = &*town;
+        if (selected->is_object()) {
+            const auto *mode = vanilla_town ? "none" : (lite_town ? "lite" : "normal");
+            const auto file = selected->find(mode);
+            if (file == selected->end()) {
+                return PARSE_ERROR_INVALID_TYPE;
+            }
+            selected = &*file;
+        }
+
+        if (!selected->is_string()) {
+            return PARSE_ERROR_INVALID_TYPE;
+        }
+        map_file = selected->get<std::string>();
+        if (!map_file.starts_with("towns/") || !map_file.ends_with(".jsonc") || map_file.find("..") != std::string::npos || map_file.find('\\') != std::string::npos) {
+            return PARSE_ERROR_INVALID_VALUE;
+        }
+        return PARSE_ERROR_NONE;
+    } catch (const nlohmann::json::exception &) {
+        return PARSE_ERROR_INVALID_VALUE;
+    }
+}
+
+static std::string parse_fixed_map_expression(PlayerType *player_ptr, char **sp, char *fp);
+
+static bool is_town_map_condition_met(PlayerType *player_ptr, const std::optional<std::string> &condition)
+{
+    if (!condition) {
+        return true;
+    }
+    auto expression = *condition;
+    auto *source = expression.data();
+    char flag;
+    return parse_fixed_map_expression(player_ptr, &source, &flag) != "0";
+}
+
+static parse_error_type parse_town_map_jsonc(PlayerType *player_ptr, std::string_view name, int ymin, int xmin, int ymax, int xmax)
+{
+    std::ifstream ifs(path_build(ANGBAND_DIR_EDIT, name));
+    if (!ifs) {
+        return PARSE_ERROR_GENERIC;
+    }
+    try {
+        const auto data = nlohmann::json::parse(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>(), nullptr, true, true, true);
+        TownMapDefinition definition;
+        const bool only_buildings = (init_flags & INIT_ONLY_BUILDINGS) != 0;
+        if (const auto err = TownMapReader(data).read(definition, ymax - ymin, xmax - xmin, only_buildings); err != PARSE_ERROR_NONE) {
+            return err;
+        }
+        auto y = ymin;
+        auto x = xmin;
+        qtwg_type qg;
+        auto *qg_ptr = initialize_quest_generator_type(&qg, ymin, xmin, ymax, xmax, &y, &x);
+        for (const auto &feature : definition.features) {
+            if (!is_town_map_condition_met(player_ptr, feature.condition)) {
+                continue;
+            }
+            auto line = "F:" + std::string(1, feature.symbol) + ":" + feature.terrain + ":" + std::to_string(feature.cave_info) +
+                        ":" + feature.monster + ":" + feature.object + ":" + feature.ego + ":" + feature.artifact +
+                        ":" + feature.trap + ":" + std::to_string(feature.special);
+            qg_ptr->buf = line.data();
+            if (const auto err = generate_fixed_map_floor(player_ptr, qg_ptr, parse_fixed_map); err != PARSE_ERROR_NONE) {
+                return err;
+            }
+        }
+        for (const auto &building : definition.buildings) {
+            if (!is_town_map_condition_met(player_ptr, building.condition)) {
+                continue;
+            }
+            std::string line = "B:";
+            if (building.english) {
+                line += '$';
+            }
+            line += std::to_string(building.index) + ":" + building.command;
+            for (const auto &field : building.fields) {
+                line += ":" + field;
+            }
+            line = utf8_to_local(line);
+            qg_ptr->buf = line.data();
+            if (const auto err = generate_fixed_map_floor(player_ptr, qg_ptr, parse_fixed_map); err != PARSE_ERROR_NONE) {
+                return err;
+            }
+        }
+        if (only_buildings) {
+            return PARSE_ERROR_NONE;
+        }
+        const TownMapVariant *selected_map = nullptr;
+        for (const auto &map : definition.maps) {
+            if (!is_town_map_condition_met(player_ptr, map.condition)) {
+                continue;
+            }
+            if (selected_map != nullptr) {
+                return PARSE_ERROR_INVALID_VALUE;
+            }
+            selected_map = &map;
+        }
+        if (selected_map != nullptr) {
+            for (const auto &row : selected_map->rows) {
+                auto line = "D:" + row;
+                qg_ptr->buf = line.data();
+                if (const auto err = generate_fixed_map_floor(player_ptr, qg_ptr, parse_fixed_map); err != PARSE_ERROR_NONE) {
+                    return err;
+                }
+            }
+        }
+        for (const auto &start : definition.starts) {
+            if (!is_town_map_condition_met(player_ptr, start.condition)) {
+                continue;
+            }
+            if (selected_map == nullptr) {
+                return PARSE_ERROR_INVALID_VALUE;
+            }
+            auto line = "P:" + std::to_string(start.y) + ":" + std::to_string(start.x);
+            qg_ptr->buf = line.data();
+            if (const auto err = generate_fixed_map_floor(player_ptr, qg_ptr, parse_fixed_map); err != PARSE_ERROR_NONE) {
+                return err;
+            }
+        }
+        return PARSE_ERROR_NONE;
+    } catch (const nlohmann::json::exception &) {
+        return PARSE_ERROR_INVALID_VALUE;
+    }
+}
 
 /*!
  * @brief 固定マップ (クエスト＆街＆広域マップ)生成時の分岐処理
@@ -182,21 +404,7 @@ static std::string parse_fixed_map_expression(PlayerType *player_ptr, char **sp,
     } else if (streq(b + 1, "REALM2")) {
         v = PlayerRealm(player_ptr).realm2().get_name().en_string();
     } else if (streq(b + 1, "PLAYER")) {
-        char tmp_player_name[32]{};
-        char *pn, *tpn;
-        for (pn = player_ptr->name, tpn = tmp_player_name; *pn; pn++, tpn++) {
-#ifdef JP
-            if (iskanji(*pn)) {
-                *(tpn++) = *(pn++);
-                *tpn = *pn;
-                continue;
-            }
-#endif
-            *tpn = angband_strchr(" []", *pn) ? '_' : *pn;
-        }
-
-        *tpn = '\0';
-        v = tmp_player_name;
+        v = make_player_name_for_expression(player_ptr->name);
     } else if (streq(b + 1, "TOWN")) {
         v = std::to_string(AngbandWorld::get_instance().get_town_index());
     } else if (streq(b + 1, "LEVEL")) {
@@ -245,6 +453,33 @@ static std::string parse_fixed_map_expression(PlayerType *player_ptr, char **sp,
  */
 parse_error_type parse_fixed_map(PlayerType *player_ptr, std::string_view name, int ymin, int xmin, int ymax, int xmax)
 {
+    if (name == TOWN_DEFINITION_LIST) {
+        if (const auto err = load_town_preferences(); err != PARSE_ERROR_NONE) {
+            const auto oops = (((err > 0) && (err < PARSE_ERROR_MAX)) ? err_str[err] : "unknown");
+            msg_print("Error {} ({}) loading '{}'.", enum2i(err), oops, TOWN_PREFERENCES);
+            msg_erase();
+            return err;
+        }
+
+        std::string map_file;
+        if (const auto err = load_town_definition_file(map_file); err != PARSE_ERROR_NONE) {
+            const auto oops = (((err > 0) && (err < PARSE_ERROR_MAX)) ? err_str[err] : "unknown");
+            msg_print("Error {} ({}) loading '{}'.", enum2i(err), oops, TOWN_DEFINITION_LIST);
+            msg_erase();
+            return err;
+        }
+        if (map_file.empty()) {
+            return PARSE_ERROR_NONE;
+        }
+        const auto err = parse_town_map_jsonc(player_ptr, map_file, ymin, xmin, ymax, xmax);
+        if (err != PARSE_ERROR_NONE) {
+            const auto oops = (((err > 0) && (err < PARSE_ERROR_MAX)) ? err_str[err] : "unknown");
+            msg_print("Error {} ({}) loading '{}'.", enum2i(err), oops, map_file);
+            msg_erase();
+        }
+        return err;
+    }
+
     const auto path = path_build(ANGBAND_DIR_EDIT, name);
     std::ifstream ifs(path);
     if (!ifs) {

@@ -607,6 +607,9 @@
     <ClCompile Include="..\..\src\store\store-owners.cpp">
       <Filter>store</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\store\store-screen.cpp">
+      <Filter>store</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\store\store-util.cpp">
       <Filter>store</Filter>
     </ClCompile>
@@ -970,6 +973,9 @@
     <ClCompile Include="..\..\src\info-reader\quest-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\info-reader\town-map-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\info-reader\skill-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
@@ -1205,6 +1211,9 @@
       <Filter>spell-realm</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\mspell\monster-power-table.cpp">
+      <Filter>mspell</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mspell\mspell-projection-table.cpp">
       <Filter>mspell</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\view\status-bars-table.cpp">
@@ -1639,14 +1648,8 @@
     <ClCompile Include="..\..\src\blue-magic\blue-magic-util.cpp">
       <Filter>blue-magic</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\blue-magic\blue-magic-breath.cpp">
-      <Filter>blue-magic</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\mspell\specified-summon.cpp">
       <Filter>mspell</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\blue-magic\blue-magic-ball-bolt.cpp">
-      <Filter>blue-magic</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\blue-magic\blue-magic-spirit-curse.cpp">
       <Filter>blue-magic</Filter>
@@ -3259,6 +3262,9 @@
     <ClInclude Include="..\..\src\store\store-owners.h">
       <Filter>store</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\store\store-screen.h">
+      <Filter>store</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\store\rumor.h">
       <Filter>store</Filter>
     </ClInclude>
@@ -3718,6 +3724,9 @@
     <ClInclude Include="..\..\src\info-reader\quest-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\town-map-reader.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\info-reader\skill-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -4022,6 +4031,9 @@
       <Filter>mind</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\mspell\monster-power-table.h">
+      <Filter>mspell</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mspell\mspell-projection-table.h">
       <Filter>mspell</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\view\status-bars-table.h">
@@ -4486,14 +4498,8 @@
     <ClInclude Include="..\..\src\blue-magic\blue-magic-util.h">
       <Filter>blue-magic</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\blue-magic\blue-magic-breath.h">
-      <Filter>blue-magic</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\mspell\specified-summon.h">
       <Filter>mspell</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\blue-magic\blue-magic-ball-bolt.h">
-      <Filter>blue-magic</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\blue-magic\blue-magic-spirit-curse.h">
       <Filter>blue-magic</Filter>
@@ -5426,6 +5432,9 @@
     <ClInclude Include="..\..\src\util\stack-trace.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\util\type-concepts.h">
+      <Filter>util</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\net\report-error.h">
       <Filter>net</Filter>
     </ClInclude>
@@ -5675,9 +5684,6 @@
     <ClInclude Include="..\..\src\system\baseitem\baseitem-records.h">
       <Filter>system\baseitem</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="floor">

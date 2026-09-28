@@ -99,6 +99,15 @@ static void decide_summon_kin_caster(
         return;
     }
 
+    if (monster.r_idx == MonraceId::PERORODZILLA) {
+        mspell_cast_msg_blind msg(_("%s^が何かを吐き出す音がした。", "You hear %s^ vomit something."),
+            _("%s^が小さなペロロを吐き出した！", "%s^ vomits minion Peroros!"),
+            _("%s^が小さなペロロを吐き出した！", "%s^ vomits minion Peroros!"));
+
+        monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
+        return;
+    }
+
     summon_disturb(player_ptr, target_type, known, see_either);
 
     if (player_ptr->effects()->blindness().is_active()) {
@@ -204,6 +213,9 @@ MonsterSpellResult spell_RF6_S_KIN(PlayerType *player_ptr, POSITION y, POSITION 
         break;
     case MonraceId::HUNGRY_OLD_MAN:
         count += summon_POLYGON(player_ptr, y, x, m_idx);
+        break;
+    case MonraceId::PERORODZILLA:
+        count += summon_PEROROMINION(player_ptr, y, x, m_idx);
         break;
     default:
         count += summon_Kin(player_ptr, y, x, rlev, m_idx);
@@ -991,9 +1003,9 @@ MonsterSpellResult spell_RF6_S_DEAD_UNIQUE(PlayerType *player_ptr, POSITION y, P
     auto see_either = see_monster(player_ptr, m_idx) || see_monster(player_ptr, t_idx);
     auto known = monster_near_player(floor, m_idx, t_idx);
 
-    mspell_cast_msg_blind msg(_("%^sが何かをつぶやいた。", "%^s mumbles."),
-        _("%s^が魔法で特別な強敵を蘇らせた！", "%^s magically animates special opponents!"),
-        _("%s^が魔法で特別な強敵を蘇らせた！", "%^s magically animates special opponents!"));
+    mspell_cast_msg_blind msg(_("%s^が何かをつぶやいた。", "%s^ mumbles."),
+        _("%s^が魔法で特別な強敵を蘇らせた！", "%s^ magically animates special opponents!"),
+        _("%s^が魔法で特別な強敵を蘇らせた！", "%s^ magically animates special opponents!"));
 
     monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
     summon_disturb(player_ptr, target_type, known, see_either);

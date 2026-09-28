@@ -88,8 +88,6 @@ libhengband_a_SOURCES = \
 	birth/auto-roller.cpp birth/auto-roller.h \
 	birth/birth-wizard.cpp birth/birth-wizard.h \
 	\
-	blue-magic/blue-magic-ball-bolt.cpp blue-magic/blue-magic-ball-bolt.h \
-	blue-magic/blue-magic-breath.cpp blue-magic/blue-magic-breath.h \
 	blue-magic/blue-magic-caster.cpp blue-magic/blue-magic-caster.h \
 	blue-magic/blue-magic-checker.cpp blue-magic/blue-magic-checker.h \
 	blue-magic/blue-magic-spirit-curse.cpp blue-magic/blue-magic-spirit-curse.h \
@@ -639,6 +637,7 @@ libhengband_a_SOURCES = \
 	info-reader/skill-reader.cpp info-reader/skill-reader.h \
 	info-reader/spell-reader.cpp info-reader/spell-reader.h \
 	info-reader/terrain-reader.cpp info-reader/terrain-reader.h \
+	info-reader/town-map-reader.cpp info-reader/town-map-reader.h \
 	info-reader/vault-reader.cpp info-reader/vault-reader.h \
 	\
 	inventory/floor-item-getter.cpp inventory/floor-item-getter.h \
@@ -761,11 +760,12 @@ libhengband_a_SOURCES = \
 	\
 	main-unix/stack-trace-unix.cpp \
 	main-unix/unix-user-ids.cpp main-unix/unix-user-ids.h \
-	main-unix/x11-gamma-builder.cpp main-unix/x11-gamma-builder.h \
-	main-unix/x11-type-string.cpp main-unix/x11-type-string.h \
 	main-unix/unix-music.cpp main-unix/unix-music.h \
 	main-unix/unix-sound.cpp main-unix/unix-sound.h \
 	main-unix/unix-cfg-reader.cpp main-unix/unix-cfg-reader.h \
+	main-unix/x11-gamma-builder.cpp main-unix/x11-gamma-builder.h \
+	main-unix/x11-helper.cpp main-unix/x11-helper.h \
+	main-unix/x11-type-string.cpp main-unix/x11-type-string.h \
 	\
 	market/arena.cpp market/arena.h \
 	market/arena-entry.cpp market/arena-entry.h \
@@ -900,6 +900,7 @@ libhengband_a_SOURCES = \
 	mspell/high-resistance-checker.cpp mspell/high-resistance-checker.h \
 	mspell/improper-mspell-remover.cpp mspell/improper-mspell-remover.h \
 	mspell/monster-power-table.cpp mspell/monster-power-table.h \
+	mspell/mspell-projection-table.cpp mspell/mspell-projection-table.h \
 	mspell/mspell-attack.cpp mspell/mspell-attack.h \
 	mspell/mspell-attack-util.cpp mspell/mspell-attack-util.h \
 	mspell/mspell-checker.cpp mspell/mspell-checker.h \
@@ -1268,6 +1269,7 @@ libhengband_a_SOURCES = \
 	store/sell-order.cpp store/sell-order.h \
 	store/service-checker.cpp store/service-checker.h \
 	store/store-key-processor.cpp store/store-key-processor.h \
+	store/store-screen.cpp store/store-screen.h \
 	store/store-util.cpp store/store-util.h \
 	store/store-owners.cpp store/store-owners.h \
 	store/store-owner-comments.cpp store/store-owner-comments.h \
@@ -1404,6 +1406,7 @@ libhengband_a_SOURCES = \
 	util/sha256.cpp util/sha256.h \
 	util/stack-trace.h \
 	util/string-processor.cpp util/string-processor.h \
+	util/type-concepts.h \
 	\
 	view/display-birth.cpp view/display-birth.h \
 	view/display-characteristic.cpp view/display-characteristic.h \
@@ -1460,7 +1463,7 @@ libhengband_a_SOURCES = \
 	world/world-turn-processor.cpp world/world-turn-processor.h
 
 EXTRA_libhengband_a_SOURCES = \
-	angband.ico angband.rc ang_eng.rc ang_jp.rc maid-x11.cpp main-win.cpp \
+	angband.ico angband.rc ang_eng.rc ang_jp.rc main-win.cpp \
 	main-win/commandline-win.cpp main-win/commandline-win.h \
 	main-win/graphics-win.cpp main-win/graphics-win.h \
 	main-win/main-win-bg.cpp main-win/main-win-bg.h \
@@ -1498,14 +1501,25 @@ hengband_test_SOURCES = \
 	test/info-reader/test-json-reader-util.cpp \
 	test/info-reader/test-skill-reader.cpp \
 	test/info-reader/test-vault-reader.cpp \
+	test/info-reader/test-town-map-reader.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
+	test/io/test-tokenizer.cpp \
 	test/load/test-angband-version-comparer.cpp \
+	test/locale/test-character-encoding.cpp \
+	test/mspell/test-mspell-projection-table.cpp \
 	test/mutation/test-mutation-roll-table.cpp \
+	test/player/test-process-name.cpp \
+	test/store/test-pricing.cpp \
+	test/store/test-store-screen.cpp \
 	test/store/test-store-util.cpp \
+	test/system/monrace/test-monrace-definition.cpp \
+	test/term/test-z-form.cpp \
+	test/term/test-z-rand.cpp \
 	test/timed-effect/test-player-cut.cpp \
 	test/timed-effect/test-player-stun.cpp \
 	test/timed-effect/test-timed-effect.cpp \
+	test/util/test-angband-files.cpp \
 	test/util/test-dice.cpp \
 	test/util/test-finalizer.cpp \
 	test/util/test-flag-group.cpp \
@@ -1656,13 +1670,24 @@ OBJCXXCOMPILE = $(strip $(CXXCOMPILE_WRAPPER) $(OBJCXX) $(DEFS) $(DEFAULT_INCLUD
 CXXCOMPILE = $(strip $(CXXCOMPILE_WRAPPER) $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(PCH_INCLUDES))
 
 if PCH
+## clang は既定で取り込んだヘッダの mtime を PCH に埋め込むため、チェックアウトし直すたびに
+## PCH の中身が変わる。PCH のチェックサムは ccache のハッシュに含まれる (pch_external_checksum) ので、
+## これでは全オブジェクトがキャッシュミスになる。-fno-pch-timestamp で mtime を埋め込まないようにする。
+if COMPILER_IS_CLANG
+PCH_CREATE_FLAGS = -Xclang -fno-pch-timestamp
+endif
 
+## 上のとおり clang は PCH が取り込むヘッダの変更を検出しなくなり、gcc は元々検出しない。
+## そのため PCH の生成時に依存ファイル (-MD) を出力し、取り込むヘッダ (同梱ライブラリなど) が
+## 変わったときに PCH を作り直す。-MP はヘッダが削除されたときに make が失敗しないようにする。
 stdafx.h.gch: stdafx.h stdafx.cpp Makefile
-	$(CXX) -x c++-header $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(srcdir)/stdafx.cpp -o $@
+	$(CXX) -x c++-header $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(PCH_CREATE_FLAGS) -MD -MP -MF $@.d $(srcdir)/stdafx.cpp -o $@
 	if test none != "$(PCH_CHECKSUMMER)" ; then \
 		rm -f "$@".sum ; \
 		$(PCH_CHECKSUMMER) $@ > "$@".sum ; \
 	fi
+
+-include stdafx.h.gch.d
 
 ## $(SOURCES) は automake が全ターゲットの _SOURCES を合成して定義する変数。
 ## これを使うことで、ターゲットが増えても PCH の依存関係が自動的に追従する。
@@ -1718,5 +1743,5 @@ distclean-local:
 	-rm -r -f $(DEPDIR) */$(DEPDIR) */*/$(DEPDIR)
 
 clean-local:
-	-rm stdafx.h.gch stdafx.h.gch.sum
+	-rm stdafx.h.gch stdafx.h.gch.sum stdafx.h.gch.d
 	-rm -rf ../build

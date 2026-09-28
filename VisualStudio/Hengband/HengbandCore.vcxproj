@@ -74,8 +74,6 @@
     <ClCompile Include="..\..\src\birth\initial-equipments-table.cpp" />
     <ClCompile Include="..\..\src\birth\inventory-initializer.cpp" />
     <ClCompile Include="..\..\src\birth\quick-start.cpp" />
-    <ClCompile Include="..\..\src\blue-magic\blue-magic-ball-bolt.cpp" />
-    <ClCompile Include="..\..\src\blue-magic\blue-magic-breath.cpp" />
     <ClCompile Include="..\..\src\blue-magic\blue-magic-caster.cpp" />
     <ClCompile Include="..\..\src\blue-magic\blue-magic-spirit-curse.cpp" />
     <ClCompile Include="..\..\src\blue-magic\blue-magic-status.cpp" />
@@ -268,6 +266,7 @@
     <ClCompile Include="..\..\src\info-reader\ego-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\wilderness-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\quest-reader.cpp" />
+    <ClCompile Include="..\..\src\info-reader\town-map-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\feature-info-tokens-table.cpp" />
     <ClCompile Include="..\..\src\info-reader\general-parser.cpp" />
     <ClCompile Include="..\..\src\info-reader\info-reader-util.cpp" />
@@ -501,6 +500,7 @@
     <ClCompile Include="..\..\src\window\main-window-stat-poster.cpp" />
     <ClCompile Include="..\..\src\window\main-window-util.cpp" />
     <ClCompile Include="..\..\src\mspell\monster-power-table.cpp" />
+    <ClCompile Include="..\..\src\mspell\mspell-projection-table.cpp" />
     <ClCompile Include="..\..\src\system\monrace\monrace-allocation.cpp" />
     <ClCompile Include="..\..\src\term\screen-processor.cpp" />
     <ClCompile Include="..\..\src\util\buffer-shaper.cpp" />
@@ -755,6 +755,7 @@
     <ClCompile Include="..\..\src\store\say-comments.cpp" />
     <ClCompile Include="..\..\src\store\store-owner-comments.cpp" />
     <ClCompile Include="..\..\src\store\store-owners.cpp" />
+    <ClCompile Include="..\..\src\store\store-screen.cpp" />
     <ClCompile Include="..\..\src\store\store-util.cpp" />
     <ClCompile Include="..\..\src\monster-floor\monster-dist-offsets.cpp" />
     <ClCompile Include="..\..\src\monster\monster-processor.cpp" />
@@ -961,8 +962,6 @@
     <ClInclude Include="..\..\src\birth\initial-equipments-table.h" />
     <ClInclude Include="..\..\src\birth\inventory-initializer.h" />
     <ClInclude Include="..\..\src\birth\quick-start.h" />
-    <ClInclude Include="..\..\src\blue-magic\blue-magic-ball-bolt.h" />
-    <ClInclude Include="..\..\src\blue-magic\blue-magic-breath.h" />
     <ClInclude Include="..\..\src\blue-magic\blue-magic-caster.h" />
     <ClInclude Include="..\..\src\blue-magic\blue-magic-spirit-curse.h" />
     <ClInclude Include="..\..\src\blue-magic\blue-magic-status.h" />
@@ -1089,6 +1088,7 @@
     <ClInclude Include="..\..\src\info-reader\ego-reader.h" />
     <ClInclude Include="..\..\src\info-reader\wilderness-reader.h" />
     <ClInclude Include="..\..\src\info-reader\quest-reader.h" />
+    <ClInclude Include="..\..\src\info-reader\town-map-reader.h" />
     <ClInclude Include="..\..\src\info-reader\feature-info-tokens-table.h" />
     <ClInclude Include="..\..\src\info-reader\general-parser.h" />
     <ClInclude Include="..\..\src\info-reader\info-reader-util.h" />
@@ -1217,6 +1217,7 @@
     <ClInclude Include="..\..\src\racial\racial-kutar.h" />
     <ClInclude Include="..\..\src\mind\stances-table.h" />
     <ClInclude Include="..\..\src\mspell\monster-power-table.h" />
+    <ClInclude Include="..\..\src\mspell\mspell-projection-table.h" />
     <ClInclude Include="..\..\src\mspell\mspell-dispel.h" />
     <ClInclude Include="..\..\src\mspell\mspell-checker.h" />
     <ClInclude Include="..\..\src\mspell\mspell-judgement.h" />
@@ -1735,6 +1736,7 @@
     <ClInclude Include="..\..\src\util\sha256.h" />
     <ClInclude Include="..\..\src\util\stack-trace.h" />
     <ClInclude Include="..\..\src\util\string-processor.h" />
+    <ClInclude Include="..\..\src\util\type-concepts.h" />
     <ClInclude Include="..\..\src\view\display-symbol.h" />
     <ClInclude Include="..\..\src\view\display-birth.h" />
     <ClInclude Include="..\..\src\view\display-inventory.h" />
@@ -1788,6 +1790,7 @@
     <ClInclude Include="..\..\src\store\say-comments.h" />
     <ClInclude Include="..\..\src\store\store-owner-comments.h" />
     <ClInclude Include="..\..\src\store\store-owners.h" />
+    <ClInclude Include="..\..\src\store\store-screen.h" />
     <ClInclude Include="..\..\src\store\store-util.h" />
     <ClInclude Include="..\..\src\monster-floor\monster-dist-offsets.h" />
     <ClInclude Include="..\..\src\monster-attack\monster-attack-processor.h" />
@@ -1936,9 +1939,6 @@
     <ClInclude Include="..\..\src\term\z-rand.h" />
     <ClInclude Include="..\..\src\term\z-term.h" />
     <ClInclude Include="..\..\src\term\z-util.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

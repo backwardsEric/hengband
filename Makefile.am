@@ -10,8 +10,7 @@ visual_studio_files = \
 	VisualStudio/Hengband/HengbandCore.vcxproj \
 	VisualStudio/Hengband/HengbandCore.vcxproj.filters \
 	VisualStudio/Hengband/HengbandTest.vcxproj \
-	VisualStudio/Hengband/HengbandTest.vcxproj.filters \
-	VisualStudio/Hengband/packages.config
+	VisualStudio/Hengband/HengbandTest.vcxproj.filters
 
 visual_studio_libcurl_files = \
 	VisualStudio/Hengband/libcurl/include/curl/curl.h \
@@ -42,6 +41,9 @@ schema_files = \
 	schema/QuestPreferences.schema.json \
 	schema/SpellDefinitions.schema.json \
 	schema/TerrainDefinitions.schema.json \
+	schema/TownDefinitionList.schema.json \
+	schema/TownMap.schema.json \
+	schema/TownPreferences.schema.json \
 	schema/VaultDefinitions.schema.json \
 	schema/WildernessDefinition.schema.json
 

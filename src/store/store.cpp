@@ -22,6 +22,7 @@
 #include "store/black-market.h"
 #include "store/service-checker.h"
 #include "store/store-owners.h"
+#include "store/store-screen.h"
 #include "store/store-util.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-scroll-types.h"
@@ -37,18 +38,6 @@
 #include "view/display-messages.h"
 #include "world/world.h"
 #include <tl/optional.hpp>
-
-int store_top = 0;
-int store_bottom = 0;
-int xtra_stock = 0;
-size_t old_town_num = 0;
-size_t inner_town_num = 0;
-
-/* We store the current "store feat" here so everyone can access it */
-short cur_store_feat;
-
-/* Enable "increments" */
-bool allow_inc = false;
 
 /*!
  * @brief 店舗の最大スロット数を返す
@@ -216,10 +205,14 @@ tl::optional<short> input_stock(std::string_view fmt, int min, int max, [[maybe_
 /*!
  * @brief 店のアイテムを調べるコマンドのメインルーチン /
  * Examine an item in a store			   -JDL-
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param screen 調べる店舗の画面
  */
-void store_examine(PlayerType *player_ptr, StoreSaleType store_num)
+void store_examine(PlayerType *player_ptr, const StoreScreen &screen)
 {
-    if (st_ptr->stock_num <= 0) {
+    const auto &store = screen.get_store();
+    const auto store_num = store.get_sale_type();
+    if (store.stock_num <= 0) {
         if (store_num == StoreSaleType::HOME) {
             msg_print(_("我が家には何も置いてありません。", "Your home is empty."));
         } else if (store_num == StoreSaleType::MUSEUM) {
@@ -230,19 +223,14 @@ void store_examine(PlayerType *player_ptr, StoreSaleType store_num)
         return;
     }
 
-    int i = (st_ptr->stock_num - store_top);
-    if (i > store_bottom) {
-        i = store_bottom;
-    }
-
     constexpr auto mes = _("どれを調べますか？", "Which item do you want to examine? ");
-    auto item_num_opt = input_stock(mes, 0, i - 1, store_num);
+    auto item_num_opt = input_stock(mes, 0, screen.get_page_item_count() - 1, store_num);
     if (!item_num_opt) {
         return;
     }
 
-    const auto item_num = *item_num_opt + store_top;
-    auto &item = *st_ptr->stock[item_num];
+    const auto item_num = *item_num_opt + screen.get_page_top();
+    const auto &item = *store.stock[item_num];
     if (!item.is_fully_known()) {
         msg_print(_("このアイテムについて特に知っていることはない。", "You have no special knowledge about that item."));
         return;
@@ -256,12 +244,13 @@ void store_examine(PlayerType *player_ptr, StoreSaleType store_num)
 }
 
 /*!
- * @brief 現在の町の店主を交代させる /
+ * @brief 町の店主を交代させる /
  * Shuffle one of the stores.
- * @param which 店舗種類のID
+ * @param town_num 町のID
+ * @param store_num 店舗種類のID
  * @todo init_store()と処理を一部統合＆ランダム選択を改善。
  */
-void store_shuffle(StoreSaleType store_num)
+void store_shuffle(size_t town_num, StoreSaleType store_num)
 {
     auto &towns = TownList::get_instance();
     const auto towns_size = towns.size();
@@ -270,8 +259,7 @@ void store_shuffle(StoreSaleType store_num)
         return;
     }
 
-    auto &world = AngbandWorld::get_instance();
-    auto &store = world.get_town().get_store(store_num);
+    auto &store = towns.get_town(town_num).get_store(store_num);
     int j = store.owner;
     while (true) {
         store.owner = randnum0<uint8_t>(owner_num);
@@ -282,7 +270,7 @@ void store_shuffle(StoreSaleType store_num)
 
         size_t i;
         for (i = 1; i < towns_size; i++) {
-            if (i == world.get_town_index()) {
+            if (i == town_num) {
                 continue;
             }
 
@@ -315,6 +303,7 @@ void store_shuffle(StoreSaleType store_num)
  * @brief 店舗の品揃え変化のためにアイテムを追加する /
  * Creates a random item and gives it to a store
  * @param player_ptr プレイヤーへの参照ポインタ
+ * @param town_num 店舗がある町のID
  * @param store アイテムを追加する店舗
  * @param fix_k_idx 追加するベースアイテムのID (0ならばランダムに選ぶ)
  * @details
@@ -327,14 +316,13 @@ void store_shuffle(StoreSaleType store_num)
  * Should we check for "permission" to have the given item?
  * </pre>
  */
-static void store_create(PlayerType *player_ptr, Store &store, short fix_k_idx)
+static void store_create(PlayerType *player_ptr, size_t town_num, Store &store, short fix_k_idx)
 {
     const auto store_num = store.get_sale_type();
     if (store.stock_num >= store.stock_size) {
         return;
     }
 
-    const auto &world = AngbandWorld::get_instance();
     const int bm_boost = 25 + store_level(store_num) / 4;
     const auto &owner = store.get_owner();
     for (int tries = 0; tries < 4; tries++) {
@@ -387,7 +375,7 @@ static void store_create(PlayerType *player_ptr, Store &store, short fix_k_idx)
         }
 
         if (store_num == StoreSaleType::BLACK) {
-            if (black_market_crap(world.get_town_index(), item) || (item.calc_price() < 10)) {
+            if (black_market_crap(town_num, item) || (item.calc_price() < 10)) {
                 continue;
             }
         } else {
@@ -406,10 +394,11 @@ static void store_create(PlayerType *player_ptr, Store &store, short fix_k_idx)
  * @brief 店の品揃えを変化させる /
  * Maintain the inventory at the stores.
  * @param player_ptr プレイヤーへの参照ポインタ
+ * @param town_num 店舗がある町のID
  * @param store 品揃えを変化させる店舗
  * @param chance 更新商品数
  */
-void store_maintenance(PlayerType *player_ptr, Store &store, int chance)
+void store_maintenance(PlayerType *player_ptr, size_t town_num, Store &store, int chance)
 {
     const auto store_num = store.get_sale_type();
     if ((store_num == StoreSaleType::HOME) || (store_num == StoreSaleType::MUSEUM)) {
@@ -418,10 +407,9 @@ void store_maintenance(PlayerType *player_ptr, Store &store, int chance)
 
     store.insult_cur = 0;
     if (store_num == StoreSaleType::BLACK) {
-        const auto &world = AngbandWorld::get_instance();
         for (INVENTORY_IDX j = store.stock_num - 1; j >= 0; j--) {
             auto &item = *store.stock[j];
-            if (black_market_crap(world.get_town_index(), item)) {
+            if (black_market_crap(town_num, item)) {
                 store.increase_item(j, 0 - item.number);
                 store.optimize_item(j);
             }
@@ -475,14 +463,14 @@ void store_maintenance(PlayerType *player_ptr, Store &store, int chance)
     }
 
     for (size_t k = 0; k < store.regular.size(); k++) {
-        store_create(player_ptr, store, store.regular[k]);
+        store_create(player_ptr, town_num, store, store.regular[k]);
         if (store.stock_num >= store_max_keep) {
             break;
         }
     }
 
     while (store.stock_num < j) {
-        store_create(player_ptr, store, 0);
+        store_create(player_ptr, town_num, store, 0);
     }
 }
 

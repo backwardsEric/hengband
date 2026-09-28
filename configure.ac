@@ -17,6 +17,9 @@ esac])
 AC_SUBST(GAMEGROUP)
 AM_CONDITIONAL(SET_GID, test "$GAMEGROUP" != "")
 
+dnl lib/xtra (サブモジュール) がチェックアウトされているか
+AM_CONDITIONAL([HAVE_XTRA], [test -f "$srcdir/lib/xtra/graf/8x8.bmp"])
+
 dnl generate the installation path for the ./lib/ folder
 if test "$GAMEGROUP" != ""; then
   MY_EXPAND_DIR(game_libpath, "$datarootdir/games/$PACKAGE/lib/")
@@ -153,6 +156,18 @@ if test x"$MACOS_MIN" = x ; then
 else
     AC_SUBST(MACOS_MIN_INTERNAL, $MACOS_MIN)
 fi
+
+dnl assert.h / TL_ASSERT の有効・無効。
+dnl 既定は有効。出荷相当で消すときは --disable-assert。
+dnl AC_HEADER_ASSERT は autoconf.h に NDEBUG を書くだけなので、
+dnl stdafx.h が <tl/expected.hpp> を autoconf.h より先に読む経路でも
+dnl 効くよう、無効時はコマンドラインにも -DNDEBUG を足す。
+AC_HEADER_ASSERT
+AS_IF([test "x$ac_enable_assert" = xno],
+  [case " $CPPFLAGS $CXXFLAGS " in
+   *" -DNDEBUG "*) ;;
+   *) CPPFLAGS="$CPPFLAGS -DNDEBUG" ;;
+   esac])
 
 dnl Checks for libraries.
 dnl Replace `main' with a function in -lncurses:
@@ -312,6 +327,5 @@ AC_CONFIG_FILES(Makefile src/Makefile lib/Makefile lib/apex/Makefile \
 	lib/edit/Makefile lib/edit/quests/Makefile lib/edit/towns/Makefile \
 	lib/file/Makefile lib/file/books/Makefile lib/help/Makefile \
 	lib/info/Makefile lib/pref/Makefile lib/save/Makefile \
-	lib/script/Makefile lib/user/Makefile lib/xtra/Makefile \
-	lib/xtra/graf/Makefile lib/xtra/music/Makefile lib/xtra/sound/Makefile)
+	lib/script/Makefile lib/user/Makefile)
 AC_OUTPUT()
