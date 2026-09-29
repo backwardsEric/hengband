@@ -74,33 +74,6 @@ static void quit_hook(std::string_view s)
     }
 }
 
-#ifdef PRIVATE_USER_PATH
-
-/*
- * Create an ".angband/" directory in the users home directory.
- *
- * ToDo: Add error handling.
- * ToDo: Only create the directories when actually writing files.
- */
-static void create_user_dir(void)
-{
-    // ホームディレクトリを決められない場合 (passwd に登録の無い UID で起動した場合など) は何も作らない。
-    // 空のパスのまま進めると、カレントディレクトリに作ってしまう
-    const auto &dirpath = path_parse(PRIVATE_USER_PATH);
-    if (dirpath.empty()) {
-        return;
-    }
-
-    const auto &dir_str = dirpath.string();
-    mkdir(dir_str.data(), 0700);
-
-    const auto &subdirpath = path_build(dirpath, VARIANT_NAME);
-    const auto &subdir_str = subdirpath.string();
-    mkdir(subdir_str.data(), 0700);
-}
-
-#endif /* PRIVATE_USER_PATH */
-
 static void init_stuff()
 {
     char libpath[1024]{};
