@@ -637,6 +637,7 @@ libhengband_a_SOURCES = \
 	info-reader/skill-reader.cpp info-reader/skill-reader.h \
 	info-reader/spell-reader.cpp info-reader/spell-reader.h \
 	info-reader/terrain-reader.cpp info-reader/terrain-reader.h \
+	info-reader/town-definition-list-reader.cpp info-reader/town-definition-list-reader.h \
 	info-reader/town-map-reader.cpp info-reader/town-map-reader.h \
 	info-reader/vault-reader.cpp info-reader/vault-reader.h \
 	\
@@ -1500,13 +1501,15 @@ hengband_test_SOURCES = \
 	test/info-reader/test-info-reader-util.cpp \
 	test/info-reader/test-json-reader-util.cpp \
 	test/info-reader/test-skill-reader.cpp \
-	test/info-reader/test-vault-reader.cpp \
+	test/info-reader/test-town-definition-list-reader.cpp \
 	test/info-reader/test-town-map-reader.cpp \
+	test/info-reader/test-vault-reader.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
 	test/io/test-tokenizer.cpp \
 	test/load/test-angband-version-comparer.cpp \
 	test/locale/test-character-encoding.cpp \
+	test/monster-race/test-race-ability-mask.cpp \
 	test/mspell/test-mspell-projection-table.cpp \
 	test/mutation/test-mutation-roll-table.cpp \
 	test/player/test-process-name.cpp \
