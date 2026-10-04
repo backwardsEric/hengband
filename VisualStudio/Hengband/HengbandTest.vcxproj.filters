@@ -7,6 +7,9 @@
     <Filter Include="cmd-io">
       <UniqueIdentifier>{050a79fd-58ab-48f3-a881-f83ff7a488b7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="flavor">
+      <UniqueIdentifier>{740c8771-89d8-44fe-bd2c-adcff9c2cfea}</UniqueIdentifier>
+    </Filter>
     <Filter Include="game-option">
       <UniqueIdentifier>{ce56653b-fbe2-4e12-af06-489721a95644}</UniqueIdentifier>
     </Filter>
@@ -21,6 +24,9 @@
     </Filter>
     <Filter Include="locale">
       <UniqueIdentifier>{76b459ee-5ecd-44a7-b71a-ed5acafc02f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="main">
+      <UniqueIdentifier>{3e3bfbaf-32fc-46d7-a1fc-51c277aaa757}</UniqueIdentifier>
     </Filter>
     <Filter Include="monster-race">
       <UniqueIdentifier>{eb4b30d0-a9aa-492e-b43c-12d323e03a83}</UniqueIdentifier>
@@ -54,16 +60,29 @@
     <ClCompile Include="..\..\src\stdafx.cpp" />
     <ClCompile Include="..\..\src\test\test-main.cpp" />
     <ClCompile Include="..\..\src\test\view\test-map-terrain-visibility.cpp" />
+    <ClCompile Include="..\..\src\test\view\test-screen-parity-helpers.cpp" />
     <ClCompile Include="..\..\src\test\autopick\test-autopick-editor-util.cpp">
       <Filter>autopick</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\cmd-io\test-cmd-autopick.cpp">
       <Filter>cmd-io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\flavor\test-flavor-util.cpp">
+      <Filter>flavor</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\game-option\test-runtime-arguments.cpp">
       <Filter>game-option</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-activation-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-baseitem-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-ego-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-general-parser.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-wilderness-reader.cpp">
@@ -75,13 +94,34 @@
     <ClCompile Include="..\..\src\test\info-reader\test-town-map-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-town-preferences-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-info-reader-util.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-json-reader-util.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-message-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-magic-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-quest-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-race-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-skill-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-spell-reader.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-terrain-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-vault-reader.cpp">
@@ -93,6 +133,9 @@
     <ClCompile Include="..\..\src\test\io\test-macro-configurations-store.cpp">
       <Filter>io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\io\test-pref-file-expressor.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\io\test-tokenizer.cpp">
       <Filter>io</Filter>
     </ClCompile>
@@ -101,6 +144,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\test\locale\test-character-encoding.cpp">
       <Filter>locale</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\main\test-init-error-messages-table.cpp">
+      <Filter>main</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\monster-race\test-race-ability-mask.cpp">
       <Filter>monster-race</Filter>
@@ -123,6 +169,9 @@
     <ClCompile Include="..\..\src\test\store\test-store-util.cpp">
       <Filter>store</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\system\baseitem\test-baseitem-definition.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\system\monrace\test-monrace-definition.cpp">
       <Filter>system</Filter>
     </ClCompile>
@@ -140,6 +189,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\test\timed-effect\test-timed-effect.cpp">
       <Filter>timed-effect</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\util\test-buffer-shaper.cpp">
+      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\util\test-dice.cpp">
       <Filter>util</Filter>
@@ -165,6 +217,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stdafx.h" />
+    <ClInclude Include="..\..\src\test\info-reader\scoped-reader-state.h" />
+    <ClInclude Include="..\..\src\test\scoped-restore.h" />
     <ClInclude Include="..\..\src\test\scoped-rng.h" />
+    <ClInclude Include="..\..\src\test\string-helpers.h" />
+    <ClInclude Include="..\..\src\test\system\artifact-list-test-access.h" />
+    <ClInclude Include="..\..\src\test\system\terrain-list-test-access.h" />
   </ItemGroup>
 </Project>

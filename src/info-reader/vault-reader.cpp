@@ -9,7 +9,6 @@
 #include <array>
 #include <fmt/format.h>
 #include <limits>
-#include <stdexcept>
 #include <utility>
 
 VaultReader::VaultReader(const nlohmann::json &data)
@@ -66,11 +65,11 @@ int VaultReader::read()
     if (!this->data["name"].is_string() || this->data["name"].get_ref<const std::string &>().empty()) {
         return this->fail(PARSE_ERROR_INVALID_TYPE, "$.name", _("空でない文字列が必要です", "expected a nonempty string"));
     }
-    try {
-        vault.name = utf8_to_local(this->data["name"].get_ref<const std::string &>());
-    } catch (const std::runtime_error &) {
+    auto name = utf8_to_sys(this->data["name"].get_ref<const std::string &>());
+    if (!name) {
         return this->fail(PARSE_ERROR_INVALID_VALUE, "$.name", _("システムの文字コードに変換できません", "cannot be converted to the system encoding"));
     }
+    vault.name = std::move(*name);
     int type;
     if (const auto err = this->read_integer("type", type, 0, 255)) {
         return err;

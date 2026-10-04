@@ -639,6 +639,7 @@ libhengband_a_SOURCES = \
 	info-reader/terrain-reader.cpp info-reader/terrain-reader.h \
 	info-reader/town-definition-list-reader.cpp info-reader/town-definition-list-reader.h \
 	info-reader/town-map-reader.cpp info-reader/town-map-reader.h \
+	info-reader/town-preferences-reader.cpp info-reader/town-preferences-reader.h \
 	info-reader/vault-reader.cpp info-reader/vault-reader.h \
 	\
 	inventory/floor-item-getter.cpp inventory/floor-item-getter.h \
@@ -1491,31 +1492,51 @@ check_PROGRAMS = hengband-test
 
 hengband_test_SOURCES = \
 	test/test-main.cpp \
+	test/scoped-restore.h \
 	test/scoped-rng.h \
+	test/string-helpers.h \
+	test/info-reader/scoped-reader-state.h \
+	test/system/artifact-list-test-access.h \
+	test/system/terrain-list-test-access.h \
 	\
 	test/autopick/test-autopick-editor-util.cpp \
 	test/cmd-io/test-cmd-autopick.cpp \
+	test/flavor/test-flavor-util.cpp \
 	test/game-option/test-runtime-arguments.cpp \
+	test/info-reader/test-activation-reader.cpp \
+	test/info-reader/test-baseitem-reader.cpp \
 	test/info-reader/test-ego-reader.cpp \
+	test/info-reader/test-general-parser.cpp \
 	test/info-reader/test-wilderness-reader.cpp \
 	test/info-reader/test-info-reader-util.cpp \
 	test/info-reader/test-json-reader-util.cpp \
+	test/info-reader/test-magic-reader.cpp \
+	test/info-reader/test-message-reader.cpp \
+	test/info-reader/test-quest-reader.cpp \
+	test/info-reader/test-race-reader.cpp \
 	test/info-reader/test-skill-reader.cpp \
+	test/info-reader/test-spell-reader.cpp \
+	test/info-reader/test-terrain-reader.cpp \
 	test/info-reader/test-town-definition-list-reader.cpp \
 	test/info-reader/test-town-map-reader.cpp \
+	test/info-reader/test-town-preferences-reader.cpp \
 	test/info-reader/test-vault-reader.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
+	test/io/test-pref-file-expressor.cpp \
 	test/io/test-tokenizer.cpp \
 	test/load/test-angband-version-comparer.cpp \
 	test/locale/test-character-encoding.cpp \
+	test/main/test-init-error-messages-table.cpp \
 	test/monster-race/test-race-ability-mask.cpp \
 	test/mspell/test-mspell-projection-table.cpp \
 	test/mutation/test-mutation-roll-table.cpp \
+	test/object/test-object-info.cpp \
 	test/player/test-process-name.cpp \
 	test/store/test-pricing.cpp \
 	test/store/test-store-screen.cpp \
 	test/store/test-store-util.cpp \
+	test/system/baseitem/test-baseitem-definition.cpp \
 	test/system/monrace/test-monrace-definition.cpp \
 	test/term/test-z-form.cpp \
 	test/term/test-z-rand.cpp \
@@ -1523,13 +1544,15 @@ hengband_test_SOURCES = \
 	test/timed-effect/test-player-stun.cpp \
 	test/timed-effect/test-timed-effect.cpp \
 	test/util/test-angband-files.cpp \
+	test/util/test-buffer-shaper.cpp \
 	test/util/test-dice.cpp \
 	test/util/test-finalizer.cpp \
 	test/util/test-flag-group.cpp \
 	test/util/test-probability-table.cpp \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
-	test/view/test-map-terrain-visibility.cpp
+	test/view/test-map-terrain-visibility.cpp \
+	test/view/test-screen-parity-helpers.cpp
 
 hengband_test_LDADD = libhengband.a
 
