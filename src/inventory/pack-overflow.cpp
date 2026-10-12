@@ -6,7 +6,6 @@
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
 #include "object/object-info.h"
-#include "player/player-status.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
 #include "view/display-messages.h"
@@ -20,7 +19,7 @@ void pack_overflow(PlayerType *player_ptr)
         return;
     }
 
-    update_creature(player_ptr);
+    update_inventory_arrangement(player_ptr);
     if (!player_ptr->inventory[INVEN_PACK]->is_valid()) {
         return;
     }
@@ -34,5 +33,5 @@ void pack_overflow(PlayerType *player_ptr)
     (void)drop_near(player_ptr, item, player_ptr->get_position(), false);
 
     vary_item(player_ptr, INVEN_PACK, -255);
-    handle_stuff(player_ptr);
+    handle_stuff_with_inventory_arrangement(player_ptr);
 }

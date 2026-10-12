@@ -35,7 +35,6 @@
 #include "game-option/play-record-options.h"
 #include "game-option/runtime-arguments.h"
 #include "info-reader/fixed-map-parser.h"
-#include "info-reader/parse-error-types.h"
 #include "info-reader/wilderness-reader.h"
 #include "io/files-util.h"
 #include "io/input-key-acceptor.h"
@@ -247,9 +246,7 @@ static void generate_wilderness(PlayerType *player_ptr)
 {
     apply_wilderness_definition();
     init_flags = INIT_ONLY_BUILDINGS;
-    if (parse_fixed_map(player_ptr, TOWN_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID) != PARSE_ERROR_NONE) {
-        quit(_("町の定義の読み込みに失敗しました", "Failed to load the town definition"));
-    }
+    load_town_map(player_ptr);
     select_floor_music(player_ptr);
 }
 
@@ -330,7 +327,8 @@ static void init_riding_pet(PlayerType *player_ptr, bool new_game)
     monster.max_maxhp = monster.maxhp;
     monster.hp = monrace.hit_dice.floored_expected_value();
     monster.dealt_damage = 0;
-    monster.energy_need = ENERGY_NEED() + ENERGY_NEED();
+    monster.energy_need = ENERGY_NEED();
+    monster.energy_need += ENERGY_NEED();
 }
 
 static void decide_arena_death(PlayerType *player_ptr)
@@ -375,7 +373,7 @@ static void process_game_turn(PlayerType *player_ptr)
     while (true) {
         process_dungeon(player_ptr, load_game);
         world.character_xtra = true;
-        handle_stuff(player_ptr);
+        handle_stuff_with_inventory_arrangement(player_ptr);
         world.character_xtra = false;
         Target::clear_last_target();
         health_track(player_ptr, 0);
@@ -421,8 +419,8 @@ void play_game(PlayerType *player_ptr, bool new_game, bool browsing_movie)
     }
 
     restore_windows(player_ptr);
-    if (!load_savedata(player_ptr, &new_game)) {
-        quit(_("セーブファイルが壊れています", "broken savefile"));
+    if (const auto result = load_savedata(player_ptr, &new_game); !result) {
+        quit(result.error());
     }
 
     extract_option_vars();

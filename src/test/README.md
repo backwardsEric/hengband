@@ -112,7 +112,7 @@ Visual Studio の IDE から実行する場合は、`HengbandTest` を右クリ�
        ...
    ```
 
-   `VisualStudio/Hengband/HengbandTest.vcxproj` の `<ClCompile>`:
+   `VisualStudio/Hengband/HengbandTest.vcxproj` の `<ClCompile>`（パスの昇順に並べる）:
 
    ```xml
    <ItemGroup>
@@ -123,8 +123,10 @@ Visual Studio の IDE から実行する場合は、`HengbandTest` を右クリ�
    </ItemGroup>
    ```
 
-   Visual Studio 上での表示を整えるため、`HengbandTest.vcxproj.filters` にも
-   同じファイルを追加しておくとよいです（こちらは登録しなくてもビルド・実行はできます）。
+   Visual Studio 上でのフォルダ分けの表示に使う `HengbandTest.vcxproj.filters` は、
+   `python3 .github/scripts/check-vcxproj.py --fix` で vcxproj の登録内容から作り直します
+   （vcxproj の並び順もあわせて直ります）。CI の `check_vcxproj` は、vcxproj と `hengband_test_SOURCES` の
+   食い違いや、並び順・filters が `--fix` の結果と違うことを検出します。
 
 4. **ビルドして確認する**
 
@@ -374,6 +376,26 @@ doctest によるユニットテストのみです）。
 テストを書きやすい形へのリファクタリングは歓迎されます。
 
 ## 制限
+
+### 共通描画の回帰プローブ
+
+画面消去に伴うメッセージ待ち中に、リサイズによる消去・再描画要求が追加されるケースは、
+メモリ上の端末と本体の `msg_erase()` / `redraw_stuff()` を使う独立プロセスで検証します。
+既存のビルドディレクトリで実行してください（`make check` とは別の明示実行です）。
+
+```sh
+make -C src check-main-window-wipe
+```
+
+`plain`（待ちなし）、`deferred`（待ち中に追加した要求を保留）、`reenter`（待ち中に描画へ再入）の
+3ケースで、WIPEが残らないこと、消去後に所持金が描かれること、次の呼び出しで消えないこと、
+さらに別の更新を描画できることを確認します。各ケースは独立プロセスで実行します。
+
+入力イベントで `term_resize()` とWIPE/GOLD要求を直接注入するため、フロントエンドのリサイズ処理、
+地図・基本/拡張ステータス、制御サーバのRPCまでは検証しません。それらは実機シナリオで確認してください。
+ソースは `tools/tests/main-window-wipe-probe.cpp` にあり、doctestやMSVCのユニットテストには登録していません。
+
+### 通常テストの制限
 
 - **`PlayerType` やフロア、`term` を必要とするコードはユニットテストにできません。**
   冒頭の判断基準のとおり、シナリオテストで確かめてください。

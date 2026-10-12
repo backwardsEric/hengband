@@ -4,8 +4,162 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from validate_json import load_jsonc, validate_one
+from json_validation_test_helper import validate_document
+from validate_json import build_schema_registry, build_validation_pairs, load_all_schemas, load_jsonc, validate_one
+
+
+class QuestGridValidationTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schema_dir = Path(__file__).resolve().parents[2] / "schema"
+        cls.loaded, cls.schema_map = load_all_schemas(cls.schema_dir)
+        cls.registry = build_schema_registry(cls.loaded)
+
+    def validate(self, cell, schema_name, registry=None, schema=None, data_updates=None):
+        schema_path = self.schema_map[schema_name]
+        data = {"version": 1, "legend": {"#": cell}}
+        if schema_name == "Quest":
+            data.update(id=1, name={"ja": "試験", "en": "Test"}, definition={"type": "KILL_ALL", "level": 1})
+        if data_updates:
+            data.update(data_updates)
+        return validate_document(data, schema_path, schema if schema is not None else self.loaded[schema_path],
+                                 registry if registry is not None else self.registry, filename="Test.jsonc")
+
+    def test_quest_start_requires_a_map(self):
+        ok, message = self.validate({}, "Quest", data_updates={"startVariants": []})
+        self.assertTrue(ok, message)
+        for field in ("start", "startVariants"):
+            start = {"y": 0, "x": 0}
+            value = start if field == "start" else [start]
+            for maps, expected in (({}, False), ({"map": ["."]}, True), ({"mapVariants": [["."], ["."]]}, True)):
+                with self.subTest(field=field, maps=maps):
+                    ok, message = self.validate({}, "Quest", data_updates={field: value, **maps})
+                    self.assertEqual(ok, expected, message)
+
+    def test_shared_schema_is_not_a_data_schema(self):
+        shared_path = self.schema_dir / "common/QuestGrid.schema.json"
+        self.assertIn(shared_path, self.loaded)
+        self.assertNotIn("QuestGrid", self.schema_map)
+        with tempfile.TemporaryDirectory() as folder:
+            edit_dir = Path(folder)
+            (edit_dir / "QuestGrid.jsonc").write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "Missing schemas for: QuestGrid.jsonc"):
+                build_validation_pairs(edit_dir, self.schema_map, self.loaded)
+
+    def test_shared_schema_is_in_source_distribution(self):
+        makefile = (self.schema_dir.parent / "Makefile.am").read_text(encoding="utf-8")
+        schema_files = makefile.split("schema_files =", 1)[1].split("\n\n", 1)[0]
+        extra_dist = makefile.split("EXTRA_DIST =", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("\tschema/common/QuestGrid.schema.json \\", schema_files)
+        self.assertIn("$(schema_files)", extra_dist)
+
+    def test_shared_grid_contract(self):
+        cases = (
+            ({}, True),
+            ({"terrain": "*", "caveInfo": ["GLOW", "MARK"], "special": -1}, True),
+            ({"monster": 1, "object": 1, "ego": 1, "artifact": 1, "trap": "TRAP"}, True),
+            ({"monster": {"random": True, "oodLevel": 0}, "object": {"random": True, "oodLevel": 0},
+              "ego": {"random": True, "id": 1}, "artifact": {"random": True, "id": 1}, "trap": {"random": True}}, True),
+            ({"monster": {"cloneOf": 1}, "object": {"questReward": True}, "artifact": {"questReward": True}}, True),
+            ({"terrain": 1}, False),
+            ({"caveInfo": ["GLOW", "GLOW"]}, False),
+            ({"caveInfo": ["UNKNOWN"]}, False),
+            ({"special": "1"}, False),
+            ({"unknown": 1}, False),
+        )
+        invalid_specs = (0, -1, False, "1", {}, {"random": False}, {"random": True, "unknown": 1})
+        for field in ("monster", "object", "ego", "artifact"):
+            cases += tuple(({field: value}, False) for value in invalid_specs)
+        cases += (({"trap": {}}, False), ({"trap": {"random": False}}, False),
+                  ({"monster": {"random": True, "oodLevel": -1}}, False),
+                  ({"object": {"random": True, "oodLevel": -1}}, False),
+                  ({"monster": {"cloneOf": 0}}, False),
+                  ({"ego": {"random": True, "id": 0}}, False),
+                  ({"artifact": {"random": True, "id": 0}}, False))
+        for schema_name in ("Quest", "QuestPreferences"):
+            # Recreate the former inlined graph and compare acceptance as well
+            # as explicit boundaries. Internal refs must keep the shared base.
+            inlined_schema = copy.deepcopy(self.loaded[self.schema_map[schema_name]])
+            shared_defs = self.loaded[self.schema_dir / "common/QuestGrid.schema.json"]["$defs"]
+            inlined_schema.setdefault("$defs", {}).update(shared_defs)
+            inlined_schema["properties"]["legend"]["additionalProperties"]["$ref"] = "#/$defs/gridDefinition"
+            for cell, valid in cases:
+                with self.subTest(schema=schema_name, cell=cell):
+                    ok, message = self.validate(cell, schema_name)
+                    self.assertEqual(ok, valid, message)
+                    old_ok, old_message = self.validate(cell, schema_name, schema=inlined_schema)
+                    self.assertEqual(old_ok, ok, old_message)
+
+    def test_validate_one_loads_local_registry_when_not_supplied(self):
+        schema_path = self.schema_map["QuestPreferences"]
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "QuestPreferences.jsonc"
+            target.write_text('{"version": 1, "legend": {"#": {"monster": {"cloneOf": 1}}}}', encoding="utf-8")
+            ok, message = validate_one((target, schema_path, self.loaded[schema_path]))
+            self.assertTrue(ok, message)
+
+    def test_missing_resource_and_broken_pointer_fail_closed(self):
+        shared_path = self.schema_dir / "common/QuestGrid.schema.json"
+        registry = build_schema_registry({path: schema for path, schema in self.loaded.items() if path != shared_path})
+        for schema_name in ("Quest", "QuestPreferences"):
+            with self.subTest(schema=schema_name, error="missing resource"):
+                ok, message = self.validate({}, schema_name, registry=registry)
+                self.assertFalse(ok)
+                self.assertIn("Schema Reference Error", message)
+            schema = copy.deepcopy(self.loaded[self.schema_map[schema_name]])
+            schema["properties"]["legend"]["additionalProperties"]["$ref"] = "common/QuestGrid.schema.json#/$defs/missing"
+            with self.subTest(schema=schema_name, error="broken pointer"):
+                ok, message = self.validate({}, schema_name, schema=schema)
+                self.assertFalse(ok)
+                self.assertIn("Schema Reference Error", message)
+
+    def test_remote_reference_is_not_retrieved(self):
+        schema = copy.deepcopy(self.loaded[self.schema_map["QuestPreferences"]])
+        schema["properties"]["legend"]["additionalProperties"]["$ref"] = "https://example.invalid/grid.json"
+        with patch("urllib.request.urlopen", side_effect=AssertionError("HTTP retrieval is forbidden")) as request:
+            ok, message = self.validate({}, "QuestPreferences", schema=schema)
+        self.assertFalse(ok)
+        self.assertIn("Schema Reference Error", message)
+        request.assert_not_called()
+
+    def test_malformed_shared_schema_fails_loading(self):
+        with tempfile.TemporaryDirectory() as folder:
+            schema_dir = Path(folder)
+            (schema_dir / "common").mkdir()
+            (schema_dir / "common/Broken.schema.json").write_text('{"type": 1}', encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "Error loading schema Broken.schema.json"):
+                load_all_schemas(schema_dir)
+
+    def test_boolean_schemas_keep_their_validation_contract(self):
+        with tempfile.TemporaryDirectory() as folder:
+            schema_dir = Path(folder)
+            target = schema_dir / "Data.jsonc"
+            target.write_text("{}", encoding="utf-8")
+            for accepted in (True, False):
+                with self.subTest(schema=accepted):
+                    schema_path = schema_dir / "Data.schema.json"
+                    schema_path.write_text(json.dumps(accepted), encoding="utf-8")
+                    loaded, _ = load_all_schemas(schema_dir)
+                    registry = build_schema_registry(loaded)
+                    ok, message = validate_one((target, schema_path, loaded[schema_path]), registry)
+                    self.assertEqual(ok, accepted, message)
+
+
+class BaseitemValidationTest(unittest.TestCase):
+    def test_id_boundary_matches_reader_and_short_storage(self):
+        root = Path(__file__).resolve().parents[2]
+        schema_path = root / "schema/BaseitemDefinitions.schema.json"
+        schema = load_jsonc(schema_path)
+        example = load_jsonc(root / "lib/edit/BaseitemDefinitions.jsonc")["baseitems"][-1]
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "BaseitemDefinitions.jsonc"
+            for item_id, accepted in ((9999, True), (32767, True), (32768, False)):
+                with self.subTest(item_id=item_id):
+                    target.write_text(json.dumps({"version": 1, "baseitems": [{**example, "id": item_id}]}), encoding="utf-8")
+                    ok, message = validate_one((target, schema_path, schema))
+                    self.assertEqual(ok, accepted, message)
 
 
 class VaultValidationTest(unittest.TestCase):
@@ -18,11 +172,8 @@ class VaultValidationTest(unittest.TestCase):
         }
 
     def validate(self, data):
-        """Use a real temporary JSON file, including schema and semantic checks."""
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "VaultDefinitions.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        """実際の一時JSONファイルでschemaと意味検証を行う。"""
+        return validate_document(data, self.schema_path, self.schema, filename="VaultDefinitions.jsonc")
 
     def test_valid_sparse_ids_and_spaces(self):
         second = {**self.record, "id": 3}
@@ -78,6 +229,7 @@ class VaultValidationTest(unittest.TestCase):
 
 class EgoValidationTest(unittest.TestCase):
     def setUp(self):
+        """整数百分率形式の正常なエゴと実際のスキーマを各テスト用に用意する。"""
         self.schema_path = Path(__file__).resolve().parents[2] / "schema/EgoDefinitions.schema.json"
         self.schema = load_jsonc(self.schema_path)
         self.record = {
@@ -90,65 +242,71 @@ class EgoValidationTest(unittest.TestCase):
             "cost": 1000,
             "maximum_bonuses": {"to_hit": 1, "to_damage": 2, "to_ac": 3, "pval": 4},
             "flags": ["STR"],
-            "extra_flags": [{"numerator": 1, "denominator": 3, "flags": ["RES_FIRE"]}],
+            "extra_flags": [{"chance": 33, "flags": ["RES_FIRE"]}],
         }
 
     def validate(self, data):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "EgoDefinitions.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        """同梱スキーマとエゴ用の意味検証を同じ入口から実行する。"""
+        return validate_document(data, self.schema_path, self.schema, filename="EgoDefinitions.jsonc")
 
     def test_valid_sparse_ids(self):
+        """保存範囲内の飛び飛びのIDを受理することを確認する。"""
         second = {**self.record, "id": 8}
-        ok, message = self.validate({"version": 1, "egos": [self.record, second]})
+        ok, message = self.validate({"version": 2, "egos": [self.record, second]})
         self.assertTrue(ok, message)
 
     def test_duplicate_ids(self):
+        """同じIDが複数回定義された文書を拒否することを確認する。"""
         records = [self.record, {**self.record}]
-        ok, message = self.validate({"version": 1, "egos": records})
+        ok, message = self.validate({"version": 2, "egos": records})
         self.assertFalse(ok)
         self.assertIn("unique", message)
 
     def test_descending_ids_are_supported(self):
+        """IDの順序は昇順に限定しないことを確認する。"""
         records = [{**self.record, "id": ego_id} for ego_id in (8, 4)]
-        ok, message = self.validate({"version": 1, "egos": records})
+        ok, message = self.validate({"version": 2, "egos": records})
         self.assertTrue(ok, message)
 
     def test_integer_representation_matches_reader(self):
+        """整数値に見える浮動小数点もreaderと同様に拒否する。"""
         for field in ("id", "slot", "rating", "level", "rarity", "cost"):
             with self.subTest(field=field):
                 record = copy.deepcopy(self.record)
                 record[field] = float(record[field])
-                ok, message = self.validate({"version": 1, "egos": [record]})
+                ok, message = self.validate({"version": 2, "egos": [record]})
                 self.assertFalse(ok)
                 self.assertIn("integer JSON value", message)
 
     def test_rarity_matches_byte_storage(self):
+        """rarityのbyte上限を受理し、その直外を拒否する。"""
         record = {**self.record, "rarity": 255}
-        ok, message = self.validate({"version": 1, "egos": [record]})
+        ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertTrue(ok, message)
         record["rarity"] = 256
-        ok, message = self.validate({"version": 1, "egos": [record]})
+        ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertFalse(ok)
 
-    def test_level_matches_depth_storage(self):
-        record = {**self.record, "level": 32768}
-        ok, message = self.validate({"version": 1, "egos": [record]})
+    def test_level_matches_activation_difficulty_domain(self):
+        """levelの発動難易度上限128を受理し、その直外を拒否する。"""
+        record = {**self.record, "level": 128}
+        ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertTrue(ok, message)
-        record["level"] = 2147483648
-        ok, message = self.validate({"version": 1, "egos": [record]})
+        record["level"] = 129
+        ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertFalse(ok)
 
     def test_known_runtime_tokens_are_accepted_by_ci(self):
+        """製品が解釈できる発動・能力・生成フラグをCIでも受理する。"""
         record = copy.deepcopy(self.record)
         record["activation"] = "SUNLIGHT"
         record["flags"] = ["RES_FIRE", "CURSED"]
         record["extra_flags"][0]["flags"] = ["RES_COLD", "HEAVY_CURSE"]
-        ok, message = self.validate({"version": 1, "egos": [record]})
+        ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertTrue(ok, message)
 
     def test_duplicate_flags_are_rejected_by_ci(self):
+        """通常能力と追加能力のそれぞれで重複フラグを拒否する。"""
         for path in (("flags",), ("extra_flags", 0, "flags")):
             with self.subTest(path=path):
                 record = copy.deepcopy(self.record)
@@ -156,11 +314,12 @@ class EgoValidationTest(unittest.TestCase):
                 for part in path[:-1]:
                     target = target[part]
                 target[path[-1]] = ["RES_FIRE", "RES_FIRE"]
-                ok, message = self.validate({"version": 1, "egos": [record]})
+                ok, message = self.validate({"version": 2, "egos": [record]})
                 self.assertFalse(ok)
                 self.assertIn("non-unique", message)
 
     def test_unknown_runtime_tokens_are_rejected_by_ci(self):
+        """発動・通常能力・追加能力の未知のトークンを拒否する。"""
         for path, value in (
             (("activation",), "UNKNOWN"),
             (("flags", 0), "UNKNOWN"),
@@ -172,16 +331,16 @@ class EgoValidationTest(unittest.TestCase):
                 for part in path[:-1]:
                     target = target[part]
                 target[path[-1]] = value
-                ok, message = self.validate({"version": 1, "egos": [record]})
+                ok, message = self.validate({"version": 2, "egos": [record]})
                 self.assertFalse(ok)
                 self.assertIn("unknown", message)
 
     def test_nested_integer_representation_matches_reader(self):
+        """ボーナスと確率にも厳密な整数表現を要求する。"""
         for path in (
             ("base_bonuses", "to_hit"),
             ("maximum_bonuses", "pval"),
-            ("extra_flags", 0, "numerator"),
-            ("extra_flags", 0, "denominator"),
+            ("extra_flags", 0, "chance"),
         ):
             with self.subTest(path=path):
                 record = copy.deepcopy(self.record)
@@ -190,8 +349,68 @@ class EgoValidationTest(unittest.TestCase):
                 for part in path[:-1]:
                     target = target[part]
                 target[path[-1]] = float(target[path[-1]])
-                ok, message = self.validate({"version": 1, "egos": [record]})
+                ok, message = self.validate({"version": 2, "egos": [record]})
                 self.assertFalse(ok)
+
+    def test_extra_percentage_endpoints(self):
+        """0%・100%と中間の整数百分率を受理する。"""
+        for chance in (0, 1, 33, 99, 100):
+            with self.subTest(chance=chance):
+                record = copy.deepcopy(self.record)
+                record["extra_flags"][0]["chance"] = chance
+                ok, message = self.validate({"version": 2, "egos": [record]})
+                self.assertTrue(ok, message)
+
+    def test_extra_percentage_rejects_invalid_values_and_legacy_formats(self):
+        """範囲外・非整数・欠落と、旧分数形式・新旧混在を拒否する。"""
+        extras = [{"chance": chance, "flags": ["RES_FIRE"]}
+                  for chance in (-1, 101, 2**64 - 1, 33.0, False, None)]
+        extras += [{"flags": ["RES_FIRE"]},
+                   {"numerator": 1, "denominator": 3, "flags": ["RES_FIRE"]},
+                   {"chance": 33, "numerator": 1, "denominator": 3, "flags": ["RES_FIRE"]}]
+        for extra in extras:
+            with self.subTest(extra=extra):
+                record = {**self.record, "extra_flags": [extra]}
+                ok, message = self.validate({"version": 2, "egos": [record]})
+                self.assertFalse(ok, message)
+
+    def test_percent_format_requires_integer_version_two(self):
+        """versionは整数2のみとし、欠落や別の型・値を拒否する。"""
+        for version in (1, 3, 2.0, True, None, "2"):
+            with self.subTest(version=version):
+                self.assertFalse(self.validate({"version": version, "egos": [self.record]})[0])
+        self.assertFalse(self.validate({"egos": [self.record]})[0])
+
+    def test_id_save_format_and_equipment_slot_domains(self):
+        """保存可能なIDと弾薬・装備slotの境界を確認する。"""
+        for field, valid, invalid in (("id", (1, 255), (0, 256, 32767)),
+                                      ("slot", range(23, 36), (0, 22, 36, 255))):
+            for expected, values in ((True, valid), (False, invalid)):
+                for value in values:
+                    with self.subTest(field=field, value=value):
+                        ok, message = self.validate({"version": 2, "egos": [{**self.record, field: value}]})
+                        self.assertEqual(ok, expected, message)
+
+    def test_every_remaining_numeric_domain_boundary(self):
+        """残る全スカラーと7種類の符号付きボーナスの境界・直外を確認する。"""
+        domains = [(field, 0, {"rating": 100, "level": 128, "rarity": 255, "cost": 67108863}[field])
+                   for field in ("rating", "level", "rarity", "cost")]
+        domains += [(group + "." + field, -32768, 32767)
+                    for group, fields in (("base_bonuses", ("to_hit", "to_damage", "to_ac")),
+                                          ("maximum_bonuses", ("to_hit", "to_damage", "to_ac", "pval")))
+                    for field in fields]
+        for field, low, high in domains:
+            for value in (low - 1, low, high, high + 1):
+                with self.subTest(field=field, value=value):
+                    record = copy.deepcopy(self.record)
+                    record["base_bonuses"] = {"to_hit": 0, "to_damage": 0, "to_ac": 0}
+                    target = record
+                    parts = field.split(".")
+                    for part in parts[:-1]:
+                        target = target[part]
+                    target[parts[-1]] = value
+                    ok, message = self.validate({"version": 2, "egos": [record]})
+                    self.assertEqual(ok, low <= value <= high, message)
 
 
 class WildernessValidationTest(unittest.TestCase):
@@ -221,10 +440,7 @@ class WildernessValidationTest(unittest.TestCase):
         }
 
     def validate(self, data):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "WildernessDefinition.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        return validate_document(data, self.schema_path, self.schema, filename="WildernessDefinition.jsonc")
 
     def test_valid_localized_level_and_compact_map(self):
         ok, message = self.validate(self.data)
@@ -276,10 +492,7 @@ class TownPreferencesValidationTest(unittest.TestCase):
         self.schema = load_jsonc(self.schema_path)
 
     def validate(self, data):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "TownPreferences.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        return validate_document(data, self.schema_path, self.schema, filename="TownPreferences.jsonc")
 
     def test_reader_integer_types(self):
         data = {"version": 1, "legend": {">": {"terrain": "ENTRANCE", "caveInfo": ["MARK"], "special": 2}}}
@@ -324,10 +537,7 @@ class TownDefinitionListValidationTest(unittest.TestCase):
         }
 
     def validate(self, data):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "TownDefinitionList.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        return validate_document(data, self.schema_path, self.schema, filename="TownDefinitionList.jsonc")
 
     def test_valid_map_variants(self):
         ok, message = self.validate(self.data)
@@ -388,10 +598,7 @@ class TownMapValidationTest(unittest.TestCase):
         }
 
     def validate(self, data):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "TestTown.jsonc"
-            target.write_text(json.dumps(data), encoding="utf-8")
-            return validate_one((target, self.schema_path, self.schema))
+        return validate_document(data, self.schema_path, self.schema, filename="TestTown.jsonc")
 
     def test_valid_map_and_start(self):
         ok, message = self.validate(self.data)

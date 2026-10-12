@@ -20,6 +20,7 @@
 #include "util/enum-converter.h"
 #include "view/display-messages.h"
 #include <exception>
+#include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <span>
@@ -248,18 +249,28 @@ static tl::optional<ProbabilityTable<short>> parse_terrain_probability(const nlo
 
     const auto &terrains = TerrainList::get_instance();
     ProbabilityTable<short> prob_table;
+    int total_probability = 0;
     for (const auto &tile_obj : tiles_obj) {
         if (!tile_obj.is_object() || !get_json_value(tile_obj, "type").is_string() || !get_json_value(tile_obj, "rate").is_number_integer()) {
             return tl::nullopt;
         }
 
+        int prob = 0;
+        if (info_set_integer(get_json_value(tile_obj, "rate"), prob, true, Range(0, 32767)) || prob > std::numeric_limits<int>::max() - total_probability) {
+            return tl::nullopt;
+        }
+        total_probability += prob;
+
         try {
             const auto terrain_id = terrains.get_terrain_id(get_json_value(tile_obj, "type").get<std::string>());
-            const auto prob = get_json_value(tile_obj, "rate").get<short>();
             prob_table.entry_item(terrain_id, prob);
         } catch (const std::exception &) {
             return tl::nullopt;
         }
+    }
+
+    if (prob_table.empty()) {
+        return tl::nullopt;
     }
 
     return prob_table;
@@ -419,12 +430,20 @@ int DungeonReader::set_dungeon_flags(DungeonDefinition &dungeon) const
 template <typename Enum, typename Validator>
 static errr info_set_enum_from_integer_checked(const nlohmann::json &json, Enum &data, std::string_view label, Validator validator)
 {
-    int value{};
-    if (auto err = info_set_integer(json, value, true)) {
+    Enum enum_value{};
+    if (auto err = info_set_integer(json, enum_value, true)) {
+        if (err == PARSE_ERROR_INVALID_FLAG) {
+            msg_print(_("{} ID '{}' は範囲外です。", "{} ID '{}' is out of range."), label, json.dump());
+            return PARSE_ERROR_OUT_OF_BOUNDS;
+        }
         return err;
     }
 
-    const auto enum_value = i2enum<Enum>(value);
+    const auto value = enum2i(enum_value);
+    if (value < 0) {
+        msg_print(_("{} ID '{}' は範囲外です。", "{} ID '{}' is out of range."), label, value);
+        return PARSE_ERROR_OUT_OF_BOUNDS;
+    }
     if (!validator(enum_value)) {
         msg_print(_("不正な{} ID '{}'。", "Invalid {} ID '{}'."), label, value);
         return PARSE_ERROR_INVALID_VALUE;

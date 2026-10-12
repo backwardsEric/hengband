@@ -1,31 +1,62 @@
 #pragma once
 
 #include "info-reader/parse-error-types.h"
+#include "system/dungeon/quest-fixed-map.h"
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 struct TownMapFeatureRule {
     char symbol = '\0';
-    std::string terrain;
-    int cave_info = 0;
-    std::string monster;
-    std::string object;
-    std::string ego;
-    std::string artifact;
-    std::string trap;
-    int special = 0;
+    std::string terrain; //!< 条件が成立したときにのみ地形タグを解決する。
+    std::string trap; //!< 建物専用モードでも地形データの初期化を要求しない。
+    QuestLegendCell cell;
     std::optional<std::string> condition;
+};
+
+struct TownMapBuildingNames {
+    std::string name;
+    std::string owner_name;
+    std::string owner_race;
+};
+
+struct TownMapBuildingAction {
+    int index = 0;
+    std::string name;
+    int member_cost = 0;
+    int other_cost = 0;
+    std::string letter;
+    int action = 0;
+    int restriction = 0;
+};
+
+enum class TownMapBuildingMembershipKind { CLASS,
+    RACE,
+    REALM };
+
+struct TownMapBuildingMembership {
+    TownMapBuildingMembershipKind kind = TownMapBuildingMembershipKind::CLASS;
+    std::vector<int> values;
+};
+
+struct TownMapBuildingNoop {
+    // Zの引数も従来どおり文字コード変換を検証するが、建物へは適用しない。
+    std::vector<std::string> fields;
 };
 
 struct TownMapBuildingRule {
     int index = 0;
     bool english = false;
-    char command = '\0';
-    std::vector<std::string> fields;
+    std::variant<TownMapBuildingNames, TownMapBuildingAction, TownMapBuildingMembership, TownMapBuildingNoop> directive;
     std::optional<std::string> condition;
 };
+
+/*!
+ * @brief 検証済みの建物指示を文字コード変換し、対象言語の建物へ直接適用する。
+ */
+parse_error_type apply_town_building_rule(const TownMapBuildingRule &rule);
 
 struct TownMapVariant {
     std::vector<std::string> rows;
@@ -44,6 +75,9 @@ struct TownMapDefinition {
     std::vector<TownMapVariant> maps;
     std::vector<TownMapStartingPosition> starts;
 };
+
+/*! @brief TownMapReaderで検証し、条件評価済みの町凡例を適用する。失敗時は既存の letter[] を保持する。 */
+parse_error_type apply_town_map_feature(const FloorType &floor, const TownMapFeatureRule &feature);
 
 /*!
  * @brief 町マップJSONCを検証し、ゲーム状態に触れず定義データへ読み込む。

@@ -4,8 +4,8 @@
  * @author Hourier
  */
 #include "core/window-redrawer.h"
-#include "core/stuff-handler.h"
 #include "floor/floor-util.h"
+#include "game-option/map-screen-options.h"
 #include "game-option/option-flags.h"
 #include "object/item-tester-hooker.h"
 #include "player-base/player-class.h"
@@ -16,6 +16,7 @@
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "util/bit-flags-calculator.h"
+#include "util/finalizer.h"
 #include "view/display-messages.h"
 #include "view/display-player.h"
 #include "window/display-sub-windows.h"
@@ -30,6 +31,13 @@
  * @brief コンソールを再描画する /
  * Redraw a term when it is resized
  * @todo ここにPlayerType を追加するとz-termに影響が行くので保留
+ * @details
+ * サブウィンドウの大きさが変わった時に呼ばれ、サブウィンドウだけを描き直す。
+ * キー入力待ちの最中に呼ばれるため、入力を待つ前の inkey() と同じく
+ * window_stuff_including_deferred() だけを使う。handle_stuff() を呼ぶと、残っている
+ * メイン画面の再描画の要求を、有効になっているこのサブウィンドウへ描いてしまう。
+ * さらにメッセージの消去から -続く- の入力待ちに入ることもある。
+ * メイン画面の要求は、メインループの handle_stuff() に任せる。
  */
 void redraw_window()
 {
@@ -38,7 +46,7 @@ void redraw_window()
     }
 
     RedrawingFlagsUpdater::get_instance().fill_up_sub_flags();
-    handle_stuff(p_ptr);
+    window_stuff_including_deferred(p_ptr);
     term_redraw();
 }
 
@@ -66,6 +74,12 @@ static void print_dungeon(PlayerType *player_ptr)
  */
 void redraw_stuff(PlayerType *player_ptr)
 {
+    // msg_erase() の入力待ち中にもリサイズから呼ばれる。外側の描画が最新の要求を処理する。
+    static bool redrawing = false;
+    if (redrawing) {
+        return;
+    }
+
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (!rfu.any_main()) {
         return;
@@ -80,9 +94,13 @@ void redraw_stuff(PlayerType *player_ptr)
         return;
     }
 
+    redrawing = true;
+    const auto finish_redrawing = util::make_finalizer([&] { redrawing = false; });
+
     if (rfu.has(MainWindowRedrawingFlag::WIPE)) {
-        rfu.reset_flag(MainWindowRedrawingFlag::WIPE);
         msg_erase();
+        // 待ち中のリサイズが追加した WIPE も、直後の消去と再描画で処理される。
+        rfu.reset_flag(MainWindowRedrawingFlag::WIPE);
         term_clear();
     }
 
@@ -241,9 +259,9 @@ void redraw_stuff(PlayerType *player_ptr)
 /*!
  * @brief SubWindowRedrawingFlag のフラグに応じた更新をまとめて行う
  * @param player_ptr プレイヤーへの参照ポインタ
- * @details 更新処理の対象はサブウィンドウ全て
+ * @param include_deferred defer_map_subwindows で遅らせている地図のサブウィンドウも更新するならtrue
  */
-void window_stuff(PlayerType *player_ptr)
+static void update_sub_windows(PlayerType *player_ptr, bool include_deferred)
 {
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     if (!rfu.any_sub()) {
@@ -259,7 +277,12 @@ void window_stuff(PlayerType *player_ptr)
         target_flags.set(g_window_flags[i]);
     }
 
-    const auto &window_flags = rfu.get_sub_intersection(target_flags);
+    auto window_flags = rfu.get_sub_intersection(target_flags);
+    if (defer_map_subwindows && !include_deferred) {
+        // 地図はフロア全体を描き直すため重い。フラグは残し、ターンの区切りか入力待ちでまとめて描く
+        window_flags.reset(SubWindowRedrawingFlag::OVERHEAD).reset(SubWindowRedrawingFlag::DUNGEON);
+    }
+
     if (window_flags.has(SubWindowRedrawingFlag::INVENTORY)) {
         rfu.reset_flag(SubWindowRedrawingFlag::INVENTORY);
         fix_inventory(player_ptr);
@@ -326,4 +349,25 @@ void window_stuff(PlayerType *player_ptr)
         rfu.reset_flag(SubWindowRedrawingFlag::FOUND_ITEMS);
         fix_found_item_list(player_ptr);
     }
+}
+
+/*!
+ * @brief SubWindowRedrawingFlag のフラグに応じてサブウィンドウを更新する
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @details defer_map_subwindows が有効なら、地図のサブウィンドウ (ダンジョン全体図・自分の周囲) は
+ * フラグを残したまま描き直さない。それらは window_stuff_including_deferred() で描く。
+ */
+void window_stuff(PlayerType *player_ptr)
+{
+    update_sub_windows(player_ptr, false);
+}
+
+/*!
+ * @brief 遅らせている地図のサブウィンドウも含めて、サブウィンドウを更新する
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @details プレイヤーのターンの区切りと、キー入力を待つ前に呼ぶ
+ */
+void window_stuff_including_deferred(PlayerType *player_ptr)
+{
+    update_sub_windows(player_ptr, true);
 }

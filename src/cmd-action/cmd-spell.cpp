@@ -380,7 +380,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
     auto redraw = false;
 
     RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
-    handle_stuff(player_ptr);
+    window_stuff(player_ptr);
 
     const auto spell_category = spell_category_name(mp_ptr->spell_book);
     constexpr auto fmt = _("({0}:{1}-{2}, '*'で一覧, ESCで中断) どの{3}を{4}ますか? ", "({0}s {1}-{2}, *=List, ESC=exit) {4} which {3}? ");
@@ -503,7 +503,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
     }
 
     RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
-    handle_stuff(player_ptr);
+    window_stuff(player_ptr);
 
     /* Abort if needed */
     if (!flag) {
@@ -618,7 +618,7 @@ void do_cmd_browse(PlayerType *player_ptr)
     const auto use_realm = PlayerRealm::get_realm_of_book(tval);
 
     item->track_baseitem();
-    handle_stuff(player_ptr);
+    window_stuff(player_ptr);
 
     /* Extract spells */
     std::vector<SPELL_IDX> spells;
@@ -690,11 +690,9 @@ static void change_realm2(PlayerType *player_ptr, PlayerRealm &pr, RealmType nex
     player_ptr->old_realm |= 1U << (enum2i(pr.realm2().to_enum()) - 1);
     pr.set(pr.realm1().to_enum(), next_realm);
 
-    static constexpr auto flags = {
-        StatusRecalculatingFlag::REORDER,
-        StatusRecalculatingFlag::SPELLS,
-    };
-    RedrawingFlagsUpdater::get_instance().set_flags(flags);
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    rfu.set_flag(StatusRecalculatingFlag::SPELLS);
+    rfu.set_flag(InventoryArrangementFlag::REORDER);
     handle_stuff(player_ptr);
 
     /* Load an autopick preference file */
@@ -766,7 +764,7 @@ void do_cmd_study(PlayerType *player_ptr)
     }
 
     item->track_baseitem();
-    handle_stuff(player_ptr);
+    window_stuff(player_ptr);
 
     /* Mage -- Learn a selected spell */
     if (mp_ptr->spell_book != ItemKindType::LIFE_BOOK) {

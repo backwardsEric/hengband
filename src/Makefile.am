@@ -627,6 +627,7 @@ libhengband_a_SOURCES = \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
 	info-reader/info-reader-util.cpp info-reader/info-reader-util.h \
 	info-reader/json-reader-util.cpp info-reader/json-reader-util.h \
+	info-reader/jsonc-document-loader.cpp info-reader/jsonc-document-loader.h \
 	info-reader/magic-reader.cpp info-reader/magic-reader.h \
 	info-reader/message-reader.cpp info-reader/message-reader.h \
 	info-reader/parse-error-types.h \
@@ -655,6 +656,7 @@ libhengband_a_SOURCES = \
 	inventory/recharge-processor.cpp inventory/recharge-processor.h \
 	\
 	io/command-repeater.cpp io/command-repeater.h \
+	io/condition-expression.cpp io/condition-expression.h \
 	io/cursor.cpp io/cursor.h \
 	io/exit-panic.cpp io/exit-panic.h \
 	io/files-util.cpp io/files-util.h \
@@ -1439,6 +1441,7 @@ libhengband_a_SOURCES = \
 	window/main-window-row-column.h \
 	window/main-window-stat-poster.cpp window/main-window-stat-poster.h \
 	window/main-window-util.cpp window/main-window-util.h \
+	window/overview-map-cache.cpp window/overview-map-cache.h \
 	window/main-window-equipments.cpp window/main-window-equipments.h \
 	\
 	wizard/artifact-analyzer.cpp wizard/artifact-analyzer.h \
@@ -1493,23 +1496,41 @@ check_PROGRAMS = hengband-test
 hengband_test_SOURCES = \
 	test/test-main.cpp \
 	test/scoped-restore.h \
+	test/save/scoped-save-io.h \
+	test/scoped-vector-wrapper.h \
 	test/scoped-rng.h \
 	test/string-helpers.h \
+	test/temporary-json-files.h \
 	test/info-reader/scoped-reader-state.h \
 	test/system/artifact-list-test-access.h \
+	test/system/dungeon-list-test-access.h \
+	test/system/monrace-list-test-access.h \
+	test/system/monrace-message-list-test-access.h \
+	test/system/monrace-records-test-access.h \
 	test/system/terrain-list-test-access.h \
+	test/system/quest-list-test-access.h \
 	\
 	test/autopick/test-autopick-editor-util.cpp \
 	test/cmd-io/test-cmd-autopick.cpp \
 	test/flavor/test-flavor-util.cpp \
+	test/floor/test-fixed-map-generator.cpp \
 	test/game-option/test-runtime-arguments.cpp \
 	test/info-reader/test-activation-reader.cpp \
+	test/info-reader/test-artifact-reader.cpp \
 	test/info-reader/test-baseitem-reader.cpp \
+	test/info-reader/test-dungeon-reader.cpp \
 	test/info-reader/test-ego-reader.cpp \
+	test/floor/test-floor-events.cpp \
+	test/object-activation/test-activation-util.cpp \
+	test/object-enchant/test-object-ego.cpp \
+	test/object/test-object-value.cpp \
+	test/racial/test-racial-android.cpp \
+	test/system/item/test-item-entity.cpp \
 	test/info-reader/test-general-parser.cpp \
 	test/info-reader/test-wilderness-reader.cpp \
 	test/info-reader/test-info-reader-util.cpp \
 	test/info-reader/test-json-reader-util.cpp \
+	test/info-reader/test-jsonc-document-loader.cpp \
 	test/info-reader/test-magic-reader.cpp \
 	test/info-reader/test-message-reader.cpp \
 	test/info-reader/test-quest-reader.cpp \
@@ -1521,6 +1542,7 @@ hengband_test_SOURCES = \
 	test/info-reader/test-town-map-reader.cpp \
 	test/info-reader/test-town-preferences-reader.cpp \
 	test/info-reader/test-vault-reader.cpp \
+	test/io/test-condition-expression.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
 	test/io/test-pref-file-expressor.cpp \
@@ -1537,7 +1559,13 @@ hengband_test_SOURCES = \
 	test/store/test-store-screen.cpp \
 	test/store/test-store-util.cpp \
 	test/system/baseitem/test-baseitem-definition.cpp \
+	test/save/test-item-writer.cpp \
+	test/system/baseitem/test-baseitem-allocation.cpp \
+	test/system/baseitem/test-baseitem-list.cpp \
+	test/system/floor/test-floor-info.cpp \
 	test/system/monrace/test-monrace-definition.cpp \
+	test/system/test-quest-list.cpp \
+	test/system/test-dungeon-record.cpp \
 	test/term/test-z-form.cpp \
 	test/term/test-z-rand.cpp \
 	test/timed-effect/test-player-cut.cpp \
@@ -1551,10 +1579,25 @@ hengband_test_SOURCES = \
 	test/util/test-probability-table.cpp \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
+	test/util/test-temporary-json-files.cpp \
 	test/view/test-map-terrain-visibility.cpp \
-	test/view/test-screen-parity-helpers.cpp
+	test/view/test-screen-parity-helpers.cpp \
+	test/window/test-overview-map-cache.cpp \
+	test/wizard/test-spoiler-util.cpp
 
 hengband_test_LDADD = libhengband.a
+
+## 端末と入力待ちを使う共通描画の回帰プローブ。通常のユニットテストとは別に明示実行する。
+main-window-wipe-probe$(EXEEXT): $(top_srcdir)/tools/tests/main-window-wipe-probe.cpp libhengband.a
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@ $(top_srcdir)/tools/tests/main-window-wipe-probe.cpp libhengband.a $(LIBS)
+
+.PHONY: check-main-window-wipe
+check-main-window-wipe: main-window-wipe-probe$(EXEEXT)
+	./main-window-wipe-probe$(EXEEXT) plain
+	./main-window-wipe-probe$(EXEEXT) deferred
+	./main-window-wipe-probe$(EXEEXT) reenter
+
+CLEANFILES = main-window-wipe-probe$(EXEEXT)
 
 TESTS = $(check_PROGRAMS)
 

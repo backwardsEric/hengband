@@ -6,6 +6,7 @@
 #include "floor/floor-object.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/input-options.h"
+#include "inventory/inventory-object.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "object-use/item-use-checker.h"
@@ -93,24 +94,12 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
 
         msg_print(_("この魔法棒にはもう魔力が残っていない。", "The wand has no charges left."));
         item->set_identification_flag(IdentificationFlag::EMPTY);
-        static constexpr auto flags = {
-            StatusRecalculatingFlag::COMBINATION,
-            StatusRecalculatingFlag::REORDER,
-        };
-        rfu.set_flags(flags);
-        rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
+        request_inventory_arrangement();
         return;
     }
 
     sound(SoundKind::ZAP);
     auto ident = wand_effect(this->player_ptr, *sval, dir, false, false);
-    using Srf = StatusRecalculatingFlag;
-    EnumClassFlagGroup<Srf> flags_srf = { Srf::COMBINATION, Srf::REORDER };
-    if (rfu.has(Srf::AUTO_DESTRUCTION)) {
-        flags_srf.set(Srf::AUTO_DESTRUCTION);
-    }
-
-    rfu.reset_flags(flags_srf);
     if (!item->is_aware()) {
         chg_virtue(this->player_ptr, Virtue::PATIENCE, -1);
         chg_virtue(this->player_ptr, Virtue::CHANCE, 1);
@@ -131,7 +120,11 @@ void ObjectZapWandEntity::execute(INVENTORY_IDX i_idx)
         SubWindowRedrawingFlag::FOUND_ITEMS,
     };
     rfu.set_flags(flags_swrf);
-    rfu.set_flags(flags_srf);
+    static constexpr auto flags_iaf = {
+        InventoryArrangementFlag::COMBINATION,
+        InventoryArrangementFlag::REORDER,
+    };
+    rfu.set_flags(flags_iaf);
     item->pval--;
 
     describe_item_charges(this->player_ptr, i_idx >= 0, item);

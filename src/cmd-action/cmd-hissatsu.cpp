@@ -11,7 +11,7 @@
 
 #include "action/action-limited.h"
 #include "core/asking-player.h"
-#include "core/stuff-handler.h"
+#include "core/window-redrawer.h"
 #include "floor/floor-object.h"
 #include "game-option/disturbance-options.h"
 #include "game-option/text-display-options.h"
@@ -274,7 +274,7 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
     }
 
     RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
-    handle_stuff(player_ptr);
+    window_stuff(player_ptr);
 
     /* Abort if needed */
     if (!flag) {

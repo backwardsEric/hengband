@@ -13,7 +13,6 @@
 #include "game-option/birth-options.h"
 #include "game-option/map-screen-options.h"
 #include "info-reader/fixed-map-parser.h"
-#include "info-reader/parse-error-types.h"
 #include "info-reader/wilderness-reader.h"
 #include "market/building-initializer.h"
 #include "monster-floor/monster-generator.h"
@@ -43,7 +42,6 @@
 #include "system/player-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
-#include "term/z-util.h"
 #include "util/bit-flags-calculator.h"
 #include "util/finalizer.h"
 #include "view/display-messages.h"
@@ -287,10 +285,7 @@ static void generate_area(PlayerType *player_ptr, const Pos2D &pos, bool is_bord
             init_flags = INIT_CREATE_DUNGEON;
         }
 
-        if (parse_fixed_map(player_ptr, TOWN_DEFINITION_LIST, 0, 0, MAX_HGT, MAX_WID) != PARSE_ERROR_NONE) {
-            quit(_("町の定義の読み込みに失敗しました", "Failed to load the town definition"));
-        }
-
+        load_town_map(player_ptr);
         if (!is_corner && !is_border) {
             TownRecords::get_instance().set_visited(i2enum<TownId>(world.get_town_index() - 1));
         }
@@ -345,7 +340,7 @@ static void generate_area(PlayerType *player_ptr, const Pos2D &pos, bool is_bord
     const auto restore_rng = util::make_finalizer([&system, rng_backup = system.get_rng()]() { system.set_rng(rng_backup); });
     xso::rng32 wilderness_rng(wg.get_seed());
     system.set_rng(wilderness_rng);
-    const Pos2D pos_entrance(rand_range(6, floor.height - 6), rand_range(6, floor.width - 6));
+    const Pos2D pos_entrance{ rand_range(6, floor.height - 6), rand_range(6, floor.width - 6) };
     floor.get_grid(pos_entrance).set_terrain_id(TerrainTag::ENTRANCE);
     floor.get_grid(pos_entrance).special = static_cast<short>(entrance);
 }
