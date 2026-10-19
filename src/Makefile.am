@@ -102,6 +102,7 @@ libhengband_a_SOURCES = \
 	bot/bot-report.cpp bot/bot-report.h \
 	bot/bot-screen.cpp bot/bot-screen.h \
 	bot/bot-socket-server.cpp bot/bot-socket-server.h \
+	bot/bot-subwindow-verifier.cpp bot/bot-subwindow-verifier.h \
 	\
 	cmd-action/cmd-attack.cpp cmd-action/cmd-attack.h \
 	cmd-action/cmd-hissatsu.cpp cmd-action/cmd-hissatsu.h \
@@ -1382,7 +1383,7 @@ libhengband_a_SOURCES = \
 	term/gameterm.cpp term/gameterm.h \
 	term/screen-processor.cpp term/screen-processor.h \
 	term/term-color-types.h \
-	term/z-form.cpp term/z-form.h term/z-rand.cpp term/z-rand.h \
+	term/z-rand.cpp term/z-rand.h \
 	term/z-term.cpp term/z-term.h term/z-util.cpp term/z-util.h \
 	\
 	timed-effect/player-cut.cpp timed-effect/player-cut.h \
@@ -1501,6 +1502,7 @@ check_PROGRAMS = hengband-test
 hengband_test_SOURCES = \
 	test/test-main.cpp \
 	test/scoped-restore.h \
+	test/scoped-input-term.h \
 	test/save/scoped-save-io.h \
 	test/scoped-vector-wrapper.h \
 	test/scoped-rng.h \
@@ -1518,6 +1520,7 @@ hengband_test_SOURCES = \
 	\
 	test/autopick/test-autopick-editor-util.cpp \
 	test/cmd-io/test-cmd-autopick.cpp \
+	test/core/test-asking-player.cpp \
 	test/flavor/test-flavor-util.cpp \
 	test/floor/test-fixed-map-generator.cpp \
 	test/floor/test-floor-changer.cpp \
@@ -1529,6 +1532,7 @@ hengband_test_SOURCES = \
 	test/info-reader/test-ego-reader.cpp \
 	test/floor/test-floor-events.cpp \
 	test/object-activation/test-activation-util.cpp \
+	test/object-enchant/test-item-feeling.cpp \
 	test/object-enchant/test-object-ego.cpp \
 	test/object/test-object-value.cpp \
 	test/racial/test-racial-android.cpp \
@@ -1551,6 +1555,7 @@ hengband_test_SOURCES = \
 	test/info-reader/test-vault-reader.cpp \
 	test/io/test-condition-expression.cpp \
 	test/io/test-input-context.cpp \
+	test/io/test-input-key-requester.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
 	test/io/test-pref-file-expressor.cpp \
@@ -1577,7 +1582,6 @@ hengband_test_SOURCES = \
 	test/system/test-quest-list.cpp \
 	test/system/test-dungeon-record.cpp \
 	test/system/test-redrawing-flags-updater.cpp \
-	test/term/test-z-form.cpp \
 	test/term/test-z-rand.cpp \
 	test/timed-effect/test-player-cut.cpp \
 	test/timed-effect/test-player-stun.cpp \
@@ -1591,6 +1595,7 @@ hengband_test_SOURCES = \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
 	test/util/test-temporary-json-files.cpp \
+	test/view/test-display-messages.cpp \
 	test/view/test-map-info-cache.cpp \
 	test/view/test-map-terrain-visibility.cpp \
 	test/view/test-screen-parity-helpers.cpp \
@@ -1622,15 +1627,7 @@ check-arena-status: arena-status-probe$(EXEEXT)
 		./arena-status-probe$(EXEEXT) "$(top_srcdir)/lib" "$$scratch" "$$mode"; \
 	done
 
-## 文字列・数量の文脈を、本体の入力待ちと編集結果を通して確認する。
-input-context-probe$(EXEEXT): $(top_srcdir)/tools/tests/input-context-probe.cpp libhengband.a
-	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@ $(top_srcdir)/tools/tests/input-context-probe.cpp libhengband.a $(LIBS)
-
-.PHONY: check-input-context
-check-input-context: input-context-probe$(EXEEXT)
-	./input-context-probe$(EXEEXT)
-
-CLEANFILES = main-window-wipe-probe$(EXEEXT) arena-status-probe$(EXEEXT) input-context-probe$(EXEEXT)
+CLEANFILES = main-window-wipe-probe$(EXEEXT) arena-status-probe$(EXEEXT)
 
 TESTS = $(check_PROGRAMS)
 
@@ -1666,7 +1663,6 @@ cocoa_ja_misc_files = \
 	cocoa/ja.lproj/Credits.html
 
 EXTRA_DIST = \
-	$(top_srcdir)/tools/tests/input-context-probe.cpp \
 	$(top_srcdir)/tools/tests/arena-status-probe.cpp \
 	$(top_srcdir)/tools/tests/main-window-wipe-probe.cpp \
 	gcc-wrap \

@@ -31,7 +31,6 @@
 #include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
-#include "term/z-form.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -281,7 +280,7 @@ static int get_snipe_power(PlayerType *player_ptr, COMMAND_CODE *sn, bool only_b
         }
     }
 
-    constexpr auto fmt_browse = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}について知りますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Use which {}? ");
+    constexpr auto fmt_browse = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}について知りますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Browse which {}? ");
     constexpr auto fmt_use = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}を使いますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Use which {}? ");
     const auto desc_upcased = str_upcase_first(p);
     const auto first_letter = I2A(0);

@@ -519,6 +519,9 @@
     <ClCompile Include="..\..\src\bot\bot-socket-server.cpp">
       <Filter>bot</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\bot\bot-subwindow-verifier.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\cmd-action\cmd-attack.cpp">
       <Filter>cmd-action</Filter>
     </ClCompile>
@@ -2746,9 +2749,6 @@
     <ClCompile Include="..\..\src\term\screen-processor.cpp">
       <Filter>term</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\term\z-form.cpp">
-      <Filter>term</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\term\z-rand.cpp">
       <Filter>term</Filter>
     </ClCompile>
@@ -3184,6 +3184,9 @@
       <Filter>bot</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\bot\bot-socket-server.h">
+      <Filter>bot</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\bot\bot-subwindow-verifier.h">
       <Filter>bot</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\cmd-action\cmd-attack.h">
@@ -5798,9 +5801,6 @@
       <Filter>term</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\term\term-color-types.h">
-      <Filter>term</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\term\z-form.h">
       <Filter>term</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\term\z-rand.h">
