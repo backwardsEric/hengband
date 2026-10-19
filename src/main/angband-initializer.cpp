@@ -141,12 +141,12 @@ static bool dir_create(const std::filesystem::path path)
  */
 void create_needed_dirs(void)
 {
-    if (!dir_create(ANGBAND_DIR_USER)) quit_fmt("Cannot create '%s'", ANGBAND_DIR_USER.native().data());
+    if (!dir_create(ANGBAND_DIR_USER)) quit(fmt::format("Cannot create '{}'", ANGBAND_DIR_USER.native().data()));
 #ifndef PRIVATE_USER_PATH
-    if (!dir_create(ANGBAND_DIR_SAVE)) quit_fmt("Cannot create '%s'", ANGBAND_DIR_SAVE.native().data());
-    if (!dir_create(ANGBAND_DIR_APEX)) quit_fmt("Cannot create '%s'", ANGBAND_DIR_APEX.native().data());
-    if (!dir_create(ANGBAND_DIR_BONE)) quit_fmt("Cannot create '%s'", ANGBAND_DIR_BONE.native().data());
-    if (!dir_create(ANGBAND_DIR_DATA)) quit_fmt("Cannot create '%s'", ANGBAND_DIR_DATA.native().data());
+    if (!dir_create(ANGBAND_DIR_SAVE)) quit(fmt::format("Cannot create '{}'", ANGBAND_DIR_SAVE.native().data()));
+    if (!dir_create(ANGBAND_DIR_APEX)) quit(fmt::format("Cannot create '{}'", ANGBAND_DIR_APEX.native().data()));
+    if (!dir_create(ANGBAND_DIR_BONE)) quit(fmt::format("Cannot create '{}'", ANGBAND_DIR_BONE.native().data()));
+    if (!dir_create(ANGBAND_DIR_DATA)) quit(fmt::format("Cannot create '{}'", ANGBAND_DIR_DATA.native().data()));
 #endif /* ndef PRIVATE_USER_PATH */
 }
 

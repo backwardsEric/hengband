@@ -56,22 +56,22 @@ static int check_last_mode(GrafModeParserState* pgps) {
 
     if ((pgps->stage & GFPARSE_HAVE_DIR) == 0) {
 	result = 1;
-	msg_format("no directory set for tile set, %s, in %s",
+	msg_print("no directory set for tile set, {}, in {}",
 		   pgps->list->menuname, pgps->file_name);
     }
     if ((pgps->stage & GFPARSE_HAVE_SIZE) == 0) {
 	result = 1;
-	msg_format("no size set for tile set, %s, in %s",
+	msg_print("no size set for tile set, {}, in {}",
 		   pgps->list->menuname, pgps->file_name);
     }
     if ((pgps->stage & GFPARSE_HAVE_PREF) == 0) {
 	result = 1;
-	msg_format("no preference file for tile set, %s, in %s",
+	msg_print("no preference file for tile set, {}, in {}",
 		   pgps->list->menuname, pgps->file_name);
     }
     if ((pgps->stage & GFPARSE_HAVE_GRAF) == 0) {
 	result = 1;
-	msg_format("no graf string set for tile set, %s, in %s",
+	msg_print("no graf string set for tile set, {}, in {}",
 		   pgps->list->menuname, pgps->file_name);
     }
     return result;
@@ -109,7 +109,7 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 	stage = GFPARSE_HAVE_GRAF;
 	offset += 5;
     } else {
-        msg_format("Unexpected data at line %d of %s", pgps->line_no,
+        msg_print("Unexpected data at line {} of {}", pgps->line_no,
 		   pgps->file_name);
 	pgps->result = 1;
 	return;
@@ -128,8 +128,8 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 	new_mode = (graphics_mode *) malloc(sizeof(graphics_mode));
 	if (new_mode == 0) {
 	    pgps->result = 1;
-	    msg_format("failed memory allocation for tile set "
-		       "information at line %d of %s", pgps->line_no,
+	    msg_print("failed memory allocation for tile set"
+		       " information at line {} of {}", pgps->line_no,
 		       pgps->file_name);
 	    return;
 	}
@@ -149,13 +149,13 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
     } else {
 	if (pgps->stage == GFPARSE_HAVE_NOTHING) {
 	    pgps->result = 1;
-	    msg_format("values set before tile set name given at line %d"
-		       " of %s", pgps->line_no, pgps->file_name);
+	    msg_print("values set before tile set name given at line {}"
+		       " of {}", pgps->line_no, pgps->file_name);
 	    return;
 	}
 	if (pgps->stage & stage) {
-	    msg_format("values set more than once for tile set, %s, at line "
-		       " %d of %s", pgps->list->menuname, pgps->line_no,
+	    msg_print("values set more than once for tile set, {}, at line"
+		       " {} of {}", pgps->list->menuname, pgps->line_no,
 		       pgps->file_name);
 	}
     }
@@ -169,12 +169,12 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 	    if (sscanf(line + offset, "%u:%n", &id, &nscan) == 1) {
 		if (id > 255) {
 		    pgps->result = 1;
-		    msg_format("ID greater than 255 for tile set at line"
-			       " %d of %s", pgps->line_no, pgps->file_name);
+		    msg_print("ID greater than 255 for tile set at line"
+			       " {} of {}", pgps->line_no, pgps->file_name);
 		} else if (id == GRAPHICS_NONE) {
 		    pgps->result = 1;
-		    msg_format("ID of tile set matches value, %d, reserved "
-			       " for no graphics at line %d of %s",
+		    msg_print("ID of tile set matches value, {}, reserved"
+			       " for no graphics at line {} of {}",
 			       GRAPHICS_NONE, pgps->line_no, pgps->file_name);
 		} else {
 		    graphics_mode *mode = pgps->list->pNext;
@@ -185,10 +185,10 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 			}
 			if (mode->grafID == id) {
 			    pgps->result = 1;
-			    msg_format("ID for tile set, %s, at line %d of %s"
-				       " is the same as for tile set %s",
-				       pgps->list->menuname, pgps->line_no,
-				       pgps->file_name, mode->menuname);
+			    msg_print("ID of tile set at line {} of {}"
+				       " is the same as for tile set {}",
+				       pgps->line_no, pgps->file_name,
+				       mode->menuname);
 			    break;
 			}
 			mode = mode->pNext;
@@ -198,18 +198,18 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		offset += nscan;
 		if (strlen(line + offset) >= sizeof(pgps->list->menuname)) {
 		    pgps->result = 1;
-		    msg_format("name is too long for tile set at line %d"
-			       " of %s", pgps->line_no, pgps->file_name);
+		    msg_print("name is too long for tile set at line {}"
+			       " of {}", pgps->line_no, pgps->file_name);
 		} else if (line[offset] == '\0') {
 		    pgps->result = 1;
-		    msg_format("empty name for tile set at line %d of %s",
+		    msg_print("empty name for tile set at line {} of {}",
 			       pgps->line_no, pgps->file_name);
 		} else {
 		    strcpy(pgps->list->menuname, line + offset);
 		}
 	    } else {
 		pgps->result = 1;
-		msg_format("malformed ID for tile set at line %d of %s",
+		msg_print("malformed ID for tile set at line {} of {}",
 			   pgps->line_no, pgps->file_name);
 	    }
 	}
@@ -223,13 +223,13 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 	    if (len >= sizeof(pgps->list->path) ||
 		len + pgps->dir_len + sep_len >= sizeof(pgps->list->path)) {
 		pgps->result = 1;
-		msg_format("directory name is too long for tile set, %s, at"
-			   " line %d of %s", pgps->list->menuname,
+		msg_print("directory name is too long for tile set, {}, at"
+			   " line {} of {}", pgps->list->menuname,
 			   pgps->line_no, pgps->file_name);
 	    } else if (line[offset] == '\0') {
 		pgps->result = 1;
-		msg_format("empty directory name for tile set, %s, at line"
-			   " line %d of %s", pgps->list->menuname,
+		msg_print("empty directory name for tile set, {}, at line"
+			   " line {} of {}", pgps->list->menuname,
 			   pgps->line_no, pgps->file_name);
 	    } else {
 		/*
@@ -259,36 +259,36 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		    pgps->list->cell_width = w;
 		} else {
 		    pgps->result = 1;
-		    msg_format("zero width for tile set, %s, at line"
-			       " %d of %s", pgps->list->menuname,
+		    msg_print("zero width for tile set, {}, at line"
+			       " {} of {}", pgps->list->menuname,
 			       pgps->line_no, pgps->file_name);
 		}
 		if (h > 0) {
 		    pgps->list->cell_height = h;
 		} else {
 		    pgps->result = 1;
-		    msg_format("zero height for tile set, %s, at line"
-			       " %d of %s", pgps->list->menuname,
+		    msg_print("zero height for tile set, {}, at line"
+			       " {} of {}", pgps->list->menuname,
 			       pgps->line_no, pgps->file_name);
 		}
 		offset += nscan;
 		if (strlen(line + offset) >= sizeof(pgps->list->file)) {
 		    pgps->result = 1;
-		    msg_format("file name is too long for tile set, %s,"
-			       " at line %d of %s", pgps->list->menuname,
+		    msg_print("file name is too long for tile set, {},"
+			       " at line {} of {}", pgps->list->menuname,
 			       pgps->line_no, pgps->file_name);
 		} else if (line[offset] == '\0') {
 		    pgps->result = 1;
-		    msg_format("empty file name for tile set, %s, at line %d"
-			       " of %s", pgps->list->menuname, pgps->line_no,
+		    msg_print("empty file name for tile set, {}, at line {}"
+			       " of {}", pgps->list->menuname, pgps->line_no,
 			       pgps->file_name);
 		} else {
 		    (void) strcpy(pgps->list->file, line + offset);
 		}
 	    } else {
 		pgps->result = 1;
-		msg_format("malformed dimensions for tile set, %s, at line"
-			   " %d of %s", pgps->list->menuname, pgps->line_no,
+		msg_print("malformed dimensions for tile set, {}, at line"
+			   " {} of {}", pgps->list->menuname, pgps->line_no,
 			   pgps->file_name);
 	    }
 	}
@@ -297,13 +297,13 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
     case GFPARSE_HAVE_PREF:
 	if (strlen(line + offset) >= sizeof(pgps->list->pref)) {
 	    pgps->result = 1;
-	    msg_format("preference file name is too long for tile set, %s, "
-		       "at line %d of %s", pgps->list->menuname, pgps->line_no,
+	    msg_print("preference file name is too long for tile set, {},"
+		       " at line {} of {}", pgps->list->menuname, pgps->line_no,
 		       pgps->file_name);
 	} else if (line[offset] == '\0') {
 	    pgps->result = 1;
-	    msg_format("empty preference file name for tile set, %s, "
-		       "at line %d of %s", pgps->list->menuname, pgps->line_no,
+	    msg_print("empty preference file name for tile set, {},"
+		       " at line {} of {}", pgps->list->menuname, pgps->line_no,
 		       pgps->file_name);
 	} else {
 	    strcpy(pgps->list->pref, line + offset);
@@ -322,14 +322,14 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		 line[offset + nscan] == '#')) {
 		if (startdbl > 255 || enddbl > 255) {
 		    pgps->result = 1;
-		    msg_format("overdrawMax or overdrawRow is greater than"
-			       " 255 for tile set, %s, at line %d of %s",
+		    msg_print("overdrawMax or overdrawRow is greater than"
+			       " 255 for tile set, {}, at line {} of {}",
 			       pgps->list->menuname, pgps->line_no,
 			       pgps->file_name);
 		} else if (enddbl < startdbl) {
 		    pgps->result = 1;
-		    msg_format("overdrawMax less than overdrawRow for tile"
-			       "set, %s, at line %d of %s",
+		    msg_print("overdrawMax less than overdrawRow for tile"
+			       " set, {}, at line {} of {}",
 			       pgps->list->menuname, pgps->line_no,
 			       pgps->file_name);
 		} else {
@@ -339,8 +339,8 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
 		}
 	    } else {
 		pgps->result = 1;
-		msg_format("malformed data for tile set, %s, at line %d of"
-			   " %s", pgps->list->menuname, pgps->line_no,
+		msg_print("malformed data for tile set, {}, at line {} of"
+			   " {}", pgps->list->menuname, pgps->line_no,
 			   pgps->file_name);
 	    }
 	}
@@ -349,12 +349,12 @@ static void parse_line(GrafModeParserState* pgps, const char* line) {
     case GFPARSE_HAVE_GRAF:
 	if (strlen(line + offset) >= sizeof(pgps->list->graf)) {
 	    pgps->result = 1;
-	    msg_format("graf string is too long for tile set, %s, at line %d"
-		       " of %s", pgps->list->menuname, pgps->line_no,
+	    msg_print("graf string is too long for tile set, {}, at line {}"
+		       " of {}", pgps->list->menuname, pgps->line_no,
 		       pgps->file_name);
 	} else if (line[offset] == '\0') {
 	    pgps->result = 1;
-	    msg_format("empty graf string for tile set, %s, at line %d of %s",
+	    msg_print("empty graf string for tile set, {}, at line {} of {}",
 		       pgps->list->menuname, pgps->line_no, pgps->file_name);
 	} else {
 	    strcpy(pgps->list->graf, line + offset);
@@ -376,7 +376,7 @@ static void finish_parse_grafmode(GrafModeParserState* pgps,
      */
     if (transfer_results) {
 	if (pgps->list == 0 || pgps->stage == GFPARSE_HAVE_NOTHING) {
-	    msg_format("no graphics modes in %s", pgps->file_name);
+	    msg_print("no graphics modes in {}", pgps->file_name);
 	} else {
 	    if (check_last_mode(pgps) != 0) {
 		transfer_results = 0;
@@ -470,7 +470,7 @@ bool init_graphics_modes(void) {
 
     f = angband_fopen(buf, FileOpenMode::READ);
     if (!f) {
-	msg_format("Cannot open '%s'.", buf);
+	msg_print("Cannot open '{}'.", buf);
 	gps.result = 1;
     } else {
         while (true) {
