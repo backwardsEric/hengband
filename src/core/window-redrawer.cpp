@@ -10,6 +10,7 @@
 #include "object/item-tester-hooker.h"
 #include "player-base/player-class.h"
 #include "player-info/race-info.h"
+#include "system/angband-system.h"
 #include "system/player-type-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
@@ -17,6 +18,7 @@
 #include "term/term-color-types.h"
 #include "util/bit-flags-calculator.h"
 #include "util/finalizer.h"
+#include "view/display-map.h"
 #include "view/display-messages.h"
 #include "view/display-player.h"
 #include "window/display-sub-windows.h"
@@ -24,6 +26,7 @@
 #include "window/main-window-row-column.h"
 #include "window/main-window-stat-poster.h"
 #include "window/main-window-util.h"
+#include "window/overview-map-cache.h"
 #include "world/world-turn-processor.h"
 #include "world/world.h"
 
@@ -102,6 +105,19 @@ void redraw_stuff(PlayerType *player_ptr)
         // 待ち中のリサイズが追加した WIPE も、直後の消去と再描画で処理される。
         rfu.reset_flag(MainWindowRedrawingFlag::WIPE);
         term_clear();
+    }
+
+    // 呪文の失敗率は今の MP で変わり、職業によっては技の失敗率や効果の表示が今の HP でも変わる。
+    // BASIC は HP・MP も描き直すので同じに扱う。WIPE の消去で入力を待つ間に立った要求も拾うよう、その後で判定する
+    // (領域の魔法の呪文の一覧は名前だけを表示するが、職業で分けずにまとめて要求する)
+    static constexpr auto flags_basic_mp = {
+        MainWindowRedrawingFlag::BASIC,
+        MainWindowRedrawingFlag::MP,
+    };
+    if (rfu.has_any_of(flags_basic_mp)) {
+        rfu.request_spell_info_redrawing();
+    } else if (rfu.has(MainWindowRedrawingFlag::HP)) {
+        rfu.set_flag(SubWindowRedrawingFlag::SPELL);
     }
 
     if (rfu.has(MainWindowRedrawingFlag::MAP)) {
@@ -257,31 +273,124 @@ void redraw_stuff(PlayerType *player_ptr)
 }
 
 /*!
- * @brief SubWindowRedrawingFlag のフラグに応じた更新をまとめて行う
+ * @brief ダンジョン全体図の表示が変わっていたら、描き直しを要求する
  * @param player_ptr プレイヤーへの参照ポインタ
- * @param include_deferred defer_map_subwindows で遅らせている地図のサブウィンドウも更新するならtrue
+ * @details
+ * lite_spot() は全体図のグリッドに印を付けるだけなので、印を付けたグリッドを求め直して比べる。
+ * 縮小するときは優先度で記号を選ぶので、メイン画面の記号が変わらなくても全体図の表示が変わることがある
+ * (透明なモンスターが現れて、記号はそのまま優先度だけ変わったときなど)。
+ * 次の場合は求め直さない。
+ * - フロアを作っている (作り終えたら全てのサブウィンドウの描き直しを要求する)
+ * - すでに要求されている (描くときに求め直す)
+ * - 自動拾いの対象を表示している (M コマンドの間は、サブウィンドウの全体図を通常の表示のままにする)
+ * - マップ全体の描き直しの要求が残っている (描くときに全グリッドを求め直すので、二度求めないようにする)。
+ *   画面の保存中は print_map() が呼ばれずに要求が残るので、印を付けたグリッドがあるか、
+ *   表示が変わったと覚えていれば描き直しを要求する
  */
-static void update_sub_windows(PlayerType *player_ptr, bool include_deferred)
+static void request_overhead_redrawing_if_changed(PlayerType *player_ptr)
 {
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (!rfu.any_sub()) {
+    if (!AngbandWorld::get_instance().character_dungeon) {
         return;
     }
 
-    EnumClassFlagGroup<SubWindowRedrawingFlag> target_flags{};
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    if (rfu.has(SubWindowRedrawingFlag::OVERHEAD) || display_autopick.any()) {
+        return;
+    }
+
+    auto &overview_map_cache = OverviewMapCache::get_instance();
+    if (rfu.has(MainWindowRedrawingFlag::MAP)) {
+        if (overview_map_cache.has_dirty_grids() || overview_map_cache.has_changed()) {
+            rfu.set_flag(SubWindowRedrawingFlag::OVERHEAD);
+        }
+
+        return;
+    }
+
+    overview_map_cache.update(player_ptr);
+    if (overview_map_cache.has_changed()) {
+        rfu.set_flag(SubWindowRedrawingFlag::OVERHEAD);
+    }
+}
+
+/*!
+ * @brief 表示しているサブウィンドウの種類を得る
+ * @return 使っている端末に割り当てたサブウィンドウの種類
+ */
+static EnumClassFlagGroup<SubWindowRedrawingFlag> get_shown_sub_window_flags()
+{
+    EnumClassFlagGroup<SubWindowRedrawingFlag> shown_flags{};
     for (auto i = 0U; i < angband_terms.size(); ++i) {
         if ((angband_terms[i] == nullptr) || angband_terms[i]->never_fresh) {
             continue;
         }
 
-        target_flags.set(g_window_flags[i]);
+        shown_flags.set(g_window_flags[i]);
+    }
+
+    return shown_flags;
+}
+
+/*!
+ * @brief メッセージのサブウィンドウの描き直しを、ターンの区切りか入力待ちまで遅らせてよいか
+ * @return 遅らせてよいか
+ * @details
+ * メッセージは 1 件出るたびに全体を描き直すので、モンスターの攻撃などで続けて出ると重い。
+ * フラグは残し、ターンの区切りか入力待ち (-続く- を含む) で window_stuff_including_deferred() からまとめて描く。
+ * 次のときは遅らせると描かれないか、画面だけが先に進むので、今まで通りメッセージのたびに描く。
+ * - ダンジョンに入る前 (フロアの生成中など): 入力待ちでサブウィンドウを描かない
+ * - 闘技場の観戦中: プレイヤーのターンが来ず、ターンの区切りで描かない
+ * - fresh_message・fresh_after が有効: メッセージやモンスターの行動のたびに画面へ出すオプション
+ */
+static bool can_defer_message_window()
+{
+    if (!AngbandWorld::get_instance().character_dungeon || AngbandSystem::get_instance().is_phase_out()) {
+        return false;
+    }
+
+    return !fresh_message && !fresh_after;
+}
+
+/*!
+ * @brief SubWindowRedrawingFlag のフラグに応じた更新をまとめて行う
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param include_deferred 遅らせている地図 (defer_map_subwindows が有効なとき) とメッセージのサブウィンドウも更新するならtrue
+ */
+static void update_sub_windows(PlayerType *player_ptr, bool include_deferred)
+{
+    const auto target_flags = get_shown_sub_window_flags();
+
+    // 地図はフロア全体を描き直すため重い。フラグは残し、ターンの区切りか入力待ちでまとめて描く
+    const auto is_map_deferred = defer_map_subwindows && !include_deferred;
+    if (!is_map_deferred && target_flags.has(SubWindowRedrawingFlag::OVERHEAD)) {
+        request_overhead_redrawing_if_changed(player_ptr);
+    }
+
+    if (target_flags.has(SubWindowRedrawingFlag::PLAYER)) {
+        request_player_redraw_if_points_changed(*player_ptr);
+    }
+
+    if (target_flags.has(SubWindowRedrawingFlag::MONSTER_LORE)) {
+        request_monster_lore_redraw_if_changed(*player_ptr);
+    }
+
+    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    if (!rfu.any_sub()) {
+        return;
+    }
+
+    const auto is_message_deferred = !include_deferred && can_defer_message_window();
+    EnumClassFlagGroup<SubWindowRedrawingFlag> deferred_flags;
+    if (is_map_deferred) {
+        deferred_flags.set({ SubWindowRedrawingFlag::OVERHEAD, SubWindowRedrawingFlag::DUNGEON });
+    }
+
+    if (is_message_deferred) {
+        deferred_flags.set(SubWindowRedrawingFlag::MESSAGE);
     }
 
     auto window_flags = rfu.get_sub_intersection(target_flags);
-    if (defer_map_subwindows && !include_deferred) {
-        // 地図はフロア全体を描き直すため重い。フラグは残し、ターンの区切りか入力待ちでまとめて描く
-        window_flags.reset(SubWindowRedrawingFlag::OVERHEAD).reset(SubWindowRedrawingFlag::DUNGEON);
-    }
+    window_flags.reset(deferred_flags);
 
     if (window_flags.has(SubWindowRedrawingFlag::INVENTORY)) {
         rfu.reset_flag(SubWindowRedrawingFlag::INVENTORY);
@@ -352,10 +461,29 @@ static void update_sub_windows(PlayerType *player_ptr, bool include_deferred)
 }
 
 /*!
+ * @brief サブウィンドウの描き直しが要るときだけ描き直す
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @details HP・MP は描き直しを要求せずに変える箇所が多いので、描き直しの要求が無くても、
+ * プレイヤー情報に描いた HP・MP と比べてから描き直すかを決める (window_stuff() を直接呼ぶ経路のために
+ * update_sub_windows() でも比べる)。思い出や全体図の比較は写しを作るのが重いので、ここでは行わず
+ * 入力待ちやメッセージの表示で window_stuff() を呼ぶときに任せる。
+ */
+void window_stuff_if_needed(PlayerType *player_ptr)
+{
+    if (get_shown_sub_window_flags().has(SubWindowRedrawingFlag::PLAYER)) {
+        request_player_redraw_if_points_changed(*player_ptr);
+    }
+
+    if (RedrawingFlagsUpdater::get_instance().any_sub()) {
+        window_stuff(player_ptr);
+    }
+}
+
+/*!
  * @brief SubWindowRedrawingFlag のフラグに応じてサブウィンドウを更新する
  * @param player_ptr プレイヤーへの参照ポインタ
- * @details defer_map_subwindows が有効なら、地図のサブウィンドウ (ダンジョン全体図・自分の周囲) は
- * フラグを残したまま描き直さない。それらは window_stuff_including_deferred() で描く。
+ * @details メッセージのサブウィンドウ (can_defer_message_window() のとき) と、defer_map_subwindows が有効なときの地図のサブウィンドウ
+ * (ダンジョン全体図・自分の周囲) は、フラグを残したまま描き直さない。それらは window_stuff_including_deferred() で描く。
  */
 void window_stuff(PlayerType *player_ptr)
 {
@@ -363,7 +491,7 @@ void window_stuff(PlayerType *player_ptr)
 }
 
 /*!
- * @brief 遅らせている地図のサブウィンドウも含めて、サブウィンドウを更新する
+ * @brief 遅らせている地図とメッセージのサブウィンドウも含めて、サブウィンドウを更新する
  * @param player_ptr プレイヤーへの参照ポインタ
  * @details プレイヤーのターンの区切りと、キー入力を待つ前に呼ぶ
  */

@@ -12,6 +12,7 @@
 #include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
+#include <fmt/format.h>
 
 /* Array of stat "descriptions" */
 static concptr desc_stat_pos[] = {
@@ -242,12 +243,12 @@ bool do_dec_stat(PlayerType *player_ptr, int stat)
     }
 
     if (sust && (!ironman_nightmare || randint0(13))) {
-        msg_format(_("%sなった気がしたが、すぐに元に戻った。", "You feel %s for a moment, but the feeling passes."), desc_stat_neg[stat]);
+        msg_print(_("{}なった気がしたが、すぐに元に戻った。", "You feel {} for a moment, but the feeling passes."), desc_stat_neg[stat]);
         return true;
     }
 
     if (dec_stat(player_ptr, stat, 10, (ironman_nightmare && !randint0(13)))) {
-        msg_format(_("ひどく%sなった気がする。", "You feel %s."), desc_stat_neg[stat]);
+        msg_print(_("ひどく{}なった気がする。", "You feel {}."), desc_stat_neg[stat]);
         return true;
     }
 
@@ -260,7 +261,7 @@ bool do_dec_stat(PlayerType *player_ptr, int stat)
 bool do_res_stat(PlayerType *player_ptr, int stat)
 {
     if (res_stat(player_ptr, stat)) {
-        msg_format(_("元通りに%sなった気がする。", "You feel %s."), desc_stat_pos[stat]);
+        msg_print(_("元通りに{}なった気がする。", "You feel {}."), desc_stat_pos[stat]);
         return true;
     }
 
@@ -284,12 +285,12 @@ bool do_inc_stat(PlayerType *player_ptr, int stat)
             chg_virtue(player_ptr, Virtue::VITALITY, 1);
         }
 
-        msg_format(_("ワーオ！とても%sなった！", "Wow! You feel %s!"), desc_stat_pos[stat]);
+        msg_print(_("ワーオ！とても{}なった！", "Wow! You feel {}!"), desc_stat_pos[stat]);
         return true;
     }
 
     if (res) {
-        msg_format(_("元通りに%sなった気がする。", "You feel %s."), desc_stat_pos[stat]);
+        msg_print(_("元通りに{}なった気がする。", "You feel {}."), desc_stat_pos[stat]);
         return true;
     }
 
@@ -315,19 +316,8 @@ bool lose_all_info(PlayerType *player_ptr)
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    static constexpr auto flags_iaf = {
-        InventoryArrangementFlag::COMBINATION,
-        InventoryArrangementFlag::REORDER,
-    };
-    rfu.set_flags(flags_iaf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::PLAYER,
-        SubWindowRedrawingFlag::FLOOR_ITEMS,
-        SubWindowRedrawingFlag::FOUND_ITEMS,
-    };
-    rfu.set_flags(flags_swrf);
+    rfu.request_inventory_arrangement();
+    rfu.request_item_lists_redrawing();
     wiz_dark(player_ptr);
     return true;
 }

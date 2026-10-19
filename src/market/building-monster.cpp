@@ -16,6 +16,7 @@
 #include "view/display-lore.h"
 #include "view/display-messages.h"
 #include <algorithm>
+#include <fmt/format.h>
 
 /*!
  * @brief 施設でモンスターの情報を知るメインルーチン / research_mon -KMW-
@@ -65,11 +66,11 @@ bool research_mon(PlayerType *player_ptr)
         }
 
         monster_name = *monster_name_opt;
-        buf = format(_("名前:%sにマッチ", "Monsters' names with \"%s\""), monster_name.data());
+        buf = fmt::format(_("名前:{}にマッチ", "Monsters' names with \"{}\""), monster_name);
     } else if (ident_info[ident_i]) {
-        buf = format("%c - %s.", *sym, ident_info[ident_i] + 2);
+        buf = fmt::format("{:c} - {}.", *sym, ident_info[ident_i] + 2);
     } else {
-        buf = format("%c - %s", *sym, _("無効な文字", "Unknown Symbol"));
+        buf = fmt::format("{:c} - {}", *sym, _("無効な文字", "Unknown Symbol"));
     }
 
     prt(buf, 16, 10);
@@ -147,7 +148,7 @@ bool research_mon(PlayerType *player_ptr)
         term_addstr(-1, TERM_WHITE, _(" ['r'思い出, ' 'で続行, ESC]", " [(r)ecall, ESC, space to continue]"));
         while (true) {
             if (recall) {
-                const auto mes = monraces.probe_lore(monrace_id);
+                const auto mes = monraces.get_monrace(monrace_id).probe_lore();
                 if (mes) {
                     msg_print(*mes);
                     msg_erase();

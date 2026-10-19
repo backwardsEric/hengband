@@ -105,24 +105,20 @@ static bool acid_minus_ac(PlayerType *player_ptr)
     const auto item_name = describe_flavor(player_ptr, item, OD_OMIT_PREFIX | OD_NAME_ONLY);
     const auto item_flags = item.get_flags();
     if (item.ac + item.to_a <= 0) {
-        msg_format(_("%sは既にボロボロだ！", "Your %s is already fully corroded!"), item_name.data());
+        msg_print(_("{}は既にボロボロだ！", "Your {} is already fully corroded!"), item_name);
         return false;
     }
 
     if (item_flags.has(TR_IGNORE_ACID)) {
-        msg_format(_("しかし%sには効果がなかった！", "Your %s is unaffected!"), item_name.data());
+        msg_print(_("しかし{}には効果がなかった！", "Your {} is unaffected!"), item_name);
         return true;
     }
 
-    msg_format(_("%sが酸で腐食した！", "Your %s is corroded!"), item_name.data());
+    msg_print(_("{}が酸で腐食した！", "Your {} is corroded!"), item_name);
     item.to_a--;
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::PLAYER,
-    };
-    rfu.set_flags(flags_swrf);
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     calc_android_exp(player_ptr);
     return true;
 }
@@ -366,7 +362,6 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(MainWindowRedrawingFlag::HP);
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     if (damage_type != DAMAGE_GENO && player_ptr->chp == 0) {
         chg_virtue(player_ptr, Virtue::SACRIFICE, 1);
         chg_virtue(player_ptr, Virtue::CHANCE, 2);

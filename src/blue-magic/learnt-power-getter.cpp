@@ -31,6 +31,7 @@
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <iterator>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view.hpp>
@@ -79,11 +80,11 @@ static tl::optional<BlueMagicType> select_blue_magic_type_by_menu()
     screen_save();
 
     while (!type) {
-        prt(format(_(" %s ボルト", " %s bolt"), (menu_line == 1) ? _("》", "> ") : "  "), 2, 14);
-        prt(format(_(" %s ボール", " %s ball"), (menu_line == 2) ? _("》", "> ") : "  "), 3, 14);
-        prt(format(_(" %s ブレス", " %s breath"), (menu_line == 3) ? _("》", "> ") : "  "), 4, 14);
-        prt(format(_(" %s 召喚", " %s sommoning"), (menu_line == 4) ? _("》", "> ") : "  "), 5, 14);
-        prt(format(_(" %s その他", " %s others"), (menu_line == 5) ? _("》", "> ") : "  "), 6, 14);
+        prt(fmt::format(_(" {} ボルト", " {} bolt"), (menu_line == 1) ? _("》", "> ") : "  "), 2, 14);
+        prt(fmt::format(_(" {} ボール", " {} ball"), (menu_line == 2) ? _("》", "> ") : "  "), 3, 14);
+        prt(fmt::format(_(" {} ブレス", " {} breath"), (menu_line == 3) ? _("》", "> ") : "  "), 4, 14);
+        prt(fmt::format(_(" {} 召喚", " {} sommoning"), (menu_line == 4) ? _("》", "> ") : "  "), 5, 14);
+        prt(fmt::format(_(" {} その他", " {} others"), (menu_line == 5) ? _("》", "> ") : "  "), 6, 14);
         prt(_("どの種類の魔法を使いますか？", "use which type of magic? "), 0, 0);
 
         auto choice = inkey();
@@ -407,23 +408,21 @@ int calculate_blue_magic_failure_probability(PlayerType *player_ptr, const monst
  * 記号で選択する場合、" 記号)" が出力される
  * コマンドメニューで選択する場合、選択中の青魔法にはカーソルが、そうでない青魔法には空白が出力される
  *
- * @param buf 出力するバッファ
- * @param buf_size バッファのサイズ
  * @param index 選択する青魔法のリスト上の番号
  * @param menu_line コマンドメニューで選択する場合、選択中の行。記号で選択する場合は使用されない。
+ * @return 青魔法の先頭のヘッダ
  */
-static void close_blue_magic_name(char *buf, size_t buf_size, int index, int menu_line)
+static std::string close_blue_magic_name(int index, int menu_line)
 {
     if (!use_menu) {
-        snprintf(buf, buf_size, "  %c)", I2A(index));
-        return;
+        return fmt::format("  {})", I2A(index));
     }
 
     if (index == menu_line - 1) {
-        snprintf(buf, buf_size, _("  》", "  > "));
-    } else {
-        snprintf(buf, buf_size, "    ");
+        return _("  》", "  > ");
     }
+
+    return "    ";
 }
 
 /*!
@@ -463,8 +462,7 @@ static void describe_blue_magic_name(PlayerType *player_ptr, const BluemageData 
         const auto &mp = monster_powers.at(spell);
         auto need_mana = mod_need_mana(player_ptr, mp.smana, 0, RealmType::NONE);
         auto chance = calculate_blue_magic_failure_probability(player_ptr, mp, need_mana);
-        char header[80];
-        close_blue_magic_name(header, sizeof(header), i, menu_line);
+        const auto header = close_blue_magic_name(i, menu_line);
         const auto info = learnt_info(player_ptr, spell);
         const auto psi_desc = fmt::format("{} {:<26} {:3} {:3}%{}", header, fmt::bytes(mp.name), need_mana, chance, info);
         prt(psi_desc, row, x_base);

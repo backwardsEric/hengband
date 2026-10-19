@@ -44,6 +44,7 @@
 #include "util/dice.h"
 #include "util/probability-table.h"
 #include "view/display-messages.h"
+#include <fmt/format.h>
 #include <variant>
 
 /*!
@@ -209,14 +210,14 @@ bool curse_armor(PlayerType *player_ptr)
 
     if (item.is_fixed_or_random_artifact() && one_in_(2)) {
 #ifdef JP
-        msg_format("%sが%sを包み込もうとしたが、%sはそれを跳ね返した！", "恐怖の暗黒オーラ", "防具", item_name.data());
+        msg_print("恐怖の暗黒オーラが防具を包み込もうとしたが、{}はそれを跳ね返した！", item_name);
 #else
-        msg_format("A %s tries to %s, but your %s resists the effects!", "terrible black aura", "surround your armor", item_name.data());
+        msg_print("A terrible black aura tries to surround your armor, but your {} resists the effects!", item_name);
 #endif
         return true;
     }
 
-    msg_format(_("恐怖の暗黒オーラがあなたの%sを包み込んだ！", "A terrible black aura blasts your %s!"), item_name.data());
+    msg_print(_("恐怖の暗黒オーラがあなたの{}を包み込んだ！", "A terrible black aura blasts your {}!"), item_name);
     chg_virtue(player_ptr, Virtue::ENCHANT, -5);
     item.fa_id = FixedArtifactId::NONE;
     item.ego_idx = EgoType::BLASTED;
@@ -229,17 +230,10 @@ bool curse_armor(PlayerType *player_ptr)
     item.curse_flags.set(CurseTraitType::CURSED);
     item.set_identification_flag(IdentificationFlag::BROKEN);
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    static constexpr auto flags_srf = {
-        StatusRecalculatingFlag::BONUS,
-        StatusRecalculatingFlag::MP,
-    };
-    rfu.set_flags(flags_srf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::PLAYER,
-    };
-    rfu.set_flags(flags_swrf);
+    // エゴ・アーティファクトの能力が無くなる
+    rfu.request_equipment_change_updates();
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    calc_android_exp(player_ptr);
     return true;
 }
 
@@ -260,15 +254,15 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity &item)
     const auto item_name = describe_flavor(player_ptr, item, OD_OMIT_PREFIX);
     if (item.is_fixed_or_random_artifact() && one_in_(2) && !force) {
 #ifdef JP
-        msg_format("%sが%sを包み込もうとしたが、%sはそれを跳ね返した！", "恐怖の暗黒オーラ", "武器", item_name.data());
+        msg_print("恐怖の暗黒オーラが武器を包み込もうとしたが、{}はそれを跳ね返した！", item_name);
 #else
-        msg_format("A %s tries to %s, but your %s resists the effects!", "terrible black aura", "surround your weapon", item_name.data());
+        msg_print("A terrible black aura tries to surround your weapon, but your {} resists the effects!", item_name);
 #endif
         return true;
     }
 
     if (!force) {
-        msg_format(_("恐怖の暗黒オーラがあなたの%sを包み込んだ！", "A terrible black aura blasts your %s!"), item_name.data());
+        msg_print(_("恐怖の暗黒オーラがあなたの{}を包み込んだ！", "A terrible black aura blasts your {}!"), item_name);
     }
 
     chg_virtue(player_ptr, Virtue::ENCHANT, -5);
@@ -283,17 +277,10 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity &item)
     item.curse_flags.set(CurseTraitType::CURSED);
     item.set_identification_flag(IdentificationFlag::BROKEN);
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    static constexpr auto flags_srf = {
-        StatusRecalculatingFlag::BONUS,
-        StatusRecalculatingFlag::MP,
-    };
-    rfu.set_flags(flags_srf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::PLAYER,
-    };
-    rfu.set_flags(flags_swrf);
+    // エゴ・アーティファクトの能力が無くなる
+    rfu.request_equipment_change_updates();
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    calc_android_exp(player_ptr);
     return true;
 }
 
@@ -324,6 +311,9 @@ void brand_bolts(PlayerType *player_ptr)
         msg_print(_("クロスボウの矢が炎のオーラに包まれた！", "Your bolts are covered in a fiery aura!"));
         item.ego_idx = EgoType::FLAME;
         enchant_equipment(item, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
+
+        // 修正値の強化に失敗しても、エゴは付いている
+        RedrawingFlagsUpdater::get_instance().request_inventory_arrangement();
         return;
     }
 
@@ -438,19 +428,8 @@ bool enchant_equipment(ItemEntity &item, int n, int eflag)
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    static constexpr auto flags_iaf = {
-        InventoryArrangementFlag::COMBINATION,
-        InventoryArrangementFlag::REORDER,
-    };
-    rfu.set_flags(flags_iaf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::PLAYER,
-        SubWindowRedrawingFlag::FLOOR_ITEMS,
-        SubWindowRedrawingFlag::FOUND_ITEMS,
-    };
-    rfu.set_flags(flags_swrf);
+    rfu.request_inventory_arrangement();
+    rfu.request_item_lists_redrawing();
     return true;
 }
 
@@ -479,9 +458,9 @@ bool enchant_spell(PlayerType *player_ptr, HIT_PROB num_hit, int num_dam, ARMOUR
 
     const auto item_name = describe_flavor(player_ptr, *item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 #ifdef JP
-    msg_format("%s は明るく輝いた！", item_name.data());
+    msg_print("{} は明るく輝いた！", item_name);
 #else
-    msg_format("%s %s glow%s brightly!", ((i_idx >= 0) ? "Your" : "The"), item_name.data(), ((item->number > 1) ? "" : "s"));
+    msg_print("{} {} glow{} brightly!", ((i_idx >= 0) ? "Your" : "The"), item_name, ((item->number > 1) ? "" : "s"));
 #endif
 
     auto is_enchant_successful = false;
@@ -633,9 +612,12 @@ void brand_weapon(PlayerType *player_ptr, int brand_type)
         break;
     }
 
-    msg_format(_("あなたの%s%s", "Your %s %s"), item_name.data(), act);
+    msg_print(_("あなたの{}{}", "Your {} {}"), item_name, act);
     enchant_equipment(*item, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
     item->discount = 99;
     chg_virtue(player_ptr, Virtue::ENCHANT, 2);
     calc_android_exp(player_ptr);
+
+    // 修正値の強化に失敗しても、エゴの能力は付いている
+    RedrawingFlagsUpdater::get_instance().request_equipment_change_updates();
 }

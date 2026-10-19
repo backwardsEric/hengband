@@ -20,7 +20,9 @@
 #include "bot/bot-screen.h"
 #include "bot/bot-socket-server.h"
 #include "game-option/runtime-arguments.h"
+#include "io/input-context.h"
 #include "io/macro-configurations-store.h"
+#include "system/angband-exceptions.h"
 #include "system/angband-system.h"
 #include "system/angband-version.h"
 #include "system/player-type-definition.h"
@@ -35,12 +37,14 @@
 #include <iterator>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tl/expected.hpp>
 #include <tl/optional.hpp>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -129,6 +133,55 @@ nlohmann::json make_ok_response(const nlohmann::json &id, nlohmann::json result 
         { "ok", true },
         { "result", std::move(result) },
     };
+}
+
+/*!
+ * @brief 入力の種類を応答で使う名前へ変換する
+ * @param kind 入力の種類
+ * @return 応答の input_context.kind に入れる名前
+ */
+std::string_view input_kind_name(InputKind kind)
+{
+    switch (kind) {
+    case InputKind::CONFIRM:
+        return "confirm";
+    case InputKind::COMMAND_CHAR:
+        return "command_char";
+    case InputKind::STRING:
+        return "string";
+    case InputKind::QUANTITY:
+        return "quantity";
+    case InputKind::MORE:
+        return "more";
+    case InputKind::COMMAND:
+        return "command";
+    }
+
+    THROW_EXCEPTION(std::logic_error, "Invalid InputKind was specified!");
+}
+
+/*!
+ * @brief 現在の入力待ちの文脈をJSONへ変換する
+ */
+nlohmann::json make_input_context_json()
+{
+    const auto &context = get_input_context();
+    if (!context) {
+        return nullptr;
+    }
+
+    auto result = nlohmann::json{ { "kind", input_kind_name(context->kind) }, { "prompt", to_json_utf8(context->prompt) } };
+    if (const auto *string_details = std::get_if<StringInputDetails>(&context->details)) {
+        result["max_length"] = string_details->max_length;
+        result["initial"] = to_json_utf8(string_details->initial);
+    } else if (const auto *quantity_details = std::get_if<QuantityInputDetails>(&context->details)) {
+        result["max"] = quantity_details->max;
+        result["initial"] = quantity_details->initial;
+    } else if (const auto *command_details = std::get_if<CommandInputDetails>(&context->details)) {
+        result["shopping"] = command_details->shopping;
+    }
+
+    return result;
 }
 
 /*!
@@ -395,6 +448,7 @@ nlohmann::json handle_screen_request(const nlohmann::json &id, const nlohmann::j
 
     auto screen = make_bot_screen_json(*angband_terms[*index], *with_attrs);
     screen["term"] = *index;
+    screen["input_context"] = make_input_context_json();
     return make_ok_response(id, std::move(screen));
 }
 
@@ -454,7 +508,9 @@ nlohmann::json handle_state_request(const nlohmann::json &id, const nlohmann::js
         return make_error_response(id, "\"map\" must be a boolean");
     }
 
-    return make_ok_response(id, make_bot_json_snapshot(p_ptr, *include_map));
+    auto state = make_bot_json_snapshot(p_ptr, *include_map);
+    state["input_context"] = make_input_context_json();
+    return make_ok_response(id, std::move(state));
 }
 
 /*!

@@ -63,11 +63,6 @@ void inven_item_increase(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBE
     };
     rfu.set_flags(flags_srf);
     rfu.set_flag(InventoryArrangementFlag::COMBINATION);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-    };
-    rfu.set_flags(flags_swrf);
     if (o_ptr->number || !player_ptr->ele_attack) {
         return;
     }
@@ -103,17 +98,7 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX i_idx)
     if (i_idx >= INVEN_MAIN_HAND) {
         player_ptr->equip_cnt--;
         player_ptr->inventory[i_idx]->wipe();
-        static constexpr auto flags_srf = {
-            StatusRecalculatingFlag::BONUS,
-            StatusRecalculatingFlag::TORCH,
-            StatusRecalculatingFlag::MP,
-        };
-        rfu.set_flags(flags_srf);
-        static constexpr auto flags_swrf = {
-            SubWindowRedrawingFlag::EQUIPMENT,
-            SubWindowRedrawingFlag::SPELL,
-        };
-        rfu.set_flags(flags_swrf);
+        rfu.request_equipment_change_updates();
         return;
     }
 
@@ -124,6 +109,7 @@ void inven_item_optimize(PlayerType *player_ptr, INVENTORY_IDX i_idx)
     std::rotate(first, first + 1, last + 1);
     (*last)->wipe();
 
+    // 装備の側と違い、ここでは能力の再計算を要求しないので、持ち物の並びと (魔法書が無くなったときの) 呪文の一覧も要求する
     static constexpr auto flags = {
         SubWindowRedrawingFlag::INVENTORY,
         SubWindowRedrawingFlag::SPELL,
@@ -158,7 +144,7 @@ void drop_from_inventory(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NUMBE
 
     item.number = amt;
     const auto item_name = describe_flavor(player_ptr, item, 0);
-    msg_format(_("%s(%c)を落とした。", "You drop %s (%c)."), item_name.data(), index_to_label(i_idx));
+    msg_print(_("{}({:c})を落とした。", "You drop {} ({:c})."), item_name, index_to_label(i_idx));
     (void)drop_near(player_ptr, item, player_ptr->get_position(), false);
     vary_item(player_ptr, i_idx, -amt);
 }
@@ -261,21 +247,6 @@ void reorder_pack(PlayerType *player_ptr)
 }
 
 /*!
- * @brief 所持品が変わったときに、所持品の結合・並べ替えと一覧の描き直しを予約する
- * @details 結合・並べ替えはコマンドの区切りで update_inventory_arrangement() が行う。
- */
-void request_inventory_arrangement()
-{
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    static constexpr auto flags_iaf = {
-        InventoryArrangementFlag::COMBINATION,
-        InventoryArrangementFlag::REORDER,
-    };
-    rfu.set_flags(flags_iaf);
-    rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
-}
-
-/*!
  * @brief フラグに応じて所持品の自動破壊・結合・並べ替えを行う
  * @details 所持品のスロット番号が変わるため、アイテムの番号を保持している処理の途中では呼ばない。
  * 通常は handle_stuff_with_inventory_arrangement() を通じて呼ぶ。
@@ -312,10 +283,6 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
 
     ItemEntity *j_ptr;
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::PLAYER,
-    };
     for (const auto i_idx : INVEN_PACK_SLOTS) {
         j_ptr = player_ptr->inventory[i_idx].get();
         if (!j_ptr->is_valid()) {
@@ -326,7 +293,7 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
         if (j_ptr->is_similar(*o_ptr)) {
             j_ptr->absorb(*o_ptr);
             rfu.set_flag(StatusRecalculatingFlag::BONUS);
-            rfu.set_flags(flags_swrf);
+            rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
             return enum2i(i_idx);
         }
     }
@@ -361,12 +328,8 @@ int16_t store_item_to_inventory(PlayerType *player_ptr, ItemEntity *o_ptr)
 
     player_ptr->inven_cnt++;
     rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    static constexpr auto flags_iaf = {
-        InventoryArrangementFlag::COMBINATION,
-        InventoryArrangementFlag::REORDER,
-    };
-    rfu.set_flags(flags_iaf);
-    rfu.set_flags(flags_swrf);
+    rfu.request_inventory_arrangement();
+    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
     return i;
 }
 
@@ -434,9 +397,9 @@ INVENTORY_IDX inven_takeoff(PlayerType *player_ptr, INVENTORY_IDX i_idx, ITEM_NU
 
     const auto slot = store_item_to_inventory(player_ptr, &item);
 #ifdef JP
-    msg_format("%s(%c)%s。", item_name.data(), index_to_label(slot), act.data());
+    msg_print("{}({:c}){}。", item_name, index_to_label(slot), act);
 #else
-    msg_format("%s %s (%c).", act.data(), item_name.data(), index_to_label(slot));
+    msg_print("{} {} ({:c}).", act, item_name, index_to_label(slot));
 #endif
 
     return slot;

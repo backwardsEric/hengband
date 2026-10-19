@@ -5,6 +5,7 @@
 #include "flavor/object-flavor-types.h"
 #include "hpmp/hp-mp-regenerator.h"
 #include "inventory/inventory-slot-types.h"
+#include "object/object-mark-types.h"
 #include "object/tval-types.h"
 #include "system/floor/floor-info.h"
 #include "system/item/item-entity.h"
@@ -30,12 +31,12 @@ static void recharged_notice(PlayerType *player_ptr, const ItemEntity &item)
         if (s[1] == '!') {
             const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
 #ifdef JP
-            msg_format("%sは再充填された。", item_name.data());
+            msg_print("{}は再充填された。", item_name);
 #else
             if (item.number > 1) {
-                msg_format("Your %s are recharged.", item_name.data());
+                msg_print("Your {} are recharged.", item_name);
             } else {
-                msg_format("Your %s is recharged.", item_name.data());
+                msg_print("Your {} is recharged.", item_name);
             }
 #endif
             disturb(player_ptr, false, false);
@@ -120,9 +121,16 @@ void recharge_magic_items(PlayerType *player_ptr)
         }
 
         if ((item_ptr->bi_key.tval() == ItemKindType::ROD) && (item_ptr->timeout)) {
+            // 一覧に出るロッド (モンスターが拾うと FOUND は消える) の充填中の表示が変わったときだけ描き直す
+            const auto is_listed = item_ptr->marked.has(OmType::FOUND) && item_ptr->is_known();
+            const auto old_charging_count = is_listed ? calc_displayed_charging_count(*item_ptr) : 0;
             item_ptr->timeout -= (TIME_EFFECT)item_ptr->number;
             if (item_ptr->timeout < 0) {
                 item_ptr->timeout = 0;
+            }
+
+            if (is_listed && (calc_displayed_charging_count(*item_ptr) != old_charging_count)) {
+                rfu.request_floor_item_lists_redrawing();
             }
         }
     }

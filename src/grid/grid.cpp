@@ -38,10 +38,12 @@
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
 #include "term/gameterm.h"
+#include "term/z-rand.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
 #include "view/display-map.h"
 #include "view/display-messages.h"
+#include "view/map-info-cache.h"
 #include "window/main-window-util.h"
 #include "window/overview-map-cache.h"
 #include "world/world.h"
@@ -327,7 +329,10 @@ void print_rel(PlayerType *player_ptr, const DisplaySymbol &symbol, const Pos2D 
 
 void print_bolt_pict(PlayerType *player_ptr, const Pos2D &pos_src, const Pos2D &pos_dst, AttributeType typ)
 {
-    const auto &symbol = bolt_pict(pos_src, pos_dst, typ);
+    // 描画の回数は環境によって変わるため、ゲームのターンと座標から作った乱数生成器で色を選ぶ
+    const auto turn = AngbandWorld::get_instance().game_turn;
+    auto rng = make_keyed_rng(KeyedRngPurpose::BOLT_COLOR, { turn, pos_src.y, pos_src.x, pos_dst.y, pos_dst.x, enum2i(typ) });
+    const auto &symbol = bolt_pict(rng, pos_src, pos_dst, typ);
     print_rel(player_ptr, symbol, pos_dst);
 }
 
@@ -400,7 +405,10 @@ void note_spot(PlayerType *player_ptr, const Pos2D &pos)
     for (const auto this_o_idx : grid.o_idx_list) {
         auto &item = *floor.o_list[this_o_idx];
         item.marked.set(OmType::FOUND);
-        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::FOUND_ITEMS);
+
+        // 足元のアイテムの一覧も、見つけたアイテムだけを出す。
+        // 見つけていたアイテムでも、置かれたアイテムが重なって数が変わったときなどに描き直す
+        RedrawingFlagsUpdater::get_instance().request_floor_item_lists_redrawing();
     }
 
     /* Hack -- memorize grids */
@@ -457,23 +465,27 @@ void lite_spot(PlayerType *player_ptr, const Pos2D &pos)
         return;
     }
 
+    // 全体図は表示のオプションが違うので、ここでは印を付けるだけにする。
+    // 描き直すかは、サブウィンドウを描くときに印を付けたグリッドを求め直して決める
     OverviewMapCache::get_instance().mark_dirty(pos);
-    if (panel_contains(pos)) {
-        auto symbol_pair = map_info(player_ptr, pos);
-        symbol_pair.symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_pair.symbol_foreground.color);
-
-        // 表示が変わらなければ、地図のサブウィンドウを描き直す必要も無い
-        if (!term_queue_bigchar(panel_col_of(pos.x), pos.y - panel_row_prt, symbol_pair)) {
-            return;
-        }
+    auto &map_info_cache = MapInfoCache::get_instance();
+    if (!panel_contains(pos)) {
+        // メイン画面の外のグリッドは表示が変わったか分からないので、自分の周囲を描き直す
+        map_info_cache.invalidate(pos);
+        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::DUNGEON);
+        return;
     }
 
-    // メイン画面の外のグリッドは表示が変わったか分からないので、地図のサブウィンドウを描き直す
-    static constexpr auto flags = {
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    RedrawingFlagsUpdater::get_instance().set_flags(flags);
+    // メイン画面の表示が変わらなくても、覚える結果は変わることがある (単色表示で色だけ変わったときなど) ので、必ず覚える
+    auto symbol_pair = map_info(player_ptr, pos);
+    const auto is_cache_changed = map_info_cache.store(pos, symbol_pair);
+    symbol_pair.symbol_foreground.color = get_monochrome_display_color(player_ptr).value_or(symbol_pair.symbol_foreground.color);
+
+    // 自分の周囲は、メイン画面の表示が変わったときと、覚えていた結果 (表示しているかもしれない) と違うときに描き直す
+    const auto is_main_window_changed = term_queue_bigchar(panel_col_of(pos.x), pos.y - panel_row_prt, symbol_pair);
+    if (is_main_window_changed || is_cache_changed) {
+        RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::DUNGEON);
+    }
 }
 
 /*

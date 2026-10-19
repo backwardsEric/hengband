@@ -5,6 +5,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
+#include <tl/expected.hpp>
 #include <variant>
 #include <vector>
 
@@ -53,11 +54,6 @@ struct TownMapBuildingRule {
     std::optional<std::string> condition;
 };
 
-/*!
- * @brief 検証済みの建物指示を文字コード変換し、対象言語の建物へ直接適用する。
- */
-parse_error_type apply_town_building_rule(const TownMapBuildingRule &rule);
-
 struct TownMapVariant {
     std::vector<std::string> rows;
     std::optional<std::string> condition;
@@ -76,9 +72,6 @@ struct TownMapDefinition {
     std::vector<TownMapStartingPosition> starts;
 };
 
-/*! @brief TownMapReaderで検証し、条件評価済みの町凡例を適用する。失敗時は既存の letter[] を保持する。 */
-parse_error_type apply_town_map_feature(const FloorType &floor, const TownMapFeatureRule &feature);
-
 /*!
  * @brief 町マップJSONCを検証し、ゲーム状態に触れず定義データへ読み込む。
  * 条件式とUTF-8文字列はそのまま保持し、評価・文字コード変換は適用側で行う。
@@ -92,16 +85,13 @@ public:
     TownMapReader &operator=(const TownMapReader &) = delete;
     TownMapReader &operator=(TownMapReader &&) = delete;
 
-    /*!
-     * @brief 成功時のみ出力を置き換える。建物専用モードではマップ・開始位置の読み取りを省略する。
-     */
     parse_error_type read(TownMapDefinition &definition, int maximum_height, int maximum_width, bool only_buildings = false) const;
 
 private:
-    parse_error_type read_features(TownMapDefinition &definition) const;
-    parse_error_type read_buildings(TownMapDefinition &definition) const;
-    parse_error_type read_maps(TownMapDefinition &definition, int maximum_height, int maximum_width) const;
-    parse_error_type read_starts(TownMapDefinition &definition) const;
+    tl::expected<void, parse_error_type> read_features(TownMapDefinition &definition) const;
+    tl::expected<void, parse_error_type> read_buildings(TownMapDefinition &definition) const;
+    tl::expected<void, parse_error_type> read_maps(TownMapDefinition &definition, int maximum_height, int maximum_width) const;
+    tl::expected<void, parse_error_type> read_starts(TownMapDefinition &definition) const;
 
     const nlohmann::json &data;
 };

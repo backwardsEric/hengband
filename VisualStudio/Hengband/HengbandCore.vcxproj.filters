@@ -1089,6 +1089,9 @@
     <ClCompile Include="..\..\src\io\gf-descriptions.cpp">
       <Filter>io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\io\input-context.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\io\input-key-acceptor.cpp">
       <Filter>io</Filter>
     </ClCompile>
@@ -1279,6 +1282,9 @@
       <Filter>lore</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\lore\magic-types-setter.cpp">
+      <Filter>lore</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\lore\monster-lore-snapshot.cpp">
       <Filter>lore</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\lore\monster-lore.cpp">
@@ -2851,6 +2857,9 @@
     <ClCompile Include="..\..\src\view\display-util.cpp">
       <Filter>view</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\view\map-info-cache.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\view\object-describer.cpp">
       <Filter>view</Filter>
     </ClCompile>
@@ -2876,6 +2885,9 @@
       <Filter>window</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\window\overview-map-cache.cpp">
+      <Filter>window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\window\shrunk-overview-map.cpp">
       <Filter>window</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\wizard\artifact-analyzer.cpp">
@@ -3708,6 +3720,9 @@
     <ClInclude Include="..\..\src\info-reader\town-definition-list-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\town-map-condition.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\info-reader\town-map-reader.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -3784,6 +3799,9 @@
       <Filter>io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\io\gf-descriptions.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\io\input-context.h">
       <Filter>io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\io\input-key-acceptor.h">
@@ -4000,6 +4018,9 @@
       <Filter>lore</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\lore\magic-types-setter.h">
+      <Filter>lore</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\lore\monster-lore-snapshot.h">
       <Filter>lore</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\lore\monster-lore.h">
@@ -5932,6 +5953,9 @@
     <ClInclude Include="..\..\src\view\display-util.h">
       <Filter>view</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\view\map-info-cache.h">
+      <Filter>view</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\view\object-describer.h">
       <Filter>view</Filter>
     </ClInclude>
@@ -5960,6 +5984,9 @@
       <Filter>window</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\window\overview-map-cache.h">
+      <Filter>window</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\window\shrunk-overview-map.h">
       <Filter>window</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\wizard\artifact-analyzer.h">

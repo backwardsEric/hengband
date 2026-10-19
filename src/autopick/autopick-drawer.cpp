@@ -18,6 +18,7 @@
 #include "util/string-processor.h"
 #include "view/display-util.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <string_view>
 #include <tuple>
 
@@ -28,7 +29,7 @@ constexpr std::string_view AUTOREGISTER_DIRECTIVE = "$AUTOREGISTER";
 /*!
  * @brief 条件式の評価結果と、読込エラーによって無効になる後続行の状態を更新する
  */
-void update_autopick_expression_states(PlayerType *player_ptr, text_body_type *tb)
+void update_autopick_expression_states(PlayerType *player_ptr, AutopickTextBody *tb)
 {
     const auto edited_line = tb->dirty_line;
     const auto include_edited = (edited_line >= 0) && (static_cast<size_t>(edited_line) < tb->lines_list.size()) &&
@@ -79,7 +80,7 @@ void update_autopick_expression_states(PlayerType *player_ptr, text_body_type *t
 /*!
  * @brief Draw text
  */
-void draw_text_editor(PlayerType *player_ptr, text_body_type *tb)
+void draw_text_editor(PlayerType *player_ptr, AutopickTextBody *tb)
 {
     int by1 = 0, by2 = 0;
 
@@ -228,11 +229,11 @@ void draw_text_editor(PlayerType *player_ptr, text_body_type *tb)
     }
 
     if (tb->dirty_flags & DIRTY_NOT_FOUND) {
-        str1 = format(_("パターンが見つかりません: %s", "Pattern not found: %s"), tb->search_str.data());
+        str1 = fmt::format(_("パターンが見つかりません: {}", "Pattern not found: {}"), tb->search_str);
     } else if (tb->dirty_flags & DIRTY_SKIP_INACTIVE) {
-        str1 = format(_("無効状態の行をスキップしました。(%sを検索中)", "Some inactive lines are skipped. (Searching %s)"), tb->search_str.data());
+        str1 = fmt::format(_("無効状態の行をスキップしました。({}を検索中)", "Some inactive lines are skipped. (Searching {})"), tb->search_str);
     } else if (tb->dirty_flags & DIRTY_INACTIVE) {
-        str1 = format(_("無効状態の行だけが見付かりました。(%sを検索中)", "Found only an inactive line. (Searching %s)"), tb->search_str.data());
+        str1 = fmt::format(_("無効状態の行だけが見付かりました。({}を検索中)", "Found only an inactive line. (Searching {})"), tb->search_str);
     } else if (tb->dirty_flags & DIRTY_NO_SEARCH) {
         str1 = _("検索するパターンがありません(^S で検索)。", "No pattern to search. (Press ^S to search.)");
     } else if (tb->states[tb->cy] & LSTAT_EXPRESSION_ERROR) {

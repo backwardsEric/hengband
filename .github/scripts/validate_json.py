@@ -1,5 +1,8 @@
+import hashlib
 import re
 import sys
+from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urljoin
 import pyjson5
@@ -161,6 +164,81 @@ def validate_ego_semantics(data: dict, schema_path: Path) -> None:
             require_integer(extra["chance"], path + ["extra_flags", extra_index, "chance"])
 
 
+INT_MIN = -2147483648
+INT_MAX = 2147483647
+
+
+def require_reader_dice(value: str, path: list) -> None:
+    # Dice::parse は「個数d面数」の両方をintの10進数として読み、符号は - だけを受け付ける。
+    # pattern の $ は末尾の改行の前にも一致するため、文字列全体で確かめる。
+    match = re.fullmatch(r"(-?)([0-9]+)d(-?)([0-9]+)", value)
+    if not match:
+        raise ValidationError("dice must be written as XdY", path=path)
+    for sign, digits in (match.group(1, 2), match.group(3, 4)):
+        # 先頭の0を除いてから桁数を見て、Pythonの整数変換の桁数の上限に当たらないようにする。
+        digits = digits.lstrip("0") or "0"
+        if len(digits) > len(str(INT_MAX)) or not INT_MIN <= int(sign + digits) <= INT_MAX:
+            raise ValidationError("dice values must fit in int", path=path)
+
+
+def load_rod_type_value(repository_root: Path) -> int:
+    """ItemKindType::ROD の値を読む。"""
+    path = repository_root / "src/object/tval-types.h"
+    match = re.search(r'^\s*ROD\s*=\s*(\d+)\s*,', path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        raise ValueError(f"ItemKindType::ROD not found in {path}")
+    return int(match[1])
+
+
+def validate_baseitem_semantics(data: dict, schema_path: Path) -> None:
+    """BaseitemReaderの整数型・ID順序・表示・ロッドのpval・ダイスを検証する。"""
+    repository_root = schema_path.resolve().parent.parent
+    valid_colors = load_cpp_map_keys(repository_root / "src/term/gameterm.cpp", "color_list")
+    rod_type_value = load_rod_type_value(repository_root)
+    previous_id = -1
+    for index, baseitem in enumerate(data["baseitems"]):
+        path = ["baseitems", index]
+        for field in ("id", "parameter_value", "level", "weight", "cost", "base_ac", "hit_bonus", "damage_bonus", "ac_bonus"):
+            if field in baseitem:
+                require_integer(baseitem[field], path + [field])
+        for field in ("type_value", "subtype_value"):
+            require_integer(baseitem["itemkind"][field], path + ["itemkind", field])
+        if baseitem["id"] <= previous_id:
+            raise ValidationError("baseitem IDs must be strictly increasing", path=path + ["id"])
+        previous_id = baseitem["id"]
+
+        # BaseitemReaderは表示文字を1バイトちょうどに限る。
+        if len(baseitem["symbol"]["character"].encode("utf-8")) != 1:
+            raise ValidationError("symbol character must be a single byte", path=path + ["symbol", "character"])
+        if baseitem["symbol"]["color"] not in valid_colors:
+            raise ValidationError("unknown color", path=path + ["symbol", "color"])
+        # BaseitemReaderはロッドのpval(省略時は0)が正でなければ拒否する。
+        if baseitem["itemkind"]["type_value"] == rod_type_value and baseitem.get("parameter_value", 0) <= 0:
+            raise ValidationError("rod parameter_value must be positive", path=path + ["parameter_value"])
+        if "base_dice" in baseitem:
+            require_reader_dice(baseitem["base_dice"], path + ["base_dice"])
+        for allocation_index, allocation in enumerate(baseitem.get("allocations", [])):
+            for field in ("depth", "rarity"):
+                require_integer(allocation[field], path + ["allocations", allocation_index, field])
+
+
+def validate_artifact_semantics(data: dict) -> None:
+    """ArtifactReaderの整数型・ID順序・ダイスを検証する。"""
+    previous_id = -1
+    for index, artifact in enumerate(data["artifacts"]):
+        path = ["artifacts", index]
+        for field in ("id", "parameter_value", "level", "rarity", "weight", "cost", "base_ac", "hit_bonus", "damage_bonus", "ac_bonus"):
+            if field in artifact:
+                require_integer(artifact[field], path + [field])
+        for field in ("type_value", "subtype_value"):
+            require_integer(artifact["base_item"][field], path + ["base_item", field])
+        if artifact["id"] <= previous_id:
+            raise ValidationError("artifact IDs must be strictly increasing", path=path + ["id"])
+        previous_id = artifact["id"]
+        if "base_dice" in artifact:
+            require_reader_dice(artifact["base_dice"], path + ["base_dice"])
+
+
 def validate_wilderness_semantics(data: dict) -> None:
     """Check cross-field constraints used by WildernessReader."""
     for field in ("version", "width", "height"):
@@ -213,8 +291,27 @@ def validate_wilderness_semantics(data: dict) -> None:
         for field in ("x", "y"):
             if type(position[field]) is not int:
                 raise ValidationError("expected an integer JSON value", path=map_path + ["starting_position", field])
+        # 地上の生成では現在地の周囲8マスを生成するため、WildernessReaderは荒野の端を拒否する。
+        if position["x"] > width - 2 or position["y"] > height - 2:
+            raise ValidationError("starting position must not be on the wilderness edge", path=map_path + ["starting_position"])
         if position["y"] >= len(layout) or position["x"] >= len(layout[position["y"]]):
             raise ValidationError("starting position must be within the map layout", path=map_path + ["starting_position"])
+
+
+def validate_quest_semantics(data: dict) -> None:
+    """Reject integral floats such as 5.0, which JSON Schema accepts as integers but QuestReader rejects."""
+    # Quest・QuestPreferences の schema に number 型の項目は無く、数値はすべて整数として読む。
+    def walk(value, path):
+        if isinstance(value, float):
+            raise ValidationError("expected an integer JSON value", path=path)
+        if isinstance(value, dict):
+            for key, child in value.items():
+                walk(child, path + [key])
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                walk(child, path + [index])
+
+    walk(data, [])
 
 
 def validate_town_preferences_semantics(data: dict, schema_path: Path) -> None:
@@ -226,6 +323,9 @@ def validate_town_preferences_semantics(data: dict, schema_path: Path) -> None:
     if type(data["version"]) is not int:
         raise ValidationError("expected an integer JSON value", path=["version"])
     for symbol, cell in data["legend"].items():
+        # propertyNames の $ は末尾の改行の前にも一致するため、TownPreferencesReaderと同じく1文字ちょうどを確かめる。
+        if len(symbol) != 1:
+            raise ValidationError("legend symbol must be exactly one printable ASCII character", path=["legend", symbol])
         terrain_tag = cell["terrain"]
         if terrain_tag != "*" and terrain_tag not in valid_terrain_tags:
             raise ValidationError("unknown terrain tag", path=["legend", symbol, "terrain"])
@@ -268,6 +368,9 @@ def validate_town_map_semantics(data: dict, schema_path: Path) -> None:
         "artifact": r"(?:-?[0-9]+|\*[0-9]*|!)",
     }
     for rule_index, rule in enumerate(data["featureRules"]):
+        # pattern の $ は末尾の改行の前にも一致するため、TownMapReaderと同じく1文字ちょうどを確かめる。
+        if len(rule["symbol"]) != 1:
+            raise ValidationError("feature symbol must be exactly one printable ASCII character", path=["featureRules", rule_index, "symbol"])
         definition = rule["definition"]
         for field in ("terrain", "monster", "object", "ego", "artifact", "trap"):
             if any(not (" " <= character <= "~") for character in definition[field]):
@@ -315,7 +418,8 @@ def validate_town_map_semantics(data: dict, schema_path: Path) -> None:
             if len(fields) != 7 or any(re.fullmatch(r"-?[0-9]+", fields[index]) is None for index in (0, 2, 3, 5, 6)):
                 raise ValidationError("building action command requires seven valid fields", path=["buildingRules", rule_index, "fields"])
             for field_index in (0, 2, 3, 5, 6):
-                if not -2147483648 <= int(fields[field_index]) <= 2147483647:
+                minimum, maximum = (-32768, 32767) if field_index in (5, 6) else (-2147483648, 2147483647)
+                if not minimum <= int(fields[field_index]) <= maximum:
                     raise ValidationError("building field exceeds the reader's integer range", path=["buildingRules", rule_index, "fields", field_index])
             if not 0 <= int(fields[0]) < 8:
                 raise ValidationError("building action index is outside the reader's range", path=["buildingRules", rule_index, "fields", 0])
@@ -328,7 +432,7 @@ def validate_town_map_semantics(data: dict, schema_path: Path) -> None:
             if len(fields) > max_fields:
                 raise ValidationError("too many fields for building membership command", path=["buildingRules", rule_index, "fields"])
             for field_index, value in enumerate(fields):
-                if not -2147483648 <= int(value) <= 2147483647:
+                if not -32768 <= int(value) <= 32767:
                     raise ValidationError("building field exceeds the reader's integer range", path=["buildingRules", rule_index, "fields", field_index])
 
     map_dimensions = []
@@ -343,6 +447,10 @@ def validate_town_map_semantics(data: dict, schema_path: Path) -> None:
         if width > max_width:
             raise ValidationError("map width exceeds the reader's maximum", path=["mapVariants", map_index, "rows", 0])
         for row_index, row in enumerate(rows):
+            # pattern の $ は末尾の改行の前にも一致するため、TownMapReaderと同じく行全体を確かめる。
+            # 末尾の改行で幅が食い違ったときに原因を指すよう、幅より先に確かめる。
+            if any(not " " <= character <= "~" for character in row):
+                raise ValidationError("map rows must contain printable ASCII characters", path=["mapVariants", map_index, "rows", row_index])
             if len(row) != width:
                 raise ValidationError("map rows must have equal widths", path=["mapVariants", map_index, "rows", row_index])
         map_dimensions.append((len(rows), width))
@@ -361,11 +469,115 @@ def require_integer(value, path: list) -> None:
         raise ValidationError("expected an integer JSON value", path=path)
 
 
-def validate_terrain_semantics(data: dict) -> None:
-    """TerrainReaderの整数型と地形ごとの生成確率合計を確認する。"""
+def find_companion_path(schema_path: Path, data_path: Path, name: str) -> Path:
+    """隣接する候補定義を優先し、なければ同梱定義のパスを返す。"""
+    companion_path = data_path.parent / f"{name}.jsonc"
+    if not companion_path.exists():
+        companion_path = schema_path.resolve().parent.parent / "lib/edit" / f"{name}.jsonc"
+    return companion_path
+
+
+def load_validated_companion(schema_path: Path, data_path: Path, registry: Registry,
+                             name: str, label: str, semantic_validator: Callable[[dict], None],
+                             *, selected_path: Path | None = None) -> dict:
+    """隣接する候補定義を優先し、schemaと意味検証を終えた付随データを返す。"""
+    companion_path = selected_path if selected_path is not None else find_companion_path(schema_path, data_path, name)
+    companion = load_jsonc(companion_path)
+    companion_schema_path = schema_path.parent / f"{name}.schema.json"
+    companion_schema = load_jsonc(companion_schema_path)
+    schema_uri = companion_schema_path.resolve().as_uri()
+    absolute_schema = {**companion_schema, "$id": urljoin(schema_uri, companion_schema.get("$id", schema_uri))}
+    try:
+        validate(instance=companion, schema=absolute_schema, registry=registry)
+        semantic_validator(companion)
+    except ValidationError as e:
+        raise ValueError(f"Invalid {label} definitions in {companion_path}: {e.message}; Location: {list(e.path)}") from e
+    return companion
+
+
+def load_dungeon_wilderness_dimensions(schema_path: Path, data_path: Path, registry: Registry) -> tuple[int, int]:
+    """入口の検証には隣の候補荒野定義を優先し、なければ同梱定義を使う。"""
+    wilderness = load_validated_companion(schema_path, data_path, registry,
+                                          "WildernessDefinition", "wilderness", validate_wilderness_semantics)
+    return wilderness["height"], wilderness["width"]
+
+
+def validate_dungeon_semantics(data: dict, schema_path: Path, data_path: Path, registry: Registry) -> None:
+    """DungeonReaderの整数型・ID順序・地形抽選の合計を検証する。"""
+    dimensions = None
+    if any(dungeon["id"] != 0 for dungeon in data["dungeons"]):
+        dimensions = load_dungeon_wilderness_dimensions(schema_path, data_path, registry)
+    previous_id = -1
+    for index, dungeon in enumerate(data["dungeons"]):
+        path = ["dungeons", index]
+        require_integer(dungeon["id"], path + ["id"])
+        if dungeon["id"] <= previous_id:
+            raise ValidationError("dungeon IDs must be strictly increasing", path=path + ["id"])
+        previous_id = dungeon["id"]
+        fields = {"position": ("wild_y", "wild_x"),
+                  "generation": ("minDepth", "maxDepth", "minPlayerLevel", "objGood", "objGreat"),
+                  "monsters": ("minCount", "additionalSpawnProbability", "normalMonsterRate"),
+                  "floor": ("tunnelRate",)}
+        for group, names in fields.items():
+            for name in names:
+                require_integer(dungeon[group][name], path + [group, name])
+        if dungeon["id"] != 0 and dimensions is not None:
+            # ダンジョンを出ると荒野の現在地が入口になるため、DungeonReaderは荒野の端を拒否する。
+            for field, extent in zip(("wild_y", "wild_x"), dimensions):
+                if not 1 <= dungeon["position"][field] <= extent - 2:
+                    raise ValidationError("dungeon entrance must be inside the wilderness map excluding the edges", path=path + ["position", field])
+        if dungeon["generation"]["minDepth"] > dungeon["generation"]["maxDepth"]:
+            raise ValidationError("minDepth must not exceed maxDepth", path=path + ["generation", "minDepth"])
+        for group in ("floor", "wall"):
+            total = 0
+            for tile_index, tile in enumerate(dungeon[group]["tiles"]):
+                weight_path = path + [group, "tiles", tile_index, "rate"]
+                require_integer(tile["rate"], weight_path)
+                total += tile["rate"]
+                if total > 2147483647:
+                    raise ValidationError("total weight exceeds the reader's integer range", path=weight_path)
+            if total == 0:
+                raise ValidationError("tiles require a positive total weight", path=path + [group, "tiles"])
+        for stream_index, stream in enumerate(dungeon["wall"]["streams"]):
+            for name in ("count", "chance", "priority"):
+                require_integer(stream[name], path + ["wall", "streams", stream_index, name])
+        for name, value in dungeon.get("final_floor", {}).items():
+            require_integer(value, path + ["final_floor", name])
+
+
+def load_cpp_map_keys(path: Path, table: str) -> set[str]:
+    """指定したC++辞書のキーだけを読む。隣の辞書やコメントは含めない。"""
+    source = path.read_text(encoding="utf-8")
+    match = re.search(r'\b' + re.escape(table) + r'\s*=\s*\{(.*?)^\};', source, re.DOTALL | re.MULTILINE)
+    if not match:
+        raise ValueError(f"Definition table {table} not found in {path}")
+    keys = set(re.findall(r'^\s*\{\s*"([^"\\]+)"\s*,', match[1], re.MULTILINE))
+    if not keys:
+        raise ValueError(f"No definition tokens found in {table}: {path}")
+    return keys
+
+
+def validate_terrain_semantics(data: dict, schema_path: Path) -> None:
+    """地形の整数・表示・参照・状態数を確認する。重複定義はCIで拒否する。"""
+    repository_root = schema_path.resolve().parent.parent
+    flags = load_cpp_map_keys(repository_root / "src/info-reader/feature-info-tokens-table.cpp", "f_info_flags")
+    colors = load_cpp_map_keys(repository_root / "src/term/gameterm.cpp", "color_list")
+    ids = set()
+    tags = set()
     for terrain_index, terrain in enumerate(data["terrains"]):
         path = ["terrains", terrain_index]
         require_integer(terrain["id"], path + ["id"])
+        if terrain["id"] in ids:
+            raise ValidationError("terrain IDs must be unique; duplicate IDs overwrite definitions", path=path + ["id"])
+        ids.add(terrain["id"])
+        if terrain["key"] in tags:
+            raise ValidationError("terrain tags must be unique; references would be ambiguous", path=path + ["key"])
+        tags.add(terrain["key"])
+        if terrain["symbol"]["color"] not in colors:
+            raise ValidationError("unknown terrain color token", path=path + ["symbol", "color"])
+        for flag_index, flag in enumerate(terrain["flags"]):
+            if flag and flag not in flags:
+                raise ValidationError("unknown terrain flag token", path=path + ["flags", flag_index])
         if terrain.get("map_priority") is not None:
             require_integer(terrain["map_priority"], path + ["map_priority"])
         for field in ("trap", "door", "tunnel"):
@@ -384,6 +596,36 @@ def validate_terrain_semantics(data: dict) -> None:
             probability_sum += change["probability"]
             if probability_sum > 100:
                 raise ValidationError("generation probability sum must not exceed 100", path=probability_path)
+
+    # 候補文書内の全タグを集めてから参照を確認し、前方参照を許可する。
+    def require_tag(tag, reference_path):
+        if tag not in tags:
+            raise ValidationError("undefined terrain tag", path=reference_path)
+
+    for terrain_index, terrain in enumerate(data["terrains"]):
+        path = ["terrains", terrain_index]
+        mimic = terrain.get("mimic")
+        if mimic:
+            require_tag(mimic, path + ["mimic"])
+        for change_index, change in enumerate((terrain.get("generation") or {}).get("changes", [])):
+            require_tag(change["terrain"], path + ["generation", "changes", change_index, "terrain"])
+        state_count = 0
+        # nlohmann::jsonのobjectと同じキー順で、9番目の状態を診断する。
+        for action, value in sorted((terrain.get("interactions") or {}).items()):
+            action_path = path + ["interactions", action]
+            if action == "DROP_GOLD":
+                # schemaは正のNdMを保証する。書式とintの範囲はアイテムのダイスと同じ規則で確かめる。
+                require_reader_dice(value, action_path)
+                continue
+            if action == "DESTROYED":
+                require_tag(value, action_path)
+                continue
+            if state_count >= 8:
+                raise ValidationError("terrain interactions must not exceed eight states", path=action_path)
+            if action not in flags:
+                raise ValidationError("unknown terrain action token", path=action_path)
+            require_tag(value, action_path)
+            state_count += 1
 
 
 def load_class_ids(repository_root: Path) -> dict[str, int]:
@@ -417,20 +659,8 @@ def load_class_ids(repository_root: Path) -> dict[str, int]:
 
 def load_spell_tags(schema_path: Path, data_path: Path, registry: Registry) -> dict[str, set[str]]:
     """Use adjacent candidate definitions, or the schema repository's bundled data."""
-    repository_root = schema_path.resolve().parent.parent
-    spell_path = data_path.parent / "SpellDefinitions.jsonc"
-    if not spell_path.exists():
-        spell_path = repository_root / "lib/edit/SpellDefinitions.jsonc"
-    spells = load_jsonc(spell_path)
-    spell_schema_path = schema_path.parent / "SpellDefinitions.schema.json"
-    spell_schema = load_jsonc(spell_schema_path)
-    schema_uri = spell_schema_path.resolve().as_uri()
-    absolute_schema = {**spell_schema, "$id": urljoin(schema_uri, spell_schema.get("$id", schema_uri))}
-    try:
-        validate(instance=spells, schema=absolute_schema, registry=registry)
-        validate_spell_semantics(spells)
-    except ValidationError as e:
-        raise ValueError(f"Invalid spell definitions in {spell_path}: {e.message}; Location: {list(e.path)}") from e
+    spells = load_validated_companion(schema_path, data_path, registry,
+                                     "SpellDefinitions", "spell", validate_spell_semantics)
     tag_ids = {}
     for realm in spells["realms"]:
         realm_tag_ids = tag_ids.setdefault(realm["name"], {})
@@ -514,12 +744,60 @@ def validate_spell_semantics(data: dict) -> None:
                 tags.add(spell["spell_tag"])
 
 
-def validate_monster_message_semantics(data: dict) -> None:
+# 小さなID集合だけを保持し、一時候補の検証を繰り返しても保持件数を制限する。
+_monster_id_cache = OrderedDict()
+MAX_MONSTER_ID_CACHE_ENTRIES = 8
+
+
+def companion_digest(path: Path) -> bytes:
+    """時刻・サイズが同じ書換えも検出し、大きな参照定義は分割してハッシュする。"""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(65536), b""):
+            digest.update(block)
+    return digest.digest()
+
+
+def validate_monster_id_types(data: dict) -> None:
+    """schemaの整数判定を通る小数も、ID集合を作る前に拒否する。"""
+    for index, monster in enumerate(data["monsters"]):
+        require_integer(monster["id"], ["monsters", index, "id"])
+
+
+def load_defined_monster_ids(schema_path: Path, data_path: Path, registry: Registry) -> frozenset[int]:
+    """同じ内容・schema・検証コンテキストの種族ID集合を再利用する。"""
+    companion_path = find_companion_path(schema_path, data_path, "MonraceDefinitions").resolve()
+    companion_schema_path = (schema_path.parent / "MonraceDefinitions.schema.json").resolve()
+    key = (companion_path, companion_schema_path)
+    fingerprint = (companion_digest(companion_path), companion_digest(companion_schema_path))
+    cached = _monster_id_cache.get(key)
+    if cached is not None and cached[0] is registry and cached[1] == fingerprint:
+        _monster_id_cache.move_to_end(key)
+        return cached[2]
+
+    monraces = load_validated_companion(schema_path, data_path, registry,
+                                       "MonraceDefinitions", "monster", validate_monster_id_types,
+                                       selected_path=companion_path)
+    ids = frozenset(monrace["id"] for monrace in monraces["monsters"])
+    # 読込中に更新された場合は、異なる内容のキーでキャッシュしない。
+    if fingerprint == (companion_digest(companion_path), companion_digest(companion_schema_path)):
+        _monster_id_cache[key] = (registry, fingerprint, ids)
+        _monster_id_cache.move_to_end(key)
+        if len(_monster_id_cache) > MAX_MONSTER_ID_CACHE_ENTRIES:
+            _monster_id_cache.popitem(last=False)
+    return ids
+
+
+def validate_monster_message_semantics(data: dict, schema_path: Path, data_path: Path, registry: Registry) -> None:
+    defined_monrace_ids = load_defined_monster_ids(schema_path, data_path, registry)
     for group_index, group in enumerate(data["groups"]):
         group_path = ["groups", group_index]
         if "id_list" in group:
             for id_index, monster_id in enumerate(group["id_list"]):
                 require_integer(monster_id, group_path + ["id_list", id_index])
+                # MessageReaderはモンスター種族の定義に無いIDを拒否する。
+                if monster_id not in defined_monrace_ids:
+                    raise ValidationError("unknown monster ID", path=group_path + ["id_list", id_index])
         # 実行時の到達可否によらず、全メッセージの入力を検証する。
         for message_index, message in enumerate(group["message"]):
             message_path = group_path + ["message", message_index]
@@ -540,6 +818,81 @@ def validate_monster_message_semantics(data: dict) -> None:
                     raise ValidationError(f"{language} messages after a missing locale would be discarded", path=path)
 
 
+MAX_MONRACE_DICE_ROLL = 32767
+
+
+def validate_monrace_semantics(data: dict, schema_path: Path, data_path: Path, registry: Registry) -> None:
+    """Check RaceReader's strict integers, ID order, dice limits and references."""
+    artifact_data = load_validated_companion(schema_path, data_path, registry,
+                                             "ArtifactDefinitions", "artifact", validate_artifact_semantics)
+    defined_artifact_ids = {artifact["id"] for artifact in artifact_data["artifacts"]}
+    monraces = data["monsters"]
+    defined_monrace_ids = {monrace["id"] for monrace in monraces if type(monrace["id"]) is int}
+
+    def check_dice(value, path):
+        # pattern の $ は末尾の改行の前にも一致するため、文字列全体で確かめる。
+        if not re.fullmatch(r"[1-9][0-9]*d[1-9][0-9]*", value):
+            raise ValidationError("dice must be written as XdY", path=path)
+        # 最大の出目(個数×面数)は捕獲したモンスターのHPを保持するshortに収める。
+        num, sides = (int(token) for token in value.split("d"))
+        if num * sides > MAX_MONRACE_DICE_ROLL:
+            raise ValidationError(f"dice maximum roll must not exceed {MAX_MONRACE_DICE_ROLL}", path=path)
+
+    def check_monrace_reference(value, path):
+        # ID 0 はプレイヤーを表し、モンスター種族として参照できない。
+        if value == 0 or value not in defined_monrace_ids:
+            raise ValidationError("unknown monster ID", path=path)
+
+    previous_id = -1
+    for index, monrace in enumerate(monraces):
+        path = ["monsters", index]
+        for field in ("id", "speed", "vision", "armor_class", "alertness", "level", "rarity", "exp",
+                      "odds_correction_ratio", "start_hp_percentage"):
+            if field in monrace:
+                require_integer(monrace[field], path + [field])
+        if monrace["id"] <= previous_id:
+            raise ValidationError("monster IDs must be strictly increasing", path=path + ["id"])
+        previous_id = monrace["id"]
+
+        # RaceReaderは表示文字を1バイトちょうどに限る。
+        if len(monrace["symbol"]["character"].encode("utf-8")) != 1:
+            raise ValidationError("symbol character must be a single byte", path=path + ["symbol", "character"])
+        check_dice(monrace["hit_point"], path + ["hit_point"])
+        if "evolve" in monrace:
+            for field in ("need_exp", "to"):
+                require_integer(monrace["evolve"][field], path + ["evolve", field])
+            check_monrace_reference(monrace["evolve"]["to"], path + ["evolve", "to"])
+        for artifact_index, artifact in enumerate(monrace.get("artifacts", [])):
+            artifact_path = path + ["artifacts", artifact_index]
+            for field in ("drop_artifact_id", "drop_probability"):
+                require_integer(artifact[field], artifact_path + [field])
+            if artifact["drop_artifact_id"] not in defined_artifact_ids:
+                raise ValidationError("unknown artifact ID", path=artifact_path + ["drop_artifact_id"])
+        for escort_index, escort in enumerate(monrace.get("escorts", [])):
+            escort_path = path + ["escorts", escort_index]
+            require_integer(escort["escorts_id"], escort_path + ["escorts_id"])
+            check_monrace_reference(escort["escorts_id"], escort_path + ["escorts_id"])
+            check_dice(escort["escort_num"], escort_path + ["escort_num"])
+        for blow_index, blow in enumerate(monrace.get("blows", [])):
+            if "damage_dice" in blow:
+                check_dice(blow["damage_dice"], path + ["blows", blow_index, "damage_dice"])
+        if "skill" in monrace:
+            # pattern の $ は末尾の改行の前にも一致するため、文字列全体で確かめる。
+            if not re.fullmatch(r"1_IN_([1-9][0-9]?|100)", monrace["skill"]["probability"]):
+                raise ValidationError("probability must be written as 1_IN_n", path=path + ["skill", "probability"])
+            if "shoot" in monrace["skill"]:
+                check_dice(monrace["skill"]["shoot"], path + ["skill", "shoot"])
+        for summon_index, summon in enumerate(monrace.get("final_summon", [])):
+            summon_path = path + ["final_summon", summon_index]
+            for field in ("id", "probability", "min_num", "max_num", "radius"):
+                require_integer(summon[field], summon_path + [field])
+            check_monrace_reference(summon["id"], summon_path + ["id"])
+            if summon["min_num"] > summon["max_num"]:
+                raise ValidationError("min_num must not exceed max_num", path=summon_path + ["min_num"])
+        for message_index, message in enumerate(monrace.get("message", [])):
+            require_integer(message["chance"], path + ["message", message_index, "chance"])
+
+
 def validate_one(pair: tuple[Path, Path, dict], registry: Registry | None = None) -> tuple[bool, str]:
     data_path, schema_path, schema = pair
     try:
@@ -551,17 +904,23 @@ def validate_one(pair: tuple[Path, Path, dict], registry: Registry | None = None
         absolute_schema = schema if isinstance(schema, bool) else {**schema, "$id": urljoin(schema_uri, schema.get("$id", schema_uri))}
         validate(instance=data, schema=absolute_schema, registry=registry)
         semantic_validators = {
-            "TerrainDefinitions.schema.json": lambda: validate_terrain_semantics(data),
+            "DungeonDefinitions.schema.json": lambda: validate_dungeon_semantics(data, schema_path, data_path, registry),
+            "TerrainDefinitions.schema.json": lambda: validate_terrain_semantics(data, schema_path),
             "VaultDefinitions.schema.json": lambda: validate_vault_semantics(data),
             "EgoDefinitions.schema.json": lambda: validate_ego_semantics(data, schema_path),
+            "BaseitemDefinitions.schema.json": lambda: validate_baseitem_semantics(data, schema_path),
+            "ArtifactDefinitions.schema.json": lambda: validate_artifact_semantics(data),
             "WildernessDefinition.schema.json": lambda: validate_wilderness_semantics(data),
             "TownPreferences.schema.json": lambda: validate_town_preferences_semantics(data, schema_path),
             "TownDefinitionList.schema.json": lambda: validate_town_definition_list_semantics(data, schema_path),
             "TownMap.schema.json": lambda: validate_town_map_semantics(data, schema_path),
+            "MonraceDefinitions.schema.json": lambda: validate_monrace_semantics(data, schema_path, data_path, registry),
             "ClassMagicDefinitions.schema.json": lambda: validate_class_magic_semantics(data, schema_path, data_path, registry),
             "ClassSkillDefinitions.schema.json": lambda: validate_class_skill_semantics(data),
             "SpellDefinitions.schema.json": lambda: validate_spell_semantics(data),
-            "MonsterMessages.schema.json": lambda: validate_monster_message_semantics(data),
+            "MonsterMessages.schema.json": lambda: validate_monster_message_semantics(data, schema_path, data_path, registry),
+            "Quest.schema.json": lambda: validate_quest_semantics(data),
+            "QuestPreferences.schema.json": lambda: validate_quest_semantics(data),
         }
         semantic_validator = semantic_validators.get(schema_path.name)
         if semantic_validator is not None:

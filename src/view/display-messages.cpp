@@ -5,6 +5,7 @@
 #include "game-option/map-screen-options.h"
 #include "game-option/option-flags.h"
 #include "game-option/text-display-options.h"
+#include "io/input-context.h"
 #include "io/input-key-acceptor.h"
 #include "load/load-util.h"
 #include "main/sound-of-music.h"
@@ -136,7 +137,7 @@ std::shared_ptr<const std::string> message_str(int age)
 
     const auto &[msg, repeat_count] = message_history[age];
     if (repeat_count > 1) {
-        return std::make_shared<const std::string>(*msg + format(" <x%d>", repeat_count));
+        return std::make_shared<const std::string>(fmt::format("{} <x{}>", *msg, repeat_count));
     }
 
     return msg;
@@ -249,6 +250,7 @@ static void msg_flush(PlayerType *player_ptr, int x)
         more_prompt_x = x;
         waiting_for_more = true;
         const auto finalizer = util::make_finalizer([] { waiting_for_more = false; });
+        const InputContextScope input_context(InputKind::MORE, MORE_PROMPT);
         while (true) {
             int cmd = inkey();
             if (cmd == ESCAPE) {

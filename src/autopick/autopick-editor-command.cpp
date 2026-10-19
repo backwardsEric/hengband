@@ -42,7 +42,7 @@
  * @return
  * @details Execute a single editor command
  */
-ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, EditorCommandId com_id)
+ape_quittance do_editor_command(PlayerType *player_ptr, AutopickTextBody *tb, EditorCommandId com_id)
 {
     switch (com_id) {
     case EditorCommandId::QUIT: {
@@ -517,9 +517,7 @@ ape_quittance do_editor_command(PlayerType *player_ptr, text_body_type *tb, Edit
         if (!can_insert_line(tb, 2)) {
             break;
         }
-        const auto expression = format("?:[AND [EQU $RACE %s] [EQU $CLASS %s] [GEQ $LEVEL %02d]]",
-            rp_ptr->title.en_string().data(), cp_ptr->title.en_string().data(),
-            player_ptr->lev);
+        const auto expression = fmt::format("?:[AND [EQU $RACE {}] [EQU $CLASS {}] [GEQ $LEVEL {:02}]]", rp_ptr->title.en_string(), cp_ptr->title.en_string(), player_ptr->lev);
         tb->cx = 0;
         insert_return_code(tb);
         tb->lines_list[tb->cy] = std::make_unique<std::string>(expression);

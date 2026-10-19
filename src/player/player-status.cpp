@@ -107,6 +107,7 @@
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world.h"
+#include <fmt/format.h>
 
 static bool is_martial_arts_mode(PlayerType *player_ptr);
 
@@ -256,7 +257,6 @@ static void update_bonuses(PlayerType *player_ptr)
     BIT_FLAGS old_esp_nonliving = player_ptr->esp_nonliving;
     BIT_FLAGS old_esp_unique = player_ptr->esp_unique;
     BIT_FLAGS old_see_inv = player_ptr->see_inv;
-    BIT_FLAGS old_mighty_throw = player_ptr->mighty_throw;
     int16_t old_speed = player_ptr->pspeed;
 
     ARMOUR_CLASS old_dis_ac = player_ptr->dis_ac;
@@ -356,12 +356,8 @@ static void update_bonuses(PlayerType *player_ptr)
     player_ptr->dis_to_a = calc_to_ac(player_ptr, false);
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (old_mighty_throw != player_ptr->mighty_throw) {
-        rfu.set_flag(SubWindowRedrawingFlag::INVENTORY);
-    }
-
     if (player_ptr->telepathy != old_telepathy) {
-        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
     }
 
     auto is_esp_updated = player_ptr->esp_animal != old_esp_animal;
@@ -464,14 +460,13 @@ static void update_max_hitpoints(PlayerType *player_ptr)
 
 #ifdef JP
     if (player_ptr->level_up_message && (mhp > player_ptr->mhp)) {
-        msg_format("最大ヒット・ポイントが %d 増加した！", (mhp - player_ptr->mhp));
+        msg_print("最大ヒット・ポイントが {} 増加した！", (mhp - player_ptr->mhp));
     }
 #endif
     player_ptr->mhp = mhp;
 
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(MainWindowRedrawingFlag::HP);
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
 }
 
 /*!
@@ -557,11 +552,7 @@ static void update_num_of_spells(PlayerType *player_ptr)
         realm_status.set_learned(spell_id, false);
 
         const auto &spell_name = realm.get_spell_name(spell_id);
-#ifdef JP
-        msg_format("%sの%sを忘れてしまった。", spell_name.data(), spell_category.data());
-#else
-        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name.data());
-#endif
+        msg_print(_("{0}の{1}を忘れてしまった。", "You have forgotten the {1} of {0}."), spell_name, spell_category);
         player_ptr->new_spells++;
     }
 
@@ -584,11 +575,7 @@ static void update_num_of_spells(PlayerType *player_ptr)
 
         const auto &realm = is_realm1 ? pr.realm1() : pr.realm2();
         const auto &spell_name = realm.get_spell_name(spell_id);
-#ifdef JP
-        msg_format("%sの%sを忘れてしまった。", spell_name.data(), spell_category.data());
-#else
-        msg_format("You have forgotten the %s of %s.", spell_category.data(), spell_name.data());
-#endif
+        msg_print(_("{0}の{1}を忘れてしまった。", "You have forgotten the {1} of {0}."), spell_name, spell_category);
         player_ptr->new_spells++;
     }
 
@@ -617,11 +604,7 @@ static void update_num_of_spells(PlayerType *player_ptr)
         realm_status.set_learned(spell_id);
 
         const auto &spell_name = realm.get_spell_name(spell_id);
-#ifdef JP
-        msg_format("%sの%sを思い出した。", spell_name.data(), spell_category.data());
-#else
-        msg_format("You have remembered the %s of %s.", spell_category.data(), spell_name.data());
-#endif
+        msg_print(_("{0}の{1}を思い出した。", "You have remembered the {1} of {0}."), spell_name, spell_category);
         player_ptr->new_spells--;
     }
 
@@ -660,19 +643,18 @@ static void update_num_of_spells(PlayerType *player_ptr)
     if (player_ptr->new_spells) {
 #ifdef JP
         if (player_ptr->new_spells < 10) {
-            msg_format("あと %d つの%sを学べる。", player_ptr->new_spells, spell_category.data());
+            msg_print("あと {} つの{}を学べる。", player_ptr->new_spells, spell_category);
         } else {
-            msg_format("あと %d 個の%sを学べる。", player_ptr->new_spells, spell_category.data());
+            msg_print("あと {} 個の{}を学べる。", player_ptr->new_spells, spell_category);
         }
 #else
-        msg_format("You can learn %d more %s%s.", player_ptr->new_spells, spell_category.data(), (player_ptr->new_spells != 1) ? "s" : "");
+        msg_print("You can learn {} more {}{}.", player_ptr->new_spells, spell_category, (player_ptr->new_spells != 1) ? "s" : "");
 #endif
     }
 
     player_ptr->old_spells = player_ptr->new_spells;
     auto &rfu = RedrawingFlagsUpdater::get_instance();
     rfu.set_flag(MainWindowRedrawingFlag::STUDY);
-    rfu.set_flag(SubWindowRedrawingFlag::ITEM_KNOWLEDGE);
 }
 
 /*!
@@ -898,17 +880,12 @@ static void update_max_mana(PlayerType *player_ptr)
 
 #ifdef JP
         if (player_ptr->level_up_message && (msp > player_ptr->msp)) {
-            msg_format("最大マジック・ポイントが %d 増加した！", (msp - player_ptr->msp));
+            msg_print("最大マジック・ポイントが {} 増加した！", (msp - player_ptr->msp));
         }
 #endif
         player_ptr->msp = msp;
         auto &rfu = RedrawingFlagsUpdater::get_instance();
         rfu.set_flag(MainWindowRedrawingFlag::MP);
-        static constexpr auto flags = {
-            SubWindowRedrawingFlag::PLAYER,
-            SubWindowRedrawingFlag::SPELL,
-        };
-        rfu.set_flags(flags);
     }
 
     if (AngbandWorld::get_instance().character_xtra) {
@@ -1982,13 +1959,13 @@ void put_equipment_warning(PlayerType *player_ptr)
     if (player_ptr->riding && (player_ptr->old_riding_ryoute != player_ptr->riding_ryoute)) {
         if (player_ptr->riding_ryoute) {
 #ifdef JP
-            msg_format("%s馬を操れない。", (empty_hands(player_ptr, false) == EMPTY_HAND_NONE) ? "両手がふさがっていて" : "");
+            msg_print("{}馬を操れない。", (empty_hands(player_ptr, false) == EMPTY_HAND_NONE) ? "両手がふさがっていて" : "");
 #else
             msg_print("You are using both hand for fighting, and you can't control the pet you're riding.");
 #endif
         } else {
 #ifdef JP
-            msg_format("%s馬を操れるようになった。", (empty_hands(player_ptr, false) == EMPTY_HAND_NONE) ? "手が空いて" : "");
+            msg_print("{}馬を操れるようになった。", (empty_hands(player_ptr, false) == EMPTY_HAND_NONE) ? "手が空いて" : "");
 #else
             msg_print("You began to control the pet you're riding with one hand.");
 #endif
@@ -2593,9 +2570,31 @@ void update_creature(PlayerType *player_ptr)
         return;
     }
 
+    // 呪文の失敗率・消費 MP・覚えている呪文は、能力の修正 (朦朧・能力値・装備・熟練度・レベルなど)、
+    // 最大 MP、覚えられる呪文の数を計算し直すと変わりうる
+    static constexpr auto flags_srf = {
+        StatusRecalculatingFlag::BONUS,
+        StatusRecalculatingFlag::MP,
+        StatusRecalculatingFlag::SPELLS,
+    };
+    if (rfu.has_any_of(flags_srf)) {
+        rfu.request_spell_info_redrawing();
+    }
+
     auto &floor = *player_ptr->current_floor_ptr;
     if (rfu.has(StatusRecalculatingFlag::BONUS)) {
         rfu.reset_flag(StatusRecalculatingFlag::BONUS);
+
+        // 矢弾・投擲の威力、運搬中・両手持ちの表示、騎乗中のランスのダイスは、能力の修正 (能力値・射撃・騎乗・集中度など) で変わる。
+        // また、持ち物・装備の中身の変化のうち能力の再計算を伴うもの (重さが変わる個数の増減・装備の出し入れ、
+        // 装備の修正値・呪い、$ や . の銘) は、表示の変化もここでまとめて描き直す。
+        // 能力の再計算を伴わない変化 (充填・感触・燃料など) は、それぞれの箇所で持ち物・装備の描き直しを要求する
+        static constexpr auto flags_swrf = {
+            SubWindowRedrawingFlag::INVENTORY,
+            SubWindowRedrawingFlag::EQUIPMENT,
+        };
+        rfu.set_flags(flags_swrf);
+
         PlayerAlignment(player_ptr).update_alignment();
         PlayerSkill ps(player_ptr);
         ps.apply_special_weapon_skill_max_values();
@@ -2767,11 +2766,13 @@ void check_experience(PlayerType *player_ptr)
     PlayerRace pr(player_ptr);
     bool android = pr.equals(PlayerRaceType::ANDROID);
     PLAYER_LEVEL old_lev = player_ptr->lev;
+    // 一時的な発光の明るさもレベルで決まる
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
         StatusRecalculatingFlag::HP,
         StatusRecalculatingFlag::MP,
         StatusRecalculatingFlag::SPELLS,
+        StatusRecalculatingFlag::TORCH,
     };
     while ((player_ptr->lev > 1) && (player_ptr->exp < ((android ? player_exp_a : player_exp)[player_ptr->lev - 2] * player_ptr->expfact / 100L))) {
         player_ptr->lev--;
@@ -2807,7 +2808,7 @@ void check_experience(PlayerType *player_ptr)
         }
 
         sound(SoundKind::LEVEL);
-        msg_format(_("レベル %d にようこそ。", "Welcome to level %d."), player_ptr->lev);
+        msg_print(_("レベル {} にようこそ。", "Welcome to level {}."), player_ptr->lev);
         rfu.set_flags(flags_srf);
         const auto flags_mwrf_levelup = {
             MainWindowRedrawingFlag::LEVEL,
@@ -2815,12 +2816,7 @@ void check_experience(PlayerType *player_ptr)
             MainWindowRedrawingFlag::EXP,
         };
         rfu.set_flags(flags_mwrf_levelup);
-        const auto &flags_swrf_levelup = {
-            SubWindowRedrawingFlag::PLAYER,
-            SubWindowRedrawingFlag::SPELL,
-            SubWindowRedrawingFlag::INVENTORY,
-        };
-        rfu.set_flags(flags_swrf_levelup);
+        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
         player_ptr->level_up_message = true;
         handle_stuff(player_ptr);
 
@@ -2832,12 +2828,12 @@ void check_experience(PlayerType *player_ptr)
                 while (true) {
                     int n;
 
-                    prt(format(_("        a) 腕力 (現在値 %s)", "        a) Str (cur %s)"), cnv_stat(player_ptr->stat_max[0]).data()), 2, 14);
-                    prt(format(_("        b) 知能 (現在値 %s)", "        b) Int (cur %s)"), cnv_stat(player_ptr->stat_max[1]).data()), 3, 14);
-                    prt(format(_("        c) 賢さ (現在値 %s)", "        c) Wis (cur %s)"), cnv_stat(player_ptr->stat_max[2]).data()), 4, 14);
-                    prt(format(_("        d) 器用 (現在値 %s)", "        d) Dex (cur %s)"), cnv_stat(player_ptr->stat_max[3]).data()), 5, 14);
-                    prt(format(_("        e) 耐久 (現在値 %s)", "        e) Con (cur %s)"), cnv_stat(player_ptr->stat_max[4]).data()), 6, 14);
-                    prt(format(_("        f) 魅力 (現在値 %s)", "        f) Chr (cur %s)"), cnv_stat(player_ptr->stat_max[5]).data()), 7, 14);
+                    prt(fmt::format(_("        a) 腕力 (現在値 {})", "        a) Str (cur {})"), cnv_stat(player_ptr->stat_max[0])), 2, 14);
+                    prt(fmt::format(_("        b) 知能 (現在値 {})", "        b) Int (cur {})"), cnv_stat(player_ptr->stat_max[1])), 3, 14);
+                    prt(fmt::format(_("        c) 賢さ (現在値 {})", "        c) Wis (cur {})"), cnv_stat(player_ptr->stat_max[2])), 4, 14);
+                    prt(fmt::format(_("        d) 器用 (現在値 {})", "        d) Dex (cur {})"), cnv_stat(player_ptr->stat_max[3])), 5, 14);
+                    prt(fmt::format(_("        e) 耐久 (現在値 {})", "        e) Con (cur {})"), cnv_stat(player_ptr->stat_max[4])), 6, 14);
+                    prt(fmt::format(_("        f) 魅力 (現在値 {})", "        f) Chr (cur {})"), cnv_stat(player_ptr->stat_max[5])), 7, 14);
 
                     prt("", 8, 14);
                     prt(_("        どの能力値を上げますか？", "        Which stat do you want to raise?"), 1, 14);
@@ -2885,11 +2881,7 @@ void check_experience(PlayerType *player_ptr)
             MainWindowRedrawingFlag::TITLE,
         };
         rfu.set_flags(flags_mwrf);
-        static constexpr auto flags_swrf = {
-            SubWindowRedrawingFlag::PLAYER,
-            SubWindowRedrawingFlag::SPELL,
-        };
-        rfu.set_flags(flags_swrf);
+        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
         handle_stuff(player_ptr);
     }
 
@@ -2906,16 +2898,16 @@ void check_experience(PlayerType *player_ptr)
 std::string cnv_stat(int val)
 {
     if (val <= 18) {
-        return format("    %2d", val);
+        return fmt::format("    {:2}", val);
     }
 
     int bonus = (val - 18);
     if (bonus >= 220) {
         return "18/***";
     } else if (bonus >= 100) {
-        return format("18/%03d", bonus);
+        return fmt::format("18/{:03}", bonus);
     } else {
-        return format(" 18/%02d", bonus);
+        return fmt::format(" 18/{:02}", bonus);
     }
 }
 

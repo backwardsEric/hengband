@@ -4,6 +4,7 @@
 #include "core/window-redrawer.h"
 #include "game-option/input-options.h"
 #include "io/command-repeater.h"
+#include "io/input-context.h"
 #include "io/input-key-acceptor.h"
 #include "io/input-key-requester.h" //!< @todo 相互依存している、後で何とかする.
 #include "main/sound-of-music.h"
@@ -19,10 +20,22 @@
 #include <algorithm>
 #include <charconv>
 #include <climits>
+#include <fmt/format.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <variant>
+
+/*!
+ * @brief 入力欄の開始位置と画面幅に合わせて文字列のバイト上限を求める
+ */
+static int get_input_length(int len, int x)
+{
+    const auto start = ((x < 0) || (x >= MAIN_TERM_MIN_COLS)) ? 0 : x;
+    return std::clamp(len, 1, MAIN_TERM_MIN_COLS - start);
+}
 
 /*
  * Get some string input at the cursor location.
@@ -51,17 +64,11 @@ tl::optional<std::string> askfor(int len, std::string_view initial_value, bool n
     auto color = TERM_YELLOW;
 
     auto [x, y] = term_locate();
-    if (len < 1) {
-        len = 1;
-    }
-
     if ((x < 0) || (x >= MAIN_TERM_MIN_COLS)) {
         x = 0;
     }
 
-    if (x + len > MAIN_TERM_MIN_COLS) {
-        len = MAIN_TERM_MIN_COLS - x;
-    }
+    len = get_input_length(len, x);
 
     std::string buf(initial_value);
     auto pos = 0;
@@ -169,6 +176,24 @@ tl::optional<std::string> askfor(int len, std::string_view initial_value, bool n
     }
 }
 
+/*!
+ * @brief 指定した文脈で文字列の入力を待つ
+ * @details 数量入力も同じ編集処理を利用するが、公開する文脈は数量のまま保つ。
+ */
+static tl::optional<std::string> input_string_with_context(InputContext input_context, int len, std::string_view initial_value, bool numpad_cursor)
+{
+    msg_erase();
+    prt(input_context.prompt, 0, 0);
+    if (auto *details = std::get_if<StringInputDetails>(&input_context.details)) {
+        details->max_length = get_input_length(len, term_locate().first);
+    }
+
+    const InputContextScope context_scope(std::move(input_context));
+    const auto ask_result = askfor(len, initial_value, numpad_cursor);
+    prt("", 0, 0);
+    return ask_result;
+}
+
 /*
  * Get a string from the user
  *
@@ -181,11 +206,8 @@ tl::optional<std::string> askfor(int len, std::string_view initial_value, bool n
  */
 tl::optional<std::string> input_string(std::string_view prompt, int len, std::string_view initial_value, bool numpad_cursor)
 {
-    msg_erase();
-    prt(prompt, 0, 0);
-    const auto ask_result = askfor(len, initial_value, numpad_cursor);
-    prt("", 0, 0);
-    return ask_result;
+    InputContext input_context{ InputKind::STRING, std::string(prompt), StringInputDetails{ len, std::string(initial_value) } };
+    return input_string_with_context(std::move(input_context), len, initial_value, numpad_cursor);
 }
 
 /*
@@ -251,6 +273,7 @@ bool input_check_strict(PlayerType *player_ptr, std::string_view prompt, EnumCla
     }
 
     bool flag = false;
+    const InputContextScope input_context(InputKind::CONFIRM, buf);
     while (true) {
         int i = inkey();
 
@@ -303,10 +326,13 @@ tl::optional<char> input_command(std::string_view prompt)
     msg_erase();
     prt(prompt, 0, 0);
     char command;
-    if (get_com_no_macros) {
-        command = static_cast<char>(inkey_special(false));
-    } else {
-        command = inkey();
+    {
+        const InputContextScope input_context(InputKind::COMMAND_CHAR, prompt);
+        if (get_com_no_macros) {
+            command = static_cast<char>(inkey_special(false));
+        } else {
+            command = inkey();
+        }
     }
 
     prt("", 0, 0);
@@ -344,11 +370,12 @@ int input_quantity(int max, std::string_view initial_prompt)
     if (!initial_prompt.empty()) {
         prompt = initial_prompt;
     } else {
-        prompt = format(_("いくつですか (1-%d): ", "Quantity (1-%d): "), max);
+        prompt = fmt::format(_("いくつですか (1-{}): ", "Quantity (1-{}): "), max);
     }
 
     msg_erase();
-    const auto input_amount = input_string(prompt, 6, "1", false);
+    InputContext input_context{ InputKind::QUANTITY, prompt, QuantityInputDetails{ max, 1 } };
+    const auto input_amount = input_string_with_context(std::move(input_context), 6, "1", false);
     if (!input_amount) {
         return 0;
     }
@@ -397,7 +424,7 @@ tl::optional<int> input_integer(std::string_view prompt, int min, int max, int i
         try {
             auto val = std::stoi(*input_str);
             if ((val < min) || (val > max)) {
-                msg_format(_("%dから%dの間で指定して下さい。", "It must be between %d to %d."), min, max);
+                msg_print(_("{}から{}の間で指定して下さい。", "It must be between {} to {}."), min, max);
                 continue;
             }
 

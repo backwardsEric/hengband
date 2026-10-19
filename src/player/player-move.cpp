@@ -6,6 +6,7 @@
  */
 
 #include "player/player-move.h"
+#include "action/travel-execution.h"
 #include "core/disturbance.h"
 #include "core/special-internal-keys.h"
 #include "core/stuff-handler.h"
@@ -88,6 +89,7 @@ static void discover_hidden_things(PlayerType *player_ptr, const Pos2D &pos)
         if (!item.is_known()) {
             msg_print(_("箱に仕掛けられたトラップを発見した！", "You have discovered a trap on the chest!"));
             item.mark_as_known();
+            RedrawingFlagsUpdater::get_instance().request_floor_item_lists_redrawing();
             disturb(player_ptr, false, false);
         }
     }
@@ -234,13 +236,10 @@ bool move_player_effect(PlayerType *player_ptr, POSITION ny, POSITION nx, BIT_FL
         carry(player_ptr, any_bits(mpe_mode, MPE_DO_PICKUP));
     }
 
-    // 自動拾い/自動破壊により床上のアイテムリストが変化した可能性があるので表示を更新
-    if (!player_ptr->running) {
-        static constexpr auto flags_swrf = {
-            SubWindowRedrawingFlag::FLOOR_ITEMS,
-            SubWindowRedrawingFlag::FOUND_ITEMS,
-        };
-        rfu.set_flags(flags_swrf);
+    // 自動拾い/自動破壊により床上のアイテムリストが変化した可能性があるので表示を更新。
+    // 走っている間やトラベル中は描き直すと重いので、止まったとき (stop_running()・Travel::stop()) に要求する
+    if (!player_ptr->running && !Travel::get_instance().is_ongoing()) {
+        rfu.request_floor_item_lists_redrawing();
         window_stuff(player_ptr);
     }
 

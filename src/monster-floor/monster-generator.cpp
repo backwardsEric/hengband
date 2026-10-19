@@ -28,6 +28,7 @@
 #include "target/projection-path-calculator.h"
 #include "view/display-messages.h"
 #include "wizard/wizard-messages.h"
+#include <fmt/format.h>
 
 /*!
  * @brief モンスター1体を目標地点に可能な限り近い位置に生成する
@@ -242,7 +243,7 @@ tl::optional<MONSTER_IDX> place_specific_monster(PlayerType *player_ptr, POSITIO
                 }
             }
             if (d > scatter_max) {
-                msg_format_wizard(player_ptr, CHEAT_MONSTER, _("護衛の指定生成に失敗しました。", "Failed fixed escorts."));
+                msg_print_wizard(player_ptr, CHEAT_MONSTER, _("護衛の指定生成に失敗しました。", "Failed fixed escorts."));
             }
         }
     }
@@ -376,7 +377,7 @@ bool alloc_horde(PlayerType *player_ptr, POSITION y, POSITION x, summon_specific
     const auto &monraces = MonraceList::get_instance();
     const auto is_chameleon = monentity.mflag2.has(MonsterConstantFlagType::CHAMELEON);
     const auto &monrace = is_chameleon ? monentity.get_monrace() : monraces.get_monrace(*monrace_id);
-    msg_format(_("モンスターの大群(%c)", "Monster horde (%c)."), monrace.symbol_definition.character);
+    msg_print(_("モンスターの大群({:c})", "Monster horde ({:c})."), monrace.symbol_definition.character);
     return true;
 }
 

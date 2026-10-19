@@ -32,33 +32,20 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
+#include "util/string-processor.h"
 #include "view/display-messages.h"
 #include "world/world-turn-processor.h"
 #include "world/world.h"
+#include <fmt/format.h>
 
 static void redraw_character_xtra(PlayerType *player_ptr)
 {
     auto &world = AngbandWorld::get_instance();
     world.character_xtra = true;
     auto &rfu = RedrawingFlagsUpdater::get_instance();
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::INVENTORY,
-        SubWindowRedrawingFlag::EQUIPMENT,
-        SubWindowRedrawingFlag::SPELL,
-        SubWindowRedrawingFlag::PLAYER,
-        SubWindowRedrawingFlag::MONSTER_LORE,
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    rfu.set_flags(flags_swrf);
-    static constexpr auto flags_mwrf = {
-        MainWindowRedrawingFlag::WIPE,
-        MainWindowRedrawingFlag::BASIC,
-        MainWindowRedrawingFlag::EXTRA,
-        MainWindowRedrawingFlag::EQUIPPY,
-        MainWindowRedrawingFlag::MAP,
-    };
-    rfu.set_flags(flags_mwrf);
+    // フロアが変わったので、足元や発見済みのアイテムの一覧なども含め、すべてのサブウィンドウを描き直す
+    rfu.fill_up_sub_flags();
+    rfu.request_whole_main_window_redrawing();
     auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
         StatusRecalculatingFlag::HP,
@@ -193,9 +180,9 @@ void process_dungeon(PlayerType *player_ptr, bool load_game)
         const auto &monrace = dungeon.get_guardian();
         if (!monrace.is_dead_unique()) {
 #ifdef JP
-            msg_format("この階には%sの主である%sが棲んでいる。", dungeon.name.data(), monrace.name.data());
+            msg_print("この階には{}の主である{}が棲んでいる。", dungeon.name, monrace.name);
 #else
-            msg_format("%s^ lives in this level as the keeper of %s.", monrace.name.data(), dungeon.name.data());
+            msg_print("{} lives in this level as the keeper of {}.", str_upcase_first(monrace.name), dungeon.name);
 #endif
         }
     }

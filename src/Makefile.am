@@ -639,6 +639,7 @@ libhengband_a_SOURCES = \
 	info-reader/spell-reader.cpp info-reader/spell-reader.h \
 	info-reader/terrain-reader.cpp info-reader/terrain-reader.h \
 	info-reader/town-definition-list-reader.cpp info-reader/town-definition-list-reader.h \
+	info-reader/town-map-condition.h \
 	info-reader/town-map-reader.cpp info-reader/town-map-reader.h \
 	info-reader/town-preferences-reader.cpp info-reader/town-preferences-reader.h \
 	info-reader/vault-reader.cpp info-reader/vault-reader.h \
@@ -661,6 +662,7 @@ libhengband_a_SOURCES = \
 	io/exit-panic.cpp io/exit-panic.h \
 	io/files-util.cpp io/files-util.h \
 	io/gf-descriptions.cpp io/gf-descriptions.h \
+	io/input-context.cpp io/input-context.h \
 	io/input-key-acceptor.cpp io/input-key-acceptor.h \
 	io/input-key-processor.cpp io/input-key-processor.h \
 	io/input-key-requester.cpp io/input-key-requester.h \
@@ -747,6 +749,7 @@ libhengband_a_SOURCES = \
 	lore/lore-calculator.cpp lore/lore-calculator.h \
 	lore/lore-util.cpp lore/lore-util.h \
 	lore/magic-types-setter.cpp lore/magic-types-setter.h \
+	lore/monster-lore-snapshot.cpp lore/monster-lore-snapshot.h \
 	lore/monster-lore.cpp lore/monster-lore.h \
 	\
 	main-x11.cpp main-gcu.cpp \
@@ -1432,6 +1435,7 @@ libhengband_a_SOURCES = \
 	view/display-store.cpp view/display-store.h \
 	view/display-symbol.h \
 	view/display-util.cpp view/display-util.h \
+	view/map-info-cache.cpp view/map-info-cache.h \
 	view/object-describer.cpp view/object-describer.h \
 	view/status-first-page.cpp view/status-first-page.h \
 	view/status-bars-table.cpp view/status-bars-table.h \
@@ -1442,6 +1446,7 @@ libhengband_a_SOURCES = \
 	window/main-window-stat-poster.cpp window/main-window-stat-poster.h \
 	window/main-window-util.cpp window/main-window-util.h \
 	window/overview-map-cache.cpp window/overview-map-cache.h \
+	window/shrunk-overview-map.cpp window/shrunk-overview-map.h \
 	window/main-window-equipments.cpp window/main-window-equipments.h \
 	\
 	wizard/artifact-analyzer.cpp wizard/artifact-analyzer.h \
@@ -1509,11 +1514,13 @@ hengband_test_SOURCES = \
 	test/system/monrace-records-test-access.h \
 	test/system/terrain-list-test-access.h \
 	test/system/quest-list-test-access.h \
+	test/system/spell-info-list-test-access.h \
 	\
 	test/autopick/test-autopick-editor-util.cpp \
 	test/cmd-io/test-cmd-autopick.cpp \
 	test/flavor/test-flavor-util.cpp \
 	test/floor/test-fixed-map-generator.cpp \
+	test/floor/test-floor-changer.cpp \
 	test/game-option/test-runtime-arguments.cpp \
 	test/info-reader/test-activation-reader.cpp \
 	test/info-reader/test-artifact-reader.cpp \
@@ -1526,7 +1533,6 @@ hengband_test_SOURCES = \
 	test/object/test-object-value.cpp \
 	test/racial/test-racial-android.cpp \
 	test/system/item/test-item-entity.cpp \
-	test/info-reader/test-general-parser.cpp \
 	test/info-reader/test-wilderness-reader.cpp \
 	test/info-reader/test-info-reader-util.cpp \
 	test/info-reader/test-json-reader-util.cpp \
@@ -1539,22 +1545,26 @@ hengband_test_SOURCES = \
 	test/info-reader/test-spell-reader.cpp \
 	test/info-reader/test-terrain-reader.cpp \
 	test/info-reader/test-town-definition-list-reader.cpp \
+	test/info-reader/test-fixed-map-parser.cpp \
 	test/info-reader/test-town-map-reader.cpp \
 	test/info-reader/test-town-preferences-reader.cpp \
 	test/info-reader/test-vault-reader.cpp \
 	test/io/test-condition-expression.cpp \
+	test/io/test-input-context.cpp \
 	test/io/test-interpret-pref-file.cpp \
 	test/io/test-macro-configurations-store.cpp \
 	test/io/test-pref-file-expressor.cpp \
 	test/io/test-tokenizer.cpp \
 	test/load/test-angband-version-comparer.cpp \
 	test/locale/test-character-encoding.cpp \
+	test/lore/test-monster-lore-snapshot.cpp \
 	test/main/test-init-error-messages-table.cpp \
 	test/monster-race/test-race-ability-mask.cpp \
 	test/mspell/test-mspell-projection-table.cpp \
 	test/mutation/test-mutation-roll-table.cpp \
 	test/object/test-object-info.cpp \
 	test/player/test-process-name.cpp \
+	test/spell/test-spell-info.cpp \
 	test/store/test-pricing.cpp \
 	test/store/test-store-screen.cpp \
 	test/store/test-store-util.cpp \
@@ -1566,6 +1576,7 @@ hengband_test_SOURCES = \
 	test/system/monrace/test-monrace-definition.cpp \
 	test/system/test-quest-list.cpp \
 	test/system/test-dungeon-record.cpp \
+	test/system/test-redrawing-flags-updater.cpp \
 	test/term/test-z-form.cpp \
 	test/term/test-z-rand.cpp \
 	test/timed-effect/test-player-cut.cpp \
@@ -1580,9 +1591,11 @@ hengband_test_SOURCES = \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
 	test/util/test-temporary-json-files.cpp \
+	test/view/test-map-info-cache.cpp \
 	test/view/test-map-terrain-visibility.cpp \
 	test/view/test-screen-parity-helpers.cpp \
 	test/window/test-overview-map-cache.cpp \
+	test/window/test-shrunk-overview-map.cpp \
 	test/wizard/test-spoiler-util.cpp
 
 hengband_test_LDADD = libhengband.a
@@ -1597,7 +1610,27 @@ check-main-window-wipe: main-window-wipe-probe$(EXEEXT)
 	./main-window-wipe-probe$(EXEEXT) deferred
 	./main-window-wipe-probe$(EXEEXT) reenter
 
-CLEANFILES = main-window-wipe-probe$(EXEEXT)
+## 状態解除の終了処理・入力待ちを実際の端末で確認する独立プローブ。
+arena-status-probe$(EXEEXT): $(top_srcdir)/tools/tests/arena-status-probe.cpp libhengband.a
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@ $(top_srcdir)/tools/tests/arena-status-probe.cpp libhengband.a $(LIBS)
+
+.PHONY: check-arena-status
+check-arena-status: arena-status-probe$(EXEEXT)
+	@set -e; scratch=$$(mktemp -d); \
+	trap 'rm -rf "$$scratch"' EXIT HUP INT TERM; \
+	for mode in timed-force arena-force dispel-force timed-ninja arena-ninja dispel-ninja hex-active hex-interrupted hex-stop hex-dispel dispel-invuln song-active song-interrupted ordinary tsuyoshi arena-normal arena-silent arena-metal arena-cancel arena-watch; do \
+		./arena-status-probe$(EXEEXT) "$(top_srcdir)/lib" "$$scratch" "$$mode"; \
+	done
+
+## 文字列・数量の文脈を、本体の入力待ちと編集結果を通して確認する。
+input-context-probe$(EXEEXT): $(top_srcdir)/tools/tests/input-context-probe.cpp libhengband.a
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@ $(top_srcdir)/tools/tests/input-context-probe.cpp libhengband.a $(LIBS)
+
+.PHONY: check-input-context
+check-input-context: input-context-probe$(EXEEXT)
+	./input-context-probe$(EXEEXT)
+
+CLEANFILES = main-window-wipe-probe$(EXEEXT) arena-status-probe$(EXEEXT) input-context-probe$(EXEEXT)
 
 TESTS = $(check_PROGRAMS)
 
@@ -1633,6 +1666,9 @@ cocoa_ja_misc_files = \
 	cocoa/ja.lproj/Credits.html
 
 EXTRA_DIST = \
+	$(top_srcdir)/tools/tests/input-context-probe.cpp \
+	$(top_srcdir)/tools/tests/arena-status-probe.cpp \
+	$(top_srcdir)/tools/tests/main-window-wipe-probe.cpp \
 	gcc-wrap \
 	test/README.md \
 	$(cocoa_xcode_files) \

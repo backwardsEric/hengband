@@ -22,6 +22,7 @@
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include <algorithm>
+#include <fmt/format.h>
 
 BadStatusSetter::BadStatusSetter(PlayerType *player_ptr)
     : player_ptr(player_ptr)
@@ -33,10 +34,9 @@ BadStatusSetter::BadStatusSetter(PlayerType *player_ptr)
  * @param v 継続時間
  * @return ステータスに影響を及ぼす変化があった場合TRUEを返す。
  * @details
- * Note the use of "PU_UN_LITE" and "PU_UN_VIEW", which is needed to\n
- * memorize any terrain features which suddenly become "visible".\n
- * Note that blindness is currently the only thing which can affect\n
- * "player_can_see_bold()".\n
+ * 目が見えなくなる・見えるようになると見える範囲が変わり、急に見えるようになった地形は覚える必要もあるので、
+ * 視界と明るさの印をいったん消して計算し直す (request_sight_recalculation())。
+ * 今のところ player_can_see_bold() に影響するのは盲目だけである。
  */
 bool BadStatusSetter::set_blindness(const TIME_EFFECT tmp_v)
 {
@@ -83,21 +83,8 @@ bool BadStatusSetter::set_blindness(const TIME_EFFECT tmp_v)
         disturb(this->player_ptr, false, false);
     }
 
-    static constexpr auto flags_srf = {
-        StatusRecalculatingFlag::UN_VIEW,
-        StatusRecalculatingFlag::UN_LITE,
-        StatusRecalculatingFlag::VIEW,
-        StatusRecalculatingFlag::LITE,
-        StatusRecalculatingFlag::MONSTER_STATUSES,
-        StatusRecalculatingFlag::MONSTER_LITE,
-    };
-    rfu.set_flags(flags_srf);
-    rfu.set_flag(MainWindowRedrawingFlag::MAP);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    rfu.set_flags(flags_swrf);
+    rfu.request_monster_update_and_map_redrawing();
+    rfu.request_sight_recalculation();
     handle_stuff(this->player_ptr);
     return true;
 }
@@ -379,18 +366,15 @@ bool BadStatusSetter::hallucination(const TIME_EFFECT tmp_v)
         disturb(this->player_ptr, false, true);
     }
 
+    rfu.request_monster_update_and_map_redrawing();
     static constexpr auto flags_mwrf = {
-        MainWindowRedrawingFlag::MAP,
         MainWindowRedrawingFlag::HEALTH,
         MainWindowRedrawingFlag::UHEALTH,
     };
     rfu.set_flags(flags_mwrf);
-    rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    rfu.set_flags(flags_swrf);
+
+    // 足元のアイテムの一覧は、幻覚の間は全て「何か奇妙な物」と表示する
+    rfu.set_flag(SubWindowRedrawingFlag::FLOOR_ITEMS);
     handle_stuff(this->player_ptr);
     return true;
 }
@@ -661,7 +645,7 @@ void BadStatusSetter::stop_blooding(const PlayerCutRank new_rank)
     auto blood_stop_mes = PlayerRace(this->player_ptr).equals(PlayerRaceType::ANDROID)
                               ? _("怪我が直った", "leaking fluid")
                               : _("出血が止まった", "bleeding");
-    msg_format(_("やっと%s。", "You are no longer %s."), blood_stop_mes);
+    msg_print(_("やっと{}。", "You are no longer {}."), blood_stop_mes);
     if (disturb_state) {
         disturb(this->player_ptr, false, false);
     }

@@ -28,6 +28,9 @@
     <Filter Include="locale">
       <UniqueIdentifier>{76b459ee-5ecd-44a7-b71a-ed5acafc02f6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="lore">
+      <UniqueIdentifier>{8ca43536-f921-5018-9314-5ef95d1231f2}</UniqueIdentifier>
+    </Filter>
     <Filter Include="main">
       <UniqueIdentifier>{3e3bfbaf-32fc-46d7-a1fc-51c277aaa757}</UniqueIdentifier>
     </Filter>
@@ -57,6 +60,9 @@
     </Filter>
     <Filter Include="save">
       <UniqueIdentifier>{b7ab78fa-803b-4608-89f7-b8892080ca5a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="spell">
+      <UniqueIdentifier>{67da305e-0150-5cfc-a147-ed1a74172c73}</UniqueIdentifier>
     </Filter>
     <Filter Include="store">
       <UniqueIdentifier>{2f858fe4-6c1a-425e-8310-085e4dcf1f4c}</UniqueIdentifier>
@@ -109,6 +115,9 @@
     <ClCompile Include="..\..\src\test\floor\test-fixed-map-generator.cpp">
       <Filter>floor</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\floor\test-floor-changer.cpp">
+      <Filter>floor</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\floor\test-floor-events.cpp">
       <Filter>floor</Filter>
     </ClCompile>
@@ -130,7 +139,7 @@
     <ClCompile Include="..\..\src\test\info-reader\test-ego-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\test\info-reader\test-general-parser.cpp">
+    <ClCompile Include="..\..\src\test\info-reader\test-fixed-map-parser.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-info-reader-util.cpp">
@@ -181,6 +190,9 @@
     <ClCompile Include="..\..\src\test\io\test-condition-expression.cpp">
       <Filter>io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\io\test-input-context.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\io\test-interpret-pref-file.cpp">
       <Filter>io</Filter>
     </ClCompile>
@@ -198,6 +210,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\test\locale\test-character-encoding.cpp">
       <Filter>locale</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\lore\test-monster-lore-snapshot.cpp">
+      <Filter>lore</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\main\test-init-error-messages-table.cpp">
       <Filter>main</Filter>
@@ -232,6 +247,9 @@
     <ClCompile Include="..\..\src\test\save\test-item-writer.cpp">
       <Filter>save</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\spell\test-spell-info.cpp">
+      <Filter>spell</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\store\test-pricing.cpp">
       <Filter>store</Filter>
     </ClCompile>
@@ -263,6 +281,9 @@
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\system\test-quest-list.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\system\test-redrawing-flags-updater.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\term\test-z-form.cpp">
@@ -308,6 +329,9 @@
     <ClCompile Include="..\..\src\test\util\test-temporary-json-files.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\view\test-map-info-cache.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\view\test-map-terrain-visibility.cpp">
       <Filter>view</Filter>
     </ClCompile>
@@ -315,6 +339,9 @@
       <Filter>view</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\window\test-overview-map-cache.cpp">
+      <Filter>window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\window\test-shrunk-overview-map.cpp">
       <Filter>window</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\wizard\test-spoiler-util.cpp">
@@ -349,6 +376,9 @@
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\test\system\quest-list-test-access.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\test\system\spell-info-list-test-access.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\test\system\terrain-list-test-access.h">

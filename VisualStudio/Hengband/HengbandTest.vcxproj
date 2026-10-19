@@ -66,6 +66,7 @@
     <ClCompile Include="..\..\src\test\cmd-io\test-cmd-autopick.cpp" />
     <ClCompile Include="..\..\src\test\flavor\test-flavor-util.cpp" />
     <ClCompile Include="..\..\src\test\floor\test-fixed-map-generator.cpp" />
+    <ClCompile Include="..\..\src\test\floor\test-floor-changer.cpp" />
     <ClCompile Include="..\..\src\test\floor\test-floor-events.cpp" />
     <ClCompile Include="..\..\src\test\game-option\test-runtime-arguments.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-activation-reader.cpp" />
@@ -73,7 +74,7 @@
     <ClCompile Include="..\..\src\test\info-reader\test-baseitem-reader.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-dungeon-reader.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-ego-reader.cpp" />
-    <ClCompile Include="..\..\src\test\info-reader\test-general-parser.cpp" />
+    <ClCompile Include="..\..\src\test\info-reader\test-fixed-map-parser.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-info-reader-util.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-json-reader-util.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-jsonc-document-loader.cpp" />
@@ -90,12 +91,14 @@
     <ClCompile Include="..\..\src\test\info-reader\test-vault-reader.cpp" />
     <ClCompile Include="..\..\src\test\info-reader\test-wilderness-reader.cpp" />
     <ClCompile Include="..\..\src\test\io\test-condition-expression.cpp" />
+    <ClCompile Include="..\..\src\test\io\test-input-context.cpp" />
     <ClCompile Include="..\..\src\test\io\test-interpret-pref-file.cpp" />
     <ClCompile Include="..\..\src\test\io\test-macro-configurations-store.cpp" />
     <ClCompile Include="..\..\src\test\io\test-pref-file-expressor.cpp" />
     <ClCompile Include="..\..\src\test\io\test-tokenizer.cpp" />
     <ClCompile Include="..\..\src\test\load\test-angband-version-comparer.cpp" />
     <ClCompile Include="..\..\src\test\locale\test-character-encoding.cpp" />
+    <ClCompile Include="..\..\src\test\lore\test-monster-lore-snapshot.cpp" />
     <ClCompile Include="..\..\src\test\main\test-init-error-messages-table.cpp" />
     <ClCompile Include="..\..\src\test\monster-race\test-race-ability-mask.cpp" />
     <ClCompile Include="..\..\src\test\mspell\test-mspell-projection-table.cpp" />
@@ -107,6 +110,7 @@
     <ClCompile Include="..\..\src\test\player\test-process-name.cpp" />
     <ClCompile Include="..\..\src\test\racial\test-racial-android.cpp" />
     <ClCompile Include="..\..\src\test\save\test-item-writer.cpp" />
+    <ClCompile Include="..\..\src\test\spell\test-spell-info.cpp" />
     <ClCompile Include="..\..\src\test\store\test-pricing.cpp" />
     <ClCompile Include="..\..\src\test\store\test-store-screen.cpp" />
     <ClCompile Include="..\..\src\test\store\test-store-util.cpp" />
@@ -118,6 +122,7 @@
     <ClCompile Include="..\..\src\test\system\monrace\test-monrace-definition.cpp" />
     <ClCompile Include="..\..\src\test\system\test-dungeon-record.cpp" />
     <ClCompile Include="..\..\src\test\system\test-quest-list.cpp" />
+    <ClCompile Include="..\..\src\test\system\test-redrawing-flags-updater.cpp" />
     <ClCompile Include="..\..\src\test\term\test-z-form.cpp" />
     <ClCompile Include="..\..\src\test\term\test-z-rand.cpp" />
     <ClCompile Include="..\..\src\test\test-main.cpp" />
@@ -133,9 +138,11 @@
     <ClCompile Include="..\..\src\test\util\test-sha256.cpp" />
     <ClCompile Include="..\..\src\test\util\test-string-processor.cpp" />
     <ClCompile Include="..\..\src\test\util\test-temporary-json-files.cpp" />
+    <ClCompile Include="..\..\src\test\view\test-map-info-cache.cpp" />
     <ClCompile Include="..\..\src\test\view\test-map-terrain-visibility.cpp" />
     <ClCompile Include="..\..\src\test\view\test-screen-parity-helpers.cpp" />
     <ClCompile Include="..\..\src\test\window\test-overview-map-cache.cpp" />
+    <ClCompile Include="..\..\src\test\window\test-shrunk-overview-map.cpp" />
     <ClCompile Include="..\..\src\test\wizard\test-spoiler-util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -152,6 +159,7 @@
     <ClInclude Include="..\..\src\test\system\monrace-message-list-test-access.h" />
     <ClInclude Include="..\..\src\test\system\monrace-records-test-access.h" />
     <ClInclude Include="..\..\src\test\system\quest-list-test-access.h" />
+    <ClInclude Include="..\..\src\test\system\spell-info-list-test-access.h" />
     <ClInclude Include="..\..\src\test\system\terrain-list-test-access.h" />
     <ClInclude Include="..\..\src\test\temporary-json-files.h" />
   </ItemGroup>

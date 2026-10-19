@@ -1,13 +1,16 @@
 """Regression tests for the actual JSONC validation entry point used in CI."""
 import copy
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from json_validation_test_helper import validate_document
-from validate_json import build_schema_registry, build_validation_pairs, load_all_schemas, load_jsonc, validate_one
+from jsonschema import ValidationError
+from validate_json import (build_schema_registry, build_validation_pairs, load_all_schemas, load_jsonc, validate_one,
+                           validate_town_map_semantics, validate_town_preferences_semantics)
 
 
 class QuestGridValidationTest(unittest.TestCase):
@@ -37,6 +40,28 @@ class QuestGridValidationTest(unittest.TestCase):
                 with self.subTest(field=field, maps=maps):
                     ok, message = self.validate({}, "Quest", data_updates={field: value, **maps})
                     self.assertEqual(ok, expected, message)
+
+    def test_integral_floats_are_rejected(self):
+        cases = (
+            ("QuestPreferences", {"monster": 5.0}, None, ["legend", "#", "monster"]),
+            ("Quest", {"monster": {"random": True, "oodLevel": 2.0}}, None, ["legend", "#", "monster", "oodLevel"]),
+            ("Quest", {"special": 1.0}, None, ["legend", "#", "special"]),
+            ("Quest", {}, {"definition": {"type": "KILL_ALL", "level": 5.0}}, ["definition", "level"]),
+            ("Quest", {}, {"definition": {"type": "KILL_ALL", "level": 1, "reward": {"artifacts": [1, 2.0]}}},
+             ["definition", "reward", "artifacts", 1]),
+            ("Quest", {}, {"map": ["..."], "startVariants": [{"leavingQuest": 6.0, "y": 0, "x": 0}, {"y": 0, "x": 1}]},
+             ["startVariants", 0, "leavingQuest"]),
+        )
+        for schema_name, cell, updates, path in cases:
+            with self.subTest(schema=schema_name, path=path):
+                ok, message = self.validate(cell, schema_name, data_updates=updates)
+                self.assertFalse(ok, message)
+                self.assertIn("expected an integer JSON value", message)
+                self.assertIn(f"Location: {path}", message)
+        for schema_name in ("Quest", "QuestPreferences"):
+            with self.subTest(schema=schema_name, value="integer"):
+                ok, message = self.validate({"monster": 5, "special": 1}, schema_name)
+                self.assertTrue(ok, message)
 
     def test_shared_schema_is_not_a_data_schema(self):
         shared_path = self.schema_dir / "common/QuestGrid.schema.json"
@@ -442,6 +467,15 @@ class WildernessValidationTest(unittest.TestCase):
     def validate(self, data):
         return validate_document(data, self.schema_path, self.schema, filename="WildernessDefinition.jsonc")
 
+    def sized(self, width, height):
+        data = copy.deepcopy(self.data)
+        data["width"] = width
+        data["height"] = height
+        rows = ["#" * width for _ in range(height)]
+        rows[1] = "#1" + "#" * (width - 2)
+        data["maps"]["normal"]["layout"] = rows
+        return data
+
     def test_valid_localized_level_and_compact_map(self):
         ok, message = self.validate(self.data)
         self.assertTrue(ok, message)
@@ -474,9 +508,41 @@ class WildernessValidationTest(unittest.TestCase):
         self.assertFalse(self.validate(undefined_symbol)[0])
 
     def test_starting_position_is_inside_layout(self):
+        # 配置図を1列にし、端を除いた内側の範囲のまま配置図の外になる開始位置を与える。
+        # 通常の地図は配置図の幅が荒野の幅と一致する必要があるため、縮小の地図で確かめる。
         outside = copy.deepcopy(self.data)
-        outside["maps"]["compact"]["starting_position"] = {"x": 3, "y": 1}
-        self.assertFalse(self.validate(outside)[0])
+        outside["maps"]["compact"]["layout"] = ["#", "#", "#"]
+        outside["maps"]["compact"]["starting_position"] = {"x": 1, "y": 1}
+        ok, message = self.validate(outside)
+        self.assertFalse(ok, message)
+        self.assertIn("starting position must be within the map layout", message)
+
+    def test_starting_position_is_not_on_the_edge(self):
+        for map_name in ("normal", "compact"):
+            for axis in ("x", "y"):
+                with self.subTest(map_name=map_name, axis=axis):
+                    data = copy.deepcopy(self.data)
+                    data["maps"][map_name]["starting_position"][axis] = 2
+                    ok, message = self.validate(data)
+                    self.assertFalse(ok, message)
+                    self.assertIn("must not be on the wilderness edge", message)
+
+    def test_dimension_limits_match_floor_size(self):
+        header = (Path(__file__).resolve().parents[2] / "src/floor/floor-base-definitions.h").read_text(encoding="utf-8")
+        limits = {name: int(value) for name, value in re.findall(r"constexpr int (MAX_HGT|MAX_WID) = (\d+);", header)}
+        self.assertEqual(self.schema["properties"]["width"]["maximum"], limits["MAX_WID"])
+        self.assertEqual(self.schema["properties"]["height"]["maximum"], limits["MAX_HGT"])
+
+    def test_dimensions_fit_the_floor(self):
+        for width, height in ((3, 3), (198, 66)):
+            with self.subTest(width=width, height=height):
+                ok, message = self.validate(self.sized(width, height))
+                self.assertTrue(ok, message)
+        for width, height, field in ((199, 66, "width"), (198, 67, "height"), (2, 3, "width"), (3, 2, "height")):
+            with self.subTest(width=width, height=height):
+                ok, message = self.validate(self.sized(width, height))
+                self.assertFalse(ok, message)
+                self.assertIn(f"Location: ['{field}']", message)
 
     def test_integer_representation_matches_reader(self):
         for field in ("width", "height"):
@@ -508,6 +574,15 @@ class TownPreferencesValidationTest(unittest.TestCase):
                 ok, message = self.validate(invalid)
                 self.assertFalse(ok)
                 self.assertIn("integer JSON value", message)
+
+    def test_legend_symbol_rejects_trailing_newline(self):
+        data = {"version": 1, "legend": {"a\n": {"terrain": "ENTRANCE", "caveInfo": ["MARK"]}}}
+        ok, message = self.validate(data)
+        self.assertFalse(ok, message)
+        self.assertIn("['legend']", message)
+        # schema の長さの制約が弾く。意味検証も同じ値を保険として拒否する。
+        with self.assertRaisesRegex(ValidationError, "legend symbol must be exactly one printable ASCII character"):
+            validate_town_preferences_semantics(data, self.schema_path)
 
     def test_terrain_tags_match_runtime_definitions(self):
         for terrain, valid in (("ENTRANCE", True), ("*", True), ("NOT_A_TERRAIN", False)):
@@ -637,6 +712,32 @@ class TownMapValidationTest(unittest.TestCase):
         invalid["buildingRules"][0]["command"] = "UNKNOWN"
         self.assertFalse(self.validate(invalid)[0])
 
+    def test_feature_symbol_rejects_trailing_newline(self):
+        invalid = copy.deepcopy(self.data)
+        invalid["featureRules"][0]["symbol"] = "#\n"
+        ok, message = self.validate(invalid)
+        self.assertFalse(ok, message)
+        self.assertIn("['featureRules', 0, 'symbol']", message)
+        # schema の長さの制約が弾く。意味検証も同じ値を保険として拒否する。
+        with self.assertRaisesRegex(ValidationError, "feature symbol must be exactly one printable ASCII character"):
+            validate_town_map_semantics(invalid, self.schema_path)
+
+    def test_rows_reject_trailing_newline(self):
+        invalid = copy.deepcopy(self.data)
+        invalid["mapVariants"][0]["rows"] = ["###\n", "#.#\n", "###\n"]
+        ok, message = self.validate(invalid)
+        self.assertFalse(ok, message)
+        self.assertIn("map rows must contain printable ASCII characters", message)
+        self.assertIn("['mapVariants', 0, 'rows', 0]", message)
+
+    def test_trailing_newline_in_a_later_row_is_reported_as_unprintable(self):
+        invalid = copy.deepcopy(self.data)
+        invalid["mapVariants"][0]["rows"] = ["###", "#.#\n", "###"]
+        ok, message = self.validate(invalid)
+        self.assertFalse(ok, message)
+        self.assertIn("map rows must contain printable ASCII characters", message)
+        self.assertIn("['mapVariants', 0, 'rows', 1]", message)
+
     def test_colon_in_feature_symbol_is_rejected(self):
         invalid = copy.deepcopy(self.data)
         invalid["featureRules"][0]["symbol"] = ":"
@@ -748,6 +849,49 @@ class TownMapValidationTest(unittest.TestCase):
                 ok, message = self.validate(invalid)
                 self.assertFalse(ok)
                 self.assertIn("building field exceeds the reader's integer range", message)
+
+    def test_building_short_fields_reject_overflow_for_inactive_rules_and_all_locales(self):
+        cases = (
+            ("A", ["0", "Action", "0", "0", "a", "0", "0"], 5),
+            ("A", ["0", "Action", "0", "0", "a", "0", "0"], 6),
+        ) + tuple((command, ["1", "2"], index) for command in ("C", "R", "M") for index in (0, 1))
+        for locale in ("en", "ja"):
+            for command, fields, index in cases:
+                for number in (-32769, 32768, 65535, -2147483648, 2147483647):
+                    with self.subTest(locale=locale, command=command, index=index, number=number):
+                        invalid = copy.deepcopy(self.data)
+                        rule = invalid["buildingRules"][0]
+                        rule.update(command=command, fields=list(fields), locale=locale, when="0")
+                        rule["fields"][index] = str(number)
+                        ok, message = self.validate(invalid)
+                        self.assertFalse(ok, message)
+                        self.assertIn("building field exceeds the reader's integer range", message)
+                        self.assertIn(f"Location: ['buildingRules', 0, 'fields', {index}]", message)
+
+    def test_building_short_fields_accept_boundaries_and_negative_values(self):
+        for locale in ("en", "ja"):
+            for command in ("A", "C", "R", "M"):
+                for number in ("-32768", "-1", "0", "32767", "-00032768", "00032767"):
+                    with self.subTest(locale=locale, command=command, number=number):
+                        valid = copy.deepcopy(self.data)
+                        fields = ["7", "Action", "-2147483648", "2147483647", "a", number, number] if command == "A" else [number, number]
+                        valid["buildingRules"][0].update(command=command, fields=fields, locale=locale, when="0")
+                        ok, message = self.validate(valid)
+                        self.assertTrue(ok, message)
+
+    def test_building_costs_keep_the_full_signed_integer_range(self):
+        for index in (2, 3):
+            for number, accepted in ((-2147483648, True), (-1, True), (0, True), (2147483647, True),
+                                     (-2147483649, False), (2147483648, False)):
+                with self.subTest(index=index, number=number):
+                    data = copy.deepcopy(self.data)
+                    fields = ["0", "Action", "0", "0", "a", "-32768", "32767"]
+                    fields[index] = str(number)
+                    data["buildingRules"][0].update(command="A", fields=fields)
+                    ok, message = self.validate(data)
+                    self.assertEqual(ok, accepted, message)
+                    if not accepted:
+                        self.assertIn(f"Location: ['buildingRules', 0, 'fields', {index}]", message)
 
     def test_numeric_tokens_require_ascii_digits(self):
         invalid = copy.deepcopy(self.data)

@@ -27,6 +27,7 @@
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
+#include <fmt/format.h>
 
 /*!< 呪術の最大詠唱数 */
 constexpr int MAX_KEEP = 4;
@@ -51,6 +52,10 @@ SpellHex::SpellHex(PlayerType *player_ptr)
  */
 void SpellHex::stop_all_spells()
 {
+    if (!this->spell_hex_data) {
+        return;
+    }
+
     for (auto spell : this->casting_spells) {
         exe_spell(this->player_ptr, RealmType::HEX, spell, SpellProcessType::STOP);
     }
@@ -77,6 +82,31 @@ void SpellHex::stop_all_spells()
 }
 
 /*!
+ * @brief 中断後に再開待ちとなっている呪術を破棄する
+ */
+void SpellHex::discard_interrupted_spells()
+{
+    if (this->spell_hex_data) {
+        this->spell_hex_data->interrupting_spells.clear();
+    }
+}
+
+/*!
+ * @brief 詠唱フラグとは別に継続する我慢・復讐を解除する
+ */
+void SpellHex::clear_revenge()
+{
+    if (!this->spell_hex_data) {
+        return;
+    }
+
+    this->spell_hex_data->revenge_type = SpellHexRevengeType::NONE;
+    this->spell_hex_data->revenge_power = 0;
+    this->spell_hex_data->revenge_turn = 0;
+    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+}
+
+/*!
  * @brief プレイヤーが詠唱中の呪術から選択式で一つまたは全てを停止する
  * @return 停止したらtrue、停止をキャンセルしたらfalse
  */
@@ -93,8 +123,8 @@ bool SpellHex::stop_spells_with_selection()
         return true;
     }
 
-    constexpr auto fmt = _("どの呪文の詠唱を中断しますか？(呪文 %c-%c, 'l'全て, ESC)", "Which spell do you stop casting? (Spell %c-%c, 'l' to all, ESC)");
-    const auto prompt = format(fmt, I2A(0), I2A(casting_num - 1));
+    constexpr auto fmt = _("どの呪文の詠唱を中断しますか？(呪文 {:c}-{:c}, 'l'全て, ESC)", "Which spell do you stop casting? (Spell {:c}-{:c}, 'l' to all, ESC)");
+    const auto prompt = fmt::format(fmt, I2A(0), I2A(casting_num - 1));
     screen_save();
     const auto &[is_all, choice] = select_spell_stopping(prompt);
     if (is_all) {
@@ -171,7 +201,7 @@ void SpellHex::display_casting_spells_list()
     for (auto spell : this->casting_spells) {
         term_erase(x, y + n + 1);
         const auto &spell_name = PlayerRealm::get_spell_name(RealmType::HEX, spell);
-        put_str(format("%c)  %s", I2A(n), spell_name.data()), y + n + 1, x + 2);
+        put_str(fmt::format("{:c})  {}", I2A(n), spell_name), y + n + 1, x + 2);
         n++;
     }
 }
@@ -233,23 +263,17 @@ bool SpellHex::process_mana_cost(const bool need_restart)
 
     msg_print(_("詠唱を再開した。", "You restart casting."));
     this->player_ptr->action = ACTION_SPELL;
+    rfu.request_monster_update_and_map_redrawing();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
         StatusRecalculatingFlag::HP,
-        StatusRecalculatingFlag::MONSTER_STATUSES,
     };
     rfu.set_flags(flags_srf);
     static constexpr auto flags_mwrf = {
-        MainWindowRedrawingFlag::MAP,
         MainWindowRedrawingFlag::TIMED_EFFECT,
         MainWindowRedrawingFlag::ACTION,
     };
     rfu.set_flags(flags_mwrf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    rfu.set_flags(flags_swrf);
     return true;
 }
 
@@ -376,10 +400,10 @@ void SpellHex::eyes_on_eyes(MONSTER_IDX m_idx, int dam)
     const auto &monster = this->player_ptr->current_floor_ptr->m_list[m_idx];
     const auto m_name = monster_desc(this->player_ptr, monster, 0);
 #ifdef JP
-    msg_format("攻撃が%s自身を傷つけた！", m_name.data());
+    msg_print("攻撃が{}自身を傷つけた！", m_name);
 #else
     const auto m_name_self = monster_desc(this->player_ptr, monster, MD_PRON_VISIBLE | MD_POSSESSIVE | MD_OBJECTIVE);
-    msg_format("The attack of %s has wounded %s!", m_name.data(), m_name_self.data());
+    msg_print("The attack of {} has wounded {}!", m_name, m_name_self);
 #endif
     const auto y = monster.fy;
     const auto x = monster.fx;

@@ -144,12 +144,6 @@ public:
     FixedMapFixture(FixedMapFixture &&) = delete;
     FixedMapFixture &operator=(FixedMapFixture &&) = delete;
 
-    void legacy(std::string line)
-    {
-        generator.buf = line.data();
-        REQUIRE(generate_fixed_map_floor(&player, &generator) == PARSE_ERROR_NONE);
-    }
-
     FixedMapState state;
     FloorType floor;
     PlayerType player;
@@ -208,13 +202,13 @@ void write_application_town(const TownFiles &files, const nlohmann::json &town)
 }
 }
 
-TEST_CASE("QuestFixedMap JSON rows preserve origin empty rows null termination and final row width")
+TEST_CASE("QuestFixedMap JSON rows preserve origin empty rows and final row width")
 {
     FixedMapFixture fixture;
     const auto restore = scoped_quest_layout_state();
     QuestType quest;
     QuestFixedMap map;
-    map.maps = { { "AB", "", std::string("A\0B", 3), "B" } };
+    map.maps = { { "AB", "", "A", "B" } };
     map.starts = { { tl::nullopt, 2, 0 } };
     fixture.floor.quest_number = QuestId::THIEF;
     fixture.player.oldpy = 9;
@@ -237,7 +231,7 @@ TEST_CASE("QuestFixedMap JSON rows preserve origin empty rows null termination a
     CHECK(fixture.floor.width == SCREEN_WID);
     CHECK(panel_row_min == SCREEN_HGT);
     CHECK(panel_col_min == SCREEN_WID);
-    CHECK(map.maps[0][2] == std::string("A\0B", 3));
+    CHECK(map.maps[0][2] == "A");
 
     map.maps = { { std::string(SCREEN_WID + 1, 'A'), "" } };
     REQUIRE(generate_quest_floor_from_json(&fixture.player, quest, map) == PARSE_ERROR_NONE);
@@ -440,9 +434,6 @@ TEST_CASE("FixedMapPD only buildings leaves row and cursors untouched")
     CHECK(fixture.y == 3);
     CHECK(fixture.x == 6);
     CHECK(fixture.floor.grid_array[3][4].feat == 0);
-    fixture.legacy("D:AB");
-    CHECK(fixture.y == 3);
-    CHECK(fixture.x == 6);
 }
 
 TEST_CASE("FixedMapPD only features preserves non terrain grid state")
@@ -463,20 +454,16 @@ TEST_CASE("FixedMapPD only features preserves non terrain grid state")
     CHECK(fixture.x == 5);
 }
 
-TEST_CASE("FixedMapPD direct and legacy rows apply identical trap grids")
+TEST_CASE("FixedMapPD row applies trap terrain and retains the original terrain as mimic")
 {
     FixedMapFixture fixture;
     letter['A'].trap = 2;
     REQUIRE(apply_fixed_map_row(&fixture.player, &fixture.generator, "A") == PARSE_ERROR_NONE);
-    fixture.legacy("D:A");
-    const auto &direct = fixture.floor.grid_array[3][4];
-    const auto &legacy = fixture.floor.grid_array[4][4];
-    CHECK(direct.feat == 2);
-    CHECK(direct.mimic == 1);
-    CHECK(direct.feat == legacy.feat);
-    CHECK(direct.mimic == legacy.mimic);
-    CHECK(direct.info == legacy.info);
-    CHECK(direct.special == legacy.special);
+    const auto &grid = fixture.floor.grid_array[3][4];
+    CHECK(grid.feat == 2);
+    CHECK(grid.mimic == 1);
+    CHECK(grid.info == (CAVE_GLOW | CAVE_ROOM));
+    CHECK(grid.special == 7);
 }
 
 TEST_CASE("FixedMapPD row handles full border empty width and bounded view")
@@ -494,23 +481,9 @@ TEST_CASE("FixedMapPD row handles full border empty width and bounded view")
     CHECK(fixture.x == MAX_WID);
 }
 
-TEST_CASE("FixedMapPD row preserves legacy embedded null termination")
-{
-    FixedMapFixture fixture;
-    const std::string row("A\0B", 3);
-    REQUIRE(apply_fixed_map_row(&fixture.player, &fixture.generator, row) == PARSE_ERROR_NONE);
-    CHECK(fixture.x == 5);
-    CHECK(fixture.floor.grid_array[3][4].feat == 1);
-    CHECK(fixture.floor.grid_array[3][5].feat == 0);
-    fixture.legacy("D:" + row);
-    CHECK(fixture.x == 5);
-    CHECK(fixture.floor.grid_array[4][4].feat == 1);
-    CHECK(fixture.floor.grid_array[4][5].feat == 0);
-}
-
 TEST_CASE("FixedMapPD rejects unsafe row bytes before modifying grids or cursors")
 {
-    for (const auto byte : { 0x1f, 0x7f, 0x80, 0xfe, 0xff }) {
+    for (const auto byte : { 0x00, 0x1f, 0x7f, 0x80, 0xfe, 0xff }) {
         CAPTURE(byte);
         FixedMapFixture fixture;
         fixture.x = 6;
@@ -520,9 +493,6 @@ TEST_CASE("FixedMapPD rejects unsafe row bytes before modifying grids or cursors
         grid.special = 19;
         const auto row = "A" + std::string(1, static_cast<char>(byte));
         CHECK(apply_fixed_map_row(&fixture.player, &fixture.generator, row) == PARSE_ERROR_INVALID_VALUE);
-        auto line = "D:" + row;
-        fixture.generator.buf = line.data();
-        CHECK(generate_fixed_map_floor(&fixture.player, &fixture.generator) == PARSE_ERROR_INVALID_VALUE);
         CHECK(fixture.y == 3);
         CHECK(fixture.x == 6);
         CHECK(grid.feat == 2);
@@ -535,23 +505,16 @@ TEST_CASE("FixedMapPD rejects unsafe row bytes before modifying grids or cursors
     }
 }
 
-TEST_CASE("FixedMapPD ignores bytes after null and accepts printable ASCII boundaries")
+TEST_CASE("FixedMapPD accepts printable ASCII boundaries")
 {
     FixedMapFixture fixture;
-    const std::string row("A\0\xff", 3);
-    REQUIRE(apply_fixed_map_row(&fixture.player, &fixture.generator, row) == PARSE_ERROR_NONE);
-    CHECK(fixture.y == 4);
-    CHECK(fixture.x == 5);
-    CHECK(fixture.floor.grid_array[3][4].feat == 1);
-    CHECK(fixture.floor.grid_array[3][5].feat == 0);
     letter[' '] = letter['A'];
     letter['~'] = letter['B'];
     REQUIRE(apply_fixed_map_row(&fixture.player, &fixture.generator, " ~") == PARSE_ERROR_NONE);
-    CHECK(fixture.floor.grid_array[4][4].feat == 1);
-    CHECK(fixture.floor.grid_array[4][5].feat == 2);
-    REQUIRE(apply_fixed_map_row(&fixture.player, &fixture.generator, std::string_view(row).substr(1)) == PARSE_ERROR_NONE);
-    CHECK(fixture.y == 6);
-    CHECK(fixture.x == 4);
+    CHECK(fixture.y == 4);
+    CHECK(fixture.x == 6);
+    CHECK(fixture.floor.grid_array[3][4].feat == 1);
+    CHECK(fixture.floor.grid_array[3][5].feat == 2);
 }
 
 TEST_CASE("FixedMap letter accessor rejects bytes outside printable ASCII")
@@ -570,9 +533,6 @@ TEST_CASE("QuestFixedMap rejects unsafe typed symbols before writing any output"
         for (const auto *source : { "base", "legend", "map" }) {
             CAPTURE(byte);
             CAPTURE(source);
-            if (byte == 0 && std::string_view(source) == "map") {
-                continue; // 直接適用するAPIはNUL終端の互換動作を維持する。
-            }
             FixedMapFixture fixture;
             const auto restore = scoped_quest_layout_state();
             QuestType quest;
@@ -594,28 +554,6 @@ TEST_CASE("QuestFixedMap rejects unsafe typed symbols before writing any output"
             CHECK(fixture.player.oldpy == 0);
         }
     }
-}
-
-TEST_CASE("FixedMapPD legacy malformed start updates dimensions before conversion")
-{
-    FixedMapFixture fixture;
-    init_flags = INIT_CREATE_DUNGEON;
-    fixture.y = SCREEN_HGT + 1;
-    fixture.x = SCREEN_WID + 1;
-    std::string line = "P:invalid:3";
-    fixture.generator.buf = line.data();
-    CHECK_THROWS_AS(generate_fixed_map_floor(&fixture.player, &fixture.generator), std::invalid_argument);
-    CHECK(fixture.floor.height == 2 * SCREEN_HGT);
-    CHECK(fixture.floor.width == 2 * SCREEN_WID);
-    CHECK(panel_row_min == fixture.floor.height);
-    CHECK(panel_col_min == fixture.floor.width);
-    CHECK(fixture.player.oldpy == 0);
-    CHECK(fixture.player.oldpx == 0);
-    line = "P:2:invalid";
-    fixture.generator.buf = line.data();
-    CHECK_THROWS_AS(generate_fixed_map_floor(&fixture.player, &fixture.generator), std::invalid_argument);
-    CHECK(fixture.player.oldpy == 2);
-    CHECK(fixture.player.oldpx == 0);
 }
 
 TEST_CASE("FixedMapPD start requires create flag and retains either old coordinate")
@@ -647,28 +585,24 @@ TEST_CASE("FixedMapPD start requires create flag and retains either old coordina
     CHECK(fixture.player.oldpx == 0);
     fixture.player.oldpy = 0;
     fixture.player.oldpx = 2;
-    fixture.legacy("P:ignored:ignored");
+    apply_fixed_map_start(&fixture.player, &fixture.generator, 3, 4);
     CHECK(fixture.player.oldpy == 0);
     CHECK(fixture.player.oldpx == 2);
 }
 
-TEST_CASE("FixedMapPD legacy and direct starts retain exact panel dimensions")
+TEST_CASE("FixedMapPD start retains exact panel dimensions")
 {
     FixedMapFixture fixture;
     init_flags = INIT_CREATE_DUNGEON;
     fixture.y = SCREEN_HGT;
     fixture.x = SCREEN_WID + 1;
-    fixture.legacy("P:2:3");
-    CHECK(fixture.player.oldpy == 2);
-    CHECK(fixture.player.oldpx == 3);
-    CHECK(fixture.floor.height == SCREEN_HGT);
-    CHECK(fixture.floor.width == 2 * SCREEN_WID);
-    fixture.player.oldpy = fixture.player.oldpx = 0;
     apply_fixed_map_start(&fixture.player, &fixture.generator, 2, 3);
     CHECK(fixture.player.oldpy == 2);
     CHECK(fixture.player.oldpx == 3);
     CHECK(fixture.floor.height == SCREEN_HGT);
     CHECK(fixture.floor.width == 2 * SCREEN_WID);
+    CHECK(panel_row_min == fixture.floor.height);
+    CHECK(panel_col_min == fixture.floor.width);
 }
 
 TEST_CASE("FixedMapPD quest start updates current position rather than old position")
@@ -685,7 +619,7 @@ TEST_CASE("FixedMapPD quest start updates current position rather than old posit
     CHECK(fixture.player.oldpy == 9);
     CHECK(fixture.player.oldpx == 10);
     CHECK(fixture.floor.grid_array[2][3].m_idx == 0);
-    fixture.legacy("P:3:4");
+    apply_fixed_map_start(&fixture.player, &fixture.generator, 3, 4);
     CHECK(fixture.player.get_position() == Pos2D(3, 4));
 }
 
@@ -790,6 +724,80 @@ TEST_CASE("FixedMapPD town JSONC rejects ambiguous maps and missing selected sta
     CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
     CHECK(fixture.floor.grid_array[0][0].feat == 0);
     CHECK(fixture.player.oldpx == 0);
+}
+
+/*!
+ * @brief 町の共通凡例と町の定義の一覧の読み込みに失敗したら、町のマップを読まずに終了する
+ * @details 一覧に現在の町が無いときは、町のマップを読まずに成功する。
+ */
+TEST_CASE("FixedMapPD town JSONC stops at invalid preference and definition list files")
+{
+    FixedMapFixture fixture;
+    test::ScopedReaderState reader_state;
+    test::TerrainListTestAccess floor_tag(TerrainTag::FLOOR, 1);
+    test::TerrainListTestAccess wall_tag(TerrainTag::GRANITE_WALL, 2);
+    test::TerrainListTestAccess none_tag(TerrainTag::NONE, 0);
+    const auto restore = test::scoped_restore(ANGBAND_DIR_EDIT, vanilla_town, lite_town, quit_aux);
+    TownFiles files;
+    write_application_town(files, make_application_town());
+    ANGBAND_DIR_EDIT = files.directory;
+    vanilla_town = lite_town = false;
+    quit_aux = throw_town_load_failure;
+    fixture.player.lev = 7;
+    init_flags = INIT_CREATE_DUNGEON;
+    const auto &grid = fixture.floor.grid_array[0][0];
+
+    files.write("TownPreferences.jsonc", { { "version", 2 } });
+    CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+    std::filesystem::remove(files.directory / "TownPreferences.jsonc");
+    CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+    CHECK(grid.feat == 0);
+
+    write_application_town(files, make_application_town());
+    files.write("TownDefinitionList.jsonc", { { "version", 1 }, { "towns", nlohmann::json::object() } });
+    CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+    std::filesystem::remove(files.directory / "TownDefinitionList.jsonc");
+    CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+    CHECK(grid.feat == 0);
+
+    const auto other_town = std::to_string(AngbandWorld::get_instance().get_town_index() + 1);
+    files.write("TownDefinitionList.jsonc", { { "version", 1 }, { "towns", { { other_town, "towns/fixture.jsonc" } } } });
+    REQUIRE_NOTHROW(load_town_map(&fixture.player));
+    CHECK(grid.feat == 0);
+    CHECK(fixture.player.oldpy == 0);
+}
+
+/*!
+ * @brief 町のマップのファイルが無いときや、JSONC として読めないファイルがあるときは、町のマップを読まずに終了する
+ */
+TEST_CASE("FixedMapPD town JSONC stops at a missing town map and unparsable files")
+{
+    FixedMapFixture fixture;
+    test::ScopedReaderState reader_state;
+    test::TerrainListTestAccess floor_tag(TerrainTag::FLOOR, 1);
+    test::TerrainListTestAccess wall_tag(TerrainTag::GRANITE_WALL, 2);
+    test::TerrainListTestAccess none_tag(TerrainTag::NONE, 0);
+    const auto restore = test::scoped_restore(ANGBAND_DIR_EDIT, vanilla_town, lite_town, quit_aux);
+    TownFiles files;
+    write_application_town(files, make_application_town());
+    ANGBAND_DIR_EDIT = files.directory;
+    vanilla_town = lite_town = false;
+    quit_aux = throw_town_load_failure;
+    fixture.player.lev = 7;
+    init_flags = INIT_CREATE_DUNGEON;
+    const auto &grid = fixture.floor.grid_array[0][0];
+
+    std::filesystem::remove(files.directory / "towns/fixture.jsonc");
+    CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+    CHECK(grid.feat == 0);
+
+    for (const auto *name : { "TownPreferences.jsonc", "TownDefinitionList.jsonc", "towns/fixture.jsonc" }) {
+        CAPTURE(name);
+        write_application_town(files, make_application_town());
+        files.write_raw(name, "{ \"version\": 1,");
+        CHECK_THROWS_AS(load_town_map(&fixture.player), TownMapLoadFailure);
+        CHECK(grid.feat == 0);
+    }
 }
 
 TEST_CASE("FixedMapPD quest start deletes an occupying monster and decrements its population")

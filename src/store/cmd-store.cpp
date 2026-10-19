@@ -168,7 +168,7 @@ void do_cmd_store(PlayerType *player_ptr)
                 msg_print(_("ザックからアイテムがあふれてしまった！", "Your pack overflows!"));
                 auto item = item_inventory.clone();
                 const auto item_name = describe_flavor(player_ptr, item, 0);
-                msg_format(_("%sが落ちた。(%c)", "You drop %s (%c)."), item_name.data(), index_to_label(i_idx));
+                msg_print(_("{}が落ちた。({:c})", "You drop {} ({:c})."), item_name, index_to_label(i_idx));
                 vary_item(player_ptr, i_idx, -255);
                 handle_stuff_with_inventory_arrangement(player_ptr);
                 const auto item_pos = home_carry(player_ptr, store, &item);
@@ -198,23 +198,17 @@ void do_cmd_store(PlayerType *player_ptr)
     msg_erase();
     term_clear();
 
+    rfu.request_monster_update_and_map_redrawing();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::VIEW,
         StatusRecalculatingFlag::LITE,
         StatusRecalculatingFlag::MONSTER_LITE,
-        StatusRecalculatingFlag::MONSTER_STATUSES,
     };
     rfu.set_flags(flags_srf);
     static constexpr auto flags_mwrf = {
         MainWindowRedrawingFlag::BASIC,
         MainWindowRedrawingFlag::EXTRA,
         MainWindowRedrawingFlag::EQUIPPY,
-        MainWindowRedrawingFlag::MAP,
     };
     rfu.set_flags(flags_mwrf);
-    static constexpr auto flags_swrf = {
-        SubWindowRedrawingFlag::OVERHEAD,
-        SubWindowRedrawingFlag::DUNGEON,
-    };
-    rfu.set_flags(flags_swrf);
 }
