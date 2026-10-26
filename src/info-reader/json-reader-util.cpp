@@ -9,24 +9,25 @@
  * @param root JSON文書のルート
  * @param key 必須のレコード配列キー
  * @param allow_empty 空配列を許容するか（Vaultではfalse）
- * @return エラーコード
+ * @return 成功時は空の値、失敗時は解析エラーコード（ルートがオブジェクトでないか、キーの値が配列でなければ
+ * ParseErrorType::INVALID_TYPE、キーが無ければParseErrorType::TOO_FEW_ARGUMENTS、許容しない空配列ならParseErrorType::INVALID_VALUE）
  */
-errr info_validate_json_array(const nlohmann::json &root, std::string_view key, bool allow_empty)
+tl::expected<void, ParseErrorType> info_validate_json_array(const nlohmann::json &root, std::string_view key, bool allow_empty)
 {
     if (!root.is_object()) {
-        return PARSE_ERROR_INVALID_TYPE;
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
     const auto records = root.find(key);
     if (records == root.end()) {
-        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
     if (!records->is_array()) {
-        return PARSE_ERROR_INVALID_TYPE;
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
     if (!allow_empty && records->empty()) {
-        return PARSE_ERROR_INVALID_VALUE;
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
-    return PARSE_ERROR_NONE;
+    return {};
 }
 
 /*!
@@ -50,46 +51,52 @@ const nlohmann::json &get_json_value(const nlohmann::json &json, std::string_vie
  *
  * 引数で与えられたJSON Objectから日本語版の場合は"ja"、英語版の場合は"en"のキーで文字列を取得し、
  * data に格納する。キーが存在しない場合は is_required が真の場合はエラーを返し、偽の場合は何もせずに終了する。
- * nullでない非オブジェクトや選択言語の非文字列値は、必須かどうかによらずPARSE_ERROR_INVALID_TYPEを返す。
- * 選択されない言語の値は検証しない。日本語版は既存の文字コード変換に従い、変換失敗ならPARSE_ERROR_INVALID_FLAGを返す。
+ * nullでない非オブジェクトや選択言語の非文字列値は、必須かどうかによらずParseErrorType::INVALID_TYPEを返す。
+ * 選択されない言語の値は検証しない。日本語版は既存の文字コード変換に従い、変換失敗ならParseErrorType::INVALID_FLAGを返す。
  * エラーまたは任意の欠落の場合、dataは変更しない。
  *
  * @param json 文字列の格納されたJSON Object
  * @param data 文字列を格納する変数への参照
  * @param is_required 必須かどうか
- * @return エラーコード
+ * @return 成功時は空の値、失敗時は解析エラーコード（必須の文字列が無ければParseErrorType::TOO_FEW_ARGUMENTS、
+ * 型が誤っていればParseErrorType::INVALID_TYPE、日本語版で文字コードの変換に失敗すればParseErrorType::INVALID_FLAG）
  */
-errr info_set_string(const nlohmann::json &json, std::string &data, bool is_required)
+tl::expected<void, ParseErrorType> info_set_string(const nlohmann::json &json, std::string &data, bool is_required)
 {
-    const auto unexist_result = is_required ? PARSE_ERROR_TOO_FEW_ARGUMENTS : PARSE_ERROR_NONE;
+    const auto unexist_result = [is_required]() -> tl::expected<void, ParseErrorType> {
+        if (is_required) {
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        }
+        return {};
+    };
 
     if (json.is_null()) {
-        return unexist_result;
+        return unexist_result();
     }
 
     if (!json.is_object()) {
-        return PARSE_ERROR_INVALID_TYPE;
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     const auto str = json.find(_("ja", "en"));
     if (str == json.end()) {
-        return unexist_result;
+        return unexist_result();
     }
     if (!str->is_string()) {
-        return PARSE_ERROR_INVALID_TYPE;
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
 #ifdef JP
     auto str_sys = utf8_to_sys(str->get<std::string>());
     if (!str_sys) {
-        return PARSE_ERROR_INVALID_FLAG;
+        return tl::make_unexpected(ParseErrorType::INVALID_FLAG);
     }
     data = std::move(*str_sys);
 #else
     data = str->get<std::string>();
 #endif
 
-    return PARSE_ERROR_NONE;
+    return {};
 }
 
 /*!
@@ -97,26 +104,38 @@ errr info_set_string(const nlohmann::json &json, std::string &data, bool is_requ
  * @param json ダイスの値が格納されたJSON Object
  * @param dice ダイスの値を格納する変数への参照
  * @param is_required 必須かどうか
- * JSON値がnullの場合、必須ならPARSE_ERROR_TOO_FEW_ARGUMENTSを返し、任意なら何もせずに成功する。
- * null以外の非文字列値は、必須かどうかによらずPARSE_ERROR_INVALID_TYPEを返す。
- * Dice::parseがruntime_errorを投げる文字列はPARSE_ERROR_TOO_FEW_ARGUMENTSを返す。
+ * @param range ダイスの個数と面数それぞれの範囲（両端を含む）
+ * @return 成功時は空の値、失敗時は解析エラーコード（ParseErrorType::TOO_FEW_ARGUMENTS、ParseErrorType::INVALID_TYPE、
+ * ParseErrorType::INVALID_FLAGのいずれか。条件は下記のとおり）
+ * @details
+ * JSON値がnullの場合、必須ならParseErrorType::TOO_FEW_ARGUMENTSを返し、任意なら何もせずに成功する。
+ * null以外の非文字列値は、必須かどうかによらずParseErrorType::INVALID_TYPEを返す。
+ * Dice::parseがruntime_errorを投げる文字列はParseErrorType::TOO_FEW_ARGUMENTSを返す。
+ * 個数か面数がrangeの範囲外ならParseErrorType::INVALID_FLAGを返す。
  * エラーまたは任意のnullの場合、diceは変更しない。
- * @return エラーコード
  */
-errr info_set_dice(const nlohmann::json &json, Dice &dice, bool is_required)
+tl::expected<void, ParseErrorType> info_set_dice(const nlohmann::json &json, Dice &dice, bool is_required, tl::optional<Range> range)
 {
     if (json.is_null()) {
-        return is_required ? PARSE_ERROR_TOO_FEW_ARGUMENTS : PARSE_ERROR_NONE;
+        if (is_required) {
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        }
+        return {};
     }
     if (!json.is_string()) {
-        return PARSE_ERROR_INVALID_TYPE;
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     try {
-        dice = Dice::parse(json.get<std::string>());
-        return PARSE_ERROR_NONE;
+        const auto parsed = Dice::parse(json.get<std::string>());
+        const auto is_in_range = [&range](int value) { return !range || ((range->first <= value) && (value <= range->second)); };
+        if (!is_in_range(parsed.num) || !is_in_range(parsed.sides)) {
+            return tl::make_unexpected(ParseErrorType::INVALID_FLAG);
+        }
+        dice = parsed;
+        return {};
     } catch (const std::runtime_error &) {
-        return PARSE_ERROR_TOO_FEW_ARGUMENTS;
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
 }
 
@@ -125,17 +144,24 @@ errr info_set_dice(const nlohmann::json &json, Dice &dice, bool is_required)
  * @param json bool値が格納されたJSON Object
  * @param bool_value bool値を格納する変数への参照
  * @param is_required 必須かどうか
- * nullおよび非bool値は、必須ならPARSE_ERROR_TOO_FEW_ARGUMENTSを返し、任意なら何もせずに成功する。
- * 型不一致でもPARSE_ERROR_INVALID_TYPEにはしない、他のinfo_set_*とは異なる契約を持つ。
+ * nullは、必須ならParseErrorType::TOO_FEW_ARGUMENTSを返し、任意なら何もせずに成功する。
+ * null以外の非bool値はParseErrorType::INVALID_TYPEを返す。
  * bool値が入力された場合のみbool_valueを変更する。
- * @return エラーコード
+ * @return 成功時は空の値、失敗時は解析エラーコード
  */
-errr info_set_bool(const nlohmann::json &json, bool &bool_value, bool is_required)
+tl::expected<void, ParseErrorType> info_set_bool(const nlohmann::json &json, bool &bool_value, bool is_required)
 {
-    if (json.is_null() || !json.is_boolean()) {
-        return is_required ? PARSE_ERROR_TOO_FEW_ARGUMENTS : PARSE_ERROR_NONE;
+    if (json.is_null()) {
+        if (is_required) {
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        }
+        return {};
+    }
+
+    if (!json.is_boolean()) {
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     bool_value = json.get<bool>();
-    return PARSE_ERROR_NONE;
+    return {};
 }

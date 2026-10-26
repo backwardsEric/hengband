@@ -11,7 +11,6 @@
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "floor/geometry.h"
-#include "game-option/cheat-types.h"
 #include "game-option/special-options.h"
 #include "grid/grid.h"
 #include "inventory/inventory-object.h"
@@ -47,6 +46,7 @@
 #include "system/artifact/artifact-definition.h"
 #include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-key.h"
+#include "system/deferred-update-requests.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/enums/terrain/terrain-characteristics.h"
 #include "system/floor/floor-info.h"
@@ -55,7 +55,6 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -433,7 +432,7 @@ static MULTIPLY calc_shot_damage_with_slay(
 
         if ((flags.has(TR_FORCE_WEAPON)) && (player_ptr->csp > (player_ptr->msp / 30))) {
             player_ptr->csp -= (1 + (player_ptr->msp / 30));
-            RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
+            DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::MP);
             mult = mult * 5 / 2;
         }
         break;
@@ -635,7 +634,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                         StatusRecalculatingFlag::FLOW,
                         StatusRecalculatingFlag::MONSTER_LITE,
                     };
-                    RedrawingFlagsUpdater::get_instance().set_flags(flags);
+                    DeferredUpdateRequests::get_instance().set_flags(flags);
 
                     /* Destroy the wall */
                     cave_alter_feat(player_ptr, pos_impact.y, pos_impact.x, TerrainCharacteristics::STONE);
@@ -800,7 +799,7 @@ void exe_fire(PlayerType *player_ptr, INVENTORY_IDX i_idx, ItemEntity *j_ptr, SP
                         tdam = mon_damage_mod(player_ptr, monster, tdam, false);
                     }
 
-                    msg_print_wizard(player_ptr, CHEAT_MONSTER, _("{}のダメージを与えた。(残りHP {}/{}({}))", "You do {} damage. (left HP {}/{}({}))"), tdam, monster.hp - tdam, monster.maxhp, monster.max_maxhp);
+                    msg_print_wizard_damage(player_ptr, monster, tdam);
 
                     /* Sniper */
                     if (snipe_type == SP_EXPLODE) {

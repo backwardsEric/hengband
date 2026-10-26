@@ -82,21 +82,21 @@ enum class InventoryArrangementFlag {
 };
 
 /*!
- * @brief RedrawingFlagsUpdater が扱う更新フラグの型
+ * @brief DeferredUpdateRequests が扱う更新フラグの型
  */
 template <typename T>
 concept RedrawingFlagType = std::same_as<T, MainWindowRedrawingFlag> || std::same_as<T, SubWindowRedrawingFlag> ||
                             std::same_as<T, StatusRecalculatingFlag> || std::same_as<T, InventoryArrangementFlag>;
 
-class RedrawingFlagsUpdater {
+class DeferredUpdateRequests {
 public:
-    RedrawingFlagsUpdater(const RedrawingFlagsUpdater &) = delete;
-    RedrawingFlagsUpdater(RedrawingFlagsUpdater &&) = delete;
-    RedrawingFlagsUpdater &operator=(const RedrawingFlagsUpdater &) = delete;
-    RedrawingFlagsUpdater &operator=(RedrawingFlagsUpdater &&) = delete;
-    ~RedrawingFlagsUpdater() = default;
+    DeferredUpdateRequests(const DeferredUpdateRequests &) = delete;
+    DeferredUpdateRequests(DeferredUpdateRequests &&) = delete;
+    DeferredUpdateRequests &operator=(const DeferredUpdateRequests &) = delete;
+    DeferredUpdateRequests &operator=(DeferredUpdateRequests &&) = delete;
+    ~DeferredUpdateRequests() = default;
 
-    static RedrawingFlagsUpdater &get_instance();
+    static DeferredUpdateRequests &get_instance();
 
     bool any_main() const;
     bool any_sub() const;
@@ -163,19 +163,27 @@ public:
     void request_monster_update_and_map_redrawing();
     void request_sight_recalculation();
     void request_item_lists_redrawing();
+    void request_carried_item_lists_redrawing();
     void request_floor_item_lists_redrawing();
     void request_spell_info_redrawing();
     void request_inscription_change_updates();
     void request_equipment_change_updates();
     void request_riding_status_redrawing();
+    void request_riding_change_updates();
+    void request_hp_mp_redrawing();
+    void request_gold_redrawing();
+    void request_light_fuel_change_updates();
+    void request_bonus_and_max_hp_recalculation();
+    void request_max_mp_and_spells_recalculation();
+    void request_player_status_recalculation();
 
     void fill_up_sub_flags();
     EnumClassFlagGroup<SubWindowRedrawingFlag> get_sub_intersection(const EnumClassFlagGroup<SubWindowRedrawingFlag> &flags) const;
 
 private:
-    RedrawingFlagsUpdater() = default;
+    DeferredUpdateRequests() = default;
 
-    static RedrawingFlagsUpdater instance;
+    static DeferredUpdateRequests instance;
 
     EnumClassFlagGroup<MainWindowRedrawingFlag> main_window_flags{};
     EnumClassFlagGroup<SubWindowRedrawingFlag> sub_window_flags{};
@@ -185,7 +193,7 @@ private:
     /*!
      * @brief フラグの型に対応するフラグの集合を得る
      * @tparam Flag フラグの型
-     * @tparam Self RedrawingFlagsUpdater (const の有無を問わない)
+     * @tparam Self DeferredUpdateRequests (const の有無を問わない)
      * @param self 更新フラグ
      * @return フラグの集合への参照 (self が const なら const 参照)
      */

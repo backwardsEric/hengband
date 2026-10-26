@@ -1,8 +1,10 @@
 #include "artifact/fixed-art-types.h"
 #include "info-reader/fixed-map-parser.h"
 #include "info-reader/general-parser.h"
+#include "info-reader/jsonc-document-loader.h"
 #include "info-reader/random-grid-effect-types.h"
 #include "info-reader/town-map-reader.h"
+#include "io/condition-expression.h"
 #include "locale/character-encoding.h"
 #include "object-enchant/trg-types.h"
 #include "object/tval-types.h"
@@ -21,20 +23,26 @@
 #include "system/system-variables.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include "test/scoped-vector-wrapper.h"
 #include "test/system/artifact-list-test-access.h"
 #include "test/system/terrain-list-test-access.h"
+#include "util/finalizer.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <doctest/doctest.h>
+#include <filesystem>
 #include <limits>
 #include <map>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tl/expected.hpp>
 #include <utility>
 
 namespace test {
@@ -184,8 +192,8 @@ std::string hex_bytes(std::string_view value)
 nlohmann::json make_town_map()
 {
     return {
-        { "version", 2 },
-        { "featureRules", { { { "symbol", "#" }, { "definition", { { "terrain", "WALL" }, { "caveInfo", 0 }, { "monster", "0" }, { "object", "0" }, { "ego", "0" }, { "artifact", "0" }, { "trap", "NONE" }, { "special", 0 } } } } } },
+        { "version", 3 },
+        { "featureRules", { { { "symbol", "#" }, { "definition", { { "terrain", "WALL" }, { "caveInfo", nlohmann::json::array() }, { "trap", "NONE" }, { "special", 0 } } } } } },
         { "buildingRules", { { { "index", 1 }, { "locale", "en" }, { "command", "N" }, { "fields", { "Building", "Owner", "Race" } } } } },
         { "mapVariants", { { { "rows", { "###", "#.#", "###" } } } } },
         { "startingPositions", { { { "y", 1 }, { "x", 1 } } } },
@@ -200,14 +208,14 @@ TownMapDefinition read_reward_town_map(FloorType &floor, ArtifactDefinition arti
     auto &fields = data["featureRules"][0]["definition"];
     fields["terrain"] = "TOWN_FEATURE_TEST_FLOOR";
     fields["trap"] = "TOWN_FEATURE_TEST_TRAP";
-    fields["object"] = "!";
-    fields["artifact"] = "!";
+    fields["object"] = { { "questReward", true } };
+    fields["artifact"] = { { "questReward", true } };
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     return definition;
 }
 
-parse_error_type read_town(const nlohmann::json &data, bool only_buildings = false)
+tl::expected<void, ParseErrorType> read_town(const nlohmann::json &data, bool only_buildings = false)
 {
     TownMapDefinition definition;
     return TownMapReader(data).read(definition, 3, 3, only_buildings);
@@ -235,7 +243,7 @@ TEST_CASE("TownMapReader retains ordered definitions, conditions and UTF-8 text"
     data["buildingRules"][0]["locale"] = "ja";
     data["buildingRules"][0]["fields"][0] = utf8_name;
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     REQUIRE(definition.features.size() == 2);
     CHECK(definition.features[0].symbol == '#');
     CHECK(definition.features[0].terrain == "WALL");
@@ -281,7 +289,7 @@ TEST_CASE("TownMapReader keeps percent and M as map payload and realm membership
     }
 
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     REQUIRE(definition.features.size() == 2);
     CHECK(definition.features[0].symbol == '%');
     CHECK(definition.features[1].symbol == 'M');
@@ -306,14 +314,14 @@ TEST_CASE("TownMapReader replaces output only after complete validation")
 {
     auto data = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     data["featureRules"][0]["symbol"] = ".";
     data["startingPositions"][0]["x"] = 3;
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
     CHECK(definition.features[0].symbol == '#');
     CHECK(definition.starts[0].x == 1);
     data["startingPositions"][0]["x"] = 2;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     CHECK(definition.features.size() == 1);
     CHECK(definition.features[0].symbol == '.');
     CHECK(definition.starts[0].x == 2);
@@ -324,90 +332,104 @@ TEST_CASE("TownMapReader validates root and conditions on every rule")
     for (const auto *field : { "featureRules", "buildingRules", "mapVariants", "startingPositions" }) {
         auto data = make_town_map();
         data.erase(field);
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         data = make_town_map();
         data[field] = nullptr;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         for (const auto &condition : { nlohmann::json(nullptr), nlohmann::json(false), nlohmann::json("") }) {
             data = make_town_map();
             data[field][0]["when"] = condition;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         }
     }
     for (const auto &version : { nlohmann::json(1), nlohmann::json(2.0), nlohmann::json("2") }) {
         auto data = make_town_map();
         data["version"] = version;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
     }
     for (const auto *field : { "mapVariants", "startingPositions" }) {
         auto data = make_town_map();
         data[field] = nlohmann::json::array();
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
 }
 
-TEST_CASE("TownMapReader validates feature token grammar and narrowing bounds")
+TEST_CASE("TownMapReader validates v3 modes types and narrowing bounds")
 {
-    for (const auto *field : { "monster", "object", "ego", "artifact" }) {
-        for (const auto *token : { "0", "-1", "*", "*32767", "32767" }) {
-            auto data = make_town_map();
-            data["featureRules"][0]["definition"][field] = token;
-            CHECK(read_town(data) == PARSE_ERROR_NONE);
-        }
-        for (const auto *token : { "", "1x", "+1", "*-1", "2147483648", "0:1", "0/1", "0\\1" }) {
-            auto data = make_town_map();
-            data["featureRules"][0]["when"] = "0"; // Inactive rules must still be validated.
-            data["featureRules"][0]["definition"][field] = token;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
-        }
-    }
-    for (const auto *field : { "monster", "object", "artifact" }) {
-        auto data = make_town_map();
-        for (const auto *token : { "32768", "*32768", "-32769" }) {
-            data["featureRules"][0]["definition"][field] = token;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
-        }
-    }
-    auto data = make_town_map();
-    data["featureRules"][0]["definition"]["monster"] = "c32767";
-    data["featureRules"][0]["definition"]["object"] = "!";
-    data["featureRules"][0]["definition"]["artifact"] = "!";
-    data["featureRules"][0]["definition"]["ego"] = "-2147483648";
-    CHECK(read_town(data) == PARSE_ERROR_NONE);
-    for (const auto *token : { "c", "c-1", "c32768", "-32768", "!" }) {
-        data["featureRules"][0]["definition"]["monster"] = token;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
-    }
-}
-
-TEST_CASE("TownMapReader rejects out of range JSON integers before conversion")
-{
-    for (const auto *field : { "caveInfo", "special" }) {
-        for (const auto &value : { nlohmann::json(0.0), nlohmann::json(std::numeric_limits<uint64_t>::max()), nlohmann::json("0") }) {
+    for (const auto *field : { "monster", "object", "artifact", "ego" }) {
+        for (const auto &value : std::array<nlohmann::json, 4>{ { 1, 255, { { "random", true } }, nullptr } }) {
             auto data = make_town_map();
             data["featureRules"][0]["definition"][field] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+            CHECK(test::to_error_code(read_town(data)) == (value.is_null() ? ParseErrorType::INVALID_TYPE : ParseErrorType::NONE));
+        }
+        for (const auto &value : std::array<nlohmann::json, 6>{ { 0, -1, 32768, { { "random", false } }, { { "random", true }, { "questReward", true } }, nlohmann::json::object() } }) {
+            auto data = make_town_map();
+            data["featureRules"][0]["when"] = "0";
+            data["featureRules"][0]["definition"][field] = value;
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
+        }
+        for (const auto &value : std::array<nlohmann::json, 5>{ { "1", 1.0, true, nullptr, nlohmann::json::array() } }) {
+            auto data = make_town_map();
+            data["featureRules"][0]["definition"][field] = value;
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         }
     }
+}
+
+TEST_CASE("TownMapReader ego is optional and uses positive byte IDs")
+{
     auto data = make_town_map();
-    data["featureRules"][0]["definition"]["caveInfo"] = std::numeric_limits<int>::max();
+    TownMapDefinition definition;
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    CHECK(definition.features.front().cell.grid.ego == EgoType::NONE);
+    for (const int id : { 1, 255 }) {
+        data["featureRules"][0]["definition"]["ego"] = id;
+        REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+        CHECK(enum2i(definition.features.front().cell.grid.ego) == id);
+    }
+    data["featureRules"][0]["definition"]["ego"] = { { "random", true } };
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    CHECK(definition.features.front().cell.grid.random == RANDOM_EGO);
+    for (const auto &value : std::array<nlohmann::json, 5>{ { 0, -1, 256, { { "random", true }, { "id", 1 } }, { { "random", false } } } }) {
+        auto invalid = data;
+        invalid["featureRules"][0]["definition"]["ego"] = value;
+        for (const bool only_buildings : { false, true }) {
+            CHECK(test::to_error_code(TownMapReader(invalid).read(definition, 3, 3, only_buildings)) == ParseErrorType::INVALID_VALUE);
+            CHECK(definition.features.front().cell.grid.random == RANDOM_EGO);
+        }
+    }
+}
+
+TEST_CASE("TownMapReader rejects integer caveInfo and out of range special and coordinates")
+{
+    for (const auto &value : { nlohmann::json(0.0), nlohmann::json(std::numeric_limits<uint64_t>::max()), nlohmann::json("0") }) {
+        auto data = make_town_map();
+        data["featureRules"][0]["definition"]["caveInfo"] = value;
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
+    }
+    auto data = make_town_map();
+    data["featureRules"][0]["definition"]["caveInfo"] = { "MARK", "GLOW", "NO_TELEPORT_DEST", "ROOM", "LITE" };
     for (const int value : { -32768, 32767 }) {
         data["featureRules"][0]["definition"]["special"] = value;
-        CHECK(read_town(data) == PARSE_ERROR_NONE);
+        CHECK(read_town(data).has_value());
     }
     for (const int value : { -32769, 32768 }) {
         CAPTURE(value);
         data["featureRules"][0]["definition"]["special"] = value;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
-    data = make_town_map();
-    data["featureRules"][0]["definition"]["caveInfo"] = -1;
-    CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+    // v3のcaveInfoは名前の配列なので、整数は値によらず型エラーになる。
+    for (const int value : { -1, std::numeric_limits<uint16_t>::max() + 1 }) {
+        CAPTURE(value);
+        data = make_town_map();
+        data["featureRules"][0]["definition"]["caveInfo"] = value;
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
+    }
     for (const auto *coordinate : { "x", "y" }) {
         for (const auto &value : { nlohmann::json(-1), nlohmann::json(3), nlohmann::json(std::numeric_limits<uint64_t>::max()) }) {
             data = make_town_map();
             data["startingPositions"][0][coordinate] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         }
     }
 }
@@ -418,30 +440,30 @@ TEST_CASE("TownMapReader validates building commands and numeric fields")
     auto &rule = data["buildingRules"][0];
     for (const auto &index : { nlohmann::json(-1), nlohmann::json(MAX_BUILDINGS), nlohmann::json(std::numeric_limits<uint64_t>::max()) }) {
         rule["index"] = index;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     rule["index"] = MAX_BUILDINGS - 1;
     rule["command"] = "A";
     rule["fields"] = { "7", "Action", "0", "-1", "a", "0", "0" };
-    CHECK(read_town(data) == PARSE_ERROR_NONE);
+    CHECK(read_town(data).has_value());
     for (const auto *index : { "-1", "8", "2147483648" }) {
         rule["fields"][0] = index;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     rule["fields"][0] = "0";
     for (const int index : { 2, 3, 5, 6 }) {
         rule["fields"][index] = "2147483648";
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         rule["fields"][index] = "0";
     }
     for (const auto &[command, count] : { std::pair{ "C", static_cast<int>(PLAYER_CLASS_TYPE_MAX) }, std::pair{ "M", static_cast<int>(MAX_MAGIC) }, std::pair{ "R", MAX_RACES } }) {
         rule["command"] = command;
         rule["fields"] = std::vector<std::string>(count, "0");
-        CHECK(read_town(data) == PARSE_ERROR_NONE);
+        CHECK(read_town(data).has_value());
         rule["fields"].push_back("0");
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         rule["fields"] = nlohmann::json::array();
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
 }
 
@@ -450,17 +472,15 @@ TEST_CASE("TownMapReader preserves JSON integer error categories and output on f
     struct Field {
         const char *section;
         const char *name;
-        parse_error_type range_error;
+        ParseErrorType range_error;
     };
     const auto original = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(original).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(original).read(definition, 3, 3).has_value());
     for (const auto &field : {
-             Field{ "featureRules", "caveInfo", PARSE_ERROR_INVALID_TYPE },
-             Field{ "featureRules", "special", PARSE_ERROR_INVALID_TYPE },
-             Field{ "buildingRules", "index", PARSE_ERROR_INVALID_VALUE },
-             Field{ "startingPositions", "x", PARSE_ERROR_INVALID_VALUE },
-             Field{ "startingPositions", "y", PARSE_ERROR_INVALID_VALUE },
+             Field{ "buildingRules", "index", ParseErrorType::INVALID_VALUE },
+             Field{ "startingPositions", "x", ParseErrorType::INVALID_VALUE },
+             Field{ "startingPositions", "y", ParseErrorType::INVALID_VALUE },
          }) {
         CAPTURE(std::string(field.section));
         CAPTURE(std::string(field.name));
@@ -484,13 +504,13 @@ TEST_CASE("TownMapReader preserves JSON integer error categories and output on f
             auto &record = data[field.section][0];
             auto &fields = std::string_view(field.section) == "featureRules" ? record["definition"] : record;
             fields[field.name] = value;
-            const auto expected = value.is_number_integer() ? field.range_error : PARSE_ERROR_INVALID_TYPE;
+            const auto expected = value.is_number_integer() ? field.range_error : ParseErrorType::INVALID_TYPE;
             for (const bool missing : { false, true }) {
                 CAPTURE(missing);
                 if (missing) {
                     fields.erase(field.name);
                 }
-                CHECK(TownMapReader(data).read(definition, 3, 3) == (missing ? PARSE_ERROR_INVALID_TYPE : expected));
+                CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == (missing ? ParseErrorType::INVALID_TYPE : expected));
                 REQUIRE(definition.features.size() == 1);
                 REQUIRE(definition.buildings.size() == 1);
                 REQUIRE(definition.maps.size() == 1);
@@ -509,17 +529,17 @@ TEST_CASE("TownMapReader rejects legacy delimiters in building text")
     for (const auto *text : { "A:B", "A/B", "A\\B", "A\nB", "A\rB" }) {
         auto data = make_town_map();
         data["buildingRules"][0]["fields"][0] = text;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     auto data = make_town_map();
     data["buildingRules"][0]["fields"] = { "Building", "Owner" };
-    CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     data = make_town_map();
     data["buildingRules"][0]["locale"] = "other";
-    CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     data["buildingRules"][0]["locale"] = "en";
     data["buildingRules"][0]["command"] = "Unknown";
-    CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
 }
 
 TEST_CASE("TownMapReader validates rectangular printable maps and all start bounds")
@@ -529,17 +549,17 @@ TEST_CASE("TownMapReader validates rectangular printable maps and all start boun
         auto data = make_town_map();
         data["mapVariants"][0]["when"] = "0";
         data["mapVariants"][0]["rows"] = rows;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     auto data = make_town_map();
     data["mapVariants"].push_back({ { "when", "0" }, { "rows", { "#" } } });
-    CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     data["startingPositions"][0]["x"] = 0;
     data["startingPositions"][0]["y"] = 0;
-    CHECK(read_town(data) == PARSE_ERROR_NONE);
+    CHECK(read_town(data).has_value());
     TownMapDefinition definition;
-    CHECK(TownMapReader(data).read(definition, 0, 3) == PARSE_ERROR_INVALID_VALUE);
-    CHECK(TownMapReader(data).read(definition, 3, 0) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 3)) == ParseErrorType::INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 0)) == ParseErrorType::INVALID_VALUE);
 }
 
 TEST_CASE("TownMapReader building-only mode skips map and start contents, not root requirements")
@@ -548,54 +568,54 @@ TEST_CASE("TownMapReader building-only mode skips map and start contents, not ro
     data["mapVariants"] = { nullptr };
     data["startingPositions"] = { false };
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 0, 0, true) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 0, 0, true).has_value());
     CHECK(definition.features.size() == 1);
     CHECK(definition.buildings.size() == 1);
     CHECK(definition.maps.empty());
     CHECK(definition.starts.empty());
     data["featureRules"][0]["symbol"] = ":";
-    CHECK(read_town(data, true) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data, true)) == ParseErrorType::INVALID_VALUE);
     data = make_town_map();
     data["buildingRules"][0]["command"] = "?";
-    CHECK(read_town(data, true) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data, true)) == ParseErrorType::INVALID_VALUE);
     data = make_town_map();
     data["mapVariants"] = nlohmann::json::array();
-    CHECK(read_town(data, true) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(read_town(data, true)) == ParseErrorType::INVALID_VALUE);
     data = make_town_map();
     data.erase("startingPositions");
-    CHECK(read_town(data, true) == PARSE_ERROR_INVALID_TYPE);
+    CHECK(test::to_error_code(read_town(data, true)) == ParseErrorType::INVALID_TYPE);
 }
 
 TEST_CASE("TownMapReader accepts unsigned integers produced by JSON parsing")
 {
     auto input = make_town_map();
-    input["featureRules"][0]["definition"]["caveInfo"] = std::numeric_limits<int>::max();
+    input["featureRules"][0]["definition"]["caveInfo"] = { "MARK", "GLOW", "NO_TELEPORT_DEST", "ROOM", "LITE" };
     input["featureRules"][0]["definition"]["special"] = 32767;
     input["buildingRules"][0]["index"] = MAX_BUILDINGS - 1;
     input["startingPositions"][0]["x"] = 2;
     input["startingPositions"][0]["y"] = 2;
     auto data = nlohmann::json::parse(input.dump());
     REQUIRE(data["version"].is_number_unsigned());
-    REQUIRE(data["featureRules"][0]["definition"]["caveInfo"].is_number_unsigned());
+    REQUIRE(data["featureRules"][0]["definition"]["caveInfo"].is_array());
     REQUIRE(data["featureRules"][0]["definition"]["special"].is_number_unsigned());
     REQUIRE(data["buildingRules"][0]["index"].is_number_unsigned());
     REQUIRE(data["startingPositions"][0]["x"].is_number_unsigned());
     REQUIRE(data["startingPositions"][0]["y"].is_number_unsigned());
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-    CHECK(definition.features[0].cell.grid.cave_info == std::numeric_limits<int>::max());
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    CHECK(definition.features[0].cell.grid.cave_info == 31);
     CHECK(definition.features[0].cell.grid.special == 32767);
     CHECK(definition.buildings[0].index == MAX_BUILDINGS - 1);
     CHECK(definition.starts[0].x == 2);
     CHECK(definition.starts[0].y == 2);
 
-    input["featureRules"][0]["definition"]["caveInfo"] = 0;
+    input["featureRules"][0]["definition"]["caveInfo"] = nlohmann::json::array();
     input["featureRules"][0]["definition"]["special"] = 0;
     input["buildingRules"][0]["index"] = 0;
     input["startingPositions"][0]["x"] = 0;
     input["startingPositions"][0]["y"] = 0;
     data = nlohmann::json::parse(input.dump());
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     CHECK(definition.features[0].cell.grid.cave_info == 0);
     CHECK(definition.features[0].cell.grid.special == 0);
     CHECK(definition.buildings[0].index == 0);
@@ -612,12 +632,12 @@ TEST_CASE("TownMapReader preserves building action field error categories")
         rule["command"] = "A";
         rule["fields"] = { "0", "Action", "0", "0", "a", "0", "0" };
         rule["fields"][0] = value;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         rule["fields"][0] = "0";
         for (const int index : { 1, 2, 3, 4, 5, 6 }) {
             CAPTURE(index);
             rule["fields"][index] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
             rule["fields"][index] = "0";
         }
     }
@@ -627,7 +647,7 @@ TEST_CASE("TownMapReader leaves all output intact on failure at every validation
 {
     const auto original = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(original).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(original).read(definition, 3, 3).has_value());
     for (const auto *stage : { "featureRules", "buildingRules", "mapVariants", "startingPositions" }) {
         CAPTURE(std::string(stage));
         auto data = original;
@@ -636,7 +656,7 @@ TEST_CASE("TownMapReader leaves all output intact on failure at every validation
         data["mapVariants"][0]["rows"][0] = "...";
         data["startingPositions"][0]["x"] = 2;
         data[stage].push_back(nullptr);
-        CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_TYPE);
         REQUIRE(definition.features.size() == 1);
         REQUIRE(definition.buildings.size() == 1);
         REQUIRE(definition.maps.size() == 1);
@@ -652,17 +672,17 @@ TEST_CASE("TownMapReader building-only reread preserves output on failure and re
 {
     auto data = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     REQUIRE_FALSE(definition.maps.empty());
     REQUIRE_FALSE(definition.starts.empty());
     data["featureRules"][0]["symbol"] = ".";
     data["buildingRules"][0]["fields"][0] = "Changed";
     for (const auto &invalid : { nlohmann::json(nullptr), nlohmann::json{ { "index", -1 }, { "locale", "en" }, { "command", "Z" }, { "fields", nlohmann::json::array() } } }) {
-        const auto expected = invalid.is_null() ? PARSE_ERROR_INVALID_TYPE : PARSE_ERROR_INVALID_VALUE;
+        const auto expected = invalid.is_null() ? ParseErrorType::INVALID_TYPE : ParseErrorType::INVALID_VALUE;
         CAPTURE(invalid);
         auto bad = data;
         bad["buildingRules"].push_back(invalid);
-        CHECK(TownMapReader(bad).read(definition, 0, 0, true) == expected);
+        CHECK(test::to_error_code(TownMapReader(bad).read(definition, 0, 0, true)) == expected);
         REQUIRE(definition.features.size() == 1);
         REQUIRE(definition.buildings.size() == 1);
         REQUIRE(definition.maps.size() == 1);
@@ -672,7 +692,7 @@ TEST_CASE("TownMapReader building-only reread preserves output on failure and re
         CHECK(definition.maps[0].rows[0] == "###");
         CHECK(definition.starts[0].x == 1);
     }
-    REQUIRE(TownMapReader(data).read(definition, 0, 0, true) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 0, 0, true).has_value());
     REQUIRE(definition.features.size() == 1);
     REQUIRE(definition.buildings.size() == 1);
     CHECK(definition.features[0].symbol == '.');
@@ -695,7 +715,7 @@ TEST_CASE("TownMapReader rejects non ASCII feature and row bytes without publish
             }
             TownMapDefinition definition;
             definition.features.emplace_back().symbol = '?';
-            CHECK(TownMapReader(data).read(definition, 10, 10) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(TownMapReader(data).read(definition, 10, 10)) == ParseErrorType::INVALID_VALUE);
             REQUIRE(definition.features.size() == 1);
             CHECK(definition.features.front().symbol == '?');
             CHECK(definition.maps.empty());
@@ -709,25 +729,26 @@ TEST_CASE("TownMapReader validates feature symbols and token types")
         CAPTURE(hex_bytes(symbol));
         auto data = make_town_map();
         data["featureRules"][0]["symbol"] = symbol;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     for (const auto *symbol : { " ", "~" }) {
         CAPTURE(hex_bytes(symbol));
         auto data = make_town_map();
         data["featureRules"][0]["symbol"] = symbol;
-        CHECK(read_town(data) == PARSE_ERROR_NONE);
+        CHECK(read_town(data).has_value());
     }
     for (const auto *field : { "terrain", "monster", "object", "ego", "artifact", "trap" }) {
         CAPTURE(std::string(field));
         auto data = make_town_map();
         data["featureRules"][0]["definition"][field] = nullptr;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         data["featureRules"][0]["definition"][field] = "bad/field";
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        const bool tag = std::string_view(field) == "terrain" || std::string_view(field) == "trap";
+        CHECK(test::to_error_code(read_town(data)) == (tag ? ParseErrorType::INVALID_VALUE : ParseErrorType::INVALID_TYPE));
         data["featureRules"][0]["definition"][field] = 0;
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == (tag ? ParseErrorType::INVALID_TYPE : ParseErrorType::INVALID_VALUE));
         data["featureRules"][0]["definition"].erase(field);
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+        CHECK(read_town(data).has_value());
     }
 }
 
@@ -737,14 +758,14 @@ TEST_CASE("TownMapReader rejects parsed unsigned integers immediately above each
         const char *section;
         const char *field;
         uint64_t value;
-        parse_error_type error;
+        ParseErrorType error;
     };
     for (const auto &boundary : {
-             Boundary{ "featureRules", "special", 32768, PARSE_ERROR_INVALID_TYPE },
-             Boundary{ "featureRules", "caveInfo", static_cast<uint64_t>(std::numeric_limits<int>::max()) + 1, PARSE_ERROR_INVALID_TYPE },
-             Boundary{ "buildingRules", "index", static_cast<uint64_t>(MAX_BUILDINGS), PARSE_ERROR_INVALID_VALUE },
-             Boundary{ "startingPositions", "x", 3, PARSE_ERROR_INVALID_VALUE },
-             Boundary{ "startingPositions", "y", 3, PARSE_ERROR_INVALID_VALUE },
+             Boundary{ "featureRules", "special", 32768, ParseErrorType::INVALID_VALUE },
+             Boundary{ "featureRules", "caveInfo", static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1, ParseErrorType::INVALID_TYPE },
+             Boundary{ "buildingRules", "index", static_cast<uint64_t>(MAX_BUILDINGS), ParseErrorType::INVALID_VALUE },
+             Boundary{ "startingPositions", "x", 3, ParseErrorType::INVALID_VALUE },
+             Boundary{ "startingPositions", "y", 3, ParseErrorType::INVALID_VALUE },
          }) {
         CAPTURE(std::string(boundary.section));
         CAPTURE(std::string(boundary.field));
@@ -754,7 +775,7 @@ TEST_CASE("TownMapReader rejects parsed unsigned integers immediately above each
         auto &value = std::string_view(boundary.section) == "featureRules" ? record["definition"][boundary.field] : record[boundary.field];
         value = nlohmann::json::parse(std::to_string(boundary.value));
         REQUIRE(value.is_number_unsigned());
-        CHECK(read_town(data) == boundary.error);
+        CHECK(test::to_error_code(read_town(data)) == boundary.error);
     }
 }
 
@@ -765,7 +786,7 @@ TEST_CASE("TownMapReader rejects wrong action field counts and malformed numeric
         auto data = make_town_map();
         data["buildingRules"][0]["command"] = "A";
         data["buildingRules"][0]["fields"] = std::vector<std::string>(count, "0");
-        CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
     }
     for (const int index : { 0, 2, 3, 5, 6 }) {
         CAPTURE(index);
@@ -775,7 +796,7 @@ TEST_CASE("TownMapReader rejects wrong action field counts and malformed numeric
             data["buildingRules"][0]["command"] = "A";
             data["buildingRules"][0]["fields"] = { "0", "Action", "0", "0", "a", "0", "0" };
             data["buildingRules"][0]["fields"][index] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         }
     }
     for (const auto *command : { "N", "C", "M", "R", "Z" }) {
@@ -787,7 +808,7 @@ TEST_CASE("TownMapReader rejects wrong action field counts and malformed numeric
             rule["command"] = command;
             rule["fields"] = std::vector<std::string>(std::string_view(command) == "N" ? 3 : 1, "0");
             rule["fields"][0] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_TYPE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
         }
     }
 }
@@ -796,7 +817,7 @@ TEST_CASE("TownMapReader preserves output on root errors and value errors at eve
 {
     const auto original = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(original).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(original).read(definition, 3, 3).has_value());
     for (const auto *failure : { "version", "emptyMaps", "missingFeatures", "symbol", "locale", "row", "coordinate" }) {
         CAPTURE(std::string(failure));
         auto data = original;
@@ -804,16 +825,16 @@ TEST_CASE("TownMapReader preserves output on root errors and value errors at eve
         data["buildingRules"][0]["fields"][0] = "Changed";
         data["mapVariants"][0]["rows"][0] = "...";
         data["startingPositions"][0]["x"] = 2;
-        parse_error_type expected = PARSE_ERROR_INVALID_VALUE;
+        ParseErrorType expected = ParseErrorType::INVALID_VALUE;
         const std::string_view kind = failure;
         if (kind == "version") {
             data["version"] = 1;
-            expected = PARSE_ERROR_INVALID_TYPE;
+            expected = ParseErrorType::INVALID_TYPE;
         } else if (kind == "emptyMaps") {
             data["mapVariants"] = nlohmann::json::array();
         } else if (kind == "missingFeatures") {
             data.erase("featureRules");
-            expected = PARSE_ERROR_INVALID_TYPE;
+            expected = ParseErrorType::INVALID_TYPE;
         } else if (kind == "symbol") {
             data["featureRules"][0]["symbol"] = ":";
         } else if (kind == "locale") {
@@ -823,7 +844,7 @@ TEST_CASE("TownMapReader preserves output on root errors and value errors at eve
         } else {
             data["startingPositions"][0]["x"] = 3;
         }
-        CHECK(TownMapReader(data).read(definition, 3, 3) == expected);
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == expected);
         REQUIRE(definition.features.size() == 1);
         REQUIRE(definition.buildings.size() == 1);
         REQUIRE(definition.maps.size() == 1);
@@ -847,16 +868,16 @@ TEST_CASE("TownMapReader reports the first failing stage in declaration order")
     data["mapVariants"][0]["when"] = "";
     data["startingPositions"][0]["x"] = 3;
     TownMapDefinition definition;
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_TYPE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_TYPE);
     data["featureRules"][0].erase("when");
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
     data["buildingRules"][0]["locale"] = "en";
-    CHECK(TownMapReader(data).read(definition, 3, 3, true) == PARSE_ERROR_NONE);
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_TYPE);
+    CHECK(TownMapReader(data).read(definition, 3, 3, true).has_value());
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_TYPE);
     data["mapVariants"][0].erase("when");
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
     data["startingPositions"][0]["x"] = 1;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     CHECK(definition.starts.size() == 1);
 }
 
@@ -868,7 +889,7 @@ TEST_CASE("TownMapReader rejects nonprintable terrain and trap tokens")
             CAPTURE(hex_bytes(value));
             auto data = make_town_map();
             data["featureRules"][0]["definition"][field] = value;
-            CHECK(read_town(data) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
         }
     }
 }
@@ -948,10 +969,10 @@ TEST_CASE("TownMapReader typed building application preserves N A C R M Z contra
             data["buildingRules"][0]["command"] = test_case.command;
             data["buildingRules"][0]["fields"] = test_case.fields;
             TownMapDefinition definition;
-            REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+            REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
             REQUIRE(definition.buildings.size() == 1);
             buildings[1] = initial;
-            REQUIRE(apply_town_building_rule(definition.buildings[0]) == PARSE_ERROR_NONE);
+            REQUIRE(apply_town_building_rule(definition.buildings[0]).has_value());
             check_building(buildings[1], std::string_view(locale) == _("ja", "en") ? test_case.expected : initial);
             check_building(buildings[2], initial);
         }
@@ -962,7 +983,7 @@ TEST_CASE("TownMapReader rejects building fields outside their storage range bef
 {
     const auto original = make_town_map();
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(original).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(original).read(definition, 3, 3).has_value());
     for (const auto *locale : { "en", "ja" }) {
         for (const auto number : { -32769, 32768, 65535, std::numeric_limits<int>::min(), std::numeric_limits<int>::max() }) {
             for (const auto *command : { "A", "C", "R", "M" }) {
@@ -983,7 +1004,7 @@ TEST_CASE("TownMapReader rejects building fields outside their storage range bef
                     } else {
                         rule["fields"] = { "2", std::to_string(number) };
                     }
-                    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_VALUE);
+                    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
                     REQUIRE(definition.buildings.size() == 1);
                     REQUIRE(std::holds_alternative<TownMapBuildingNames>(definition.buildings[0].directive));
                     CHECK(std::get<TownMapBuildingNames>(definition.buildings[0].directive).name == "Building");
@@ -1018,9 +1039,9 @@ TEST_CASE("TownMapReader preserves building signed sixteen bit boundaries and in
                 rule["fields"] = { std::to_string(number) };
             }
             TownMapDefinition definition;
-            REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+            REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
             buildings[1] = initial;
-            REQUIRE(apply_town_building_rule(definition.buildings[0]) == PARSE_ERROR_NONE);
+            REQUIRE(apply_town_building_rule(definition.buildings[0]).has_value());
             const auto &building = buildings[1];
             if (std::string_view(command) == "A") {
                 CHECK(building.actions[0] == number);
@@ -1046,7 +1067,7 @@ TEST_CASE("TownMapReader typed building application rejects narrowing before any
     auto data = make_town_map();
     data["buildingRules"][0]["locale"] = _("ja", "en");
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     auto rule = definition.buildings[0];
     for (const auto number : { -32769, 32768, 65535, std::numeric_limits<int>::min(), std::numeric_limits<int>::max() }) {
         for (const auto restriction : { false, true }) {
@@ -1054,14 +1075,14 @@ TEST_CASE("TownMapReader typed building application rejects narrowing before any
             CAPTURE(restriction);
             buildings[1] = initial;
             rule.directive = TownMapBuildingAction{ 0, "Changed", 1, 2, "a", restriction ? 3 : number, restriction ? number : 4 };
-            CHECK(apply_town_building_rule(rule) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(apply_town_building_rule(rule)) == ParseErrorType::INVALID_VALUE);
             check_building(buildings[1], initial);
             check_building(buildings[2], initial);
         }
         for (const auto kind : { TownMapBuildingMembershipKind::CLASS, TownMapBuildingMembershipKind::RACE, TownMapBuildingMembershipKind::REALM }) {
             buildings[1] = initial;
             rule.directive = TownMapBuildingMembership{ kind, { 2, number } };
-            CHECK(apply_town_building_rule(rule) == PARSE_ERROR_INVALID_VALUE);
+            CHECK(test::to_error_code(apply_town_building_rule(rule)) == ParseErrorType::INVALID_VALUE);
             check_building(buildings[1], initial);
             check_building(buildings[2], initial);
         }
@@ -1078,8 +1099,8 @@ TEST_CASE("TownMapReader typed building memberships default omitted entries and 
         data["buildingRules"][0]["command"] = command;
         data["buildingRules"][0]["fields"] = { "2" };
         TownMapDefinition definition;
-        REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-        REQUIRE(apply_town_building_rule(definition.buildings[0]) == PARSE_ERROR_NONE);
+        REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+        REQUIRE(apply_town_building_rule(definition.buildings[0]).has_value());
         const auto is_realm = std::string_view(command) == "M";
         const auto &members = std::string_view(command) == "C" ? buildings[1].member_class : (is_realm ? buildings[1].member_realm : buildings[1].member_race);
         const auto offset = is_realm ? 1U : 0U;
@@ -1110,11 +1131,11 @@ TEST_CASE("TownMapReader typed building application validates conversion before 
                 rule["fields"] = { invalid_utf8 };
             }
             TownMapDefinition definition;
-            REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-            const auto expected = utf8_to_sys(invalid_utf8) ? PARSE_ERROR_NONE : PARSE_ERROR_INVALID_VALUE;
-            CHECK(apply_town_building_rule(definition.buildings[0]) == expected);
+            REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+            const auto expected = utf8_to_sys(invalid_utf8) ? ParseErrorType::NONE : ParseErrorType::INVALID_VALUE;
+            CHECK(test::to_error_code(apply_town_building_rule(definition.buildings[0])) == expected);
             // 英語版は文字コード変換が恒等変換のため、対象言語のN/Aは適用される。
-            if (expected != PARSE_ERROR_NONE || std::string_view(locale) != _("ja", "en") || std::string_view(command) == "Z") {
+            if (expected != ParseErrorType::NONE || std::string_view(locale) != _("ja", "en") || std::string_view(command) == "Z") {
                 check_building(buildings[1], initial);
             }
             buildings[1] = initial;
@@ -1129,20 +1150,20 @@ TEST_CASE("TownMapReader typed building failures leave the target unchanged")
     auto data = make_town_map();
     data["buildingRules"][0]["locale"] = _("ja", "en");
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     auto rule = definition.buildings[0];
     rule.index = MAX_BUILDINGS;
-    CHECK(apply_town_building_rule(rule) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(apply_town_building_rule(rule)) == ParseErrorType::INVALID_VALUE);
     rule.index = 1;
     rule.directive = TownMapBuildingAction{ 8, "Name", 1, 2, "a", 3, 4 };
-    CHECK(apply_town_building_rule(rule) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(apply_town_building_rule(rule)) == ParseErrorType::INVALID_VALUE);
     rule.directive = TownMapBuildingMembership{ TownMapBuildingMembershipKind::CLASS, {} };
-    CHECK(apply_town_building_rule(rule) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(apply_town_building_rule(rule)) == ParseErrorType::INVALID_VALUE);
     check_building(buildings[1], initial);
     data["buildingRules"].push_back(data["buildingRules"][0]);
     data["buildingRules"][1]["command"] = "A";
     data["buildingRules"][1]["fields"] = { "0", "Action", "0", "0", "a", "overflow", "0" };
-    CHECK(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
     REQUIRE(definition.buildings.size() == 1);
     CHECK(std::get<TownMapBuildingNames>(definition.buildings[0].directive).name == "Building");
     check_building(buildings[1], initial);
@@ -1168,44 +1189,35 @@ TEST_CASE("TownMapReader typed building application rejects embedded NUL before 
             }
             TownMapDefinition definition;
             // 区切り文字の検証とは別に、適用側でC文字列にできない文字を拒否する。
-            REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-            CHECK(apply_town_building_rule(definition.buildings[0]) == PARSE_ERROR_INVALID_VALUE);
+            REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+            CHECK(test::to_error_code(apply_town_building_rule(definition.buildings[0])) == ParseErrorType::INVALID_VALUE);
             check_building(buildings[1], initial);
         }
     }
 }
 
-TEST_CASE("TownMapReader applies typed feature token values and random flags")
+TEST_CASE("TownMapReader applies typed feature values and random flags")
 {
     TownFeatureStateGuard state;
     FloorType floor;
     floor.quest_number = QuestId::NONE;
-    struct TokenCase {
-        const char *token;
-        short value;
-        int random;
-    };
-    const auto random_tokens = RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_EGO | RANDOM_ARTIFACT;
-    for (const auto &[token, value, random] : { TokenCase{ "0", 0, 0 }, TokenCase{ "-1", -1, 0 },
-             TokenCase{ "*", 0, random_tokens }, TokenCase{ "*32767", 32767, random_tokens }, TokenCase{ "32767", 32767, 0 } }) {
-        CAPTURE(std::string(token));
+    for (const bool random : { false, true }) {
         auto data = make_town_map();
         auto &fields = data["featureRules"][0]["definition"];
         fields["terrain"] = "TOWN_FEATURE_TEST_FLOOR";
         fields["trap"] = "TOWN_FEATURE_TEST_TRAP";
-        fields["caveInfo"] = std::numeric_limits<int>::max();
+        fields["caveInfo"] = { "MARK", "GLOW", "NO_TELEPORT_DEST", "ROOM", "LITE" };
         fields["special"] = -32768;
-        for (const auto *field : { "monster", "object", "ego", "artifact" }) {
-            fields[field] = token;
+        for (const auto *field : { "monster", "object", "artifact" }) {
+            fields[field] = random ? nlohmann::json{ { "random", true } } : nlohmann::json(32767);
         }
         TownMapDefinition definition;
-        REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-        const dungeon_grid expected{ .feature = state.floor_id(), .monster = value, .object = value, .ego = i2enum<EgoType>(value), .artifact = i2enum<FixedArtifactId>(value), .trap = state.trap_id(), .cave_info = std::numeric_limits<int>::max(), .special = -32768, .random = random };
+        REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+        const short value = random ? short{ 0 } : short{ 32767 };
+        const dungeon_grid expected{ .feature = state.floor_id(), .monster = value, .object = value, .ego = EgoType::NONE, .artifact = i2enum<FixedArtifactId>(value), .trap = state.trap_id(), .cave_info = 31, .special = -32768, .random = random ? RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_ARTIFACT : 0 };
         letter['#'] = {};
-        REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+        REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
         check_same_grid(letter['#'], expected);
-        CHECK(letter['#'].feature == state.floor_id());
-        CHECK(letter['#'].trap == state.trap_id());
     }
 }
 
@@ -1224,12 +1236,12 @@ TEST_CASE("TownMapReader typed features reject unsafe bytes before touching lett
             std::copy(std::begin(letter), std::end(letter), result.begin());
             return result;
         }();
-        CHECK(apply_town_map_feature(floor, feature) == PARSE_ERROR_INVALID_VALUE);
+        CHECK(test::to_error_code(apply_town_map_feature(floor, feature)) == ParseErrorType::INVALID_VALUE);
         for (size_t i = 0; i < original.size(); ++i) {
             check_same_grid(letter[i], original[i]);
         }
         init_flags = INIT_ONLY_BUILDINGS;
-        CHECK(apply_town_map_feature(floor, feature) == PARSE_ERROR_NONE);
+        CHECK(apply_town_map_feature(floor, feature).has_value());
         for (size_t i = 0; i < original.size(); ++i) {
             check_same_grid(letter[i], original[i]);
         }
@@ -1247,7 +1259,7 @@ TEST_CASE("TownMapReader typed features retain printable ASCII boundaries")
         feature.symbol = symbol;
         feature.terrain = "TOWN_FEATURE_TEST_FLOOR";
         feature.trap = "TOWN_FEATURE_TEST_TRAP";
-        REQUIRE(apply_town_map_feature(floor, feature) == PARSE_ERROR_NONE);
+        REQUIRE(apply_town_map_feature(floor, feature).has_value());
         CHECK(letter[static_cast<unsigned char>(symbol)].feature == state.floor_id());
         CHECK(letter[static_cast<unsigned char>(symbol)].trap == state.trap_id());
     }
@@ -1261,17 +1273,17 @@ TEST_CASE("TownMapReader applies random terrain trap clones and reward placehold
     auto data = make_town_map();
     auto &fields = data["featureRules"][0]["definition"];
     fields["terrain"] = "*";
-    fields["trap"] = "*";
-    fields["monster"] = "c32767";
-    fields["object"] = "!";
-    fields["artifact"] = "!";
-    fields["ego"] = "-2147483648";
+    fields["trap"] = { { "random", true } };
+    fields["monster"] = { { "cloneOf", 32767 } };
+    fields["object"] = { { "questReward", true } };
+    fields["artifact"] = { { "questReward", true } };
+    fields["ego"] = 255;
     fields["special"] = 32767;
     TownMapDefinition definition;
-    REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
-    const dungeon_grid expected{ .feature = 0, .monster = -32767, .object = 0, .ego = i2enum<EgoType>(std::numeric_limits<int>::min()), .artifact = FixedArtifactId::NONE, .trap = 0, .cave_info = 0, .special = 32767, .random = RANDOM_FEATURE | RANDOM_TRAP };
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    const dungeon_grid expected{ .feature = 0, .monster = -32767, .object = 0, .ego = i2enum<EgoType>(255), .artifact = FixedArtifactId::NONE, .trap = 0, .cave_info = 0, .special = 32767, .random = RANDOM_FEATURE | RANDOM_TRAP };
     letter['#'] = {};
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     check_same_grid(letter['#'], expected);
     CHECK(letter['#'].monster == -32767);
     CHECK(letter['#'].random == (RANDOM_FEATURE | RANDOM_TRAP));
@@ -1291,16 +1303,16 @@ TEST_CASE("TownMapReader defers terrain resolution and publishes feature only on
         data["featureRules"][0]["definition"][field] = "TOWN_FEATURE_TEST_UNDEFINED";
         data["featureRules"][0]["when"] = "0";
         TownMapDefinition definition;
-        REQUIRE(TownMapReader(data).read(definition, 3, 3) == PARSE_ERROR_NONE);
+        REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
         CHECK(definition.features.front().condition == "0");
         letter['#'].feature = 123;
         letter['#'].monster = 456;
         letter['#'].random = RANDOM_EGO;
         const auto original = letter['#'];
-        CHECK(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_UNDEFINED_TERRAIN_TAG);
+        CHECK(test::to_error_code(apply_town_map_feature(floor, definition.features.front())) == ParseErrorType::UNDEFINED_TERRAIN_TAG);
         check_same_grid(letter['#'], original);
         init_flags = INIT_ONLY_BUILDINGS;
-        CHECK(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+        CHECK(apply_town_map_feature(floor, definition.features.front()).has_value());
         check_same_grid(letter['#'], original);
         init_flags = static_cast<init_flags_type>(0);
     }
@@ -1315,18 +1327,18 @@ TEST_CASE("TownMapReader resolves quest rewards at feature application time")
     artifact.gen_flags.set(ItemGenerationTraitType::INSTA_ART);
     FloorType floor;
     const auto definition = read_reward_town_map(floor, std::move(artifact));
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     CHECK(letter['#'].object == 0);
     CHECK(letter['#'].artifact == FixedArtifactId::NONE);
     test::QuestFeatureTestAccess::set_resolved_reward(FixedArtifactId::GALADRIEL_PHIAL);
     const dungeon_grid expected{ .feature = state.floor_id(), .monster = 0, .object = 0, .ego = EgoType::NONE, .artifact = FixedArtifactId::GALADRIEL_PHIAL, .trap = state.trap_id(), .cave_info = 0, .special = 0, .random = 0 };
     letter['#'] = {};
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     check_same_grid(letter['#'], expected);
     CHECK(letter['#'].object == 0); // Instant artifacts do not generate a base item.
     CHECK(letter['#'].artifact == FixedArtifactId::GALADRIEL_PHIAL);
     floor.quest_number = QuestId::NONE;
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     CHECK(letter['#'].artifact == FixedArtifactId::NONE);
 }
 
@@ -1350,7 +1362,7 @@ TEST_CASE("TownMapReader applies resolved ordinary quest reward baseitem and art
     original.name = "Town reward original";
     original.bi_key = reward_key;
     items.replace_baseitem(7, std::move(original));
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     CHECK(letter['#'].object == 7);
     CHECK(letter['#'].artifact == FixedArtifactId::GALADRIEL_PHIAL);
     CHECK(letter['#'].feature == state.floor_id());
@@ -1419,7 +1431,7 @@ TEST_CASE("TownMapReader returns an error and preserves the feature when quest r
     letter['#'].random = RANDOM_EGO;
     letter['#'].cave_info = CAVE_GLOW;
     const auto original = letter['#'];
-    CHECK(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_INVALID_VALUE);
+    CHECK(test::to_error_code(apply_town_map_feature(floor, definition.features.front())) == ParseErrorType::INVALID_VALUE);
     check_same_grid(letter['#'], original);
 }
 
@@ -1444,9 +1456,238 @@ TEST_CASE("TownMapReader applies an artifact-only reward without resolving its b
         test::QuestFeatureTestAccess::set_resolved_reward(FixedArtifactId::GALADRIEL_PHIAL);
     }
     const auto reward = QuestList::get_instance().get_quest(floor.quest_number).get_reward();
-    REQUIRE(apply_town_map_feature(floor, definition.features.front()) == PARSE_ERROR_NONE);
+    REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     CHECK(letter['#'].object == 19);
     CHECK(letter['#'].artifact == reward.value_or(FixedArtifactId::NONE));
     CHECK(letter['#'].feature == state.floor_id());
     CHECK(letter['#'].trap == state.trap_id());
+}
+
+TEST_CASE("TownMapReader v3 validates precedence and preserves output and letters")
+{
+    TownFeatureStateGuard state;
+    auto data = make_town_map();
+    TownMapDefinition definition;
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    const auto before = letter['#'];
+    struct InvalidCell {
+        nlohmann::json fields;
+        ParseErrorType error;
+    };
+    for (const auto &item : {
+             InvalidCell{ { { "terrain", nlohmann::json::object() } }, ParseErrorType::INVALID_TYPE },
+             InvalidCell{ { { "special", nlohmann::json::object() } }, ParseErrorType::INVALID_TYPE },
+             InvalidCell{ { { "caveInfo", { { "MARK", 1 } } } }, ParseErrorType::INVALID_TYPE },
+             InvalidCell{ { { "terrain", nullptr }, { "unknown", 1 } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "terrain", nullptr }, { "monster", nlohmann::json::object() } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "monster", { { "oodLevel", 1 } } } }, ParseErrorType::INVALID_TYPE },
+             InvalidCell{ { { "monster", { { "random", false }, { "cloneOf", nullptr } } } }, ParseErrorType::INVALID_TYPE },
+             InvalidCell{ { { "monster", { { "random", true }, { "cloneOf", 1 } } } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "trap", "*" } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "terrain", "" } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "caveInfo", { "MARK", "MARK" } } }, ParseErrorType::INVALID_VALUE },
+             InvalidCell{ { { "caveInfo", { "UNKNOWN" } } }, ParseErrorType::INVALID_FLAG },
+             InvalidCell{ { { "special", 32768 } }, ParseErrorType::INVALID_VALUE },
+         }) {
+        data["featureRules"][0]["definition"] = item.fields;
+        for (const bool only_buildings : { false, true }) {
+            CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3, only_buildings)) == item.error);
+            CHECK(definition.features.front().terrain == "WALL");
+            check_same_grid(letter['#'], before);
+        }
+    }
+    for (const auto &version : std::array<nlohmann::json, 6>{ { 2, 4, 3.0, true, nullptr, "3" } }) {
+        data = make_town_map();
+        data["version"] = version;
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 0, true)) == ParseErrorType::INVALID_TYPE);
+    }
+    data = make_town_map();
+    data["featureRules"][0]["definition"] = { { "terrain", "UNINITIALIZED_TOWN_TAG" } };
+    REQUIRE(TownMapReader(data).read(definition, 0, 0, true).has_value());
+    CHECK(definition.features.front().cell.grid.feature == 0);
+    CHECK(definition.features.front().cell.grid.trap == 0);
+    CHECK(definition.features.front().cell.grid.random == 0);
+    data["featureRules"][0]["definition"] = nlohmann::json::object();
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    CHECK(definition.features.front().terrain == "NONE");
+    CHECK(definition.features.front().trap == "NONE");
+}
+
+// 変換前1b378912b9の各規則の値を固定する。v2 readerや変換関数には依存しない。
+static const auto town_v2_expected = nlohmann::json::parse(
+    R"townv2({"01_Outpost_Full.jsonc":[["!",null,"FLOOR","NONE",0,0,0,0,3,0,0],["@",null,"FLOOR","NONE",0,0,0,0,3,0,0],["z",null,"TREE","NONE",0,0,0,0,3,0,0],["y",null,"TREE","NONE",0,0,0,0,3,0,0],["x",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["w",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["v",null,"GRASS","NONE",0,0,0,0,3,0,0],["A",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["s",null,"GRASS","NONE",0,0,0,0,3,0,0],["r",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["q",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST1 0]","BUILDING_1","NONE",0,0,0,0,3,1,0],["z","[EQU $QUEST1 1]","QUEST_ENTER","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 1]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 2]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 3]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[EQU $QUEST1 3]","FLOOR","NONE",0,42,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS BeastMaster Cavalry] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS BeastMaster Cavalry] ]","FLOOR","NONE",0,543,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Monk ForceTrainer] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Monk ForceTrainer] ]","FLOOR","NONE",0,126,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Priest] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Priest] ]","FLOOR","NONE",0,55,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Archer] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Archer] ]","FLOOR","NONE",0,73,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Weaponsmith] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Weaponsmith] ]","FLOOR","NONE",0,70,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Ninja] ]","BUILDING_1","NONE",0,0,0,0,3,14,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Ninja] ]","FLOOR","NONE",0,43,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $IRONMAN_DOWNWARD 1] ]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST1 4]","BUILDING_1","NONE",0,0,0,0,3,14,0],["b","[AND [EQU $QUEST1 4] [EQU $IRONMAN_DOWNWARD 1] ]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST1 5]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 6]","BUILDING_1","NONE",0,0,0,0,3,14,0],["b","[AND [EQU $QUEST1 6] [EQU $IRONMAN_DOWNWARD 1] ]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST14 1]","BUILDING_1","NONE",0,0,0,0,3,14,0],["b","[EQU $QUEST14 2]","BUILDING_1","NONE",0,0,0,0,3,14,0],["b","[EQU $QUEST14 3]","BUILDING_1","NONE",0,0,0,0,3,18,0],["!","[EQU $QUEST14 3]","FLOOR","NONE",0,75,0,0,3,0,0],["b","[EQU $QUEST14 4]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST14 6]","BUILDING_1","NONE",0,0,0,0,3,18,0],["y","[EQU $QUEST18 1]","QUEST_ENTER","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST18 1]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST18 2]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST18 3]","BUILDING_1","NONE",0,0,0,0,3,25,0],["!","[EQU $QUEST18 3]","FLOOR","NONE",0,244,0,0,3,0,0],["b","[EQU $QUEST18 4]","BUILDING_1","NONE",0,0,0,0,3,25,0],["b","[EQU $QUEST18 5]","BUILDING_1","NONE",0,0,0,0,3,18,0],["b","[EQU $QUEST18 6]","BUILDING_1","NONE",0,0,0,0,3,25,0],["x","[EQU $QUEST25 1]","QUEST_ENTER","NONE",0,0,0,0,3,25,0],["b","[EQU $QUEST25 1]","BUILDING_1","NONE",0,0,0,0,3,25,0],["b","[EQU $QUEST25 2]","BUILDING_1","NONE",0,0,0,0,3,25,0],["b","[EQU $QUEST25 3]","BUILDING_1","NONE",0,0,0,0,3,28,0],["!","[EQU $QUEST25 3]","FLOOR","NONE",0,587,0,0,3,0,0],["b","[EQU $QUEST25 4]","BUILDING_1","NONE",0,0,0,0,3,28,0],["b","[EQU $QUEST25 5]","BUILDING_1","NONE",0,0,0,0,3,25,0],["b","[EQU $QUEST25 6]","BUILDING_1","NONE",0,0,0,0,3,28,0],["w","[EQU $QUEST28 1]","QUEST_ENTER","NONE",0,0,0,0,3,28,0],["b","[EQU $QUEST28 1]","BUILDING_1","NONE",0,0,0,0,3,28,0],["b","[EQU $QUEST28 2]","BUILDING_1","NONE",0,0,0,0,3,28,0],["b","[EQU $QUEST28 3]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST28 4]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST28 5]","BUILDING_1","NONE",0,0,0,0,3,28,0],["b","[EQU $QUEST28 6]","BUILDING_1","NONE",0,0,0,0,3,0,0],["a","[EQU $QUEST34 0]","BUILDING_0","NONE",0,0,0,0,3,34,0],["A","[EQU $QUEST34 1]","QUEST_ENTER","NONE",0,0,0,0,3,34,0],["a","[EQU $QUEST34 1]","BUILDING_0","NONE",0,0,0,0,3,34,0],["a","[EQU $QUEST34 2]","BUILDING_0","NONE",0,0,0,0,3,34,0],["a","[EQU $QUEST34 3]","BUILDING_0","NONE",0,0,0,0,3,31,0],["@","[EQU $QUEST34 3]","FLOOR","NONE",0,618,0,0,3,0,0],["a","[EQU $QUEST34 4]","BUILDING_0","NONE",0,0,0,0,3,31,0],["a","[EQU $QUEST34 5]","BUILDING_0","NONE",0,0,0,0,3,34,0],["a","[EQU $QUEST34 6]","BUILDING_0","NONE",0,0,0,0,3,31,0],["s","[EQU $QUEST31 1]","QUEST_ENTER","NONE",0,0,0,0,3,31,0],["a","[EQU $QUEST31 1]","BUILDING_0","NONE",0,0,0,0,3,31,0],["a","[EQU $QUEST31 2]","BUILDING_0","NONE",0,0,0,0,3,31,0],["a","[EQU $QUEST31 3]","BUILDING_0","NONE",0,0,0,0,3,32,0],["@","[EQU $QUEST31 3]","FLOOR","NONE",0,430,0,0,3,0,0],["a","[EQU $QUEST31 4]","BUILDING_0","NONE",0,0,0,0,3,32,0],["a","[EQU $QUEST31 5]","BUILDING_0","NONE",0,0,0,0,3,31,0],["a","[EQU $QUEST31 6]","BUILDING_0","NONE",0,0,0,0,3,32,0],["r","[EQU $QUEST32 1]","QUEST_ENTER","NONE",0,0,0,0,3,32,0],["a","[EQU $QUEST32 1]","BUILDING_0","NONE",0,0,0,0,3,32,0],["a","[EQU $QUEST32 2]","BUILDING_0","NONE",0,0,0,0,3,32,0],["a","[EQU $QUEST32 3]","BUILDING_0","NONE",0,0,0,0,3,33,0],["@","[EQU $QUEST32 3]","FLOOR","NONE",0,0,0,1,3,0,0],["a","[EQU $QUEST32 4]","BUILDING_0","NONE",0,0,0,0,3,33,0],["a","[EQU $QUEST32 5]","BUILDING_0","NONE",0,0,0,0,3,32,0],["a","[EQU $QUEST32 6]","BUILDING_0","NONE",0,0,0,0,3,33,0],["q","[EQU $QUEST33 1]","QUEST_ENTER","NONE",0,0,0,0,3,33,0],["a","[EQU $QUEST33 1]","BUILDING_0","NONE",0,0,0,0,3,33,0],["a","[EQU $QUEST33 2]","BUILDING_0","NONE",0,0,0,0,3,33,0],["a","[EQU $QUEST33 3]","BUILDING_0","NONE",0,0,0,0,3,27,0],["@","[EQU $QUEST33 3]","FLOOR","NONE",0,0,0,63,3,0,0],["a","[EQU $QUEST33 4]","BUILDING_0","NONE",0,0,0,0,3,27,0],["a","[EQU $QUEST33 5]","BUILDING_0","NONE",0,0,0,0,3,33,0],["a","[EQU $QUEST33 6]","BUILDING_0","NONE",0,0,0,0,3,27,0],["v","[EQU $QUEST27 1]","QUEST_ENTER","NONE",0,0,0,0,3,27,0],["a","[EQU $QUEST27 1]","BUILDING_0","NONE",0,0,0,0,3,27,0],["a","[EQU $QUEST27 2]","BUILDING_0","NONE",0,0,0,0,3,27,0],["a","[EQU $QUEST27 3]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[EQU $QUEST27 3]","FLOOR","NONE",0,0,0,80,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Weaponsmith] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Weaponsmith] ]","FLOOR","NONE",0,405,0,0,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Tourist] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Tourist] ]","FLOOR","NONE",0,0,0,141,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Ranger Archer] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Ranger Archer] ]","FLOOR","NONE",0,0,0,148,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Warrior Berserker] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Warrior Berserker] ]","FLOOR","NONE",0,0,0,266,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Cavalry] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Cavalry] ]","FLOOR","NONE",0,0,0,255,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Chaos-Warrior] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Chaos-Warrior] ]","FLOOR","NONE",0,0,0,77,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Rogue] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Rogue] ]","FLOOR","NONE",0,0,0,134,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Monk] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Monk] ]","FLOOR","NONE",0,0,0,26,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Ninja] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Ninja] ]","FLOOR","NONE",0,0,0,215,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Mage High-Mage Sorcerer Blue-Mage Mindcrafter] ]","BUILD)townv2"
+    R"townv2(ING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Mage High-Mage Sorcerer Blue-Mage Mindcrafter] ]","FLOOR","NONE",0,0,0,33,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Priest ForceTrainer Elementalist] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Priest ForceTrainer Elementalist] ]","FLOOR","NONE",0,0,0,15,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Bard ] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Bard ] ]","FLOOR","NONE",0,0,0,251,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Mirror-Master] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Mirror-Master] ]","FLOOR","NONE",0,0,0,132,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Samurai Warrior-Mage] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Samurai Warrior-Mage] ]","FLOOR","NONE",0,0,0,81,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Red-Mage] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Red-Mage] ]","FLOOR","NONE",0,0,0,252,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Crusade] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Crusade] ]","FLOOR","NONE",0,0,0,217,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Death] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Death] ]","FLOOR","NONE",0,0,0,218,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Magic-Eater BeastMaster] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Magic-Eater BeastMaster] ]","FLOOR","NONE",0,0,0,219,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Imitator] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Imitator] ]","FLOOR","NONE",0,0,0,220,3,0,0],["a","[AND [EQU $QUEST27 3] [EQU $CLASS Sniper] ]","BUILDING_0","NONE",0,0,0,0,3,0,0],["@","[AND [EQU $QUEST27 3] [EQU $CLASS Sniper] ]","FLOOR","NONE",0,0,0,223,3,0,0],["a","[EQU $QUEST27 4]","BUILDING_0","NONE",0,0,0,0,3,0,0],["a","[EQU $QUEST27 5]","BUILDING_0","NONE",0,0,0,0,3,27,0],["a","[EQU $QUEST27 6]","BUILDING_0","NONE",0,0,0,0,3,0,0]],"01_Outpost_Lite.jsonc":[["!",null,"FLOOR","NONE",0,0,0,0,3,0,0],["(",null,"FLOOR","NONE",0,0,0,0,3,0,0],["$",null,"GRASS","NONE",0,0,0,0,3,0,0],["\"",null,"GRASS","NONE",0,0,0,0,3,0,0],["z",null,"TREE","NONE",0,0,0,0,3,0,0],["x",null,"GRASS","NONE",0,0,0,0,3,0,0],["w",null,"GRASS","NONE",0,0,0,0,3,0,0],["v",null,"GRASS","NONE",0,0,0,0,3,0,0],["u",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["t",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["s",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["r",null,"FLOOR","NONE",0,0,0,0,3,0,0],["q",null,"GRASS","NONE",0,0,0,0,3,0,0],[")",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST1 0]","BUILDING_1","NONE",0,0,0,0,3,1,0],["z","[EQU $QUEST1 1]","QUEST_ENTER","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 1]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 2]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 3]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[EQU $QUEST1 3]","FLOOR","NONE",0,42,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS BeastMaster Cavalry] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS BeastMaster Cavalry] ]","FLOOR","NONE",0,543,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Monk ForceTrainer Elementalist] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Monk ForceTrainer Elementalist] ]","FLOOR","NONE",0,126,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Priest] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Priest] ]","FLOOR","NONE",0,55,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Archer] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Archer] ]","FLOOR","NONE",0,73,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Weaponsmith] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Weaponsmith] ]","FLOOR","NONE",0,70,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Mage High-Mage Blue-Mage Sorcerer Mirror-Master] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Mage High-Mage Blue-Mage Sorcerer Mirror-Master] ]","FLOOR","NONE",0,618,0,0,3,0,0],["b","[AND [EQU $QUEST1 3] [EQU $CLASS Ninja] ]","BUILDING_1","NONE",0,0,0,0,3,2,0],["!","[AND [EQU $QUEST1 3] [EQU $CLASS Ninja] ]","FLOOR","NONE",0,43,0,0,3,0,0],["b","[EQU $QUEST1 4]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST1 5]","BUILDING_1","NONE",0,0,0,0,3,1,0],["b","[EQU $QUEST1 6]","BUILDING_1","NONE",0,0,0,0,3,2,0],["r","[EQU $QUEST2 1]","QUEST_ENTER","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 1]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 2]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 3]","BUILDING_1","NONE",0,0,0,0,3,3,0],["!","[EQU $QUEST2 3]","FLOOR","NONE",0,582,0,0,3,0,0],["b","[EQU $QUEST2 4]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST2 5]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 6]","BUILDING_1","NONE",0,0,0,0,3,3,0],["s","[EQU $QUEST3 1]","QUEST_ENTER","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 1]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 2]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 3]","BUILDING_1","NONE",0,0,0,0,3,4,0],["!","[EQU $QUEST3 3]","FLOOR","NONE",0,314,0,0,3,0,0],["b","[EQU $QUEST3 4]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST3 5]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 6]","BUILDING_1","NONE",0,0,0,0,3,4,0],["t","[EQU $QUEST4 1]","QUEST_ENTER","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 1]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 2]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 3]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST4 4]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST4 5]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 6]","BUILDING_1","NONE",0,0,0,0,3,5,0],["u","[EQU $QUEST5 1]","QUEST_ENTER","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 1]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 2]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 3]","BUILDING_1","NONE",0,0,0,0,3,27,0],["!","[EQU $QUEST5 3]","FLOOR","NONE",0,143,0,0,3,0,0],["b","[EQU $QUEST5 4]","BUILDING_1","NONE",0,0,0,0,3,27,0],["b","[EQU $QUEST5 5]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 6]","BUILDING_1","NONE",0,0,0,0,3,27,0],["q","[EQU $QUEST27 1]","QUEST_ENTER","NONE",0,0,0,0,3,27,0],["b","[EQU $QUEST27 1]","BUILDING_1","NONE",0,0,0,0,3,27,0],["b","[EQU $QUEST27 2]","BUILDING_1","NONE",0,0,0,0,3,27,0],["b","[EQU $QUEST27 3]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[EQU $QUEST27 3]","FLOOR","NONE",0,0,0,80,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Weaponsmith] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Weaponsmith] ]","FLOOR","NONE",0,405,0,0,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Tourist] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Tourist] ]","FLOOR","NONE",0,0,0,141,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Ranger Archer] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Ranger Archer] ]","FLOOR","NONE",0,0,0,148,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Warrior Berserker] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Warrior Berserker] ]","FLOOR","NONE",0,0,0,266,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Cavalry] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Cavalry] ]","FLOOR","NONE",0,0,0,163,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Chaos-Warrior] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Chaos-Warrior] ]","FLOOR","NONE",0,0,0,77,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Rogue] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Rogue] ]",")townv2"
+    R"townv2(FLOOR","NONE",0,0,0,134,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Monk] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Monk] ]","FLOOR","NONE",0,0,0,26,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Ninja] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Ninja] ]","FLOOR","NONE",0,0,0,215,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Mage High-Mage Sorcerer Blue-Mage Mindcrafter] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Mage High-Mage Sorcerer Blue-Mage Mindcrafter] ]","FLOOR","NONE",0,0,0,33,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Priest Bard ForceTrainer] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Priest Bard ForceTrainer] ]","FLOOR","NONE",0,0,0,15,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Mirror-Master] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Mirror-Master] ]","FLOOR","NONE",0,0,0,132,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Samurai Warrior-Mage] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Samurai Warrior-Mage] ]","FLOOR","NONE",0,0,0,81,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Red-Mage] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Red-Mage] ]","FLOOR","NONE",0,0,0,252,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Crusade] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Crusade] ]","FLOOR","NONE",0,0,0,217,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Death] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Paladin] [EQU $REALM1 Death] ]","FLOOR","NONE",0,0,0,218,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Magic-Eater BeastMaster] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Magic-Eater BeastMaster] ]","FLOOR","NONE",0,0,0,219,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Imitator] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Imitator] ]","FLOOR","NONE",0,0,0,220,3,0,0],["b","[AND [EQU $QUEST27 3] [EQU $CLASS Sniper] ]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[AND [EQU $QUEST27 3] [EQU $CLASS Sniper] ]","FLOOR","NONE",0,0,0,223,3,0,0],["b","[EQU $QUEST27 4]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST27 5]","BUILDING_1","NONE",0,0,0,0,3,27,0],["b","[EQU $QUEST27 6]","BUILDING_1","NONE",0,0,0,0,3,15,0],[")","[EQU $QUEST15 1]","QUEST_ENTER","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 1]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 2]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 3]","BUILDING_1","NONE",0,0,0,0,3,0,0],["!","[EQU $QUEST15 3]","FLOOR","NONE",0,418,0,0,3,0,0],["b","[EQU $QUEST15 4]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST15 5]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 6]","BUILDING_1","NONE",0,0,0,0,3,0,0],["l","[EQU $QUEST10 0]","BUILDING_11","NONE",0,0,0,0,3,10,0],["v","[EQU $QUEST10 1]","QUEST_ENTER","NONE",0,0,0,0,3,10,0],["l","[EQU $QUEST10 1]","BUILDING_11","NONE",0,0,0,0,3,10,0],["l","[EQU $QUEST10 2]","BUILDING_11","NONE",0,0,0,0,3,10,0],["l","[EQU $QUEST10 3]","BUILDING_11","NONE",0,0,0,0,3,0,0],["(","[EQU $QUEST10 3]","FLOOR","NONE",0,337,0,0,3,0,0],["l","[EQU $QUEST10 4]","BUILDING_11","NONE",0,0,0,0,3,0,0],["l","[EQU $QUEST10 5]","BUILDING_11","NONE",0,0,0,0,3,10,0],["l","[EQU $QUEST10 6]","BUILDING_11","NONE",0,0,0,0,3,0,0],["n","[EQU $QUEST11 0]","BUILDING_13","NONE",0,0,0,0,3,11,0],["w","[EQU $QUEST11 1]","QUEST_ENTER","NONE",0,0,0,0,3,11,0],["n","[EQU $QUEST11 1]","BUILDING_13","NONE",0,0,0,0,3,11,0],["n","[EQU $QUEST11 2]","BUILDING_13","NONE",0,0,0,0,3,11,0],["n","[EQU $QUEST11 3]","BUILDING_13","NONE",0,0,0,0,3,0,0],["$","[EQU $QUEST11 3]","GRASS","NONE",0,386,0,0,3,0,0],["n","[EQU $QUEST11 4]","BUILDING_13","NONE",0,0,0,0,3,0,0],["n","[EQU $QUEST11 5]","BUILDING_13","NONE",0,0,0,0,3,11,0],["n","[EQU $QUEST11 6]","BUILDING_13","NONE",0,0,0,0,3,0,0],["o","[EQU $QUEST12 0]","BUILDING_14","NONE",0,0,0,0,3,12,0],["x","[EQU $QUEST12 1]","QUEST_ENTER","NONE",0,0,0,0,3,12,0],["o","[EQU $QUEST12 1]","BUILDING_14","NONE",0,0,0,0,3,12,0],["o","[EQU $QUEST12 2]","BUILDING_14","NONE",0,0,0,0,3,12,0],["o","[EQU $QUEST12 3]","BUILDING_14","NONE",0,0,0,0,3,0,0],["\"","[EQU $QUEST12 3]","GRASS","NONE",0,382,0,0,3,0,0],["o","[EQU $QUEST12 4]","BUILDING_14","NONE",0,0,0,0,3,0,0],["o","[EQU $QUEST12 5]","BUILDING_14","NONE",0,0,0,0,3,12,0],["o","[EQU $QUEST12 6]","BUILDING_14","NONE",0,0,0,0,3,0,0]],"01_Outpost_OnlyAngband.jsonc":[],"02_Telmora.jsonc":[["!",null,"FLOOR","NONE",0,0,0,0,3,0,0],["z",null,"FLOOR","NONE",0,0,0,0,3,0,0],["y",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["x",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["w",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["v",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["u",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["t",null,"TREE","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST2 0]","BUILDING_1","NONE",0,0,0,0,3,2,0],["z","[EQU $QUEST2 1]","QUEST_ENTER","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 1]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 2]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 3]","BUILDING_1","NONE",0,0,0,0,3,3,0],["!","[EQU $QUEST2 3]","FLOOR","NONE",0,582,0,0,3,0,0],["b","[EQU $QUEST2 4]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST2 5]","BUILDING_1","NONE",0,0,0,0,3,2,0],["b","[EQU $QUEST2 6]","BUILDING_1","NONE",0,0,0,0,3,3,0],["y","[EQU $QUEST3 1]","QUEST_ENTER","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 1]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 2]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 3]","BUILDING_1","NONE",0,0,0,0,3,4,0],["!","[EQU $QUEST3 3]","FLOOR","NONE",0,314,0,0,3,0,0],["b","[EQU $QUEST3 4]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST3 5]","BUILDING_1","NONE",0,0,0,0,3,3,0],["b","[EQU $QUEST3 6]","BUILDING_1","NONE",0,0,0,0,3,4,0],["x","[EQU $QUEST4 1]","QUEST_ENTER","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 1]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 2]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 3]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST4 4]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST4 5]","BUILDING_1","NONE",0,0,0,0,3,4,0],["b","[EQU $QUEST4 6]","BUILDING_1","NONE",0,0,0,0,3,5,0],["w","[EQU $QUEST5 1]","QUEST_ENTER","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 1]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 2]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 3]","BUILDING_1","NONE",0,0,0,0,3,26,0],["!","[EQU $QUEST5 3]","FLOOR","NONE",0,143,0,0,3,0,0],["b","[EQU $QUEST5 4]","BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST5 5]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[EQU $QUEST5 6]","BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[AND [EQU $QUEST5 3] [AND [EQU $CLASS Paladin] [EQU $REALM1 Death] ] ]","BUILDING_1","NONE",0,0,0,0,3,16,0],["!","[AND [EQU $QUEST5 3] [AND [EQU $CLASS Paladin] [EQU $REALM1 Death] ] ]","FLOOR","NONE",0,143,0,0,3,0,0],["b","[AND [EQU $QUEST5 4] [AND [EQU $CLASS Paladin] [EQU $REALM1 Death] ] ]","BUILDING_1","NONE",0,0,0,0,3,16,0],["b","[AND [EQU $QUEST5 5] [AND [EQU $CLASS Paladin] [EQU $REALM1 Death] ] ]","BUILDING_1","NONE",0,0,0,0,3,5,0],["b","[AND [EQU $QUEST5 6] [AND [EQU $CLASS Paladin] [EQU $REALM1 Death] ] ]","BUILDING_1","NONE",0,0,0,0,3,16,0],["u","[EQU $QUEST16 1]","QUEST_ENTER","NONE",0,0,0,0,3,16,0],["b","[EQU $QUEST16 1]","BUILDING_1","NONE",0,0,0,0,3,16,0],["b","[EQU $QUEST16 2]","BUILDING_1","NONE",0,0,0,0,3,16,0],["b","[EQU $QUEST16 3]","BUILDING_1","NONE",0,0,0,0,3,26,0],["!","[EQU $QUEST16 3]","FLOOR","NONE",0,520,0,0,3,0,0],["b","[EQU $QUEST16 4]","BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST16 5]","BUILDING_1","NONE",0,0,0,0,3,16,0],["b","[EQU $QUEST16 6]","BUILDING_1","NONE",0,0,0,0,3,26,0],["t","[EQU $QUEST26 1]","QUEST_ENTER","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST26 1]",)townv2"
+    R"townv2("BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST26 2]","BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST26 3]","BUILDING_1","NONE",0,0,0,0,3,15,0],["!","[EQU $QUEST26 3]","FLOOR","NONE",0,307,0,0,3,0,0],["b","[EQU $QUEST26 4]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST26 5]","BUILDING_1","NONE",0,0,0,0,3,26,0],["b","[EQU $QUEST26 6]","BUILDING_1","NONE",0,0,0,0,3,15,0],["v","[EQU $QUEST15 1]","QUEST_ENTER","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 1]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 2]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 3]","BUILDING_1","NONE",0,0,0,0,3,0,0],["!","[EQU $QUEST15 3]","FLOOR","NONE",0,418,0,0,3,0,0],["b","[EQU $QUEST15 4]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST15 5]","BUILDING_1","NONE",0,0,0,0,3,15,0],["b","[EQU $QUEST15 6]","BUILDING_1","NONE",0,0,0,0,3,0,0]],"03_Morivant.jsonc":[["~",null,"FLOOR","NONE",0,0,0,0,3,0,0],["@",null,"FLOOR","NONE",0,0,0,0,3,0,0],["z",null,"GRASS","NONE",0,0,0,0,3,0,0],["y",null,"GRASS","NONE",0,0,0,0,3,0,0],["x",null,"GRASS","NONE",0,0,0,0,3,0,0],["v",null,"FLOOR","NONE",0,0,0,0,3,0,0],["w",null,"GRASS","NONE",0,0,0,0,3,0,0],["u",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["s",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["r",null,"PERMANENT","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST20 0]","BUILDING_1","NONE",0,0,0,0,3,20,0],["v","[EQU $QUEST20 1]","QUEST_ENTER","NONE",0,0,0,0,3,20,0],["b","[EQU $QUEST20 1]","BUILDING_1","NONE",0,0,0,0,3,20,0],["b","[EQU $QUEST20 2]","BUILDING_1","NONE",0,0,0,0,3,20,0],["b","[EQU $QUEST20 3]","BUILDING_1","NONE",0,0,0,0,3,24,0],["~","[EQU $QUEST20 3]","FLOOR","NONE",0,375,0,0,3,0,0],["b","[EQU $QUEST20 4]","BUILDING_1","NONE",0,0,0,0,3,24,0],["b","[EQU $QUEST20 5]","BUILDING_1","NONE",0,0,0,0,3,20,0],["b","[EQU $QUEST20 6]","BUILDING_1","NONE",0,0,0,0,3,24,0],["u","[EQU $QUEST24 1]","QUEST_ENTER","NONE",0,0,0,0,3,24,0],["b","[EQU $QUEST24 1]","BUILDING_1","NONE",0,0,0,0,3,24,0],["b","[EQU $QUEST24 2]","BUILDING_1","NONE",0,0,0,0,3,24,0],["~","[EQU $QUEST24 3]","FLOOR","NONE",0,432,0,0,3,0,0],["b","[AND [EQU $QUEST24 3 4] [GEQ $QUEST19 4] ]","BUILDING_1","NONE",0,0,0,0,3,21,0],["b","[AND [EQU $QUEST24 3 4] [LEQ $QUEST19 3] ]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST24 5]","BUILDING_1","NONE",0,0,0,0,3,24,0],["b","[AND [EQU $QUEST24 6] [GEQ $QUEST19 4] ]","BUILDING_1","NONE",0,0,0,0,3,21,0],["b","[AND [EQU $QUEST24 6] [LEQ $QUEST19 3] ]","BUILDING_1","NONE",0,0,0,0,3,0,0],["w","[EQU $QUEST21 1]","QUEST_ENTER","NONE",0,0,0,0,3,21,0],["b","[EQU $QUEST21 1]","BUILDING_1","NONE",0,0,0,0,3,21,0],["b","[EQU $QUEST21 2]","BUILDING_1","NONE",0,0,0,0,3,21,0],["b","[EQU $QUEST21 3]","BUILDING_1","NONE",0,0,0,0,3,0,0],["~","[EQU $QUEST21 3]","FLOOR","NONE",0,329,0,0,3,0,0],["b","[EQU $QUEST21 4]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST21 5]","BUILDING_1","NONE",0,0,0,0,3,21,0],["b","[EQU $QUEST21 6]","BUILDING_1","NONE",0,0,0,0,3,0,0],["k","[EQU $QUEST29 0]","BUILDING_10","NONE",0,0,0,0,3,29,0],["s","[EQU $QUEST29 1]","QUEST_ENTER","NONE",0,0,0,0,3,29,0],["k","[EQU $QUEST29 1]","BUILDING_10","NONE",0,0,0,0,3,29,0],["k","[EQU $QUEST29 2]","BUILDING_10","NONE",0,0,0,0,3,29,0],["k","[EQU $QUEST29 3]","BUILDING_10","NONE",0,0,0,0,3,30,0],["@","[EQU $QUEST29 3]","FLOOR","NONE",0,155,0,0,3,0,0],["k","[EQU $QUEST29 4]","BUILDING_10","NONE",0,0,0,0,3,30,0],["k","[EQU $QUEST29 5]","BUILDING_10","NONE",0,0,0,0,3,29,0],["k","[EQU $QUEST29 6]","BUILDING_10","NONE",0,0,0,0,3,30,0],["r","[EQU $QUEST30 1]","QUEST_ENTER","NONE",0,0,0,0,3,30,0],["k","[EQU $QUEST30 1]","BUILDING_10","NONE",0,0,0,0,3,30,0],["k","[EQU $QUEST30 2]","BUILDING_10","NONE",0,0,0,0,3,30,0],["k","[EQU $QUEST30 3]","BUILDING_10","NONE",0,0,0,0,3,0,0],["@","[EQU $QUEST30 3]","FLOOR","NONE",0,144,0,0,3,0,0],["k","[EQU $QUEST30 4]","BUILDING_10","NONE",0,0,0,0,3,0,0],["k","[EQU $QUEST30 5]","BUILDING_10","NONE",0,0,0,0,3,30,0],["k","[EQU $QUEST30 6]","BUILDING_10","NONE",0,0,0,0,3,0,0]],"04_Angwil.jsonc":[["!",null,"FLOOR","NONE",0,0,0,0,3,0,0],["z",null,"TREE","NONE",0,0,0,0,3,0,0],["y",null,"TREE","NONE",0,0,0,0,3,0,0],["x",null,"TREE","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST22 0]","BUILDING_1","NONE",0,0,0,0,3,22,0],["y","[EQU $QUEST22 1]","QUEST_ENTER","NONE",0,0,0,0,3,22,0],["b","[EQU $QUEST22 1]","BUILDING_1","NONE",0,0,0,0,3,22,0],["b","[EQU $QUEST22 2]","BUILDING_1","NONE",0,0,0,0,3,22,0],["b","[EQU $QUEST22 3]","BUILDING_1","NONE",0,0,0,0,3,19,0],["!","[EQU $QUEST22 3]","FLOOR","NONE",0,90,0,0,3,0,0],["b","[EQU $QUEST22 4]","BUILDING_1","NONE",0,0,0,0,3,19,0],["b","[EQU $QUEST22 5]","BUILDING_1","NONE",0,0,0,0,3,22,0],["b","[EQU $QUEST22 6]","BUILDING_1","NONE",0,0,0,0,3,19,0],["z","[EQU $QUEST19 1]","QUEST_ENTER","NONE",0,0,0,0,3,19,0],["b","[EQU $QUEST19 1]","BUILDING_1","NONE",0,0,0,0,3,19,0],["b","[EQU $QUEST19 2]","BUILDING_1","NONE",0,0,0,0,3,19,0],["b","[EQU $QUEST19 3]","BUILDING_1","NONE",0,0,0,0,3,23,0],["!","[EQU $QUEST19 3]","FLOOR","NONE",0,146,0,0,3,0,0],["b","[EQU $QUEST19 4]","BUILDING_1","NONE",0,0,0,0,3,23,0],["b","[EQU $QUEST19 5]","BUILDING_1","NONE",0,0,0,0,3,19,0],["b","[EQU $QUEST19 6]","BUILDING_1","NONE",0,0,0,0,3,23,0],["x","[EQU $QUEST23 1]","QUEST_ENTER","NONE",0,0,0,0,3,23,0],["b","[EQU $QUEST23 1]","BUILDING_1","NONE",0,0,0,0,3,23,0],["b","[EQU $QUEST23 2]","BUILDING_1","NONE",0,0,0,0,3,23,0],["b","[EQU $QUEST23 3]","BUILDING_1","NONE",0,0,0,0,3,0,0],["!","[EQU $QUEST23 3]","FLOOR","NONE",0,411,0,0,3,0,0],["b","[EQU $QUEST23 4]","BUILDING_1","NONE",0,0,0,0,3,0,0],["b","[EQU $QUEST23 5]","BUILDING_1","NONE",0,0,0,0,3,23,0],["b","[EQU $QUEST23 6]","BUILDING_1","NONE",0,0,0,0,3,0,0]],"05_Zul.jsonc":[["!",null,"FLOOR","NONE",0,0,0,0,3,0,0],["$",null,"FLOOR","NONE",0,0,0,0,3,0,0],["\"",null,"FLOOR","NONE",0,0,0,0,3,0,0],["%",null,"FLOOR","NONE",0,0,0,0,3,0,0],["z",null,"SHALLOW_WATER","NONE",0,0,0,0,3,0,0],["y",null,"MOUNTAIN","NONE",0,0,0,0,3,0,0],["x",null,"TREE","NONE",0,0,0,0,3,0,0],["w",null,"MOUNTAIN","NONE",0,0,0,0,3,0,0],["i","[EQU $QUEST10 0]","BUILDING_8","NONE",0,0,0,0,3,10,0],["z","[EQU $QUEST10 1]","QUEST_ENTER","NONE",0,0,0,0,3,10,0],["i","[EQU $QUEST10 1]","BUILDING_8","NONE",0,0,0,0,3,10,0],["i","[EQU $QUEST10 2]","BUILDING_8","NONE",0,0,0,0,3,10,0],["i","[EQU $QUEST10 3]","BUILDING_8","NONE",0,0,0,0,3,0,0],["!","[EQU $QUEST10 3]","FLOOR","NONE",0,337,0,0,3,0,0],["i","[EQU $QUEST10 4]","BUILDING_8","NONE",0,0,0,0,3,0,0],["i","[EQU $QUEST10 5]","BUILDING_8","NONE",0,0,0,0,3,10,0],["i","[EQU $QUEST10 6]","BUILDING_8","NONE",0,0,0,0,3,0,0],["o","[EQU $QUEST11 0]","BUILDING_14","NONE",0,0,0,0,3,11,0],["y","[EQU $QUEST11 1]","QUEST_ENTER","NONE",0,0,0,0,3,11,0],["o","[EQU $QUEST11 1]","BUILDING_14","NONE",0,0,0,0,3,11,0],["o","[EQU $QUEST11 2]","BUILDING_14","NONE",0,0,0,0,3,11,0],["o","[EQU $QUEST11 3]","BUILDING_14","NONE",0,0,0,0,3,0,0],["$","[EQU $QUEST11 3]","GRASS","NONE",0,386,0,0,3,0,0],["o","[EQU $QUEST11 4]","BUILDING_14","NONE",0,0,0,0,3,0,0],["o","[EQU $QUEST11 5]","BUILDING_14","NONE",0,0,0,0,3,11,0],["o","[EQU $QUEST11 6]","BUILDING_14","NONE",0,0,0,0,3,0,0],["p","[EQU $QUEST12 0]","BUILDING_15","NONE",0,0,0,0,3,12,0],["x","[EQU $QUEST12 1]","QUEST_ENTER","NONE",0,0,0,0,3,12,0],["p","[EQU $QUEST12 1]","BUILDING_15","NONE",0,0,0,0,3,12,0],["p","[EQU $QUEST12 2]","BUILDING_15","NONE",0,0,0,0,3,12,0],["p","[EQU $QUEST12 3]","BUILDING_15","NONE",0,0,0,0,3,0,0],["\"","[EQU $QUEST12 3]","GRASS","NONE",0,382,0,0,3,0,0],["p","[EQU $QUEST12 4]","BUILDING_15","NONE",0,0,0,0,3,0,0],["p","[EQU $QUEST12 5]","BUILDING_15","NONE",0,0,0,0,3,12,0],["p","[EQU $QUEST12 6]","BUILDING_15","NONE",0,0,0,0,3,0,0],["r","[EQU $QUEST13 0]","BUILDING_16","NONE",0,0,0,0,3,13,0],["w","[EQU $QUEST13 1]","QUEST_ENTER","NONE",0,0,0,0,3,13,0],["r","[EQU $QUEST13 1]","BUILDING_16","NONE",0,0,0,0,3,13,0],["r","[EQU $QUEST13 2]","BUILDING_16","NONE",0,0,0,0,3,13,0],["r","[EQU $QUEST13 3]","BUILDING_16","NONE",0,0,0,0,3,0,0],["%","[EQU $QUEST13 3]","GRASS","NONE",0,519,0,0,3,0,0],["r","[EQU $QUEST13 4]","BUILDING_16",)townv2"
+    R"townv2("NONE",0,0,0,0,3,0,0],["r","[EQU $QUEST13 5]","BUILDING_16","NONE",0,0,0,0,3,13,0],["r","[EQU $QUEST13 6]","BUILDING_16","NONE",0,0,0,0,3,0,0]],"06_Rlyeh_Obsoleted.jsonc":[["e",null,"DEEP_WATER","NONE",0,0,0,0,8,0,0],["f",null,"SHALLOW_WATER","NONE",0,0,0,0,8,0,0],[".","[EQU $QUEST17 1]","FLOOR","NONE",0,0,0,0,3,0,0],["#","[EQU $QUEST17 1]","GRANITE","NONE",0,0,0,0,12,0,0],["-","[EQU $QUEST17 1]","FLOOR","NONE",0,0,0,0,12,0,0],["x","[EQU $QUEST17 1]","FLOOR","NONE",0,424,0,0,12,0,0],["c","[EQU $QUEST17 1]","FLOOR","NONE",836,0,0,0,8,0,0],["C","[EQU $QUEST17 1]","FLOOR","*",857,0,0,0,8,0,32],["*","[EQU $QUEST17 1]","FLOOR","*",0,0,0,0,12,0,36],["^","[EQU $QUEST17 1]","FLOOR","*",0,0,0,0,12,0,32],["$","[EQU $QUEST17 1]","FLOOR","*",0,10,0,0,12,0,36],["!","[EQU $QUEST17 1]","FLOOR","*",0,25,0,0,12,0,36],["D","[EQU $QUEST17 1]","CLOSED_DOOR","NONE",0,0,0,0,12,0,0],["%","[EQU $QUEST17 1]","GRANITE","NONE",0,0,0,0,12,0,0]]})townv2");
+
+TEST_CASE("TownMapReader bundled v3 cells preserve all v2 letter values")
+{
+    TownFeatureStateGuard state;
+    FloorType floor;
+    floor.quest_number = QuestId::NONE;
+    auto &terrains = TerrainList::get_instance();
+    const test::ScopedVectorWrapper terrain_state(terrains);
+    std::map<std::string, short> tags;
+    for (const auto &rows : town_v2_expected) {
+        for (const auto &row : rows) {
+            for (const size_t column : { size_t{ 2 }, size_t{ 3 } }) {
+                const auto tag = row[column].get<std::string>();
+                if (tag == "*" || tags.contains(tag)) {
+                    continue;
+                }
+                const auto id = static_cast<short>(terrains.size());
+                terrains.resize(terrains.size() + 1);
+                terrains.get_terrain(id).tag = tag;
+                tags.emplace(tag, id);
+            }
+        }
+    }
+    // NONEを非ゼロにして、ランダム指定もNONEのIDで初期化されることを確認する。
+    REQUIRE(tags.at("NONE") != 0);
+    const test::TerrainListTestAccess none_tag(TerrainTag::NONE, tags.at("NONE"));
+    // autotoolsは実行時の環境変数でVPATHのソース位置を明示する。
+    std::filesystem::path root;
+    if (const auto *source_dir = std::getenv("HENGBAND_TEST_SOURCE_DIR"); source_dir && *source_dir) {
+        root = source_dir;
+    } else {
+        // MSBuildの相対__FILE__は実行時cwdに依存するため、まずcwdの祖先を探す。
+        // 環境変数も絶対__FILE__もない場合、別checkoutからの実行は識別できない。
+        for (auto candidate : { std::filesystem::current_path(), std::filesystem::absolute(__FILE__).parent_path() }) {
+            while (!candidate.empty()) {
+                if (std::filesystem::exists(candidate / "src/test/info-reader/test-town-map-reader.cpp") &&
+                    std::filesystem::exists(candidate / "lib/edit/towns/01_Outpost_Full.jsonc")) {
+                    root = candidate;
+                    break;
+                }
+                const auto parent = candidate.parent_path();
+                if (parent == candidate) {
+                    break;
+                }
+                candidate = parent;
+            }
+            if (!root.empty()) {
+                break;
+            }
+        }
+    }
+    REQUIRE_FALSE(root.empty());
+    CAPTURE(root);
+
+    for (const auto &[name, expected_rows] : town_v2_expected.items()) {
+        CAPTURE(name);
+        JsoncDocumentLoader loader(root / "lib/edit/towns" / name);
+        REQUIRE(loader.is_open());
+        const auto data = loader.parse();
+        // ビルド後にソースcheckoutが戻された場合も、実際に読んだ版を診断に残す。
+        const auto input_version = data.value("version", nlohmann::json{}).dump();
+        CAPTURE(input_version);
+        REQUIRE_MESSAGE(data.value("version", nlohmann::json{}) == 3, "The test binary and bundled town data must come from the same source revision.");
+        TownMapDefinition definition;
+        const auto read_result = TownMapReader(data).read(definition, 66, 198);
+        CAPTURE(test::to_error_code(read_result));
+        if (!read_result) {
+            // read()は規則位置を返さないため、有効な最小文書で各規則を独立に診断する。
+            for (const auto *section : { "featureRules", "buildingRules", "mapVariants", "startingPositions" }) {
+                CAPTURE(std::string(section));
+                for (size_t i = 0; i < data.at(section).size(); ++i) {
+                    CAPTURE(i);
+                    const auto rule = data.at(section)[i].dump();
+                    CAPTURE(rule);
+                    auto isolated = make_town_map();
+                    if (std::string_view(section) == "startingPositions") {
+                        isolated["mapVariants"] = data.at("mapVariants");
+                    }
+                    isolated[section] = nlohmann::json::array({ data.at(section)[i] });
+                    TownMapDefinition diagnostic;
+                    const auto result = TownMapReader(isolated).read(diagnostic, 66, 198);
+                    CAPTURE(test::to_error_code(result));
+                    CHECK(result.has_value());
+                }
+            }
+        }
+        REQUIRE(read_result.has_value());
+        REQUIRE(definition.features.size() == expected_rows.size());
+        for (size_t i = 0; i < expected_rows.size(); ++i) {
+            CAPTURE(i);
+            const auto &row = expected_rows[i];
+            const auto &feature = definition.features[i];
+            CHECK(std::string(1, feature.symbol) == row[0].get<std::string>());
+            CHECK(feature.condition == (row[1].is_null() ? std::optional<std::string>{} : std::optional<std::string>{ row[1].get<std::string>() }));
+            CHECK(feature.terrain == row[2].get<std::string>());
+            CHECK(feature.trap == row[3].get<std::string>());
+            CHECK(feature.cell.grid.feature == 0);
+            CHECK(feature.cell.grid.trap == 0);
+            CHECK((feature.cell.grid.random & (RANDOM_FEATURE | RANDOM_TRAP)) == 0);
+            dungeon_grid expected{};
+            const auto terrain_tag = row[2].get<std::string>();
+            const auto trap_tag = row[3].get<std::string>();
+            expected.feature = tags.at(terrain_tag == "*" ? "NONE" : terrain_tag);
+            expected.trap = tags.at(trap_tag == "*" ? "NONE" : trap_tag);
+            expected.monster = row[4].get<short>();
+            expected.object = row[5].get<short>();
+            expected.ego = i2enum<EgoType>(row[6].get<int>());
+            expected.artifact = i2enum<FixedArtifactId>(row[7].get<int>());
+            expected.cave_info = row[8].get<BIT_FLAGS>();
+            expected.special = row[9].get<int16_t>();
+            expected.random = row[10].get<int>();
+            // 全規則を単独で適用し、条件の成否によらず固定期待値と比較する。
+            REQUIRE(apply_town_map_feature(floor, feature).has_value());
+            check_same_grid(fixed_map_letter_at(static_cast<unsigned char>(feature.symbol)), expected);
+        }
+        // 各ファイルの異なる条件式を固定コンテキストで一度ずつ評価し、解析エラーを検出する。
+        std::set<std::string> conditions;
+        for (const auto *section : { "featureRules", "buildingRules", "mapVariants", "startingPositions" }) {
+            for (const auto &rule : data.at(section)) {
+                if (rule.contains("when")) {
+                    conditions.insert(rule.at("when").get<std::string>());
+                }
+            }
+        }
+        const ExpressionVariableResolver resolver = [](std::string_view variable) -> ExpressionVariableResult {
+            if (variable == "CLASS") {
+                return tl::optional<std::string>{ "Warrior" };
+            }
+            if (variable == "REALM1") {
+                return tl::optional<std::string>{ "Life" };
+            }
+            if (variable == "RACE") {
+                return tl::optional<std::string>{ "Human" };
+            }
+            if (variable == "IRONMAN_DOWNWARD" || variable == "LEAVING_QUEST" || variable.starts_with("QUEST")) {
+                return tl::optional<std::string>{ "0" };
+            }
+            return tl::optional<std::string>{};
+        };
+        for (const auto &condition : conditions) {
+            CAPTURE(condition);
+            CHECK(evaluate_condition_expression_checked(condition, resolver).has_value());
+        }
+    }
+}
+
+TEST_CASE("TownMapReader later v3 rules replace the whole cell")
+{
+    TownFeatureStateGuard state;
+    FloorType floor;
+    floor.quest_number = QuestId::NONE;
+    auto data = make_town_map();
+    data["featureRules"][0]["definition"] = {
+        { "terrain", "*" }, { "trap", { { "random", true } } },
+        { "monster", { { "random", true }, { "oodLevel", 10 } } },
+        { "object", { { "random", true }, { "oodLevel", 25 } } },
+        { "ego", { { "random", true } } }, { "artifact", { { "random", true }, { "id", 3 } } },
+        { "caveInfo", { "MARK", "GLOW" } }, { "special", 42 }
+    };
+    data["featureRules"].push_back({ { "symbol", "#" }, { "definition", { { "terrain", "TOWN_FEATURE_TEST_FLOOR" }, { "trap", "TOWN_FEATURE_TEST_TRAP" } } } });
+    TownMapDefinition definition;
+    REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
+    REQUIRE(apply_town_map_feature(floor, definition.features[0]).has_value());
+    CHECK(letter['#'].object == 25);
+    CHECK(letter['#'].random == (RANDOM_FEATURE | RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_EGO | RANDOM_ARTIFACT | RANDOM_TRAP));
+    REQUIRE(apply_town_map_feature(floor, definition.features[1]).has_value());
+    dungeon_grid expected{};
+    expected.feature = state.floor_id();
+    expected.trap = state.trap_id();
+    check_same_grid(letter['#'], expected);
 }

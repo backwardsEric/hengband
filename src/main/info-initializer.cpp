@@ -16,6 +16,7 @@
 #include "info-reader/jsonc-document-loader.h"
 #include "info-reader/magic-reader.h"
 #include "info-reader/message-reader.h"
+#include "info-reader/parse-error-messages.h"
 #include "info-reader/race-reader.h"
 #include "info-reader/skill-reader.h"
 #include "info-reader/spell-reader.h"
@@ -50,6 +51,7 @@
 #include <string>
 #include <string_view>
 #include <sys/stat.h>
+#include <tl/expected.hpp>
 #ifndef _WIN32
 #include <sys/types.h>
 #endif
@@ -74,7 +76,7 @@ concept HasShrinkToFit = requires(T t) {
  * @param validate_root 追加のルート検証（指定した定義形式だけに適用）
  */
 template <typename DefinitionList>
-void init_json(std::string_view filename, std::string_view keyname, DefinitionHashDataType dhdt, DefinitionList &definition_list, std::function<int(nlohmann::json &)> json_parser, std::function<void()> retouch = nullptr, bool allow_empty = true, std::function<int(const nlohmann::json &)> validate_root = nullptr)
+void init_json(std::string_view filename, std::string_view keyname, DefinitionHashDataType dhdt, DefinitionList &definition_list, std::function<tl::expected<void, ParseErrorType>(nlohmann::json &)> json_parser, std::function<void()> retouch = nullptr, bool allow_empty = true, std::function<tl::expected<void, ParseErrorType>(const nlohmann::json &)> validate_root = nullptr)
 {
     const auto path = path_build(ANGBAND_DIR_EDIT, filename);
     JsoncDocumentLoader loader(path);
@@ -82,26 +84,35 @@ void init_json(std::string_view filename, std::string_view keyname, DefinitionHa
         quit(fmt::format(_("'{}'ファイルをオープンできません。", "Cannot open '{}' file."), filename));
     }
 
-    auto json_object = loader.parse();
+    nlohmann::json json_object;
+    try {
+        json_object = loader.parse();
+    } catch (const nlohmann::json::exception &e) {
+        quit(format_json_syntax_error(filename, e.what()));
+    }
 
-    if (const auto err = info_validate_json_array(json_object, keyname, allow_empty); err != PARSE_ERROR_NONE) {
-        if (err == PARSE_ERROR_INVALID_VALUE) {
+    if (const auto result = info_validate_json_array(json_object, keyname, allow_empty); !result) {
+        if (result.error() == ParseErrorType::INVALID_VALUE) {
             quit(fmt::format(_("{}: $.{}: 空配列は許可されません", "{}: $.{}: empty array is not allowed"), filename, keyname));
         }
         quit(fmt::format(_("{}: ルートオブジェクトに配列 '{}' が必要です", "{}: expected a root object containing array '{}'"), filename, keyname));
     }
 
-    if (validate_root && validate_root(json_object) != PARSE_ERROR_NONE) {
+    if (validate_root && !validate_root(json_object)) {
         quit(fmt::format(_("{}: 定義形式のversionが不正です", "{}: invalid definition version"), filename));
     }
 
     error_idx = -1;
 
-    for (auto &element : json_object[keyname]) {
-        const auto error_code = json_parser(element);
-        if (error_code != PARSE_ERROR_NONE) {
-            msg_erase();
-            quit(fmt::format(_("'{}'ファイルにエラー", "Error in '{}' file."), filename));
+    auto &elements = json_object[keyname];
+    for (size_t index = 0; index < elements.size(); ++index) {
+        // 起動中は履歴に残らず、msg_print自体も入力を待つため、レコード単位で診断を捕捉する。
+        // 解析器が operator[] で無い項目を null として足すことがあるので、識別子の項目は解析の前に探しておく。
+        // 表記を作るのは失敗したときだけにする。
+        const auto identifier = find_record_identifier(elements[index]);
+        ScopedMessageCapture diagnostics;
+        if (const auto result = json_parser(elements[index]); !result) {
+            quit(format_definition_load_error(diagnostics.messages(), format_record_parse_error(filename, keyname, index, describe_record_identifier(identifier), result.error())));
         }
     }
 
@@ -123,7 +134,7 @@ void init_json(std::string_view filename, std::string_view keyname, DefinitionHa
  * @details init_jsonのjson_parserに「JSON要素からReaderを構築してread()する」定型ラムダを与える処理を共通化したもの。
  */
 template <typename Reader, typename DefinitionList>
-void init_json_reader(std::string_view filename, std::string_view keyname, DefinitionHashDataType dhdt, DefinitionList &definition_list, std::function<void()> retouch = nullptr, bool allow_empty = true, std::function<int(const nlohmann::json &)> validate_root = nullptr)
+void init_json_reader(std::string_view filename, std::string_view keyname, DefinitionHashDataType dhdt, DefinitionList &definition_list, std::function<void()> retouch = nullptr, bool allow_empty = true, std::function<tl::expected<void, ParseErrorType>(const nlohmann::json &)> validate_root = nullptr)
 {
     auto parser = [](nlohmann::json &element) { return Reader(element).read(); };
     init_json(filename, keyname, dhdt, definition_list, parser, retouch, allow_empty, validate_root);
@@ -165,12 +176,12 @@ void init_class_skills_info()
     class_skills_info.assign(PLAYER_CLASS_TYPE_MAX, {});
     auto parser = [](nlohmann::json &element) {
         SkillReader reader(element);
-        const auto err = reader.read();
-        if (err != PARSE_ERROR_NONE) {
+        const auto result = reader.read();
+        if (!result) {
             const auto &diagnostic = reader.error().value();
-            quit(fmt::format(_("ClassSkillDefinitions.jsonc: 職業{}の{}: {}", "ClassSkillDefinitions.jsonc: class {} at {}: {}"), diagnostic.class_id, diagnostic.path, diagnostic.reason));
+            msg_print(_("ClassSkillDefinitions.jsonc: 職業{}の{}: {}", "ClassSkillDefinitions.jsonc: class {} at {}: {}"), diagnostic.class_id, diagnostic.path, diagnostic.reason);
         }
-        return err;
+        return result;
     };
     init_json("ClassSkillDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_SKILLS, class_skills_info, parser, [] {
         if (error_idx != PLAYER_CLASS_TYPE_MAX - 1) {
@@ -202,7 +213,9 @@ void init_egos_info()
 void init_terrains_info()
 {
     auto &terrains = TerrainList::get_instance();
-    init_json_reader<TerrainReader>("TerrainDefinitions.jsonc", "terrains", DefinitionHashDataType::TERRAINS, terrains, [&terrains] { terrains.retouch(); });
+    TerrainReader::Session session;
+    auto parser = [&session](nlohmann::json &element) { return TerrainReader(element, session).read(); };
+    init_json("TerrainDefinitions.jsonc", "terrains", DefinitionHashDataType::TERRAINS, terrains, parser, [&terrains] { terrains.retouch(); });
 }
 
 /*!
@@ -241,8 +254,9 @@ void init_spell_info()
 {
     auto &spell_info_list = SpellInfoList::get_instance();
     spell_info_list.initialize();
-    auto parser = [&spell_info_list](nlohmann::json &spell_data) {
-        return SpellReader(spell_data, spell_info_list).read();
+    SpellReader::Session session;
+    auto parser = [&spell_info_list, &session](nlohmann::json &spell_data) {
+        return SpellReader(spell_data, spell_info_list, session).read();
     };
     init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser);
 }
@@ -257,12 +271,12 @@ void init_vaults_info()
 {
     auto parser = [](nlohmann::json &element) {
         VaultReader reader(element);
-        const auto err = reader.read();
-        if (err != PARSE_ERROR_NONE) {
+        const auto result = reader.read();
+        if (!result) {
             const auto &diagnostic = reader.error().value();
-            quit(fmt::format(_("VaultDefinitions.jsonc: Vault{}の{}: {}", "VaultDefinitions.jsonc: vault {} at {}: {}"), diagnostic.id, diagnostic.path, diagnostic.reason));
+            msg_print(_("VaultDefinitions.jsonc: Vault{}の{}: {}", "VaultDefinitions.jsonc: vault {} at {}: {}"), diagnostic.id, diagnostic.path, diagnostic.reason);
         }
-        return err;
+        return result;
     };
     init_json("VaultDefinitions.jsonc", "vaults", DefinitionHashDataType::VAULTS, vaults_info, parser, nullptr, false);
 }
@@ -272,7 +286,8 @@ void init_vaults_info()
  */
 void init_wilderness()
 {
-    if (!initialize_wilderness_definition()) {
-        quit(_("荒野を初期化できません", "Cannot initialize wilderness"));
+    ScopedMessageCapture diagnostics;
+    if (const auto result = initialize_wilderness_definition(); !result) {
+        quit(format_definition_load_error(diagnostics.messages(), result.error()));
     }
 }

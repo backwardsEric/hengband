@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from json_validation_test_helper import validate_document
+from json_validation_test_helper import monrace_id_schema_maximum, validate_document
 from validate_json import (build_schema_registry, load_all_schemas, load_jsonc,
                            load_validated_companion, validate_one, validate_monster_message_semantics)
 
@@ -167,8 +167,14 @@ class MonsterMessageValidationTest(unittest.TestCase):
     def test_integer_boundaries(self):
         self.assert_valid([{"id_list": [1, self.max_monrace_id], "message": [self.message(chance=1), self.message(chance=100)]}])
 
+    def test_monster_id_maximum_matches_monrace_id_storage(self):
+        # モンスターIDの上限は、IDを格納する型(MonraceId)の上限−1とする。
+        maximum = monrace_id_schema_maximum()
+        id_list = self.loaded[self.schema_path]["properties"]["groups"]["items"]["properties"]["id_list"]
+        self.assertEqual(id_list["items"]["maximum"], maximum)
+
     def test_undefined_monster_ids_are_rejected(self):
-        for value in (self.max_monrace_id + 1, 9999):
+        for value in (self.max_monrace_id + 1, 32766):
             with self.subTest(value=value):
                 self.assert_invalid([{"id_list": [1, value], "message": []}], ["groups", 0, "id_list", 1], "unknown monster ID")
 
@@ -180,7 +186,7 @@ class MonsterMessageValidationTest(unittest.TestCase):
                             ["groups", 0, "message", 0, "chance"], "integer JSON value")
 
     def test_other_invalid_ids_still_fail(self):
-        for value in (True, "1", None, 1.5, 0, 10000):
+        for value in (True, "1", None, 1.5, 0, 32767):
             with self.subTest(value=value):
                 self.assert_invalid([{"id_list": [value], "message": []}], ["groups", 0, "id_list", 0])
 
@@ -246,12 +252,11 @@ class MonsterMessageValidationTest(unittest.TestCase):
                                                             self.message(())]}],
                             ["groups", 0, "message", 2, "message"], "must contain ja or en")
 
-    def test_locale_cannot_return_after_gap(self):
+    def test_locale_can_return_after_gap(self):
         for language, other in (("ja", "en"), ("en", "ja")):
             for prefix in ([self.message((other,))], [self.message(), self.message((other,))]):
                 with self.subTest(language=language, prefix=prefix):
-                    self.assert_invalid([{"name": "DEFAULT", "message": prefix + [self.message()]}],
-                                        ["groups", 0, "message", len(prefix), "message", language], "would be discarded")
+                    self.assert_valid([{"name": "DEFAULT", "message": prefix + [self.message()]}])
 
     def test_single_locale_suffix_is_allowed(self):
         for language in ("ja", "en"):
@@ -274,13 +279,13 @@ class MonsterMessageValidationTest(unittest.TestCase):
         self.assert_invalid([{"name": "DEFAULT", "message": [self.message(("ja",)), self.message(("en",)), tail]}],
                             ["groups", 0, "message", 2, "action"])
 
-    def test_original_bundled_gaps_are_rejected(self):
+    def test_bundled_data_with_locale_gaps_is_accepted(self):
         document = load_jsonc(self.root / "lib/edit/MonsterMessages.jsonc")
-        for group_index, message_index, later_index in ((2, 1, 2), (3, 1, 2), (75, 0, 1)):
+        for group_index, message_index in ((2, 1), (3, 1), (75, 0)):
             with self.subTest(group=group_index):
                 group = copy.deepcopy(document["groups"][group_index])
                 del group["message"][message_index]["message"]["en"]
-                self.assert_invalid([group], ["groups", 0, "message", later_index, "message", "en"], "would be discarded")
+                self.assert_valid([group])
 
 
 if __name__ == "__main__":

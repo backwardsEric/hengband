@@ -8,8 +8,8 @@
 #include "io/input-key-acceptor.h"
 #include "io/input-key-requester.h" //!< @todo 相互依存している、後で何とかする.
 #include "main/sound-of-music.h"
+#include "system/deferred-update-requests.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/gameterm.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -255,9 +255,9 @@ bool input_check_strict(PlayerType *player_ptr, std::string_view prompt, EnumCla
     }
 
     const auto buf = ss.str();
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (auto_more) {
-        rfu.set_flag(SubWindowRedrawingFlag::MESSAGE);
+        dur.set_flag(SubWindowRedrawingFlag::MESSAGE);
         window_stuff(player_ptr);
         num_more = 0;
     }
@@ -267,7 +267,7 @@ bool input_check_strict(PlayerType *player_ptr, std::string_view prompt, EnumCla
     prt(buf, 0, 0);
     if (mode.has_not(UserCheck::NO_HISTORY) && player_ptr->playing) {
         message_add(buf);
-        rfu.set_flag(SubWindowRedrawingFlag::MESSAGE);
+        dur.set_flag(SubWindowRedrawingFlag::MESSAGE);
         window_stuff(player_ptr);
     }
 
@@ -313,20 +313,29 @@ bool input_check_strict(PlayerType *player_ptr, std::string_view prompt, EnumCla
     return flag;
 }
 
-/*
- * Prompts for a keypress
- *
- * The "prompt" should take the form "Command: "
- *
- * Returns TRUE unless the character is "Escape"
+/*!
+ * @brief 1文字の入力を受け付ける
+ * @param prompt プロンプト ("Command: " などの形)
+ * @return 入力した文字。ESCで中断したらnullopt
  */
 tl::optional<char> input_command(std::string_view prompt)
 {
+    return input_command_with_context({ InputKind::COMMAND_CHAR, std::string(prompt), {} });
+}
+
+/*!
+ * @brief 入力待ちの文脈を指定して、1文字の入力を受け付ける
+ * @param input_context 入力待ちの間に公開する文脈。プロンプトは文脈のものを表示する
+ * @return 入力した文字。ESCで中断したらnullopt
+ * @details 1文字の入力のうち、方向の入力のように種類と詳細を公開したいものに使う。
+ */
+tl::optional<char> input_command_with_context(InputContext input_context)
+{
     msg_erase();
-    prt(prompt, 0, 0);
+    prt(input_context.prompt, 0, 0);
     char command;
     {
-        const InputContextScope input_context(InputKind::COMMAND_CHAR, prompt);
+        const InputContextScope context_scope(std::move(input_context));
         if (get_com_no_macros) {
             command = static_cast<char>(inkey_special(false));
         } else {
@@ -340,6 +349,43 @@ tl::optional<char> input_command(std::string_view prompt)
     }
 
     return command;
+}
+
+/*!
+ * @brief 呪文・技・特殊能力などを一覧から選ぶ待ちで、1文字の入力を受け付ける
+ * @param prompt プロンプト
+ * @param details ラベルの範囲や一覧を表示しているかなどの詳細
+ * @return 入力した文字。ESCで中断したらnullopt
+ */
+tl::optional<char> input_spell_choice(std::string_view prompt, const SpellInputDetails &details)
+{
+    return input_command_with_context({ InputKind::SPELL, std::string(prompt), details });
+}
+
+/*!
+ * @brief 入力待ちの文脈を公開して、キーを1つ待つ
+ * @param kind 入力の種類
+ * @param prompt 公開するプロンプト (表示は呼び出し元が行う)
+ * @param do_all_term_refresh true なら inkey() と同じく、待つ前に全ての端末を描き直す
+ * @return 入力したキー
+ * @details 独自に表示した選択肢や確認に答えるキーや、何かキーを押す待ちのキーを読む処理に使う。
+ */
+char input_key_with_context(InputKind kind, std::string_view prompt, bool do_all_term_refresh)
+{
+    return input_key_with_context({ kind, std::string(prompt), {} }, do_all_term_refresh);
+}
+
+/*!
+ * @brief 入力待ちの文脈を指定して公開し、キーを1つ待つ
+ * @param input_context 入力待ちの間に公開する文脈 (表示は呼び出し元が行う)
+ * @param do_all_term_refresh true なら inkey() と同じく、待つ前に全ての端末を描き直す
+ * @return 入力したキー
+ * @details input_key_with_context(InputKind, std::string_view, bool) のうち、種類ごとの詳細も公開したいものに使う。
+ */
+char input_key_with_context(InputContext input_context, bool do_all_term_refresh)
+{
+    const InputContextScope context_scope(std::move(input_context));
+    return inkey(do_all_term_refresh);
 }
 
 /*
@@ -403,9 +449,10 @@ int input_quantity(int max, std::string_view initial_prompt)
 void pause_line(int row)
 {
     prt("", row, 0);
-    put_str(_("[ 何かキーを押して下さい ]", "[Press any key to continue]"), row, _(26, 23));
+    constexpr auto prompt = _("[ 何かキーを押して下さい ]", "[Press any key to continue]");
+    put_str(prompt, row, _(26, 23));
 
-    (void)inkey();
+    (void)input_key_with_context(InputKind::ANY_KEY, prompt);
     prt("", row, 0);
 }
 

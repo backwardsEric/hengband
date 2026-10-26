@@ -7,10 +7,11 @@
 #include "inventory/inventory-slot-types.h"
 #include "market/building-util.h"
 #include "object/item-use-flags.h"
+#include "object/object-value.h"
 #include "spell-kind/spells-perception.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -148,10 +149,38 @@ void building_recharge(PlayerType *player_ptr)
 #else
     msg_print("{} {} recharged for {} gold.", str_upcase_first(item_name), ((item->number > 1) ? "were" : "was"), price);
 #endif
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
     player_ptr->au -= price;
+}
+
+/*!
+ * @brief 魔道具をまとめて充填するときの1つのアイテムの料金を計算する
+ * @param item 充填するアイテム
+ * @return 料金 (充填が要らなければ0以下)。未鑑定のアイテムの鑑定料は含まない
+ * @details 杖・魔法棒は (足りない回数) × (基本価格の1/10 × 本数) で、
+ * 高価なものは int ではあふれうるので int64_t で計算する。
+ */
+int64_t calc_recharge_all_price(const ItemEntity &item)
+{
+    const auto item_level = item.get_baseitem_level();
+    const auto base_pval = item.get_baseitem_pval();
+    const auto base_cost = item.get_baseitem_cost();
+    switch (item.bi_key.tval()) {
+    case ItemKindType::ROD:
+        return (int64_t{ item_level } * 50 * item.timeout) / base_pval;
+    case ItemKindType::STAFF: {
+        const auto price = std::max<int64_t>(10, int64_t{ base_cost / 10 } * item.number);
+        return (base_pval - item.pval) * price;
+    }
+    case ItemKindType::WAND: {
+        const auto price = std::max(10, base_cost / 10);
+        return (int64_t{ item.number } * base_pval - item.pval) * price;
+    }
+    default:
+        return 0;
+    }
 }
 
 /*!
@@ -171,8 +200,7 @@ void building_recharge_all(PlayerType *player_ptr)
     clear_bldg(4, 18);
     prt(_("  再充填の費用はアイテムの種類によります。", "  The prices of recharge depend on the type."), 6, 0);
 
-    auto price = 0;
-    auto total_cost = 0;
+    int64_t total_price = 0;
     for (const auto i_idx : INVEN_PACK_SLOTS) {
         const auto &item = *player_ptr->inventory[i_idx];
         if (!item.can_recharge()) {
@@ -180,34 +208,16 @@ void building_recharge_all(PlayerType *player_ptr)
         }
 
         if (!item.is_known()) {
-            total_cost += 50;
+            total_price += 50;
         }
 
-        const auto item_level = item.get_baseitem_level();
-        const auto base_pval = item.get_baseitem_pval();
-        const auto base_cost = item.get_baseitem_cost();
-        switch (item.bi_key.tval()) {
-        case ItemKindType::ROD:
-            price = (item_level * 50 * item.timeout) / base_pval;
-            break;
-        case ItemKindType::STAFF:
-            price = (base_cost / 10) * item.number;
-            price = std::max(10, price);
-            price = (base_pval - item.pval) * price;
-            break;
-        case ItemKindType::WAND:
-            price = (base_cost / 10);
-            price = std::max(10, price);
-            price = (item.number * base_pval - item.pval) * price;
-            break;
-        default:
-            break;
-        }
-
+        const auto price = calc_recharge_all_price(item);
         if (price > 0) {
-            total_cost += price;
+            total_price += price;
         }
     }
+
+    const auto total_cost = clamp_price(total_price);
 
     if (!total_cost) {
         msg_print(_("充填する必要はありません。", "No need to recharge."));
@@ -262,6 +272,6 @@ void building_recharge_all(PlayerType *player_ptr)
 
     msg_print(_("＄{} で再充填しました。", "You pay {} gold."), total_cost);
     msg_erase();
-    RedrawingFlagsUpdater::get_instance().request_inventory_arrangement();
+    DeferredUpdateRequests::get_instance().request_inventory_arrangement();
     player_ptr->au -= total_cost;
 }

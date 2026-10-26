@@ -156,9 +156,40 @@ std::string_view input_kind_name(InputKind kind)
         return "more";
     case InputKind::COMMAND:
         return "command";
+    case InputKind::ITEM:
+        return "item";
+    case InputKind::DIRECTION:
+        return "direction";
+    case InputKind::TARGET:
+        return "target";
+    case InputKind::POINT:
+        return "point";
+    case InputKind::ANY_KEY:
+        return "any_key";
+    case InputKind::SPELL:
+        return "spell";
     }
 
     THROW_EXCEPTION(std::logic_error, "Invalid InputKind was specified!");
+}
+
+/*!
+ * @brief アイテムを選ぶ区分を応答で使う名前へ変換する
+ * @param area アイテムを選ぶ区分
+ * @return 応答の input_context.area・areas に入れる名前
+ */
+std::string_view item_selection_area_name(ItemSelectionArea area)
+{
+    switch (area) {
+    case ItemSelectionArea::INVENTORY:
+        return "inventory";
+    case ItemSelectionArea::EQUIPMENT:
+        return "equipment";
+    case ItemSelectionArea::FLOOR:
+        return "floor";
+    }
+
+    THROW_EXCEPTION(std::logic_error, "Invalid ItemSelectionArea was specified!");
 }
 
 /*!
@@ -184,7 +215,65 @@ public:
 
     nlohmann::json operator()(const CommandInputDetails &details) const
     {
-        return { { "shopping", details.shopping } };
+        const auto item_list = details.item_list ? nlohmann::json(item_selection_area_name(*details.item_list)) : nlohmann::json();
+        return { { "shopping", details.shopping }, { "item_list", item_list } };
+    }
+
+    nlohmann::json operator()(const ItemInputDetails &details) const
+    {
+        auto areas = nlohmann::json::array();
+        if (details.inventory) {
+            areas.push_back(item_selection_area_name(ItemSelectionArea::INVENTORY));
+        }
+
+        if (details.equipment) {
+            areas.push_back(item_selection_area_name(ItemSelectionArea::EQUIPMENT));
+        }
+
+        if (details.floor) {
+            areas.push_back(item_selection_area_name(ItemSelectionArea::FLOOR));
+        }
+
+        return {
+            { "area", item_selection_area_name(details.area) },
+            { "areas", std::move(areas) },
+            { "first_label", std::string(1, details.first_label) },
+            { "last_label", std::string(1, details.last_label) },
+            { "force", details.force },
+            { "menu", details.menu },
+        };
+    }
+
+    nlohmann::json operator()(const DirectionInputDetails &details) const
+    {
+        return { { "can_choose_target", details.can_choose_target }, { "has_target", details.has_target }, { "at_feet", details.at_feet } };
+    }
+
+    nlohmann::json operator()(const TargetInputDetails &details) const
+    {
+        return {
+            { "look", details.look },
+            { "free", details.free_mode },
+            { "can_target", details.can_target },
+            { "y", details.pos.y },
+            { "x", details.pos.x },
+        };
+    }
+
+    nlohmann::json operator()(const PointInputDetails &details) const
+    {
+        return { { "y", details.pos.y }, { "x", details.pos.x } };
+    }
+
+    nlohmann::json operator()(const SpellInputDetails &details) const
+    {
+        return {
+            { "first_label", std::string(1, details.first_label) },
+            { "last_label", std::string(1, details.last_label) },
+            { "list", details.list },
+            { "browse", details.browse },
+            { "menu", details.menu },
+        };
     }
 };
 
@@ -543,6 +632,7 @@ nlohmann::json handle_state_request(const nlohmann::json &id, const nlohmann::js
  * コマンドの入力待ち (入力の文脈が COMMAND) でなければエラーを返す。コマンドの途中の入力待ち (ターゲットの選択や
  * 「見る」など) では、サブウィンドウがカーソルの位置などに合わせた内容を描いていることがあり、
  * 描き直すと食い違いが出たうえに表示も変わってしまうため。
+ * 持ち物・装備品の一覧の後の待ちも、文脈は COMMAND だが i・e のコマンドの途中なのでエラーを返す。
  */
 nlohmann::json handle_verify_subwindows_request(const nlohmann::json &id)
 {
@@ -556,6 +646,12 @@ nlohmann::json handle_verify_subwindows_request(const nlohmann::json &id)
     const auto &context = get_input_context();
     if (!context || (context->kind != InputKind::COMMAND)) {
         return make_error_response(id, "the game is not waiting for a command");
+    }
+
+    // 持ち物・装備品の一覧の後の待ちは i・e のコマンドの途中で、メッセージの色などコマンドの区切りで変わる表示がまだ描き直されていない
+    const auto *details = std::get_if<CommandInputDetails>(&context->details);
+    if ((details != nullptr) && details->item_list) {
+        return make_error_response(id, "the game is showing the inventory or equipment list");
     }
 
     return make_ok_response(id, verify_bot_subwindows(p_ptr));

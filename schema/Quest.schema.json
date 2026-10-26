@@ -124,27 +124,32 @@
         },
         "level": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 127,
+          "description": "Dungeon level; at most MAX_DEPTH - 1, the deepest reachable level."
         },
         "dungeon": {
           "type": "integer",
           "minimum": 0,
-          "description": "DungeonId; 0 = none/quest-local floor."
+          "maximum": 20,
+          "description": "DungeonId; 0 = none/quest-local floor. At most DungeonId::MAX - 1."
         },
         "monster": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 32767,
-          "description": "MonraceId of the quest target (r_idx); 0 = none."
+          "maximum": 32766,
+          "description": "MonraceId of the quest target (r_idx); 0 = none. At most the MonraceId storage maximum - 1."
         },
         "numMon": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 2147483647
         },
         "maxNum": {
           "type": "integer",
           "minimum": 0,
-          "description": "Required kill count (KILL_NUMBER)."
+          "maximum": 32767,
+          "description": "Required kill count (KILL_NUMBER); saved as a 16-bit value."
         },
         "flags": {
           "type": "array",
@@ -168,7 +173,7 @@
         "artifact": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 32767
+          "maximum": 32766
         },
         "artifacts": {
           "type": "array",
@@ -176,7 +181,7 @@
           "items": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 32767
+            "maximum": 32766
           }
         }
       }
@@ -256,11 +261,15 @@
       "properties": {
         "y": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 65,
+          "description": "Row in every map variant; at most MAX_HGT - 1."
         },
         "x": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 197,
+          "description": "Column in every map variant; at most MAX_WID - 1."
         }
       }
     },
@@ -272,15 +281,20 @@
         "leavingQuest": {
           "type": "integer",
           "minimum": 0,
-          "description": "QuestId being left ($LEAVING_QUEST); omit for the default/fallback entry."
+          "maximum": 32766,
+          "description": "QuestId being left ($LEAVING_QUEST); omit for the default/fallback entry. At most the QuestId storage maximum - 1."
         },
         "y": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 65,
+          "description": "Row in every map variant; at most MAX_HGT - 1."
         },
         "x": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 197,
+          "description": "Column in every map variant; at most MAX_WID - 1."
         }
       }
     }

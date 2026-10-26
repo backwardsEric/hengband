@@ -5,13 +5,12 @@
  */
 
 #include "info-reader/parse-error-types.h"
+#include "system/dungeon/quest-fixed-map.h"
 #include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <tl/expected.hpp>
 
 class QuestType;
-struct QuestFixedMap;
-struct QuestLegendCell;
 struct QuestDescriptionBlock;
 
 /*!
@@ -30,24 +29,28 @@ public:
     QuestReader &operator=(const QuestReader &) = delete;
     QuestReader &operator=(QuestReader &&) = delete;
 
-    /*! @brief 全件成功時のみ名前と固定マップを置き換える。失敗・例外時は既存の出力を保持する。 */
-    int read() const;
+    tl::expected<void, ParseErrorType> read() const;
 
 private:
-    tl::expected<void, parse_error_type> set_name(std::string &name) const;
-    tl::expected<void, parse_error_type> set_definition(QuestFixedMap &parsed) const;
-    tl::expected<void, parse_error_type> set_descriptions(QuestFixedMap &parsed) const;
-    tl::expected<void, parse_error_type> set_legend(QuestFixedMap &parsed) const;
-    tl::expected<void, parse_error_type> set_maps(QuestFixedMap &parsed) const;
-    tl::expected<void, parse_error_type> set_starts(QuestFixedMap &parsed) const;
+    tl::expected<void, ParseErrorType> set_name(std::string &name) const;
+    tl::expected<void, ParseErrorType> set_definition(QuestFixedMap &parsed) const;
+    tl::expected<void, ParseErrorType> set_descriptions(QuestFixedMap &parsed) const;
+    tl::expected<void, ParseErrorType> set_legend(QuestFixedMap &parsed) const;
+    tl::expected<void, ParseErrorType> set_maps(QuestFixedMap &parsed) const;
+    tl::expected<void, ParseErrorType> set_starts(QuestFixedMap &parsed) const;
 
     const nlohmann::json &quest_data;
     QuestType &quest;
     QuestFixedMap &fixed_map;
 };
 
-/*!
- * @brief JSONC の gridDefinition 1件を凡例セルへ変換する (set_legend から使用)
- * @return エラーコード
- */
-parse_error_type parse_quest_legend_cell(const nlohmann::json &cell_data, QuestLegendCell &out);
+tl::expected<void, ParseErrorType> parse_quest_legend_cell(const nlohmann::json &cell_data, QuestLegendCell &out);
+
+/*! @brief 地形・罠を未解決のタグとして保持する凡例セル。地形・罠の数値欄は0、対応するランダムビットは未設定。 */
+struct DeferredQuestLegendCell {
+    QuestLegendCell cell{};
+    std::string terrain_tag = "NONE";
+    std::string trap_tag = "NONE";
+};
+
+tl::expected<void, ParseErrorType> parse_quest_legend_cell_deferred(const nlohmann::json &cell_data, DeferredQuestLegendCell &out);

@@ -24,12 +24,13 @@
 #include "core/asking-player.h"
 #include "core/window-redrawer.h"
 #include "flavor/flavor-describer.h"
+#include "flavor/flavor-util.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
 #include "game-option/input-options.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "locale/japanese.h"
 #include "mind/snipe-types.h"
@@ -44,6 +45,7 @@
 #include "object/item-use-flags.h"
 #include "perception/identification.h"
 #include "perception/object-perception.h"
+#include "perception/simple-perception.h"
 #include "player-base/player-class.h"
 #include "player-info/class-info.h"
 #include "player-info/race-types.h"
@@ -58,9 +60,9 @@
 #include "realm/realm-hex-numbers.h"
 #include "realm/realm-types.h"
 #include "status/action-setter.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
@@ -72,8 +74,10 @@
 
 /*!
  * @brief 持ち物一覧を表示するコマンドのメインルーチン / Display inventory_list
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param shopping 店の中のコマンドか (一覧の後に入力したキーは店のコマンドになる)
  */
-void do_cmd_inven(PlayerType *player_ptr)
+void do_cmd_inven(PlayerType *player_ptr, bool shopping)
 {
     command_wrk = false;
     if (easy_floor) {
@@ -92,7 +96,7 @@ void do_cmd_inven(PlayerType *player_ptr)
 #endif
 
     prt(mes, 0, 0);
-    command_new = inkey();
+    command_new = input_key_with_context({ InputKind::COMMAND, mes, CommandInputDetails{ .shopping = shopping, .item_list = ItemSelectionArea::INVENTORY } });
     screen_load();
     if (command_new != ESCAPE) {
         command_see = true;
@@ -121,6 +125,7 @@ void do_cmd_drop(PlayerType *player_ptr)
 
     if ((i_idx >= INVEN_MAIN_HAND) && item->is_cursed()) {
         msg_print(_("ふーむ、どうやら呪われているようだ。", "Hmmm, it seems to be cursed."));
+        sense_curse(player_ptr, i_idx);
         return;
     }
 
@@ -138,7 +143,7 @@ void do_cmd_drop(PlayerType *player_ptr)
         calc_android_exp(player_ptr);
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::EQUIPPY);
+    DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::EQUIPPY);
 }
 
 /*!
@@ -185,9 +190,9 @@ void do_cmd_uninscribe(PlayerType *player_ptr)
 
     msg_print(_("銘を消した。", "Inscription removed."));
     item->inscription.reset();
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inscription_change_updates();
-    rfu.request_floor_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inscription_change_updates();
+    dur.request_floor_item_lists_redrawing();
 }
 
 /*!
@@ -218,9 +223,9 @@ void do_cmd_inscribe(PlayerType *player_ptr)
     } else {
         item->inscription.emplace(*input_inscription);
     }
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inscription_change_updates();
-    rfu.request_floor_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inscription_change_updates();
+    dur.request_floor_item_lists_redrawing();
 }
 
 /*!

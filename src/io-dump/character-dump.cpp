@@ -375,7 +375,8 @@ static void dump_aux_monsters(FILE *fff)
             defeat_info = fmt::format(fmt, defeat_level, defeat_hour, max_hour_digits, defeat_minute, defeat_second);
         }
 
-        const auto names = str_separate(monrace.name, 40);
+        // shape_buffer() は終端文字の分を除いた maxlen - 1 バイトごとに区切るので、名前の欄の幅 + 1 を渡す
+        const auto names = shape_buffer(monrace.name, 40 + 1);
         fmt::println(fff, _("  {:<40} (レベル{:3}){}", "  {:<40} (level {:3}){}"), fmt::bytes(names.front()), monrace.level, defeat_info);
         for (const auto &name : names | ranges::views::drop(1)) {
             fmt::println(fff, "  {}", name);
@@ -531,8 +532,8 @@ static void dump_aux_equipment_inventory(PlayerType *player_ptr, FILE *fff)
  */
 static void dump_aux_home_museum(PlayerType *player_ptr, FILE *fff)
 {
-    const auto &outpost = TownList::get_instance().get_town(1);
-    const auto &home = outpost.get_store(StoreSaleType::HOME);
+    const auto &towns = TownList::get_instance();
+    const auto &home = towns.get_home();
     if (home.stock_num) {
         fmt::println(fff, _("  [我が家のアイテム]", "  [Home Inventory]"));
         auto page = 1;
@@ -548,7 +549,7 @@ static void dump_aux_home_museum(PlayerType *player_ptr, FILE *fff)
         fmt::println(fff, "\n");
     }
 
-    const auto &museum = outpost.get_store(StoreSaleType::MUSEUM);
+    const auto &museum = towns.get_museum();
     if (museum.stock_num == 0) {
         return;
     }

@@ -20,6 +20,7 @@
 #include "game-option/text-display-options.h"
 #include "hpmp/hp-mp-processor.h"
 #include "inventory/inventory-slot-types.h"
+#include "io/input-context.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-mage.h"
@@ -50,13 +51,13 @@
 #include "status/bad-status-setter.h"
 #include "status/body-improvement.h"
 #include "status/buff-setter.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -173,14 +174,16 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
 
     /* Build a prompt (accept all spells) */
     constexpr auto fmt = _("({:c}-{:c}, '*'で一覧, ESC) どの{}をまねますか？", "({:c}-{:c}, *=List, ESC=exit) Use which {}? ");
-    const auto prompt = fmt::format(fmt, I2A(0), I2A(num - 1), p);
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(num - 1);
+    const auto prompt = fmt::format(fmt, first_label, last_label, p);
 
     char choice = always_show_list ? ESCAPE : '\1';
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
         } else {
-            const auto new_choice = input_command(prompt);
+            const auto new_choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = redraw });
             if (!new_choice) {
                 break;
             }
@@ -280,7 +283,7 @@ static int get_mane_power(PlayerType *player_ptr, int *sn, bool baigaesi)
         screen_load();
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(player_ptr);
 
     /* Abort if needed */
@@ -817,12 +820,12 @@ bool do_cmd_mane(PlayerType *player_ptr, bool baigaesi)
 
     mane_data->mane_list.erase(std::next(mane_data->mane_list.begin(), n));
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::IMITATION);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::IMITATION);
     static constexpr auto flags = {
         SubWindowRedrawingFlag::PLAYER,
         SubWindowRedrawingFlag::SPELL,
     };
-    rfu.set_flags(flags);
+    dur.set_flags(flags);
     return true;
 }

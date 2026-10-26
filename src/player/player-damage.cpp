@@ -20,7 +20,7 @@
 #include "inventory/inventory-damage.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/files-util.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/report.h"
 #include "io/write-diary.h"
 #include "main/music-definitions-table.h"
@@ -52,6 +52,7 @@
 #include "status/base-status.h"
 #include "status/element-resistance.h"
 #include "system/building-type-definition.h"
+#include "system/deferred-update-requests.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/quest-definition.h"
 #include "system/floor/floor-info.h"
@@ -60,7 +61,6 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "timed-effect/timed-effects.h"
@@ -116,9 +116,9 @@ static bool acid_minus_ac(PlayerType *player_ptr)
 
     msg_print(_("{}が酸で腐食した！", "Your {} is corroded!"), item_name);
     item.to_a--;
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(StatusRecalculatingFlag::BONUS);
+    dur.set_flag(SubWindowRedrawingFlag::PLAYER);
     calc_android_exp(player_ptr);
     return true;
 }
@@ -360,8 +360,8 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
         player_ptr->chp = 0;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::HP);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::HP);
     if (damage_type != DAMAGE_GENO && player_ptr->chp == 0) {
         chg_virtue(player_ptr, Virtue::SACRIFICE, 1);
         chg_virtue(player_ptr, Virtue::CHANCE, 2);
@@ -554,7 +554,8 @@ int take_hit(PlayerType *player_ptr, int damage_type, int damage, std::string_vi
 #ifdef WORLD_SCORE
         screen_dump = make_screen_dump(player_ptr);
 #endif
-        (void)inkey();
+        // 辞世の句などを画面に表示しただけで、プロンプトは表示していない
+        (void)input_key_with_context(InputKind::ANY_KEY, "");
         return damage;
 #else
         msg_print(death_message);

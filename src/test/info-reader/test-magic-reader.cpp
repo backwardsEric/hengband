@@ -3,6 +3,7 @@
 #include "info-reader/parse-error-types.h"
 #include "player-info/class-info.h"
 #include "system/spell-info-list.h"
+#include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include "test/scoped-restore.h"
 #include "test/system/spell-info-list-test-access.h"
@@ -32,7 +33,7 @@ TEST_CASE("MagicReader preserves an existing class on a later parse error")
         { "armour_weight_limit", 0 },
         { "realms", nlohmann::json::array() },
     };
-    REQUIRE(MagicReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(MagicReader(data).read().has_value());
     CHECK(error_idx == 0);
     CHECK(class_magics_info[0].spell_book == ItemKindType::NONE);
     CHECK(class_magics_info[0].spell_first == 99);
@@ -42,7 +43,8 @@ TEST_CASE("MagicReader preserves an existing class on a later parse error")
     data["has_glove_mp_penalty"] = true;
     data["first_spell_level"] = 1;
     data["realms"] = nlohmann::json::object();
-    CHECK(MagicReader(data).read() == PARSE_ERROR_INVALID_TYPE);
+    error_idx = -1;
+    CHECK(test::to_error_code(MagicReader(data).read()) == ParseErrorType::INVALID_TYPE);
     CHECK(class_magics_info[0].spell_book == ItemKindType::NONE);
     CHECK(class_magics_info[0].has_glove_mp_penalty == false);
     CHECK(class_magics_info[0].spell_first == 99);
@@ -98,6 +100,61 @@ nlohmann::json make_magic_numeric_data(SpellInfoList &spells)
 }
 }
 
+TEST_CASE("MagicReader rejects a repeated class without changing its definition")
+{
+    const MagicNumericState state;
+    auto data = make_magic_numeric_data(SpellInfoList::get_instance());
+    REQUIRE(MagicReader(data).read().has_value());
+    const auto original = class_magics_info[0];
+
+    data["spell_type"] = "LIFE";
+    data["magic_status"] = "WIS";
+    data["has_glove_mp_penalty"] = false;
+    data["has_magic_fail_rate_cap"] = true;
+    data["is_spell_trainable"] = false;
+    data["first_spell_level"] = 5;
+    data["armour_weight_limit"] = 450;
+    data["realms"][0]["spells_info"][0]["mana_cost"] = 100;
+    CHECK(test::to_error_code(MagicReader(data).read()) == ParseErrorType::NON_SEQUENTIAL_RECORDS);
+    CHECK(error_idx == 0);
+    REQUIRE(class_magics_info.size() == 1);
+    const auto &actual = class_magics_info[0];
+    CHECK(actual.spell_book == original.spell_book);
+    CHECK(actual.spell_stat == original.spell_stat);
+    CHECK(actual.has_glove_mp_penalty == original.has_glove_mp_penalty);
+    CHECK(actual.has_magic_fail_rate_cap == original.has_magic_fail_rate_cap);
+    CHECK(actual.is_spell_trainable == original.is_spell_trainable);
+    CHECK(actual.spell_first == original.spell_first);
+    CHECK(actual.spell_weight == original.spell_weight);
+    for (int realm = 0; realm <= MAX_MAGIC; ++realm) {
+        for (int spell = 0; spell < 32; ++spell) {
+            CAPTURE(realm);
+            CAPTURE(spell);
+            CHECK(actual.info[realm][spell].slevel == original.info[realm][spell].slevel);
+            CHECK(actual.info[realm][spell].smana == original.info[realm][spell].smana);
+            CHECK(actual.info[realm][spell].sfail == original.info[realm][spell].sfail);
+            CHECK(actual.info[realm][spell].sexp == original.info[realm][spell].sexp);
+        }
+    }
+}
+
+TEST_CASE("MagicReader accepts a gap between classes")
+{
+    const MagicNumericState state;
+    class_magics_info.assign(3, {});
+    auto data = make_magic_numeric_data(SpellInfoList::get_instance());
+    REQUIRE(MagicReader(data).read().has_value());
+    CHECK(error_idx == 0);
+
+    data["name"] = "PRIEST";
+    data["first_spell_level"] = 5;
+    REQUIRE(MagicReader(data).read().has_value());
+    CHECK(error_idx == 2);
+    CHECK(class_magics_info[0].spell_first == 1);
+    CHECK(class_magics_info[2].spell_first == 5);
+    CHECK(class_magics_info[2].info[enum2i(RealmType::LIFE)][0].smana == 2);
+}
+
 /*!
  * @brief 補正前の難易度の0・100を受理し、符号なしの境界値も維持する
  */
@@ -109,7 +166,8 @@ TEST_CASE("MagicReader accepts difficulty from zero through one hundred")
     for (const auto &difficulty : std::vector<nlohmann::json>{ 0, 95, 100, 100u }) {
         CAPTURE(difficulty.dump());
         data["realms"][0]["spells_info"][1]["difficulty"] = difficulty;
-        REQUIRE(MagicReader(data).read() == PARSE_ERROR_NONE);
+        error_idx = -1;
+        REQUIRE(MagicReader(data).read().has_value());
         CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][0].sfail == 7);
         CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][1].sfail == difficulty.get<int>());
     }
@@ -123,15 +181,16 @@ TEST_CASE("MagicReader rejects invalid difficulty without publishing partial dat
     const MagicNumericState state;
     auto &spells = SpellInfoList::get_instance();
     auto data = make_magic_numeric_data(spells);
-    REQUIRE(MagicReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(MagicReader(data).read().has_value());
     data["first_spell_level"] = 5;
     data["armour_weight_limit"] = 450;
     data["realms"][0]["spells_info"][0]["difficulty"] = 20;
     for (const auto &difficulty : std::vector<nlohmann::json>{ -1, 101, 999, std::numeric_limits<uint64_t>::max(), 1.0, true }) {
         CAPTURE(difficulty.dump());
         data["realms"][0]["spells_info"][1]["difficulty"] = difficulty;
-        const auto expected = difficulty.is_number_integer() ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_INVALID_TYPE;
-        CHECK(MagicReader(data).read() == expected);
+        const auto expected = difficulty.is_number_integer() ? ParseErrorType::INVALID_FLAG : ParseErrorType::INVALID_TYPE;
+        error_idx = -1;
+        CHECK(test::to_error_code(MagicReader(data).read()) == expected);
         CHECK(class_magics_info[0].spell_first == 1);
         CHECK(class_magics_info[0].spell_weight == 430);
         CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][0].sfail == 7);
@@ -153,7 +212,8 @@ TEST_CASE("MagicReader accepts configured maximum for mana experience and armour
         data["armour_weight_limit"] = value;
         data["realms"][0]["spells_info"][1]["mana_cost"] = value;
         data["realms"][0]["spells_info"][1]["first_cast_exp_rate"] = value;
-        REQUIRE(MagicReader(data).read() == PARSE_ERROR_NONE);
+        error_idx = -1;
+        REQUIRE(MagicReader(data).read().has_value());
         CHECK(class_magics_info[0].spell_weight == value.get<int>());
         CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][1].smana == value.get<int>());
         CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][1].sexp == value.get<int>());
@@ -168,7 +228,7 @@ TEST_CASE("MagicReader rejects invalid bounded fields without publishing partial
     const MagicNumericState state;
     auto &spells = SpellInfoList::get_instance();
     const auto original = make_magic_numeric_data(spells);
-    REQUIRE(MagicReader(original).read() == PARSE_ERROR_NONE);
+    REQUIRE(MagicReader(original).read().has_value());
     for (const auto *field : { "armour_weight_limit", "mana_cost", "first_cast_exp_rate" }) {
         for (const auto &value : std::vector<nlohmann::json>{ -1, 2048, std::numeric_limits<uint64_t>::max(), 1.0, true }) {
             CAPTURE(field);
@@ -181,8 +241,9 @@ TEST_CASE("MagicReader rejects invalid bounded fields without publishing partial
             } else {
                 data["realms"][0]["spells_info"][1][field] = value;
             }
-            const auto expected = value.is_number_integer() ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_INVALID_TYPE;
-            CHECK(MagicReader(data).read() == expected);
+            const auto expected = value.is_number_integer() ? ParseErrorType::INVALID_FLAG : ParseErrorType::INVALID_TYPE;
+            error_idx = -1;
+            CHECK(test::to_error_code(MagicReader(data).read()) == expected);
             CHECK(class_magics_info[0].spell_first == 1);
             CHECK(class_magics_info[0].spell_weight == 430);
             CHECK(class_magics_info[0].info[enum2i(RealmType::LIFE)][0].smana == 2);
@@ -221,31 +282,31 @@ TEST_CASE("MagicReader propagates helper errors without publishing partial data"
 {
     const MagicNumericState state;
     auto data = make_magic_numeric_data(SpellInfoList::get_instance());
-    REQUIRE(MagicReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(MagicReader(data).read().has_value());
 
     struct InvalidField {
         const char *path;
         nlohmann::json value;
-        parse_error_type error;
+        ParseErrorType error;
     };
     const std::vector<InvalidField> invalid_fields = {
-        { "/name", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/name", "UNKNOWN_CLASS", PARSE_ERROR_OUT_OF_BOUNDS },
-        { "/spell_type", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/spell_type", "UNKNOWN_BOOK", PARSE_ERROR_INVALID_FLAG },
-        { "/magic_status", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/magic_status", "UNKNOWN_STAT", PARSE_ERROR_INVALID_FLAG },
-        { "/realms", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms", nlohmann::json::object(), PARSE_ERROR_INVALID_TYPE },
-        { "/realms/0", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms/0/name", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms/0/name", "UNKNOWN_REALM", PARSE_ERROR_INVALID_FLAG },
-        { "/realms/0/spells_info", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms/0/spells_info", nlohmann::json::object(), PARSE_ERROR_INVALID_TYPE },
-        { "/realms/0/spells_info/1", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms/0/spells_info/1/spell_tag", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/realms/0/spells_info/1/spell_tag", "unknown-tag", PARSE_ERROR_INVALID_FLAG },
-        { "/realms/0/spells_info/1/learn_level", 100, PARSE_ERROR_INVALID_FLAG },
+        { "/name", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/name", "UNKNOWN_CLASS", ParseErrorType::OUT_OF_BOUNDS },
+        { "/spell_type", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/spell_type", "UNKNOWN_BOOK", ParseErrorType::INVALID_FLAG },
+        { "/magic_status", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/magic_status", "UNKNOWN_STAT", ParseErrorType::INVALID_FLAG },
+        { "/realms", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms", nlohmann::json::object(), ParseErrorType::INVALID_TYPE },
+        { "/realms/0", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms/0/name", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms/0/name", "UNKNOWN_REALM", ParseErrorType::INVALID_FLAG },
+        { "/realms/0/spells_info", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms/0/spells_info", nlohmann::json::object(), ParseErrorType::INVALID_TYPE },
+        { "/realms/0/spells_info/1", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms/0/spells_info/1/spell_tag", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/realms/0/spells_info/1/spell_tag", "unknown-tag", ParseErrorType::INVALID_FLAG },
+        { "/realms/0/spells_info/1/learn_level", 100, ParseErrorType::INVALID_FLAG },
     };
     for (const auto &invalid : invalid_fields) {
         CAPTURE(invalid.path);
@@ -256,7 +317,7 @@ TEST_CASE("MagicReader propagates helper errors without publishing partial data"
         candidate["realms"][0]["spells_info"][0]["mana_cost"] = 100;
         candidate[nlohmann::json::json_pointer(invalid.path)] = invalid.value;
         error_idx = -1;
-        CHECK(MagicReader(candidate).read() == invalid.error);
+        CHECK(test::to_error_code(MagicReader(candidate).read()) == invalid.error);
         CHECK(error_idx == (std::string_view(invalid.path) == "/name" ? -1 : 0));
         CHECK(class_magics_info[0].spell_book == ItemKindType::SORCERY_BOOK);
         CHECK(class_magics_info[0].spell_first == 1);

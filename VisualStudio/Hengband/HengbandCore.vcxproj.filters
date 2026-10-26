@@ -996,6 +996,9 @@
     <ClCompile Include="..\..\src\info-reader\message-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\info-reader\parse-error-messages.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\info-reader\quest-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
@@ -1339,9 +1342,6 @@
       <Filter>main</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\main\info-initializer.cpp">
-      <Filter>main</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\main\init-error-messages-table.cpp">
       <Filter>main</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\main\music-definitions-table.cpp">
@@ -2617,6 +2617,9 @@
     <ClCompile Include="..\..\src\system\building-type-definition.cpp">
       <Filter>system</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\system\deferred-update-requests.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\system\dungeon\dungeon-data-definition.cpp">
       <Filter>system\dungeon</Filter>
     </ClCompile>
@@ -2690,9 +2693,6 @@
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\system\player-type-definition.cpp">
-      <Filter>system</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\system\redrawing-flags-updater.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\system\services\baseitem-monrace-service.cpp">
@@ -3684,6 +3684,9 @@
     <ClInclude Include="..\..\src\info-reader\info-reader-util.h">
       <Filter>info-reader</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\item-reader-limits.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\info-reader\json-reader-util.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -3694,6 +3697,9 @@
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\message-reader.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\info-reader\parse-error-messages.h">
       <Filter>info-reader</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\info-reader\parse-error-types.h">
@@ -4081,9 +4087,6 @@
       <Filter>main</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\main\info-initializer.h">
-      <Filter>main</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\main\init-error-messages-table.h">
       <Filter>main</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\main\music-definitions-table.h">
@@ -5605,6 +5608,9 @@
     <ClInclude Include="..\..\src\system\building-type-definition.h">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\system\deferred-update-requests.h">
+      <Filter>system</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\system\dungeon\dungeon-data-definition.h">
       <Filter>system\dungeon</Filter>
     </ClInclude>
@@ -5738,9 +5744,6 @@
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\system\player-type-definition.h">
-      <Filter>system</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\system\redrawing-flags-updater.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\system\services\baseitem-monrace-service.h">

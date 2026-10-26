@@ -16,7 +16,6 @@
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
-#include "game-option/cheat-types.h"
 #include "grid/grid.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
@@ -34,6 +33,7 @@
 #include "object/item-use-flags.h"
 #include "object/object-broken.h"
 #include "object/object-stack.h"
+#include "perception/simple-perception.h"
 #include "player-base/player-class.h"
 #include "player-info/equipment-info.h"
 #include "player-status/player-energy.h"
@@ -41,13 +41,13 @@
 #include "racial/racial-android.h"
 #include "specific-object/torch.h"
 #include "system/angband-exceptions.h"
+#include "system/deferred-update-requests.h"
 #include "system/enums/terrain/terrain-characteristics.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item/item-entity.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -90,6 +90,7 @@ bool ObjectThrowEntity::check_can_throw()
 
     if (this->item->is_cursed() && (this->i_idx >= INVEN_MAIN_HAND)) {
         msg_print(_("ふーむ、どうやら呪われているようだ。", "Hmmm, it seems to be cursed."));
+        sense_curse(this->player_ptr, this->i_idx);
         return false;
     }
 
@@ -301,7 +302,7 @@ void ObjectThrowEntity::process_boomerang_back()
         this->item = player_ptr->inventory[this->i_idx];
         *this->item = this->q_ptr->clone();
         this->player_ptr->equip_cnt++;
-        RedrawingFlagsUpdater::get_instance().request_equipment_change_updates();
+        DeferredUpdateRequests::get_instance().request_equipment_change_updates();
         this->do_drop = false;
         return;
     }
@@ -436,7 +437,7 @@ void ObjectThrowEntity::attack_racial_power()
 
     this->display_attack_racial_power();
     this->calc_racial_power_damage();
-    msg_print_wizard(this->player_ptr, CHEAT_MONSTER, _("{}のダメージを与えた。(残りHP {}/{}({}))", "You do {} damage. (left HP {}/{}({}))"), this->tdam, monster.hp - this->tdam, monster.maxhp, monster.max_maxhp);
+    msg_print_wizard_damage(this->player_ptr, monster, this->tdam);
 
     auto fear = false;
     AttributeFlags attribute_flags{};

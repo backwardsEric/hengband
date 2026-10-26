@@ -26,6 +26,7 @@
 #include "spell-kind/spells-teleport.h"
 #include "spell-realm/spells-crusade.h"
 #include "system/angband-system.h"
+#include "system/deferred-update-requests.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
@@ -33,7 +34,6 @@
 #include "system/monrace/monrace-list.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 #include <algorithm>
@@ -189,25 +189,27 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     const auto m_name = monster_name(player_ptr, m_idx);
 
     disturb(player_ptr, true, true);
-    if (one_in_(3) || !direct) {
+    // プレイヤーを狙ったのに、プレイヤーがその地点にいなければ掴めない (モンスターを狙ったときは掴める)
+    if (one_in_(3) || (monster_to_player && !direct)) {
         msg.to_player = _("{}は突然視界から消えた!", "You lose sight of {2}!");
         msg.to_mons = _("{}は突然急上昇して視界から消えた!", "You lose sight of {2}!");
 
         simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
 
         teleport_away(player_ptr, m_idx, 10, TELEPORT_NONMAGICAL);
-        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
         return MonsterSpellResult::make_valid();
-    }
-
-    if (direct) {
-        sound(SoundKind::FALL);
     }
 
     msg.to_player = _("{}があなたを掴んで空中から投げ落とした。", "{} snatches you, soars into the sky, and drops you.");
     msg.to_mons = _("{}が{}を掴んで空中から投げ落とした。", "{} snatches {}, soars into the sky, and releases its grip.");
 
-    simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
+    // 音は、プレイヤー (乗っている馬を含む) が掴まれたときと、モンスター同士で掴んだメッセージを出したときだけ出す。
+    // プレイヤーが狙われたときはメッセージを必ず出すが、乗っている馬が狙われたときは見えないと出さないので direct も見る
+    const auto is_noticed = simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
+    if (direct || is_noticed) {
+        sound(SoundKind::FALL);
+    }
 
     bool fear, dead; /* dummy */
     int dam = Dice::roll(4, 8);
@@ -224,10 +226,10 @@ static MonsterSpellResult spell_RF6_SPECIAL_B(PlayerType *player_ptr, POSITION y
     } else {
         msg.to_player = _("あなたは地面に叩きつけられた。", "You crashed into the ground.");
         msg.to_mons = _("{4}は地面に叩きつけられた。", "{4} crashed into the ground.");
+        dam += Dice::roll(6, 8);
     }
 
     simple_monspell_message(player_ptr, m_idx, t_idx, msg, target_type);
-    dam += Dice::roll(6, 8);
 
     if (monster_to_player || (monster_to_monster && monster_target.is_riding())) {
         int get_damage = take_hit(player_ptr, DAMAGE_NOESCAPE, dam, m_name);

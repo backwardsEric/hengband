@@ -192,7 +192,7 @@ void do_cmd_knowledge_stat(PlayerType *player_ptr)
  */
 void do_cmd_knowledge_home(PlayerType *player_ptr)
 {
-    apply_wilderness_definition();
+    (void)apply_wilderness_definition();
 
     FILE *fff = nullptr;
     GAME_TEXT file_name[FILE_NAME_SIZE];
@@ -201,7 +201,7 @@ void do_cmd_knowledge_home(PlayerType *player_ptr)
     }
 
     constexpr auto home_inventory = _("我が家のアイテム", "Home Inventory");
-    const auto &store = TownList::get_instance().get_town(1).get_store(StoreSaleType::HOME);
+    const auto &store = TownList::get_instance().get_home();
     if (store.stock_num == 0) {
         angband_fclose(fff);
         FileDisplayer(player_ptr->name).display(true, file_name, 0, 0, home_inventory);

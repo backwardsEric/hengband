@@ -312,6 +312,10 @@ TEST_CASE("VaultReader keeps the existing vaults on a parse error")
 配列のようにコピー代入できないものや、関数を呼んで戻すもの（`initialize()` など）は、
 `util::make_finalizer()` を直接使ってください。
 
+更新フラグ（`DeferredUpdateRequests`）を立てたり調べたりするテストでは、`test/scoped-redrawing-flags.h` の
+`test::scoped_restore_redrawing_flags<Flag>()` で、フラグの型ごとにすべてのフラグを退避して元へ戻せます。
+これも戻り値は必ず変数で受けてください。
+
 データの読み込み処理（`info-reader/`）のテストでは、`test/info-reader/scoped-reader-state.h` の
 `test::ScopedReaderState` を使ってください。エラーの位置（`error_idx`）を設定し、端末が無くてもメッセージを
 出さないようにして、スコープを抜けるときに元へ戻します。
@@ -324,10 +328,13 @@ TEST_CASE("VaultReader keeps the existing vaults on a parse error")
 `input_string()` やメッセージの `-続く-`（`msg_print()`・`msg_erase()`）のようにキー入力を待つ処理は、`test/scoped-input-term.h` の `test::ScopedInputTerm` を使うと
 テストできます。メモリ上の端末と `PlayerType` を用意してゲームの端末として登録し、端末が入力を待つたびに、
 `expect()` で指定した入力待ちの文脈（`io/input-context.h`）が公開されているかを確かめて、指定したキーを 1 つずつ渡します。
+文脈のプロンプトは前後の空白を除いたものなので、`expect()` には表示する文字列から空白を除いて書きます（下の例の `"Text:"`）。
 キーを使い切った後にさらに入力を待つと、例外でテストが失敗します（入力を待たないことは、`expect()` を呼ばずに処理を呼べば確かめられます）。
+1 つの処理の中でキーに応じて文脈が変わる場合（アイテムの選択で区分を切り替えるなど）は、`expect()` の後に `then_expect()` で、
+続けて待つ入力の文脈とキーを足します。
 スコープを抜けるときに、キーをすべて渡したことと、入力待ちの文脈が残っていないことを確かめます。
 キーは端末が入力を待つたびに 1 つずつ渡すので、待たずに後続のキーを読む処理（マクロのトリガーの照合など）は確かめられません。
-入力の処理が触るグローバル変数（`p_ptr`、`angband_terms`、入力のオプションなど）は、スコープを抜けるときに元へ戻します。
+入力の処理が触るグローバル変数（`p_ptr`、`angband_terms`、入力のオプション、最後に選んだターゲットなど）は、作るときに既定にし、スコープを抜けるときに元へ戻します。
 ただし、コマンドの繰り返しの記録（`io/command-repeater.cpp`）とメッセージ行の表示位置など `view/display-messages.cpp` の内部の状態は
 外から戻せないため、戻しません。繰り返しの記録は `test::ScopedInputTerm` を作るたびに書き換わります。
 メッセージの表示を途中で終えるテストは、後のテストに影響することがあります。
@@ -339,7 +346,7 @@ TEST_CASE("VaultReader keeps the existing vaults on a parse error")
 TEST_CASE("example: input_string waits for a string")
 {
     test::ScopedInputTerm term;
-    term.expect({ InputKind::STRING, "Text: ", StringInputDetails{ 20, "seed" } }, "\r");
+    term.expect({ InputKind::STRING, "Text:", StringInputDetails{ 20, "seed" } }, "\r");
     CHECK(input_string("Text: ", 20, "seed", false) == "seed");
 }
 ```

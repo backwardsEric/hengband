@@ -18,13 +18,13 @@
 #include "floor/geometry.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/input-key-requester.h"
-#include "object-enchant/item-feeling.h"
 #include "object-enchant/object-curse.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-armor.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
+#include "perception/simple-perception.h"
 #include "player/attack-defense-types.h"
 #include "player/player-realm.h"
 #include "player/player-skill.h"
@@ -39,11 +39,11 @@
 #include "spell/spells-status.h"
 #include "spell/technic-info-table.h"
 #include "status/action-setter.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -166,17 +166,16 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
             } else {
                 int curse_rank = 0;
                 msg_print(_("恐怖の暗黒オーラがあなたの{}を包み込んだ！", "A terrible black aura blasts your {}!"), item_name);
-                item->curse_flags.set(CurseTraitType::CURSED);
-
+                EnumClassFlagGroup<CurseTraitType> curses{ CurseTraitType::CURSED };
                 if (item->is_fixed_or_random_artifact() || item->is_ego()) {
 
                     if (one_in_(3)) {
-                        item->curse_flags.set(CurseTraitType::HEAVY_CURSE);
+                        curses.set(CurseTraitType::HEAVY_CURSE);
                     }
                     if (one_in_(666)) {
-                        item->curse_flags.set(CurseTraitType::TY_CURSE);
+                        curses.set(CurseTraitType::TY_CURSE);
                         if (one_in_(666)) {
-                            item->curse_flags.set(CurseTraitType::PERMA_CURSE);
+                            curses.set(CurseTraitType::PERMA_CURSE);
                         }
 
                         item->art_flags.set(TR_AGGRAVATE);
@@ -187,10 +186,11 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                     }
                 }
 
-                item->curse_flags.set(get_curse(curse_rank, item.get()));
+                curses.set(get_curse(curse_rank, item.get()));
+                item->add_curses(curses);
             }
 
-            RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+            DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
             should_continue = false;
         }
         break;
@@ -240,9 +240,7 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                     msg_print(_("{}点のダメージを返した。", "You return {} damage."), power);
                 }
 
-                spell_hex.set_revenge_type(SpellHexRevengeType::NONE);
-                spell_hex.set_revenge_turn(0, true);
-                spell_hex.set_revenge_power(0, true);
+                spell_hex.clear_revenge();
             }
         }
         break;
@@ -424,17 +422,16 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
             } else {
                 int curse_rank = 0;
                 msg_print(_("恐怖の暗黒オーラがあなたの{}を包み込んだ！", "A terrible black aura blasts your {}!"), item_name);
-                item->curse_flags.set(CurseTraitType::CURSED);
-
+                EnumClassFlagGroup<CurseTraitType> curses{ CurseTraitType::CURSED };
                 if (item->is_fixed_or_random_artifact() || item->is_ego()) {
 
                     if (one_in_(3)) {
-                        item->curse_flags.set(CurseTraitType::HEAVY_CURSE);
+                        curses.set(CurseTraitType::HEAVY_CURSE);
                     }
                     if (one_in_(666)) {
-                        item->curse_flags.set(CurseTraitType::TY_CURSE);
+                        curses.set(CurseTraitType::TY_CURSE);
                         if (one_in_(666)) {
-                            item->curse_flags.set(CurseTraitType::PERMA_CURSE);
+                            curses.set(CurseTraitType::PERMA_CURSE);
                         }
 
                         item->art_flags.set(TR_AGGRAVATE);
@@ -446,10 +443,11 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                     }
                 }
 
-                item->curse_flags.set(get_curse(curse_rank, item.get()));
+                curses.set(get_curse(curse_rank, item.get()));
+                item->add_curses(curses);
             }
 
-            RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+            DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
             should_continue = false;
         }
         break;
@@ -466,6 +464,7 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                 return tl::nullopt;
             } else {
                 msg_print(_("影のオーラを身にまとった。", "You are enveloped by a shadowy aura!"));
+                sense_curse(player_ptr, INVEN_OUTER);
             }
         }
         if (continuation) {
@@ -531,7 +530,7 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                 flag = true;
             }
 
-            auto &rfu = RedrawingFlagsUpdater::get_instance();
+            auto &dur = DeferredUpdateRequests::get_instance();
             for (i = A_STR; i < A_MAX; i++) {
                 if (player_ptr->stat_cur[i] < player_ptr->stat_max[i]) {
                     if (player_ptr->stat_cur[i] < 18) {
@@ -544,7 +543,7 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                         player_ptr->stat_cur[i] = player_ptr->stat_max[i];
                     }
 
-                    rfu.set_flag(StatusRecalculatingFlag::BONUS);
+                    dur.set_flag(StatusRecalculatingFlag::BONUS);
                     flag = true;
                 }
             }
@@ -558,14 +557,8 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                     set_action(player_ptr, ACTION_NONE);
                 }
 
-                static constexpr auto flags = {
-                    StatusRecalculatingFlag::BONUS,
-                    StatusRecalculatingFlag::HP,
-                    StatusRecalculatingFlag::MP,
-                    StatusRecalculatingFlag::SPELLS,
-                };
-                rfu.set_flags(flags);
-                rfu.set_flag(MainWindowRedrawingFlag::EXTRA);
+                dur.request_player_status_recalculation();
+                dur.set_flag(MainWindowRedrawingFlag::EXTRA);
                 return "";
             }
         }
@@ -601,12 +594,11 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
                 is_drained = true;
             }
 
-            // 解呪と同じく、呪われているという感触も消す
             if (is_drained) {
-                item->curse_flags.clear();
-                item->set_identification_flag(IdentificationFlag::SENSE);
-                item->feeling = FEEL_NONE;
-                RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+                item->remove_curses();
+                DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+            } else {
+                sense_curse(player_ptr, i_idx);
             }
 
             should_continue = false;
@@ -756,21 +748,11 @@ tl::optional<std::string> do_hex_spell(PlayerType *player_ptr, spell_hex_type sp
         }
     }
 
-    if (!info) {
-        auto &rfu = RedrawingFlagsUpdater::get_instance();
-        static constexpr auto flags_srf = {
-            StatusRecalculatingFlag::BONUS,
-            StatusRecalculatingFlag::HP,
-            StatusRecalculatingFlag::MP,
-            StatusRecalculatingFlag::SPELLS,
-        };
-        rfu.set_flags(flags_srf);
-        static constexpr auto flags_mwrf = {
-            MainWindowRedrawingFlag::EXTRA,
-            MainWindowRedrawingFlag::HP,
-            MainWindowRedrawingFlag::MP,
-        };
-        rfu.set_flags(flags_mwrf);
+    // 維持している間 (continuation) は、維持している呪術の組が変わらないので能力を計算し直さない。
+    // 途中で自分で止まる呪術 (影のクローク・全復活) は、止める処理が要求する。
+    // 維持の効果で変わるもの (HP・能力値・経験値・我慢と復讐の表示など) は、変える処理がそれぞれ要求する
+    if (cast || stop) {
+        SpellHex::request_casting_change_updates();
     }
 
     return "";

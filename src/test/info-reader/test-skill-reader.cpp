@@ -7,6 +7,7 @@
 #include "locale/language-switcher.h"
 #include "object/tval-types.h"
 #include "player/player-skill.h"
+#include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include "test/scoped-restore.h"
 #include <doctest/doctest.h>
@@ -37,8 +38,8 @@ TEST_CASE("SkillReader converts all weapon ranks and preserves raw skill experie
         data["weapons"]["BOW"]["max_ranks"][rank] = rank;
     }
     data["skills"]["RIDING"] = { { "start_exp", 500 }, { "max_exp", 5000 } };
-    const auto err = SkillReader(data).read();
-    REQUIRE(err == PARSE_ERROR_NONE);
+    const auto result = SkillReader(data).read();
+    REQUIRE(result.has_value());
     CHECK(error_idx == 0);
     constexpr int expected[] = { 0, 4000, 6000, 7000, 8000 };
     for (size_t rank = 0; rank < 5; ++rank) {
@@ -166,8 +167,8 @@ TEST_CASE("SkillReader rejects malformed records without modifying the destinati
         data["skills"]["SHIELD"] = { { "start_exp", 500 }, { "max_exp", 499 } };
     }
     SkillReader reader(data);
-    const auto err = reader.read();
-    CHECK(err != PARSE_ERROR_NONE);
+    const auto result = reader.read();
+    CHECK_FALSE(result.has_value());
     REQUIRE(reader.error().has_value());
     CHECK_FALSE(reader.error()->path.empty());
     CHECK_FALSE(reader.error()->reason.empty());
@@ -185,25 +186,25 @@ TEST_CASE("SkillReader rejects duplicate and missing class ids and can be reused
     class_skills_info.assign(29, {});
     error_idx = -1;
     auto data = make_class();
-    auto err = SkillReader(data).read();
-    REQUIRE(err == PARSE_ERROR_NONE);
-    err = SkillReader(data).read();
-    CHECK(err == PARSE_ERROR_NON_SEQUENTIAL_RECORDS);
+    auto result = SkillReader(data).read();
+    REQUIRE(result.has_value());
+    result = SkillReader(data).read();
+    CHECK(test::to_error_code(result) == ParseErrorType::NON_SEQUENTIAL_RECORDS);
     data["id"] = 2;
-    err = SkillReader(data).read();
-    CHECK(err == PARSE_ERROR_NON_SEQUENTIAL_RECORDS);
+    result = SkillReader(data).read();
+    CHECK(test::to_error_code(result) == ParseErrorType::NON_SEQUENTIAL_RECORDS);
     CHECK(error_idx == 0);
     for (int id = 1; id < 29; ++id) {
         data["id"] = id;
-        err = SkillReader(data).read();
-        CHECK(err == PARSE_ERROR_NONE);
+        result = SkillReader(data).read();
+        CHECK(result.has_value());
     }
     CHECK(error_idx == 28);
     class_skills_info.assign(29, {});
     error_idx = -1;
     data["id"] = 0;
-    err = SkillReader(data).read();
-    CHECK(err == PARSE_ERROR_NONE);
+    result = SkillReader(data).read();
+    CHECK(result.has_value());
 }
 
 TEST_CASE("SkillReader diagnostics identify the class field and cause")
@@ -221,7 +222,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     const auto previous = class_skills_info;
     auto data = make_class();
     data["id"] = 7;
-    auto expected = PARSE_ERROR_TOO_FEW_ARGUMENTS;
+    auto expected = ParseErrorType::TOO_FEW_ARGUMENTS;
     std::string path;
     std::string reason;
     std::string class_id = "7";
@@ -233,49 +234,49 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("unknown field")
     {
-        expected = PARSE_ERROR_UNDEFINED_DIRECTIVE;
+        expected = ParseErrorType::UNDEFINED_DIRECTIVE;
         data["weapons"]["SWORD"]["typo"] = 1;
         path = "$.weapons.SWORD.typo";
         reason = _("未知の項目です", "unknown field");
     }
     SUBCASE("wrong object type")
     {
-        expected = PARSE_ERROR_INVALID_TYPE;
+        expected = ParseErrorType::INVALID_TYPE;
         data["skills"] = nlohmann::json::array();
         path = "$.skills";
         reason = _("オブジェクトが必要です", "expected an object");
     }
     SUBCASE("wrong integer type")
     {
-        expected = PARSE_ERROR_INVALID_TYPE;
+        expected = ParseErrorType::INVALID_TYPE;
         data["weapons"]["SWORD"]["start_ranks"][63] = "4";
         path = "$.weapons.SWORD.start_ranks[63]";
         reason = _("整数が必要です", "expected an integer");
     }
     SUBCASE("out of range rank")
     {
-        expected = PARSE_ERROR_INVALID_FLAG;
+        expected = ParseErrorType::INVALID_FLAG;
         data["weapons"]["SWORD"]["max_ranks"][63] = 5;
         path = "$.weapons.SWORD.max_ranks[63]";
         reason = _("0以上4以下の整数が必要です", "expected an integer in [0, 4]");
     }
     SUBCASE("invalid array type")
     {
-        expected = PARSE_ERROR_INVALID_TYPE;
+        expected = ParseErrorType::INVALID_TYPE;
         data["weapons"]["SWORD"]["max_ranks"] = 4;
         path = "$.weapons.SWORD.max_ranks";
         reason = _("配列が必要です", "expected an array");
     }
     SUBCASE("wrong array length")
     {
-        expected = PARSE_ERROR_OUT_OF_BOUNDS;
+        expected = ParseErrorType::OUT_OF_BOUNDS;
         data["weapons"]["SWORD"]["start_ranks"].erase(63);
         path = "$.weapons.SWORD.start_ranks";
         reason = _("要素数は64個が必要ですが、63個あります", "expected 64 entries, got 63");
     }
     SUBCASE("rank above maximum")
     {
-        expected = PARSE_ERROR_INVALID_VALUE;
+        expected = ParseErrorType::INVALID_VALUE;
         data["weapons"]["SWORD"]["start_ranks"][63] = 4;
         data["weapons"]["SWORD"]["max_ranks"][63] = 3;
         path = "$.weapons.SWORD.start_ranks[63]";
@@ -283,7 +284,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("experience above maximum")
     {
-        expected = PARSE_ERROR_INVALID_VALUE;
+        expected = ParseErrorType::INVALID_VALUE;
         data["skills"]["SHIELD"]["start_exp"] = 7000;
         data["skills"]["SHIELD"]["max_exp"] = 6000;
         path = "$.skills.SHIELD.start_exp";
@@ -291,7 +292,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("out of range experience")
     {
-        expected = PARSE_ERROR_INVALID_FLAG;
+        expected = ParseErrorType::INVALID_FLAG;
         data["skills"]["SHIELD"]["max_exp"] = 8001;
         path = "$.skills.SHIELD.max_exp";
         reason = _("0以上8000以下の整数が必要です", "expected an integer in [0, 8000]");
@@ -305,7 +306,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("invalid id")
     {
-        expected = PARSE_ERROR_INVALID_FLAG;
+        expected = ParseErrorType::INVALID_FLAG;
         data["id"] = 29;
         class_id = "29";
         path = "$.id";
@@ -313,7 +314,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("duplicate class before weapon validation")
     {
-        expected = PARSE_ERROR_NON_SEQUENTIAL_RECORDS;
+        expected = ParseErrorType::NON_SEQUENTIAL_RECORDS;
         data["id"] = 6;
         data["weapons"] = nullptr;
         class_id = "6";
@@ -322,7 +323,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     }
     SUBCASE("non object record")
     {
-        expected = PARSE_ERROR_INVALID_TYPE;
+        expected = ParseErrorType::INVALID_TYPE;
         data = nullptr;
         class_id = "<unknown>";
         path = "$";
@@ -339,7 +340,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     {
         data["typo"] = 42;
         data["id"] = "bad";
-        expected = PARSE_ERROR_UNDEFINED_DIRECTIVE;
+        expected = ParseErrorType::UNDEFINED_DIRECTIVE;
         class_id = "\"bad\"";
         path = "$.typo";
         reason = _("未知の項目です", "unknown field");
@@ -348,7 +349,7 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
     {
         data["id"] = "bad";
         data["weapons"] = nullptr;
-        expected = PARSE_ERROR_INVALID_TYPE;
+        expected = ParseErrorType::INVALID_TYPE;
         class_id = "\"bad\"";
         path = "$.id";
         reason = _("整数が必要です", "expected an integer");
@@ -358,13 +359,13 @@ TEST_CASE("SkillReader diagnostics identify the class field and cause")
         data["weapons"]["SWORD"]["start_ranks"][63] = 4;
         data["weapons"]["SWORD"]["max_ranks"][63] = 3;
         data["skills"] = nullptr;
-        expected = PARSE_ERROR_INVALID_VALUE;
+        expected = ParseErrorType::INVALID_VALUE;
         path = "$.weapons.SWORD.start_ranks[63]";
         reason = _("初期ランク4が上限3を超えています", "start rank 4 exceeds maximum 3");
     }
     SkillReader reader(data);
-    const auto err = reader.read();
-    CHECK(err == expected);
+    const auto result = reader.read();
+    CHECK(test::to_error_code(result) == expected);
     REQUIRE(reader.error().has_value());
     CHECK(reader.error()->class_id == class_id);
     CHECK(reader.error()->path == path);
@@ -389,17 +390,17 @@ TEST_CASE("SkillReader clears stale diagnostics before another read")
     SkillReader reader(data);
     CHECK_FALSE(reader.error().has_value());
     data["skills"]["RIDING"]["max_exp"] = 8001;
-    auto err = reader.read();
-    REQUIRE(err != PARSE_ERROR_NONE);
+    auto result = reader.read();
+    REQUIRE(!result.has_value());
     REQUIRE(reader.error().has_value());
     CHECK(reader.error()->path == "$.skills.RIDING.max_exp");
     data["skills"]["RIDING"]["max_exp"] = 8000;
-    err = reader.read();
-    CHECK(err == PARSE_ERROR_NONE);
+    result = reader.read();
+    CHECK(result.has_value());
     CHECK_FALSE(reader.error().has_value());
     // 再度失敗した際も前回の技能エラーを残さない。
-    err = reader.read();
-    REQUIRE(err != PARSE_ERROR_NONE);
+    result = reader.read();
+    REQUIRE(!result.has_value());
     REQUIRE(reader.error().has_value());
     CHECK(reader.error()->path == "$.id");
 }

@@ -14,7 +14,7 @@
 #include "inventory/inventory-describer.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "locale/japanese.h"
 #include "main/sound-definitions-table.h"
@@ -28,6 +28,7 @@
 #include "object/object-info.h"
 #include "object/object-mark-types.h"
 #include "perception/object-perception.h"
+#include "perception/simple-perception.h"
 #include "player-base/player-class.h"
 #include "player-base/player-race.h"
 #include "player-info/equipment-info.h"
@@ -41,9 +42,9 @@
 #include "spell-kind/spells-perception.h"
 #include "status/action-setter.h"
 #include "status/shape-changer.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
@@ -57,41 +58,36 @@
  */
 static void do_curse_on_equip(OBJECT_IDX slot, ItemEntity &item, PlayerType *player_ptr)
 {
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (set_anubis_and_chariot(player_ptr) && ((slot == INVEN_MAIN_HAND) || (slot == INVEN_SUB_HAND))) {
 
         ItemEntity *anubis = player_ptr->inventory[INVEN_MAIN_HAND].get();
         ItemEntity *chariot = player_ptr->inventory[INVEN_SUB_HAND].get();
 
-        anubis->curse_flags.set(CurseTraitType::PERSISTENT_CURSE);
-        anubis->curse_flags.set(CurseTraitType::HEAVY_CURSE);
-        chariot->curse_flags.set(CurseTraitType::PERSISTENT_CURSE);
-        chariot->curse_flags.set(CurseTraitType::HEAVY_CURSE);
-        chariot->curse_flags.set(CurseTraitType::BERS_RAGE);
-        chariot->curse_flags.set(CurseTraitType::VUL_CURSE);
+        anubis->add_curses({ CurseTraitType::PERSISTENT_CURSE, CurseTraitType::HEAVY_CURSE });
+        chariot->add_curses({ CurseTraitType::PERSISTENT_CURSE, CurseTraitType::HEAVY_CURSE, CurseTraitType::BERS_RAGE, CurseTraitType::VUL_CURSE });
 
         msg_print(_("『銀の戦車』プラス『アヌビス神』二刀流ッ！", "*Silver Chariot* plus *Anubis God* Two Swords!"));
-        rfu.set_flag(StatusRecalculatingFlag::BONUS);
+        dur.set_flag(StatusRecalculatingFlag::BONUS);
         return;
     }
 
-    auto should_curse = item.get_flags().has(TR_PERSISTENT_CURSE) || item.curse_flags.has(CurseTraitType::PERSISTENT_CURSE);
-    should_curse &= item.curse_flags.has_not(CurseTraitType::HEAVY_CURSE);
-    if (!should_curse) {
+    const auto should_curse = item.get_flags().has(TR_PERSISTENT_CURSE) || item.curse_flags.has(CurseTraitType::PERSISTENT_CURSE);
+    if (!should_curse || !item.add_curses({ CurseTraitType::HEAVY_CURSE })) {
         return;
     }
 
     const auto item_name = describe_flavor(player_ptr, item, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    item.curse_flags.set(CurseTraitType::HEAVY_CURSE);
     msg_print(_("悪意に満ちた黒いオーラが{}をとりまいた...", "There is a malignant black aura surrounding your {}..."), item_name);
-    item.feeling = FEEL_NONE;
-    rfu.set_flag(StatusRecalculatingFlag::BONUS);
+    dur.set_flag(StatusRecalculatingFlag::BONUS);
 }
 
 /*!
  * @brief 装備一覧を表示するコマンドのメインルーチン / Display equipment
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param shopping 店の中のコマンドか (一覧の後に入力したキーは店のコマンドになる)
  */
-void do_cmd_equip(PlayerType *player_ptr)
+void do_cmd_equip(PlayerType *player_ptr, bool shopping)
 {
     command_wrk = true;
     if (easy_floor) {
@@ -110,7 +106,7 @@ void do_cmd_equip(PlayerType *player_ptr)
 #endif
 
     prt(out_val, 0, 0);
-    command_new = inkey();
+    command_new = input_key_with_context({ InputKind::COMMAND, out_val, CommandInputDetails{ .shopping = shopping, .item_list = ItemSelectionArea::EQUIPMENT } });
     screen_load();
 
     if (command_new != ESCAPE) {
@@ -232,6 +228,7 @@ void do_cmd_wield(PlayerType *player_ptr)
 #else
         msg_print("The {} you are {} appears to be cursed.", item_name, describe_use(player_ptr, slot));
 #endif
+        sense_curse(player_ptr, slot);
         return;
     }
 
@@ -336,7 +333,7 @@ void do_cmd_wield(PlayerType *player_ptr)
     if (wield_slot_item.is_cursed()) {
         msg_print(_("うわ！ すさまじく冷たい！", "Oops! It feels deathly cold!"));
         chg_virtue(player_ptr, Virtue::HARMONY, -1);
-        wield_slot_item.set_identification_flag(IdentificationFlag::SENSE);
+        sense_curse(player_ptr, slot);
     }
 
     do_curse_on_equip(slot, wield_slot_item, player_ptr);
@@ -349,10 +346,10 @@ void do_cmd_wield(PlayerType *player_ptr)
     }
 
     calc_android_exp(player_ptr);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_equipment_change_updates();
-    rfu.set_flag(MainWindowRedrawingFlag::EQUIPPY);
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_equipment_change_updates();
+    dur.set_flag(MainWindowRedrawingFlag::EQUIPPY);
+    dur.set_flag(SubWindowRedrawingFlag::PLAYER);
 }
 
 /*!
@@ -371,22 +368,22 @@ void do_cmd_takeoff(PlayerType *player_ptr)
     }
 
     PlayerEnergy energy(player_ptr);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (item->is_cursed()) {
         if (item->curse_flags.has(CurseTraitType::PERMA_CURSE) || !pc.equals(PlayerClassType::BERSERKER)) {
             msg_print(_("ふーむ、どうやら呪われているようだ。", "Hmmm, it seems to be cursed."));
+            sense_curse(player_ptr, i_idx);
             return;
         }
 
         if ((item->curse_flags.has(CurseTraitType::HEAVY_CURSE) && one_in_(7)) || one_in_(4)) {
             msg_print(_("呪われた装備を力づくで剥がした！", "You tore off a piece of cursed equipment by sheer strength!"));
-            item->set_identification_flag(IdentificationFlag::SENSE);
-            item->curse_flags.clear();
-            item->feeling = FEEL_NONE;
-            rfu.set_flag(StatusRecalculatingFlag::BONUS);
+            item->remove_curses();
+            dur.set_flag(StatusRecalculatingFlag::BONUS);
             msg_print(_("呪いを打ち破った。", "You break the curse."));
         } else {
             msg_print(_("装備を外せなかった。", "You couldn't remove the equipment."));
+            sense_curse(player_ptr, i_idx);
             energy.set_player_turn_energy(50);
             return;
         }
@@ -397,7 +394,7 @@ void do_cmd_takeoff(PlayerType *player_ptr)
     (void)inven_takeoff(player_ptr, i_idx, 255);
     verify_equip_slot(player_ptr, i_idx);
     calc_android_exp(player_ptr);
-    rfu.request_equipment_change_updates();
-    rfu.set_flag(MainWindowRedrawingFlag::EQUIPPY);
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    dur.request_equipment_change_updates();
+    dur.set_flag(MainWindowRedrawingFlag::EQUIPPY);
+    dur.set_flag(SubWindowRedrawingFlag::PLAYER);
 }

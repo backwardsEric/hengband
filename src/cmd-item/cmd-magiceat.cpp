@@ -61,7 +61,7 @@
 #include "game-option/disturbance-options.h"
 #include "game-option/text-display-options.h"
 #include "io/command-repeater.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
@@ -104,6 +104,9 @@ static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool
     }
 
     if (use_menu) {
+        const auto prompt = only_browse
+                                ? _("どの種類の魔法を見ますか？", "Which type of magic do you browse?")
+                                : _("どの種類の魔法を使いますか？", "Which type of magic do you use?");
         screen_save();
 
         while (tval == ItemKindType::NONE) {
@@ -117,13 +120,8 @@ static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool
             prt(fmt::format(" {} rod", (menu_line == 3) ? "> " : "  "), 4, 14);
 #endif
 
-            if (only_browse) {
-                prt(_("どの種類の魔法を見ますか？", "Which type of magic do you browse?"), 0, 0);
-            } else {
-                prt(_("どの種類の魔法を使いますか？", "Which type of magic do you use?"), 0, 0);
-            }
-
-            const auto choice = inkey();
+            prt(prompt, 0, 0);
+            const auto choice = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
             switch (choice) {
             case ESCAPE:
             case 'z':
@@ -208,6 +206,8 @@ static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool
     request_list = always_show_list;
 
     const int item_group_size = item_group.size();
+    const auto first_label = I2A(0);
+    const auto last_label = I2AD(item_group_size - 1);
     auto sval = 0;
     const auto &baseitems = BaseitemList::get_instance();
     while (!flag) {
@@ -251,13 +251,7 @@ static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool
                 }
                 /* letter/number for power selection */
                 else {
-                    char letter;
-                    if (sval_ctr < 26) {
-                        letter = I2A(sval_ctr);
-                    } else {
-                        letter = '0' + sval_ctr - 26;
-                    }
-                    dummy = fmt::format("{:c})", letter);
+                    dummy = fmt::format("{:c})", I2AD(sval_ctr));
                 }
                 x1 = ((sval_ctr < item_group_size / 2) ? x : x + 40);
                 y1 = ((sval_ctr < item_group_size / 2) ? y + sval_ctr : y + sval_ctr - item_group_size / 2);
@@ -305,7 +299,8 @@ static tl::optional<BaseitemKey> select_magic_eater(PlayerType *player_ptr, bool
             }
         }
 
-        const auto choice = input_command(prompt);
+        const auto is_list_shown = request_list || use_menu;
+        const auto choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = is_list_shown, .browse = only_browse, .menu = use_menu });
         if (!choice) {
             break;
         }

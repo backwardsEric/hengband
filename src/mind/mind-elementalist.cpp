@@ -21,6 +21,7 @@
 #include "grid/grid.h"
 #include "hpmp/hp-mp-processor.h"
 #include "io/command-repeater.h"
+#include "io/input-context.h"
 #include "io/input-key-acceptor.h"
 #include "io/input-key-requester.h"
 #include "main/sound-definitions-table.h"
@@ -46,13 +47,13 @@
 #include "spell/spell-info.h"
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
+#include "system/deferred-update-requests.h"
 #include "system/enums/terrain/terrain-characteristics.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/grid-selector.h"
 #include "target/target-getter.h"
 #include "term/screen-processor.h"
@@ -726,9 +727,9 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
     constexpr auto fmt_browse = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}について知りますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Browse which {}? ");
     constexpr auto fmt_use = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}を使いますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Use which {}? ");
     const auto desc_upcased = str_upcase_first(p);
-    const auto first_letter = I2A(0);
-    const auto last_letter = I2A(num - 1);
-    const auto prompt = only_browse ? fmt::format(fmt_browse, desc_upcased, first_letter, last_letter, p) : fmt::format(fmt_use, desc_upcased, first_letter, last_letter, p);
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(num - 1);
+    const auto prompt = only_browse ? fmt::format(fmt_browse, desc_upcased, first_label, last_label, p) : fmt::format(fmt_use, desc_upcased, first_label, last_label, p);
     if (use_menu && !only_browse) {
         screen_save();
     }
@@ -738,7 +739,7 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         if (choice == ESCAPE) {
             choice = ' ';
         } else {
-            const auto new_choice = input_command(prompt);
+            const auto new_choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = redraw, .browse = only_browse, .menu = use_menu });
             if (!new_choice) {
                 break;
             }
@@ -820,7 +821,7 @@ static bool get_element_power(PlayerType *player_ptr, SPELL_IDX *sn, bool only_b
         screen_load();
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(player_ptr);
     if (!flag) {
         return false;
@@ -881,8 +882,8 @@ static bool try_cast_element_spell(PlayerType *player_ptr, SPELL_IDX spell_idx, 
         player_ptr->csp = std::max(0, player_ptr->csp - player_ptr->msp * 10 / (20 + randint1(10)));
 
         PlayerEnergy(player_ptr).set_player_turn_energy(100);
-        auto &rfu = RedrawingFlagsUpdater::get_instance();
-        rfu.set_flag(MainWindowRedrawingFlag::MP);
+        auto &dur = DeferredUpdateRequests::get_instance();
+        dur.set_flag(MainWindowRedrawingFlag::MP);
         return false;
     }
 
@@ -929,8 +930,8 @@ void do_cmd_element(PlayerType *player_ptr)
     }
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::MP);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::MP);
 }
 
 /*!
@@ -956,8 +957,9 @@ void do_cmd_element_browse(PlayerType *player_ptr)
         term_erase(12, 16);
         display_wrap_around(get_element_tip(player_ptr, n), 62, 17, 15);
 
-        prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
-        (void)inkey();
+        constexpr auto prompt = _("何かキーを押して下さい。", "Hit any key.");
+        prt(prompt, 0, 0);
+        (void)input_key_with_context(InputKind::ANY_KEY, prompt);
     }
 }
 

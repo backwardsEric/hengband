@@ -34,11 +34,11 @@
 #include "system/artifact/artifact-list.h"
 #include "system/artifact/artifact-record.h"
 #include "system/baseitem/baseitem-key.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/dice.h"
@@ -193,6 +193,26 @@ void acquirement(PlayerType *player_ptr, POSITION y1, POSITION x1, int num, bool
 }
 
 /*!
+ * @brief 防具呪縛・武器呪縛で呪われたエゴにした品の、擬似鑑定の感触を呪いに合わせる
+ * @param item 呪縛した品
+ * @details 呪いを付けたときと同じく感触を呪いに合わせる (ItemEntity::match_feeling_to_curses())。
+ * 呪縛した品は呪われたエゴ (BLASTED・SHATTERED) になるので、次の感触は重い擬似鑑定で感じ直したときと同じ {無価値} にする。
+ * - {恐ろしい}: 固定アーティファクトはアーティファクトでなくなる (ランダムアーティファクトは名前が残り、アーティファクトのまま)
+ * - {上質}・{並} から求めた {呪われている}: 重い擬似鑑定でしか付かず、アーティファクトでもエゴでもないと分かっていた品
+ * ({呪われていない}・感触なしはランダムアーティファクトのことがあるので {呪われている} のまま)
+ */
+static void update_feeling_on_blasting(ItemEntity &item)
+{
+    const auto was_ordinary = (item.feeling == FEEL_GOOD) || (item.feeling == FEEL_AVERAGE);
+    item.match_feeling_to_curses();
+    const auto is_blasted_artifact = (item.feeling == FEEL_TERRIBLE) && !item.is_fixed_or_random_artifact();
+    const auto is_blasted_ordinary = was_ordinary && (item.feeling == FEEL_CURSED);
+    if (is_blasted_artifact || is_blasted_ordinary) {
+        item.feeling = FEEL_WORTHLESS;
+    }
+}
+
+/*!
  * @brief 防具呪縛処理 /
  * Curse the players armor
  * @return 何も持っていない場合を除き、常にTRUEを返す
@@ -229,10 +249,11 @@ bool curse_armor(PlayerType *player_ptr)
     item.art_flags.clear();
     item.curse_flags.set(CurseTraitType::CURSED);
     item.set_identification_flag(IdentificationFlag::BROKEN);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    update_feeling_on_blasting(item);
+    auto &dur = DeferredUpdateRequests::get_instance();
     // エゴ・アーティファクトの能力が無くなる
-    rfu.request_equipment_change_updates();
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    dur.request_equipment_change_updates();
+    dur.set_flag(SubWindowRedrawingFlag::PLAYER);
     calc_android_exp(player_ptr);
     return true;
 }
@@ -276,10 +297,11 @@ bool curse_weapon_object(PlayerType *player_ptr, bool force, ItemEntity &item)
     item.art_flags.clear();
     item.curse_flags.set(CurseTraitType::CURSED);
     item.set_identification_flag(IdentificationFlag::BROKEN);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    update_feeling_on_blasting(item);
+    auto &dur = DeferredUpdateRequests::get_instance();
     // エゴ・アーティファクトの能力が無くなる
-    rfu.request_equipment_change_updates();
-    rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+    dur.request_equipment_change_updates();
+    dur.set_flag(SubWindowRedrawingFlag::PLAYER);
     calc_android_exp(player_ptr);
     return true;
 }
@@ -313,7 +335,7 @@ void brand_bolts(PlayerType *player_ptr)
         enchant_equipment(item, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
 
         // 修正値の強化に失敗しても、エゴは付いている
-        RedrawingFlagsUpdater::get_instance().request_inventory_arrangement();
+        DeferredUpdateRequests::get_instance().request_inventory_arrangement();
         return;
     }
 
@@ -337,9 +359,7 @@ static void break_curse(ItemEntity &item)
     }
 
     msg_print(_("かけられていた呪いが打ち破られた！", "The curse is broken!"));
-    item.curse_flags.clear();
-    item.set_identification_flag(IdentificationFlag::SENSE);
-    item.feeling = FEEL_NONE;
+    item.remove_curses();
 }
 
 /*!
@@ -426,10 +446,10 @@ bool enchant_equipment(ItemEntity &item, int n, int eflag)
         return false;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(StatusRecalculatingFlag::BONUS);
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
     return true;
 }
 
@@ -619,5 +639,5 @@ void brand_weapon(PlayerType *player_ptr, int brand_type)
     calc_android_exp(player_ptr);
 
     // 修正値の強化に失敗しても、エゴの能力は付いている
-    RedrawingFlagsUpdater::get_instance().request_equipment_change_updates();
+    DeferredUpdateRequests::get_instance().request_equipment_change_updates();
 }

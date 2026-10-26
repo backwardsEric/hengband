@@ -249,17 +249,11 @@ void search_for_object(PlayerType *player_ptr, AutopickTextBody *tb, const ItemE
 
     while (true) {
         bool match;
-        if (forward) {
-            if (!tb->lines_list[++i]) {
-                break;
-            }
-        } else {
-            if (--i < 0) {
-                break;
-            }
+        if (!tb->has_line(forward ? ++i : --i)) {
+            break;
         }
 
-        if (!autopick_new_entry(entry, *tb->lines_list[i], false)) {
+        if (!autopick_new_entry(entry, tb->lines[i].line, false)) {
             continue;
         }
 
@@ -268,7 +262,7 @@ void search_for_object(PlayerType *player_ptr, AutopickTextBody *tb, const ItemE
             continue;
         }
 
-        if (tb->states[i] & LSTAT_BYPASS) {
+        if (tb->lines[i].state.has(AutopickEntryStatus::BYPASS)) {
             if (bypassed_cy == -1) {
                 bypassed_cy = i;
             }
@@ -304,23 +298,17 @@ void search_for_string(AutopickTextBody *tb, std::string_view search_str, bool f
 
     int i = tb->cy;
     while (true) {
-        if (forward) {
-            if (!tb->lines_list[++i]) {
-                break;
-            }
-        } else {
-            if (--i < 0) {
-                break;
-            }
+        if (!tb->has_line(forward ? ++i : --i)) {
+            break;
         }
 
-        const auto line_data = tb->lines_list[i]->data();
+        const auto line_data = tb->lines[i].line.data();
         const auto *pos = angband_strstr(line_data, search_str);
         if (!pos) {
             continue;
         }
 
-        if ((tb->states[i] & LSTAT_BYPASS) && !(tb->states[i] & LSTAT_EXPRESSION)) {
+        if ((tb->lines[i].state.has(AutopickEntryStatus::BYPASS)) && tb->lines[i].state.has_not(AutopickEntryStatus::EXPRESSION)) {
             if (bypassed_cy == -1) {
                 bypassed_cy = i;
                 bypassed_cx = (int)(pos - line_data);

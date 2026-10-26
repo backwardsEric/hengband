@@ -2,7 +2,6 @@
 #include "artifact/fixed-art-types.h"
 #include "info-reader/json-reader-util.h"
 #include "info-reader/jsonc-document-loader.h"
-#include "info-reader/parse-error-types.h"
 #include "info-reader/quest-reader.h"
 #include "info-reader/random-grid-effect-types.h"
 #include "io/files-util.h"
@@ -42,6 +41,26 @@ void require_quest_reference(bool valid, const std::filesystem::path &file, std:
     if (!valid) {
         constexpr auto fmt = _("クエストの参照が未定義です ({}): {} {}", "Undefined quest reference ({}): {} {}");
         THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), field, id));
+    }
+}
+
+/*!
+ * @brief 地図のすべての記号が、クエストの凡例か共通凡例で定義されているか確認する
+ * @details 生成時はどちらにも無い記号の凡例を上書きしないため、前に生成した町やクエストの凡例がそのまま使われる。
+ * 使われない地図の候補も、どれが選ばれるかはキャラクタごとに決まるため確認する。
+ */
+void require_defined_map_symbols(const QuestFixedMap &fixed_map, const std::map<char, QuestLegendCell> &base_legend, const std::filesystem::path &file)
+{
+    for (const auto &rows : fixed_map.maps) {
+        for (const auto &row : rows) {
+            for (const auto symbol : row) {
+                if (fixed_map.legend.contains(symbol) || base_legend.contains(symbol)) {
+                    continue;
+                }
+                constexpr auto fmt = _("クエストの地図に未定義の記号があります ({}): '{}'", "Undefined symbol in quest map ({}): '{}'");
+                THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), symbol));
+            }
+        }
     }
 }
 
@@ -301,9 +320,9 @@ std::map<char, QuestLegendCell> QuestList::load_base_legend()
         }
 
         QuestLegendCell cell;
-        if (const auto err = parse_quest_legend_cell(cell_data, cell); err != PARSE_ERROR_NONE) {
+        if (const auto result = parse_quest_legend_cell(cell_data, cell); !result) {
             constexpr auto fmt = _("ベース凡例 '{}' にエラーがあります ({}): コード {}", "Error in base legend '{}' ({}): code {}");
-            THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, symbol, path.string(), static_cast<int>(err)));
+            THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, symbol, path.string(), static_cast<int>(result.error())));
         }
 
         base_legend.insert_or_assign(symbol.front(), cell);
@@ -383,7 +402,7 @@ void QuestList::load_json_quests(const std::filesystem::path &quests_dir, std::m
         }
 
         QuestId quest_id{};
-        if (info_set_integer(*id_it, quest_id, true, Range(1, MAX_RANDOM_QUEST)) != PARSE_ERROR_NONE) {
+        if (!info_set_integer(*id_it, quest_id, true, Range(1, MAX_RANDOM_QUEST))) {
             constexpr auto fmt = _("クエストIDが範囲外です ({}): id {}", "Quest id is out of range ({}): id {}");
             THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), id_it->dump()));
         }
@@ -396,9 +415,9 @@ void QuestList::load_json_quests(const std::filesystem::path &quests_dir, std::m
 
         QuestType quest;
         QuestFixedMap fixed_map;
-        if (const auto err = QuestReader(quest_data, quest, fixed_map).read(); err != PARSE_ERROR_NONE) {
+        if (const auto result = QuestReader(quest_data, quest, fixed_map).read(); !result) {
             constexpr auto fmt = _("クエストファイルにエラーがあります ({}): コード {}", "Error in quest file ({}): code {}");
-            THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), static_cast<int>(err)));
+            THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), static_cast<int>(result.error())));
         }
 
         parsed_quests.emplace(quest_id, std::move(quest));
@@ -415,6 +434,7 @@ void QuestList::load_json_quests(const std::filesystem::path &quests_dir, std::m
             constexpr auto fmt = _("クエストの対象モンスターが未定義です ({}): monster {}", "Undefined quest target monster ({}): monster {}");
             THROW_EXCEPTION(std::runtime_error, fmt::format(fmt, file.string(), monster_id));
         }
+        require_defined_map_symbols(parsed_maps.at(quest_id), base_legend, file);
     }
     // 全ファイルの解析後に照合し、ファイル順に依存する前方参照の拒否を避ける。
     // 0 は「指定なし」または通常フロアからの退出を表すため、定義表を要求しない。

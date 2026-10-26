@@ -10,7 +10,7 @@
 #include "core/window-redrawer.h"
 #include "game-option/text-display-options.h"
 #include "io/command-repeater.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "io/screen-util.h"
 #include "main/sound-of-music.h"
@@ -21,8 +21,8 @@
 #include "player/player-status-table.h"
 #include "realm/realm-types.h"
 #include "spell/spell-info.h"
+#include "system/deferred-update-requests.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
@@ -76,6 +76,7 @@ static tl::optional<BlueMagicType> select_blue_magic_type_by_menu()
 {
     auto menu_line = 1;
     tl::optional<BlueMagicType> type;
+    constexpr auto prompt = _("どの種類の魔法を使いますか？", "use which type of magic? ");
 
     screen_save();
 
@@ -85,9 +86,8 @@ static tl::optional<BlueMagicType> select_blue_magic_type_by_menu()
         prt(fmt::format(_(" {} ブレス", " {} breath"), (menu_line == 3) ? _("》", "> ") : "  "), 4, 14);
         prt(fmt::format(_(" {} 召喚", " {} sommoning"), (menu_line == 4) ? _("》", "> ") : "  "), 5, 14);
         prt(fmt::format(_(" {} その他", " {} others"), (menu_line == 5) ? _("》", "> ") : "  "), 6, 14);
-        prt(_("どの種類の魔法を使いますか？", "use which type of magic? "), 0, 0);
-
-        auto choice = inkey();
+        prt(prompt, 0, 0);
+        const auto choice = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
         switch (choice) {
         case ESCAPE:
         case 'z':
@@ -491,7 +491,9 @@ static bool confirm_cast_blue_magic(MonsterAbilityType spell)
 static tl::optional<MonsterAbilityType> select_learnt_spells_by_symbol(PlayerType *player_ptr, const BluemageData &bluemage_data, std::span<const MonsterAbilityType> spells)
 {
     constexpr auto fmt = _("({}-{}, '*'で頁送り, ESC) どの{}を唱えますか？", "({}-{}, *=Next page, ESC=exit) Use which {}? ");
-    const auto prompt = fmt::format(fmt, I2A(0), I2A(spells.size() - 1), _("魔法", "magic"));
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(spells.size() - 1);
+    const auto prompt = fmt::format(fmt, first_label, last_label, _("魔法", "magic"));
 
     bool first_show_list = always_show_list;
     auto show_list = false;
@@ -501,7 +503,7 @@ static tl::optional<MonsterAbilityType> select_learnt_spells_by_symbol(PlayerTyp
     while (!selected_spell) {
         auto choice = '\0';
         if (!first_show_list) {
-            const auto choice_opt = input_command(prompt);
+            const auto choice_opt = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = show_list });
             if (!choice_opt) {
                 break;
             }
@@ -588,12 +590,14 @@ static tl::optional<MonsterAbilityType> select_learnt_spells_by_menu(PlayerType 
     screen_save();
 
     const auto page_size = make_blue_magic_list_page_context(0, spells.size()).page_size;
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(spells.size() - 1);
 
     while (!selected_spell) {
         const auto page_context = make_blue_magic_list_page_context((menu_line - 1) / page_size, spells.size());
         describe_blue_magic_name(player_ptr, bluemage_data, menu_line, spells, page_context);
 
-        const auto choice = input_command(prompt);
+        const auto choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = true, .menu = true });
         if (!choice) {
             break;
         }
@@ -666,7 +670,7 @@ tl::optional<MonsterAbilityType> get_learned_power(PlayerType *player_ptr)
                               ? select_learnt_spells_by_menu(player_ptr, *bluemage_data, *spells)
                               : select_learnt_spells_by_symbol(player_ptr, *bluemage_data, *spells);
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(player_ptr);
 
     if (!selected_spell) {

@@ -11,7 +11,7 @@
 #include "game-option/input-options.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
@@ -31,9 +31,9 @@
 #include "status/action-setter.h"
 #include "status/experience.h"
 #include "system/baseitem/baseitem-key.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/int-char-converter.h"
 #include "view/display-messages.h"
@@ -54,11 +54,11 @@ static bool check_destory_item(PlayerType *player_ptr, const ItemEntity &destroy
     const auto msg = fmt::format(fmt, item_name);
     msg_erase();
     message_add(msg);
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::MESSAGE);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::MESSAGE);
     window_stuff(player_ptr);
     while (true) {
         prt(msg, 0, 0);
-        char i = inkey();
+        const auto i = input_key_with_context(InputKind::CONFIRM, msg);
         prt("", 0, 0);
         if (i == 'y' || i == 'Y') {
             return true;

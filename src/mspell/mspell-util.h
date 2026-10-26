@@ -5,13 +5,8 @@
 #include <string_view>
 
 /* Spell Type flag */
-#define MONSTER_TO_PLAYER 0x01
-#define MONSTER_TO_MONSTER 0x02
-
-/* monster spell number */
-#define RF4_SPELL_START 32 * 3
-#define RF5_SPELL_START 32 * 4
-#define RF6_SPELL_START 32 * 5
+constexpr auto MONSTER_TO_PLAYER = 0x01;
+constexpr auto MONSTER_TO_MONSTER = 0x02;
 
 class FloorType;
 class PlayerType;
@@ -55,4 +50,4 @@ bool see_monster(PlayerType *player_ptr, MONSTER_IDX m_idx);
 bool monster_near_player(const FloorType &floor, MONSTER_IDX m_idx, MONSTER_IDX t_idx);
 bool monspell_message_base(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx, const mspell_cast_msg &msgs, bool msg_flag_aux, int target_type);
 bool monspell_message(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx, const mspell_cast_msg_blind &msgs, int target_type);
-void simple_monspell_message(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx, const mspell_cast_msg_simple &msgs, int target_type);
+bool simple_monspell_message(PlayerType *player_ptr, MONSTER_IDX m_idx, MONSTER_IDX t_idx, const mspell_cast_msg_simple &msgs, int target_type);

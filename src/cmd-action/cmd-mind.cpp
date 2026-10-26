@@ -12,6 +12,7 @@
 
 #include "cmd-action/cmd-mind.h"
 #include "action/action-limited.h"
+#include "bot/bot-json-output.h"
 #include "core/asking-player.h"
 #include "core/window-redrawer.h"
 #include "effect/attribute-types.h"
@@ -21,7 +22,7 @@
 #include "game-option/input-options.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-berserker.h"
@@ -44,10 +45,10 @@
 #include "spell/spell-info.h"
 #include "status/bad-status-setter.h"
 #include "status/base-status.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
@@ -373,7 +374,7 @@ static void process_hard_concentration(PlayerType *player_ptr, cm_type *cm_ptr)
 {
     if ((cm_ptr->use_mind == MindKindType::BERSERKER) || (cm_ptr->use_mind == MindKindType::NINJUTSU)) {
         take_hit(player_ptr, DAMAGE_USELIFE, cm_ptr->mana_cost, _("過度の集中", "concentrating too hard"));
-        RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::HP);
+        DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::HP);
         return;
     }
 
@@ -400,7 +401,16 @@ void do_cmd_mind(PlayerType *player_ptr)
 {
     cm_type tmp_cm;
     cm_type *cm_ptr = initialize_cm_type(player_ptr, &tmp_cm);
-    if (cmd_limit_confused(player_ptr) || !MindPowerGetter(player_ptr).get_mind_power(&cm_ptr->n, false)) {
+    if (cmd_limit_confused(player_ptr)) {
+        return;
+    }
+
+    // 技の一覧は選び終えると消えるので、選んでいる間だけ登録する
+    const auto is_selected = [player_ptr, cm_ptr] {
+        BotDrawnScreenScope bot_screen;
+        return MindPowerGetter(player_ptr).get_mind_power(&cm_ptr->n, false);
+    }();
+    if (!is_selected) {
         return;
     }
 
@@ -424,8 +434,8 @@ void do_cmd_mind(PlayerType *player_ptr)
 
     mind_turn_passing(player_ptr, cm_ptr);
     process_hard_concentration(player_ptr, cm_ptr);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::MP);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::MP);
 }
 
 static MindKindType decide_use_mind_browse(PlayerType *player_ptr)
@@ -453,6 +463,9 @@ void do_cmd_mind_browse(PlayerType *player_ptr)
 {
     SPELL_IDX n = 0;
     MindKindType use_mind = decide_use_mind_browse(player_ptr);
+
+    // 閲覧では技を選んで説明を出している間も一覧が残るので、閲覧を終えるまで登録する
+    BotDrawnScreenScope bot_screen;
     screen_save();
     while (true) {
         if (!MindPowerGetter(player_ptr).get_mind_power(&n, true)) {
@@ -470,10 +483,12 @@ void do_cmd_mind_browse(PlayerType *player_ptr)
 
         switch (use_mind) {
         case MindKindType::MIRROR_MASTER:
-        case MindKindType::NINJUTSU:
-            prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
-            (void)inkey();
+        case MindKindType::NINJUTSU: {
+            constexpr auto prompt = _("何かキーを押して下さい。", "Hit any key.");
+            prt(prompt, 0, 0);
+            (void)input_key_with_context(InputKind::ANY_KEY, prompt);
             break;
+        }
         default:
             break;
         }

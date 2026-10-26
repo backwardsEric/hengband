@@ -4,8 +4,14 @@
     <Filter Include="autopick">
       <UniqueIdentifier>{6fc1c33a-bcb9-4de8-ac91-81321f97c33c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="bot">
+      <UniqueIdentifier>{5425de57-8156-52fb-8eb1-8d6913285c6c}</UniqueIdentifier>
+    </Filter>
     <Filter Include="cmd-io">
       <UniqueIdentifier>{050a79fd-58ab-48f3-a881-f83ff7a488b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cmd-item">
+      <UniqueIdentifier>{4fb7900b-d5fc-5337-97e2-09f5d3514d95}</UniqueIdentifier>
     </Filter>
     <Filter Include="core">
       <UniqueIdentifier>{4d7c328f-7398-52cb-9b9c-78920b0c1e67}</UniqueIdentifier>
@@ -22,8 +28,17 @@
     <Filter Include="info-reader">
       <UniqueIdentifier>{5a5d0f27-6c1e-4c8b-9f34-2b7d8e1a6c40}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inventory">
+      <UniqueIdentifier>{de11ae39-4fd8-50a4-bd7a-b91bb4e6e009}</UniqueIdentifier>
+    </Filter>
     <Filter Include="io">
       <UniqueIdentifier>{1bffe338-7a9b-482c-b4ea-71f5f4815fff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="io-dump">
+      <UniqueIdentifier>{17c54c89-5d7d-5139-89c0-1fcabf3073d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="knowledge">
+      <UniqueIdentifier>{1c932258-e90b-53b8-bed1-49cc3463650d}</UniqueIdentifier>
     </Filter>
     <Filter Include="load">
       <UniqueIdentifier>{3c217089-cb3c-4a88-9b0a-e642a6bf402d}</UniqueIdentifier>
@@ -34,8 +49,8 @@
     <Filter Include="lore">
       <UniqueIdentifier>{8ca43536-f921-5018-9314-5ef95d1231f2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="main">
-      <UniqueIdentifier>{3e3bfbaf-32fc-46d7-a1fc-51c277aaa757}</UniqueIdentifier>
+    <Filter Include="market">
+      <UniqueIdentifier>{c39c00e0-2243-5bfa-a98a-0989f0a30293}</UniqueIdentifier>
     </Filter>
     <Filter Include="monster-race">
       <UniqueIdentifier>{eb4b30d0-a9aa-492e-b43c-12d323e03a83}</UniqueIdentifier>
@@ -55,8 +70,17 @@
     <Filter Include="object-enchant">
       <UniqueIdentifier>{2ef0e4b3-9f0f-429d-acaa-d7d386513869}</UniqueIdentifier>
     </Filter>
+    <Filter Include="object-use">
+      <UniqueIdentifier>{f8eb8b7c-bedc-53de-96f0-a05d509ce3f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="object-use\quaff">
+      <UniqueIdentifier>{636f36b1-bb9e-5173-a778-f076e936ba94}</UniqueIdentifier>
+    </Filter>
     <Filter Include="player">
       <UniqueIdentifier>{9d3e0b2a-7c41-4f58-b6ad-2e1c5f80a4d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="player-status">
+      <UniqueIdentifier>{7efa8aa2-e95f-51fc-a755-3cd80e7e70bf}</UniqueIdentifier>
     </Filter>
     <Filter Include="racial">
       <UniqueIdentifier>{d4591d33-9029-489f-ab26-8b73bef4973c}</UniqueIdentifier>
@@ -66,6 +90,9 @@
     </Filter>
     <Filter Include="spell">
       <UniqueIdentifier>{67da305e-0150-5cfc-a147-ed1a74172c73}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="spell-realm">
+      <UniqueIdentifier>{029c61ae-8d08-5d11-a325-3a99b6a8b5b6}</UniqueIdentifier>
     </Filter>
     <Filter Include="store">
       <UniqueIdentifier>{2f858fe4-6c1a-425e-8310-085e4dcf1f4c}</UniqueIdentifier>
@@ -84,6 +111,9 @@
     </Filter>
     <Filter Include="system\monrace">
       <UniqueIdentifier>{26389b38-dfb3-4ce9-9f29-e4204b51087d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="target">
+      <UniqueIdentifier>{d36158db-2d9b-550a-923f-1bdc855a5bbf}</UniqueIdentifier>
     </Filter>
     <Filter Include="term">
       <UniqueIdentifier>{b6d3f0a2-4e8c-4b71-9a5d-3c2e7f1d8a94}</UniqueIdentifier>
@@ -109,8 +139,20 @@
     <ClCompile Include="..\..\src\test\autopick\test-autopick-editor-util.cpp">
       <Filter>autopick</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\autopick\test-autopick-finder.cpp">
+      <Filter>autopick</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\autopick\test-autopick-reader-writer.cpp">
+      <Filter>autopick</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\bot\test-bot-json-output.cpp">
+      <Filter>bot</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\cmd-io\test-cmd-autopick.cpp">
       <Filter>cmd-io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\cmd-item\test-cmd-item.cpp">
+      <Filter>cmd-item</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\core\test-asking-player.cpp">
       <Filter>core</Filter>
@@ -163,6 +205,9 @@
     <ClCompile Include="..\..\src\test\info-reader\test-message-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\info-reader\test-parse-error-messages.cpp">
+      <Filter>info-reader</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\info-reader\test-quest-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
@@ -193,6 +238,12 @@
     <ClCompile Include="..\..\src\test\info-reader\test-wilderness-reader.cpp">
       <Filter>info-reader</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\inventory\test-floor-item-getter.cpp">
+      <Filter>inventory</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\io-dump\test-dump-util.cpp">
+      <Filter>io-dump</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\io\test-condition-expression.cpp">
       <Filter>io</Filter>
     </ClCompile>
@@ -214,17 +265,23 @@
     <ClCompile Include="..\..\src\test\io\test-tokenizer.cpp">
       <Filter>io</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\knowledge\test-knowledge-features.cpp">
+      <Filter>knowledge</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\load\test-angband-version-comparer.cpp">
       <Filter>load</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\locale\test-character-encoding.cpp">
       <Filter>locale</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\locale\test-japanese.cpp">
+      <Filter>locale</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\lore\test-monster-lore-snapshot.cpp">
       <Filter>lore</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\test\main\test-init-error-messages-table.cpp">
-      <Filter>main</Filter>
+    <ClCompile Include="..\..\src\test\market\test-building-recharger.cpp">
+      <Filter>market</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\monster-race\test-race-ability-mask.cpp">
       <Filter>monster-race</Filter>
@@ -241,14 +298,29 @@
     <ClCompile Include="..\..\src\test\object-enchant\test-item-feeling.cpp">
       <Filter>object-enchant</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\object-enchant\test-item-magic-applier.cpp">
+      <Filter>object-enchant</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\object-enchant\test-object-ego.cpp">
       <Filter>object-enchant</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\object-use\quaff\test-quaff-execution.cpp">
+      <Filter>object-use\quaff</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\object\test-object-info.cpp">
       <Filter>object</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\object\test-object-value.cpp">
       <Filter>object</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\player-status\test-player-speed.cpp">
+      <Filter>player-status</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\player-status\test-player-status-base.cpp">
+      <Filter>player-status</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\player\test-player-skill.cpp">
+      <Filter>player</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\player\test-process-name.cpp">
       <Filter>player</Filter>
@@ -258,6 +330,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\test\save\test-item-writer.cpp">
       <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\spell-realm\test-spells-hex.cpp">
+      <Filter>spell-realm</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\spell\test-spell-info.cpp">
       <Filter>spell</Filter>
@@ -269,6 +344,9 @@
       <Filter>store</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\store\test-store-util.cpp">
+      <Filter>store</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\store\test-store.cpp">
       <Filter>store</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\system\baseitem\test-baseitem-allocation.cpp">
@@ -283,11 +361,20 @@
     <ClCompile Include="..\..\src\test\system\floor\test-floor-info.cpp">
       <Filter>system\floor</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\test\system\floor\test-town-records.cpp">
+      <Filter>system\floor</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\test\system\item\test-item-entity.cpp">
       <Filter>system\item</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\system\monrace\test-monrace-definition.cpp">
       <Filter>system\monrace</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\system\test-building-type-definition.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\system\test-deferred-update-requests.cpp">
+      <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\system\test-dungeon-record.cpp">
       <Filter>system</Filter>
@@ -295,8 +382,11 @@
     <ClCompile Include="..\..\src\test\system\test-quest-list.cpp">
       <Filter>system</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\test\system\test-redrawing-flags-updater.cpp">
-      <Filter>system</Filter>
+    <ClCompile Include="..\..\src\test\target\test-target-getter.cpp">
+      <Filter>target</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\term\test-screen-processor.cpp">
+      <Filter>term</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\term\test-z-rand.cpp">
       <Filter>term</Filter>
@@ -324,6 +414,9 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\util\test-flag-group.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\test\util\test-int-char-converter.cpp">
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\test\util\test-probability-table.cpp">
@@ -362,6 +455,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stdafx.h" />
+    <ClInclude Include="..\..\src\test\info-reader\parse-result-helpers.h">
+      <Filter>info-reader</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\test\info-reader\scoped-reader-state.h">
       <Filter>info-reader</Filter>
     </ClInclude>
@@ -369,6 +465,7 @@
       <Filter>save</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\test\scoped-input-term.h" />
+    <ClInclude Include="..\..\src\test\scoped-redrawing-flags.h" />
     <ClInclude Include="..\..\src\test\scoped-restore.h" />
     <ClInclude Include="..\..\src\test\scoped-rng.h" />
     <ClInclude Include="..\..\src\test\scoped-vector-wrapper.h" />

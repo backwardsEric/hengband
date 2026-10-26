@@ -1,7 +1,6 @@
 #include "info-reader/town-map-reader.h"
-#include "artifact/fixed-art-types.h"
 #include "info-reader/json-reader-util.h"
-#include "info-reader/random-grid-effect-types.h"
+#include "info-reader/quest-reader.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
 #include "player/player-realm.h"
@@ -22,82 +21,129 @@ bool is_integer_in_range(std::string_view value, int minimum, int maximum)
     return !value.empty() && error == std::errc{} && end == value.data() + value.size() && parsed >= minimum && parsed <= maximum;
 }
 
-bool is_unsigned_integer_in_range(std::string_view value, unsigned int maximum)
-{
-    unsigned int parsed = 0;
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
-    return !value.empty() && error == std::errc{} && end == value.data() + value.size() && parsed <= maximum;
-}
-
-bool is_feature_token(std::string_view field, std::string_view token)
-{
-    const bool short_field = (field == "monster") || (field == "object") || (field == "artifact");
-    const auto minimum = field == "monster" ? -std::numeric_limits<int16_t>::max() : (short_field ? std::numeric_limits<int16_t>::min() : std::numeric_limits<int>::min());
-    const auto maximum = short_field ? std::numeric_limits<int16_t>::max() : std::numeric_limits<int>::max();
-    if ((field == "object" || field == "artifact") && token == "!") {
-        return true;
-    }
-    if (token == "*") {
-        return true;
-    }
-    if (field == "monster" && token.starts_with('c')) {
-        return is_unsigned_integer_in_range(token.substr(1), static_cast<unsigned int>(maximum));
-    }
-    if (token.starts_with('*')) {
-        return is_unsigned_integer_in_range(token.substr(1), static_cast<unsigned int>(maximum));
-    }
-    return is_integer_in_range(token, minimum, maximum);
-}
-
 bool is_json_integer_in_range(const nlohmann::json &value, int minimum, int maximum)
 {
     int parsed = 0;
-    return info_set_integer(value, parsed, true, Range(minimum, maximum)) == PARSE_ERROR_NONE;
+    return info_set_integer(value, parsed, true, Range(minimum, maximum)).has_value();
 }
 
-// 数値トークンの文法と範囲はis_feature_tokenで検証済み。
-int feature_token_value(std::string_view token)
+bool is_cell_key(std::string_view key)
 {
-    if (token.starts_with('*') || token.starts_with('c')) {
-        token.remove_prefix(1);
-    }
-    int value = 0;
-    if (!token.empty()) {
-        std::from_chars(token.data(), token.data() + token.size(), value);
-    }
-    return value;
+    return key == "terrain" || key == "trap" || key == "monster" || key == "object" ||
+           key == "ego" || key == "artifact" || key == "caveInfo" || key == "special";
 }
 
-void read_feature_tokens(const nlohmann::json &fields, QuestLegendCell &cell)
+bool is_spec_field(std::string_view field)
 {
-    auto &grid = cell.grid;
-    const auto &monster = fields["monster"].get_ref<const std::string &>();
-    const auto &object = fields["object"].get_ref<const std::string &>();
-    const auto &ego = fields["ego"].get_ref<const std::string &>();
-    const auto &artifact = fields["artifact"].get_ref<const std::string &>();
-    grid.monster = static_cast<MONSTER_IDX>(feature_token_value(monster) * (monster.starts_with('c') ? -1 : 1));
-    cell.object_is_quest_reward = object == "!";
-    cell.artifact_is_quest_reward = artifact == "!";
-    grid.object = cell.object_is_quest_reward ? 0 : static_cast<OBJECT_IDX>(feature_token_value(object));
-    grid.ego = i2enum<EgoType>(feature_token_value(ego));
-    grid.artifact = cell.artifact_is_quest_reward ? FixedArtifactId{} : i2enum<FixedArtifactId>(feature_token_value(artifact));
-    grid.cave_info = fields["caveInfo"].get<BIT_FLAGS>();
-    grid.special = fields["special"].get<int16_t>();
-    for (const auto &[token, flag] : { std::pair{ monster, RANDOM_MONSTER }, std::pair{ object, RANDOM_OBJECT },
-             std::pair{ ego, RANDOM_EGO }, std::pair{ artifact, RANDOM_ARTIFACT } }) {
-        if (token.starts_with('*')) {
-            grid.random |= flag;
+    return field == "monster" || field == "object" || field == "ego" || field == "artifact" || field == "trap";
+}
+
+bool is_spec_key(std::string_view field, std::string_view key)
+{
+    return key == "random" || (key == "cloneOf" && field == "monster") ||
+           (key == "oodLevel" && (field == "monster" || field == "object")) ||
+           (key == "questReward" && (field == "object" || field == "artifact")) ||
+           (key == "id" && field == "artifact");
+}
+
+/*!
+ * @brief 共通解析の前に町v3の形・値だけを検証する。地形の存在は適用時に確認する。
+ * @details 未知キー、空の指定、型と必須構造、値の順で検査し、Questの受理範囲は変えない。
+ */
+ParseErrorType validate_town_cell(const nlohmann::json &fields)
+{
+    for (const auto &[field, value] : fields.items()) {
+        if (!is_cell_key(field)) {
+            return ParseErrorType::INVALID_VALUE;
+        }
+        if (is_spec_field(field) && value.is_object()) {
+            for (const auto &[key, ignored] : value.items()) {
+                if (!is_spec_key(field, key)) {
+                    return ParseErrorType::INVALID_VALUE;
+                }
+            }
         }
     }
+    for (const auto &[field, value] : fields.items()) {
+        if (is_spec_field(field) && value.is_object() && value.empty()) {
+            return ParseErrorType::INVALID_VALUE;
+        }
+    }
+    for (const auto &[field, value] : fields.items()) {
+        if (field == "terrain" || (field == "trap" && !value.is_object())) {
+            if (!value.is_string()) {
+                return ParseErrorType::INVALID_TYPE;
+            }
+        } else if (field == "caveInfo") {
+            if (!value.is_array() || !std::all_of(value.begin(), value.end(), [](const auto &flag) { return flag.is_string(); })) {
+                return ParseErrorType::INVALID_TYPE;
+            }
+        } else if (field == "special" || !value.is_object()) {
+            if (!value.is_number_integer()) {
+                return ParseErrorType::INVALID_TYPE;
+            }
+        } else {
+            if (!value.contains("random") && !value.contains("questReward") && !value.contains("cloneOf")) {
+                return ParseErrorType::INVALID_TYPE;
+            }
+            for (const auto &[key, item] : value.items()) {
+                if ((key == "random" || key == "questReward") ? !item.is_boolean() : !item.is_number_integer()) {
+                    return ParseErrorType::INVALID_TYPE;
+                }
+            }
+        }
+    }
+    for (const auto &[field, value] : fields.items()) {
+        if (value.is_string()) {
+            const auto &tag = value.get_ref<const std::string &>();
+            if (tag.empty() || tag.find_first_of(":/\\") != std::string::npos ||
+                std::any_of(tag.begin(), tag.end(), [](unsigned char c) { return c < ' ' || c > '~'; }) ||
+                (field == "trap" && tag == "*")) {
+                return ParseErrorType::INVALID_VALUE;
+            }
+        } else if (field == "caveInfo") {
+            std::vector<std::string> seen;
+            for (const auto &flag : value) {
+                const auto name = flag.get<std::string>();
+                if (std::find(seen.begin(), seen.end(), name) != seen.end()) {
+                    return ParseErrorType::INVALID_VALUE;
+                }
+                if (name != "MARK" && name != "GLOW" && name != "NO_TELEPORT_DEST" && name != "ROOM" && name != "LITE") {
+                    return ParseErrorType::INVALID_FLAG;
+                }
+                seen.push_back(name);
+            }
+        } else if (value.is_number_integer()) {
+            if (!is_json_integer_in_range(value, field == "special" ? -32768 : 1, field == "ego" ? 255 : 32767)) {
+                return ParseErrorType::INVALID_VALUE;
+            }
+        } else if (value.is_object()) {
+            const auto modes = static_cast<int>(value.contains("random")) + static_cast<int>(value.contains("cloneOf")) + static_cast<int>(value.contains("questReward"));
+            if (modes != 1 || (value.contains("oodLevel") && !value.contains("random")) ||
+                (value.contains("id") && !value.contains("random"))) {
+                return ParseErrorType::INVALID_VALUE;
+            }
+            for (const auto &[key, item] : value.items()) {
+                if (key == "random" || key == "questReward") {
+                    if (!item.get<bool>()) {
+                        return ParseErrorType::INVALID_VALUE;
+                    }
+                } else if (!is_json_integer_in_range(item, key == "oodLevel" ? 0 : 1, 32767)) {
+                    return ParseErrorType::INVALID_VALUE;
+                }
+            }
+        }
+    }
+    return ParseErrorType::NONE;
 }
 
-tl::expected<std::optional<std::string>, parse_error_type> read_condition(const nlohmann::json &data)
+tl::expected<std::optional<std::string>, ParseErrorType> read_condition(const nlohmann::json &data)
 {
     if (!data.contains("when")) {
         return std::optional<std::string>{};
     }
     if (!data["when"].is_string() || data["when"].get_ref<const std::string &>().empty()) {
-        return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
     return data["when"].get<std::string>();
 }
@@ -114,48 +160,48 @@ TownMapReader::TownMapReader(const nlohmann::json &data)
  * 地形・建物への適用はfixed-map-parser側で行う。建物専用モードでも凡例と建物は
  * 全件検証し、マップと開始位置の読み取りだけを省略する。
  */
-parse_error_type TownMapReader::read(TownMapDefinition &definition, int maximum_height, int maximum_width, bool only_buildings) const
+tl::expected<void, ParseErrorType> TownMapReader::read(TownMapDefinition &definition, int maximum_height, int maximum_width, bool only_buildings) const
 {
-    if (!this->data.is_object() || !this->data.contains("version") || !this->data["version"].is_number_integer() || this->data["version"] != 2) {
-        return PARSE_ERROR_INVALID_TYPE;
+    if (!this->data.is_object() || !this->data.contains("version") || !this->data["version"].is_number_integer() || this->data["version"] != 3) {
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
     for (const auto *field : { "featureRules", "mapVariants", "buildingRules", "startingPositions" }) {
         if (!this->data.contains(field) || !this->data[field].is_array()) {
-            return PARSE_ERROR_INVALID_TYPE;
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
     }
     if (this->data["mapVariants"].empty() || this->data["startingPositions"].empty()) {
-        return PARSE_ERROR_INVALID_VALUE;
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     TownMapDefinition parsed;
     if (const auto result = this->read_features(parsed); !result) {
-        return result.error();
+        return result;
     }
     if (const auto result = this->read_buildings(parsed); !result) {
-        return result.error();
+        return result;
     }
     if (!only_buildings) {
         if (const auto result = this->read_maps(parsed, maximum_height, maximum_width); !result) {
-            return result.error();
+            return result;
         }
         if (const auto result = this->read_starts(parsed); !result) {
-            return result.error();
+            return result;
         }
     }
     definition = std::move(parsed);
-    return PARSE_ERROR_NONE;
+    return {};
 }
 
-tl::expected<void, parse_error_type> TownMapReader::read_features(TownMapDefinition &definition) const
+tl::expected<void, ParseErrorType> TownMapReader::read_features(TownMapDefinition &definition) const
 {
     for (const auto &rule : this->data["featureRules"]) {
         if (!rule.is_object() || !rule.contains("symbol") || !rule["symbol"].is_string() || !rule.contains("definition") || !rule["definition"].is_object()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
         const auto symbol = rule["symbol"].get<std::string>();
         if (symbol.size() != 1 || !is_fixed_map_symbol(static_cast<unsigned char>(symbol.front())) || symbol.front() == ':' || symbol.front() == '/' || symbol.front() == '\\') {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         TownMapFeatureRule feature;
         feature.symbol = symbol.front();
@@ -165,26 +211,16 @@ tl::expected<void, parse_error_type> TownMapReader::read_features(TownMapDefinit
         }
         feature.condition = *condition;
         const auto &fields = rule["definition"];
-        for (const auto *field : { "terrain", "monster", "object", "ego", "artifact", "trap" }) {
-            if (!fields.contains(field) || !fields[field].is_string()) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
-            }
-            const auto &value = fields[field].get_ref<const std::string &>();
-            if (value.find_first_of(":/\\\r\n") != std::string::npos ||
-                std::any_of(value.begin(), value.end(), [](unsigned char character) { return character < ' ' || character > '~'; })) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
-            }
-            if (field != std::string_view("terrain") && field != std::string_view("trap") && !is_feature_token(field, value)) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
-            }
+        if (const auto error = validate_town_cell(fields); error != ParseErrorType::NONE) {
+            return tl::make_unexpected(error);
         }
-        if (!fields.contains("caveInfo") || !is_json_integer_in_range(fields["caveInfo"], 0, std::numeric_limits<int>::max()) ||
-            !fields.contains("special") || !is_json_integer_in_range(fields["special"], std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max())) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+        DeferredQuestLegendCell parsed;
+        if (const auto result = parse_quest_legend_cell_deferred(fields, parsed); !result) {
+            return tl::make_unexpected(result.error());
         }
-        feature.terrain = fields["terrain"].get<std::string>();
-        feature.trap = fields["trap"].get<std::string>();
-        read_feature_tokens(fields, feature.cell);
+        feature.terrain = std::move(parsed.terrain_tag);
+        feature.trap = std::move(parsed.trap_tag);
+        feature.cell = std::move(parsed.cell);
         definition.features.push_back(std::move(feature));
     }
     return {};
@@ -195,15 +231,15 @@ tl::expected<void, parse_error_type> TownMapReader::read_features(TownMapDefinit
  * @details action・restriction・会員フラグは保存先のsigned16範囲に限定する。
  * 費用はint範囲を維持し、対象言語や条件の成立にかかわらず宣言全体を検証する。
  */
-tl::expected<void, parse_error_type> TownMapReader::read_buildings(TownMapDefinition &definition) const
+tl::expected<void, ParseErrorType> TownMapReader::read_buildings(TownMapDefinition &definition) const
 {
     for (const auto &rule : this->data["buildingRules"]) {
         if (!rule.is_object() || !rule.contains("index") || !rule["index"].is_number_integer() || !rule.contains("locale") ||
             !rule["locale"].is_string() || !rule.contains("command") || !rule["command"].is_string() || !rule.contains("fields") || !rule["fields"].is_array()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
         if (!is_json_integer_in_range(rule["index"], 0, MAX_BUILDINGS - 1)) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         TownMapBuildingRule building;
         const auto condition = read_condition(rule);
@@ -213,26 +249,26 @@ tl::expected<void, parse_error_type> TownMapReader::read_buildings(TownMapDefini
         building.condition = *condition;
         const auto locale = rule["locale"].get<std::string>();
         if (locale != "en" && locale != "ja") {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         const auto command = rule["command"].get<std::string>();
         if (command.size() != 1 || std::string_view("ACMNRZ").find(command.front()) == std::string_view::npos) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         const auto &fields = rule["fields"];
         if ((command == "N" && fields.size() != 3) || (command == "A" && fields.size() != 7)) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         if (command == "A" && (!fields[0].is_string() || !is_integer_in_range(fields[0].get_ref<const std::string &>(), 0, 7))) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         if ((command == "C" || command == "M" || command == "R") && fields.empty()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         if ((command == "C" && fields.size() > static_cast<size_t>(PLAYER_CLASS_TYPE_MAX)) ||
             (command == "M" && fields.size() > static_cast<size_t>(MAX_MAGIC)) ||
             (command == "R" && fields.size() > static_cast<size_t>(MAX_RACES))) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         building.index = rule["index"].get<int>();
         building.english = locale == "en";
@@ -240,11 +276,11 @@ tl::expected<void, parse_error_type> TownMapReader::read_buildings(TownMapDefini
         size_t field_index = 0;
         for (const auto &field : fields) {
             if (!field.is_string()) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+                return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
             }
             const auto &value = field.get_ref<const std::string &>();
             if (value.find_first_of(":/\\\r\n") != std::string::npos) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+                return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
             }
             const auto is_numeric_field = (command == "A" && (field_index == 0 || field_index == 2 || field_index == 3 || field_index == 5 || field_index == 6)) ||
                                           command == "C" || command == "M" || command == "R";
@@ -253,7 +289,7 @@ tl::expected<void, parse_error_type> TownMapReader::read_buildings(TownMapDefini
                 const auto minimum = short_field ? std::numeric_limits<int16_t>::min() : std::numeric_limits<int>::min();
                 const auto maximum = short_field ? std::numeric_limits<int16_t>::max() : std::numeric_limits<int>::max();
                 if (!is_integer_in_range(value, minimum, maximum)) {
-                    return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+                    return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
                 }
             }
             parsed_fields.push_back(value);
@@ -284,11 +320,11 @@ tl::expected<void, parse_error_type> TownMapReader::read_buildings(TownMapDefini
     return {};
 }
 
-tl::expected<void, parse_error_type> TownMapReader::read_maps(TownMapDefinition &definition, int maximum_height, int maximum_width) const
+tl::expected<void, ParseErrorType> TownMapReader::read_maps(TownMapDefinition &definition, int maximum_height, int maximum_width) const
 {
     for (const auto &variant : this->data["mapVariants"]) {
         if (!variant.is_object() || !variant.contains("rows") || !variant["rows"].is_array() || variant["rows"].empty()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
         TownMapVariant map;
         const auto condition = read_condition(variant);
@@ -298,19 +334,19 @@ tl::expected<void, parse_error_type> TownMapReader::read_maps(TownMapDefinition 
         map.condition = *condition;
         const auto &rows = variant["rows"];
         if (maximum_height <= 0 || maximum_width <= 0 || rows.size() > static_cast<size_t>(maximum_height) || !rows.front().is_string()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         const auto width = rows.front().get_ref<const std::string &>().size();
         if (width == 0 || width > static_cast<size_t>(maximum_width)) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         for (const auto &row : rows) {
             if (!row.is_string() || row.get_ref<const std::string &>().size() != width) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+                return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
             }
             const auto &text = row.get_ref<const std::string &>();
             if (!std::all_of(text.begin(), text.end(), is_fixed_map_symbol)) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+                return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
             }
             map.rows.push_back(text);
         }
@@ -319,11 +355,11 @@ tl::expected<void, parse_error_type> TownMapReader::read_maps(TownMapDefinition 
     return {};
 }
 
-tl::expected<void, parse_error_type> TownMapReader::read_starts(TownMapDefinition &definition) const
+tl::expected<void, ParseErrorType> TownMapReader::read_starts(TownMapDefinition &definition) const
 {
     for (const auto &start : this->data["startingPositions"]) {
         if (!start.is_object() || !start.contains("y") || !start["y"].is_number_integer() || !start.contains("x") || !start["x"].is_number_integer()) {
-            return tl::make_unexpected(PARSE_ERROR_INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
         TownMapStartingPosition position;
         const auto condition = read_condition(start);
@@ -334,7 +370,7 @@ tl::expected<void, parse_error_type> TownMapReader::read_starts(TownMapDefinitio
         for (const auto &map : definition.maps) {
             if (!is_json_integer_in_range(start["y"], 0, static_cast<int>(map.rows.size()) - 1) ||
                 !is_json_integer_in_range(start["x"], 0, static_cast<int>(map.rows.front().size()) - 1)) {
-                return tl::make_unexpected(PARSE_ERROR_INVALID_VALUE);
+                return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
             }
         }
         position.y = start["y"].get<int>();

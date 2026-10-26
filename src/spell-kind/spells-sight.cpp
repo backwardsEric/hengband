@@ -1,5 +1,6 @@
 #include "spell-kind/spells-sight.h"
 #include "avatar/avatar.h"
+#include "core/asking-player.h"
 #include "core/window-redrawer.h"
 #include "effect/attribute-types.h"
 #include "effect/effect-characteristics.h"
@@ -8,7 +9,7 @@
 #include "game-option/map-screen-options.h"
 #include "grid/grid.h"
 #include "io/cursor.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "locale/english.h"
 #include "monster-race/monster-kind-mask.h"
 #include "monster/monster-describer.h"
@@ -18,11 +19,11 @@
 #include "monster/monster-status-setter.h"
 #include "monster/monster-status.h"
 #include "monster/smart-learn-types.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "target/projection-path-calculator.h"
 #include "term/screen-processor.h"
 #include "view/display-messages.h"
@@ -247,7 +248,7 @@ void aggravate_monsters(PlayerType *player_ptr, MONSTER_IDX src_idx)
     }
 
     if (player_ptr->riding) {
-        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+        DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
     }
 }
 
@@ -437,7 +438,7 @@ bool probing(PlayerType *player_ptr)
     game_term->scr->cv = 1;
 
     auto &floor = *player_ptr->current_floor_ptr;
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     auto probe = false;
     for (short i = 1; i < floor.m_max; i++) {
         auto &monster = floor.m_list[i];
@@ -461,10 +462,10 @@ bool probing(PlayerType *player_ptr)
         prt(probe_result, 0, 0);
 
         message_add(probe_result);
-        rfu.set_flag(SubWindowRedrawingFlag::MESSAGE);
+        dur.set_flag(SubWindowRedrawingFlag::MESSAGE);
         window_stuff(player_ptr);
         move_cursor_relative(monster.fy, monster.fx);
-        inkey();
+        (void)input_key_with_context(InputKind::ANY_KEY, probe_result);
         term_erase(0, 0);
         const auto mes = monrace.probe_lore();
         if (mes) {

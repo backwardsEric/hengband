@@ -9,6 +9,7 @@
 #include "test/scoped-vector-wrapper.h"
 #include "util/finalizer.h"
 #include <doctest/doctest.h>
+#include <initializer_list>
 #include <limits>
 #include <utility>
 
@@ -75,4 +76,173 @@ TEST_CASE("ItemEntity sense sets the feeling and the sensed flag")
 
     CHECK(item.feeling == FEEL_EXCELLENT);
     CHECK(item.has_identification_flag(IdentificationFlag::SENSE));
+}
+
+TEST_CASE("ItemEntity remove_curses clears the curses, the feeling and the sensed flag")
+{
+    ItemEntity item;
+    item.curse_flags.set({ CurseTraitType::CURSED, CurseTraitType::HEAVY_CURSE });
+    item.sense(FEEL_CURSED);
+    item.remove_curses();
+
+    CHECK_FALSE(item.is_cursed());
+    CHECK(item.feeling == FEEL_NONE);
+    CHECK_FALSE(item.has_identification_flag(IdentificationFlag::SENSE));
+}
+
+TEST_CASE("ItemEntity remove_curses keeps an identified item identified")
+{
+    ItemEntity item;
+    item.curse_flags.set(CurseTraitType::CURSED);
+    item.mark_as_known();
+    item.remove_curses();
+
+    CHECK_FALSE(item.is_cursed());
+    CHECK(item.has_identification_flag(IdentificationFlag::KNOWN));
+}
+
+TEST_CASE("ItemEntity add_curses turns the feeling of a sensed item into a cursed one")
+{
+    ItemEntity item;
+    item.sense(FEEL_EXCELLENT);
+
+    CHECK(item.add_curses({ CurseTraitType::CURSED, CurseTraitType::HEAVY_CURSE }));
+    CHECK(item.curse_flags.has_all_of({ CurseTraitType::CURSED, CurseTraitType::HEAVY_CURSE }));
+    CHECK(item.feeling == FEEL_WORTHLESS);
+    CHECK(item.has_identification_flag(IdentificationFlag::SENSE));
+}
+
+TEST_CASE("ItemEntity add_curses leaves an unsensed item without a feeling")
+{
+    ItemEntity item;
+
+    CHECK(item.add_curses({ CurseTraitType::CURSED }));
+    CHECK(item.feeling == FEEL_NONE);
+    CHECK_FALSE(item.has_identification_flag(IdentificationFlag::SENSE));
+}
+
+TEST_CASE("ItemEntity add_curses keeps the feeling when no curse is added")
+{
+    ItemEntity item;
+    item.curse_flags.set(CurseTraitType::CURSED);
+    item.sense(FEEL_CURSED);
+
+    CHECK_FALSE(item.add_curses({ CurseTraitType::CURSED }));
+    CHECK(item.feeling == FEEL_CURSED);
+}
+
+TEST_CASE("ItemEntity add_curses adds the curses when only some of them are new")
+{
+    ItemEntity item;
+    item.curse_flags.set(CurseTraitType::CURSED);
+    item.sense(FEEL_AVERAGE);
+
+    CHECK(item.add_curses({ CurseTraitType::CURSED, CurseTraitType::HEAVY_CURSE }));
+    CHECK(item.curse_flags.has(CurseTraitType::HEAVY_CURSE));
+    CHECK(item.feeling == FEEL_CURSED);
+}
+
+TEST_CASE("ItemEntity add_curses keeps a sensed feeling that already shows the curse")
+{
+    for (const auto feel : { FEEL_TERRIBLE, FEEL_WORTHLESS, FEEL_CURSED }) {
+        ItemEntity item;
+        item.curse_flags.set(CurseTraitType::CURSED);
+        item.sense(feel);
+        CAPTURE(static_cast<int>(feel));
+
+        CHECK(item.add_curses({ CurseTraitType::HEAVY_CURSE }));
+        CHECK(item.feeling == feel);
+    }
+}
+
+TEST_CASE("ItemEntity match_feeling_to_curses keeps only a curse feeling on an unsensed item")
+{
+    ItemEntity cursed_feeling_item;
+    cursed_feeling_item.feeling = FEEL_CURSED;
+    cursed_feeling_item.match_feeling_to_curses();
+    CHECK(cursed_feeling_item.feeling == FEEL_CURSED);
+
+    ItemEntity average_feeling_item;
+    average_feeling_item.feeling = FEEL_AVERAGE;
+    average_feeling_item.match_feeling_to_curses();
+    CHECK(average_feeling_item.feeling == FEEL_NONE);
+}
+
+TEST_CASE("ItemEntity match_feeling_to_curses leaves an identified item without a feeling")
+{
+    ItemEntity item;
+    item.mark_as_known();
+    item.set_identification_flag(IdentificationFlag::SENSE); // 古いセーブに残りうる状態 (以前は呪われた品を装備すると鑑定済みでも付いた)
+    item.match_feeling_to_curses();
+
+    CHECK(item.feeling == FEEL_NONE);
+}
+
+TEST_CASE("ItemEntity find_curse_feeling gives a cursed feeling to a cursed item that can be sensed")
+{
+    ItemEntity item;
+    item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+    CHECK_FALSE(item.find_curse_feeling().has_value());
+
+    item.curse_flags.set(CurseTraitType::CURSED);
+    CHECK(item.find_curse_feeling() == FEEL_CURSED);
+
+    item.sense(FEEL_SPECIAL);
+    CHECK(item.find_curse_feeling() == FEEL_TERRIBLE);
+
+    item.sense(FEEL_EXCELLENT);
+    CHECK(item.find_curse_feeling() == FEEL_WORTHLESS);
+
+    item.sense(FEEL_NONE); // 古いセーブに残りうる状態 (以前は呪われた品を装備すると感触の無いまま付いた)
+    CHECK(item.find_curse_feeling() == FEEL_CURSED);
+
+    item.sense(FEEL_BROKEN); // 壊れているは呪いを表さない
+    CHECK(item.find_curse_feeling() == FEEL_CURSED);
+}
+
+TEST_CASE("ItemEntity find_curse_feeling uses only a curse feeling of an unsensed item")
+{
+    // 修正前の呪い感知は SENSE を付けずに感触を付けていた
+    for (const auto feel : { FEEL_TERRIBLE, FEEL_WORTHLESS, FEEL_CURSED }) {
+        ItemEntity item;
+        item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+        item.curse_flags.set(CurseTraitType::CURSED);
+        item.feeling = feel;
+        CAPTURE(static_cast<int>(feel));
+        CHECK(item.find_curse_feeling() == feel);
+    }
+
+    ItemEntity item;
+    item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+    item.curse_flags.set(CurseTraitType::CURSED);
+    item.feeling = FEEL_EXCELLENT;
+    CHECK(item.find_curse_feeling() == FEEL_CURSED);
+}
+
+TEST_CASE("ItemEntity find_curse_feeling skips items whose feeling cannot change")
+{
+    for (const auto feel : { FEEL_TERRIBLE, FEEL_WORTHLESS, FEEL_CURSED }) {
+        ItemEntity sensed_item;
+        sensed_item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+        sensed_item.curse_flags.set(CurseTraitType::CURSED);
+        sensed_item.sense(feel);
+        CAPTURE(static_cast<int>(feel));
+        CHECK_FALSE(sensed_item.find_curse_feeling().has_value());
+    }
+
+    ItemEntity uncursed_item;
+    uncursed_item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+    uncursed_item.sense(FEEL_AVERAGE);
+    CHECK_FALSE(uncursed_item.find_curse_feeling().has_value());
+
+    ItemEntity known_item;
+    known_item.bi_key = BaseitemKey(ItemKindType::SWORD, 0);
+    known_item.curse_flags.set(CurseTraitType::CURSED);
+    known_item.mark_as_known();
+    CHECK_FALSE(known_item.find_curse_feeling().has_value());
+
+    ItemEntity potion;
+    potion.bi_key = BaseitemKey(ItemKindType::POTION, 0);
+    potion.curse_flags.set(CurseTraitType::CURSED);
+    CHECK_FALSE(potion.find_curse_feeling().has_value());
 }

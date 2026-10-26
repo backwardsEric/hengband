@@ -6,7 +6,7 @@
 #include "game-option/cheat-options.h"
 #include "inventory/inventory-object.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "market/bounty-prize-table.h"
 #include "market/building-util.h"
 #include "monster-floor/place-monster-types.h"
@@ -17,12 +17,12 @@
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "sv-definition/sv-other-types.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monrace/monrace-list.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "system/services/dungeon-service.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
@@ -43,9 +43,7 @@ bool exchange_cash(PlayerType *player_ptr)
     constexpr auto fmt_convert = _("{} を換金しますか？", "Convert {} into money? ");
     const auto receive_reward = [player_ptr](int reward_money) {
         player_ptr->au += reward_money;
-        auto &rfu = RedrawingFlagsUpdater::get_instance();
-        rfu.set_flag(MainWindowRedrawingFlag::GOLD);
-        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+        DeferredUpdateRequests::get_instance().request_gold_redrawing();
         msg_print(_("賞金 {}＄を手に入れた。", "You get {}gp."), reward_money);
     };
     for (INVENTORY_IDX i = 0; i <= INVEN_SUB_HAND; i++) {
@@ -246,8 +244,9 @@ void show_bounty(void)
         c_prt(color, fmt::format("{} {}", monrace.name, done_mark), y + 7, 10);
         y = (y + 1) % 10;
         if (!y && (i < size_bounties - 1)) {
-            prt(_("何かキーを押してください", "Hit any key."), 0, 0);
-            (void)inkey();
+            constexpr auto prompt = _("何かキーを押してください", "Hit any key.");
+            prt(prompt, 0, 0);
+            (void)input_key_with_context(InputKind::ANY_KEY, prompt);
             prt("", 0, 0);
             clear_bldg(7, 18);
         }

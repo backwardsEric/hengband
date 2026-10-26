@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -10,6 +12,9 @@
 #include "object-enchant/trg-types.h"
 #include "system/angband.h"
 #include "util/flag-group.h"
+
+// エゴのIDは定義とセーブで1バイトに収まる範囲とする。0はエゴなし。
+constexpr auto MAX_EGO_ID = std::numeric_limits<uint8_t>::max();
 
 enum class EgoType {
     NONE = 0,
@@ -254,7 +259,7 @@ public:
     INVENTORY_IDX slot{}; //!< 装備部位 / Standard slot value
     PRICE rating{}; //!< 雰囲気とアンドロイド装備経験値への重み（0～100）。0は悪いエゴの判定にも使う。
 
-    DEPTH level{}; //!< 指輪・アミュレット発動の基本難易度（0～128）。生成階の制限ではない。
+    DEPTH level{}; //!< 指輪・アミュレット発動の基本難易度（0～127）。生成階の制限ではない。
     RARITY rarity{}; //!< 0は通常抽選から除外、正値は255/rarityを抽選の重みにする。
 
     HIT_PROB base_to_h{}; //!< ベース命中修正
@@ -282,3 +287,10 @@ class ItemEntity;
 class PlayerType;
 EgoType get_random_ego(byte slot, bool good);
 void apply_ego(ItemEntity *o_ptr, DEPTH lev);
+
+bool is_worthless_ego(const EgoItemDefinition &ego);
+bool is_helm_ego(EgoType ego);
+bool is_crown_ego(EgoType ego);
+
+class BaseitemKey;
+bool can_apply_ego(const BaseitemKey &key, EgoType ego);

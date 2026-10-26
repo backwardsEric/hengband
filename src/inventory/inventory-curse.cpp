@@ -8,7 +8,6 @@
 #include "io/files-util.h"
 #include "monster-floor/monster-summon.h"
 #include "monster-floor/place-monster-types.h"
-#include "object-enchant/item-feeling.h"
 #include "object-enchant/object-curse.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
@@ -24,10 +23,10 @@
 #include "status/bad-status-setter.h"
 #include "status/buff-setter.h"
 #include "system/angband-system.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "util/string-processor.h"
 #include "view/display-messages.h"
@@ -273,15 +272,13 @@ static void multiply_low_curse(PlayerType *player_ptr)
 
     auto *o_ptr = choose_cursed_obj_name(player_ptr, CurseTraitType::ADD_L_CURSE);
     auto new_curse = get_curse(0, o_ptr);
-    if (o_ptr->curse_flags.has(new_curse)) {
+    if (!o_ptr->add_curses({ new_curse })) {
         return;
     }
 
     const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    o_ptr->curse_flags.set(new_curse);
     msg_print(_("悪意に満ちた黒いオーラが{}をとりまいた...", "There is a malignant black aura surrounding your {}..."), item_name);
-    o_ptr->feeling = FEEL_NONE;
-    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+    DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
 }
 
 static void multiply_high_curse(PlayerType *player_ptr)
@@ -292,15 +289,13 @@ static void multiply_high_curse(PlayerType *player_ptr)
 
     auto *o_ptr = choose_cursed_obj_name(player_ptr, CurseTraitType::ADD_H_CURSE);
     auto new_curse = get_curse(1, o_ptr);
-    if (o_ptr->curse_flags.has(new_curse)) {
+    if (!o_ptr->add_curses({ new_curse })) {
         return;
     }
 
     const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    o_ptr->curse_flags.set(new_curse);
     msg_print(_("悪意に満ちた黒いオーラが{}をとりまいた...", "There is a malignant black aura surrounding your {}..."), item_name);
-    o_ptr->feeling = FEEL_NONE;
-    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+    DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
 }
 
 static void persist_curse(PlayerType *player_ptr)
@@ -310,15 +305,13 @@ static void persist_curse(PlayerType *player_ptr)
     }
 
     auto *o_ptr = choose_cursed_obj_name(player_ptr, CurseTraitType::PERSISTENT_CURSE);
-    if (o_ptr->curse_flags.has(CurseTraitType::HEAVY_CURSE)) {
+    if (!o_ptr->add_curses({ CurseTraitType::HEAVY_CURSE })) {
         return;
     }
 
     const auto item_name = describe_flavor(player_ptr, *o_ptr, (OD_OMIT_PREFIX | OD_NAME_ONLY));
-    o_ptr->curse_flags.set(CurseTraitType::HEAVY_CURSE);
     msg_print(_("悪意に満ちた黒いオーラが{}をとりまいた...", "There is a malignant black aura surrounding your {}..."), item_name);
-    o_ptr->feeling = FEEL_NONE;
-    RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+    DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
 }
 
 static void curse_call_monster(PlayerType *player_ptr)
@@ -439,7 +432,7 @@ static void curse_drain_mp(PlayerType *player_ptr)
         player_ptr->csp_frac = 0;
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
+    DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::MP);
 }
 
 static void occur_curse_effects(PlayerType *player_ptr)

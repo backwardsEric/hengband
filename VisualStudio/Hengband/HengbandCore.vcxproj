@@ -270,6 +270,7 @@
     <ClCompile Include="..\..\src\info-reader\jsonc-document-loader.cpp" />
     <ClCompile Include="..\..\src\info-reader\magic-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\message-reader.cpp" />
+    <ClCompile Include="..\..\src\info-reader\parse-error-messages.cpp" />
     <ClCompile Include="..\..\src\info-reader\quest-reader.cpp" />
     <ClCompile Include="..\..\src\info-reader\race-info-tokens-table.cpp" />
     <ClCompile Include="..\..\src\info-reader\race-reader.cpp" />
@@ -385,7 +386,6 @@
     <ClCompile Include="..\..\src\main\angband-initializer.cpp" />
     <ClCompile Include="..\..\src\main\game-data-initializer.cpp" />
     <ClCompile Include="..\..\src\main\info-initializer.cpp" />
-    <ClCompile Include="..\..\src\main\init-error-messages-table.cpp" />
     <ClCompile Include="..\..\src\main\music-definitions-table.cpp" />
     <ClCompile Include="..\..\src\main\scene-table-floor.cpp" />
     <ClCompile Include="..\..\src\main\scene-table-monster.cpp" />
@@ -813,6 +813,7 @@
     <ClCompile Include="..\..\src\system\baseitem\baseitem-records.cpp" />
     <ClCompile Include="..\..\src\system\baseitem\baseitem-service.cpp" />
     <ClCompile Include="..\..\src\system\building-type-definition.cpp" />
+    <ClCompile Include="..\..\src\system\deferred-update-requests.cpp" />
     <ClCompile Include="..\..\src\system\dungeon\dungeon-data-definition.cpp" />
     <ClCompile Include="..\..\src\system\dungeon\dungeon-definition.cpp" />
     <ClCompile Include="..\..\src\system\dungeon\dungeon-list.cpp" />
@@ -838,7 +839,6 @@
     <ClCompile Include="..\..\src\system\monrace\monrace-service.cpp" />
     <ClCompile Include="..\..\src\system\monster-entity.cpp" />
     <ClCompile Include="..\..\src\system\player-type-definition.cpp" />
-    <ClCompile Include="..\..\src\system\redrawing-flags-updater.cpp" />
     <ClCompile Include="..\..\src\system\services\baseitem-monrace-service.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-monrace-service.cpp" />
     <ClCompile Include="..\..\src\system\services\dungeon-service.cpp" />
@@ -1170,10 +1170,12 @@
     <ClInclude Include="..\..\src\info-reader\fixed-map-parser.h" />
     <ClInclude Include="..\..\src\info-reader\general-parser.h" />
     <ClInclude Include="..\..\src\info-reader\info-reader-util.h" />
+    <ClInclude Include="..\..\src\info-reader\item-reader-limits.h" />
     <ClInclude Include="..\..\src\info-reader\json-reader-util.h" />
     <ClInclude Include="..\..\src\info-reader\jsonc-document-loader.h" />
     <ClInclude Include="..\..\src\info-reader\magic-reader.h" />
     <ClInclude Include="..\..\src\info-reader\message-reader.h" />
+    <ClInclude Include="..\..\src\info-reader\parse-error-messages.h" />
     <ClInclude Include="..\..\src\info-reader\parse-error-types.h" />
     <ClInclude Include="..\..\src\info-reader\quest-reader.h" />
     <ClInclude Include="..\..\src\info-reader\race-info-tokens-table.h" />
@@ -1303,7 +1305,6 @@
     <ClInclude Include="..\..\src\main\angband-initializer.h" />
     <ClInclude Include="..\..\src\main\game-data-initializer.h" />
     <ClInclude Include="..\..\src\main\info-initializer.h" />
-    <ClInclude Include="..\..\src\main\init-error-messages-table.h" />
     <ClInclude Include="..\..\src\main\music-definitions-table.h" />
     <ClInclude Include="..\..\src\main\scene-table-floor.h" />
     <ClInclude Include="..\..\src\main\scene-table-monster.h" />
@@ -1811,6 +1812,7 @@
     <ClInclude Include="..\..\src\system\baseitem\baseitem-records.h" />
     <ClInclude Include="..\..\src\system\baseitem\baseitem-service.h" />
     <ClInclude Include="..\..\src\system\building-type-definition.h" />
+    <ClInclude Include="..\..\src\system\deferred-update-requests.h" />
     <ClInclude Include="..\..\src\system\dungeon\dungeon-data-definition.h" />
     <ClInclude Include="..\..\src\system\dungeon\dungeon-definition.h" />
     <ClInclude Include="..\..\src\system\dungeon\dungeon-list.h" />
@@ -1856,7 +1858,6 @@
     <ClInclude Include="..\..\src\system\monrace\monrace-service.h" />
     <ClInclude Include="..\..\src\system\monster-entity.h" />
     <ClInclude Include="..\..\src\system\player-type-definition.h" />
-    <ClInclude Include="..\..\src\system\redrawing-flags-updater.h" />
     <ClInclude Include="..\..\src\system\services\baseitem-monrace-service.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-monrace-service.h" />
     <ClInclude Include="..\..\src\system\services\dungeon-service.h" />

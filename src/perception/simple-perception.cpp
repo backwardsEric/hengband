@@ -20,9 +20,9 @@
 #include "object/object-info.h"
 #include "perception/object-perception.h"
 #include "player/player-status-flags.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "timed-effect/timed-effects.h"
 #include "view/display-messages.h"
 
@@ -40,9 +40,23 @@ void apply_item_feeling(PlayerType *player_ptr, INVENTORY_IDX i_idx, item_feel_t
     auto item = ref_item(player_ptr, i_idx);
     item->sense(feel);
     autopick_alter_item(player_ptr, i_idx, destroy_feeling);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
+}
+
+/*!
+ * @brief 呪いに気づいた持ち物・床のアイテムに、呪いに合わせた感触を付ける
+ * @param player_ptr プレイヤーへの参照ポインタ
+ * @param i_idx 持ち物の番号 (床のアイテムは負の値)
+ * @details 感触は ItemEntity::find_curse_feeling() で求める。呪われていない品・鑑定済みの品・
+ * 呪いを表す感触で感じ済みの品は変えない。
+ */
+void sense_curse(PlayerType *player_ptr, INVENTORY_IDX i_idx)
+{
+    if (const auto feel = ref_item(player_ptr, i_idx)->find_curse_feeling()) {
+        apply_item_feeling(player_ptr, i_idx, *feel);
+    }
 }
 
 /*!
@@ -54,7 +68,7 @@ void apply_item_feeling(PlayerType *player_ptr, INVENTORY_IDX i_idx, item_feel_t
 static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool heavy)
 {
     auto &item = *player_ptr->inventory[slot];
-    if (item.has_identification_flag(IdentificationFlag::SENSE) || item.is_known()) {
+    if (item.is_known()) {
         return;
     }
 
@@ -63,7 +77,15 @@ static void sense_inventory_aux(PlayerType *player_ptr, INVENTORY_IDX slot, bool
         return;
     }
 
-    if ((player_ptr->muta.has(PlayerMutationType::BAD_LUCK)) && !randint0(13)) {
+    // 簡易鑑定済みの品は、今回の判定のほうが詳しいときだけ感じ直す (呪い感知の {呪われている} を重い判定で {恐ろしい} にするなど)。
+    // 感じ直すときは不運で入れ替えない (分かっていた呪いを入れ替えで失ったり、入れ替えた感触を何度も感じ直したりしないため)。
+    // 不運の乱数も引かないので、感じ直さない品では乱数の進み方が変わらない
+    const auto is_sensed = item.has_identification_flag(IdentificationFlag::SENSE);
+    if (is_sensed && !is_more_detailed_feeling(feel, item.feeling)) {
+        return;
+    }
+
+    if (!is_sensed && (player_ptr->muta.has(PlayerMutationType::BAD_LUCK)) && !randint0(13)) {
         switch (feel) {
         case FEEL_TERRIBLE: {
             feel = FEEL_SPECIAL;
@@ -323,11 +345,9 @@ void sense_inventory1(PlayerType *player_ptr)
             continue;
         }
 
-        if (has_good_luck(player_ptr) && !randint0(13)) {
-            heavy = true;
-        }
-
-        sense_inventory_aux(player_ptr, i_idx, heavy);
+        // 幸運で重い判定にするのはこの品だけ (後の品は職業の判定のまま)
+        const auto is_lucky = has_good_luck(player_ptr) && !randint0(13);
+        sense_inventory_aux(player_ptr, i_idx, heavy || is_lucky);
     }
 }
 

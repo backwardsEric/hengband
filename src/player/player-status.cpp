@@ -18,7 +18,7 @@
 #include "game-option/birth-options.h"
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/write-diary.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
@@ -89,6 +89,7 @@
 #include "status/base-status.h"
 #include "sv-definition/sv-lite-types.h"
 #include "sv-definition/sv-weapon-types.h"
+#include "system/deferred-update-requests.h"
 #include "system/enums/terrain/pattern-tile-type.h"
 #include "system/enums/terrain/terrain-tag.h"
 #include "system/floor/floor-info.h"
@@ -97,7 +98,6 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "system/services/dungeon-service.h"
 #include "system/terrain/terrain-definition.h"
 #include "term/screen-processor.h"
@@ -355,9 +355,9 @@ static void update_bonuses(PlayerType *player_ptr)
     player_ptr->dis_ac = calc_base_ac(player_ptr);
     player_ptr->dis_to_a = calc_to_ac(player_ptr, false);
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (player_ptr->telepathy != old_telepathy) {
-        rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        dur.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
     }
 
     auto is_esp_updated = player_ptr->esp_animal != old_esp_animal;
@@ -373,20 +373,20 @@ static void update_bonuses(PlayerType *player_ptr)
     is_esp_updated |= player_ptr->esp_nonliving != old_esp_nonliving;
     is_esp_updated |= player_ptr->esp_unique != old_esp_unique;
     if (is_esp_updated) {
-        rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        dur.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
     }
 
     if (player_ptr->see_inv != old_see_inv) {
-        rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+        dur.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
     }
 
     if (player_ptr->pspeed != old_speed) {
-        rfu.set_flag(MainWindowRedrawingFlag::SPEED);
+        dur.set_flag(MainWindowRedrawingFlag::SPEED);
     }
 
     if ((player_ptr->dis_ac != old_dis_ac) || (player_ptr->dis_to_a != old_dis_to_a)) {
-        rfu.set_flag(MainWindowRedrawingFlag::AC);
-        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+        dur.set_flag(MainWindowRedrawingFlag::AC);
+        dur.set_flag(SubWindowRedrawingFlag::PLAYER);
     }
 
     if (AngbandWorld::get_instance().character_xtra) {
@@ -465,8 +465,8 @@ static void update_max_hitpoints(PlayerType *player_ptr)
 #endif
     player_ptr->mhp = mhp;
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::HP);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::HP);
 }
 
 /*!
@@ -653,8 +653,8 @@ static void update_num_of_spells(PlayerType *player_ptr)
     }
 
     player_ptr->old_spells = player_ptr->new_spells;
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::STUDY);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::STUDY);
 }
 
 /*!
@@ -681,7 +681,7 @@ static void update_max_mana(PlayerType *player_ptr)
     } else {
         if (mp_ptr->spell_first > player_ptr->lev) {
             player_ptr->msp = 0;
-            RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
+            DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::MP);
             return;
         }
 
@@ -884,8 +884,8 @@ static void update_max_mana(PlayerType *player_ptr)
         }
 #endif
         player_ptr->msp = msp;
-        auto &rfu = RedrawingFlagsUpdater::get_instance();
-        rfu.set_flag(MainWindowRedrawingFlag::MP);
+        auto &dur = DeferredUpdateRequests::get_instance();
+        dur.set_flag(MainWindowRedrawingFlag::MP);
     }
 
     if (AngbandWorld::get_instance().character_xtra) {
@@ -2565,35 +2565,31 @@ int calc_weight_limit(PlayerType *player_ptr)
  */
 void update_creature(PlayerType *player_ptr)
 {
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    if (!rfu.any_stats()) {
+    auto &dur = DeferredUpdateRequests::get_instance();
+    if (!dur.any_stats()) {
         return;
     }
 
-    // 呪文の失敗率・消費 MP・覚えている呪文は、能力の修正 (朦朧・能力値・装備・熟練度・レベルなど)、
-    // 最大 MP、覚えられる呪文の数を計算し直すと変わりうる
+    // 呪文の失敗率・消費 MP・覚えている呪文は、能力の修正 (朦朧・能力値・装備・レベルなど)、
+    // 最大 MP、覚えられる呪文の数を計算し直すと変わりうる (呪文の熟練度が増えたときは、熟練度を加える処理が要求する)
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::BONUS,
         StatusRecalculatingFlag::MP,
         StatusRecalculatingFlag::SPELLS,
     };
-    if (rfu.has_any_of(flags_srf)) {
-        rfu.request_spell_info_redrawing();
+    if (dur.has_any_of(flags_srf)) {
+        dur.request_spell_info_redrawing();
     }
 
     auto &floor = *player_ptr->current_floor_ptr;
-    if (rfu.has(StatusRecalculatingFlag::BONUS)) {
-        rfu.reset_flag(StatusRecalculatingFlag::BONUS);
+    if (dur.has(StatusRecalculatingFlag::BONUS)) {
+        dur.reset_flag(StatusRecalculatingFlag::BONUS);
 
         // 矢弾・投擲の威力、運搬中・両手持ちの表示、騎乗中のランスのダイスは、能力の修正 (能力値・射撃・騎乗・集中度など) で変わる。
         // また、持ち物・装備の中身の変化のうち能力の再計算を伴うもの (重さが変わる個数の増減・装備の出し入れ、
         // 装備の修正値・呪い、$ や . の銘) は、表示の変化もここでまとめて描き直す。
-        // 能力の再計算を伴わない変化 (充填・感触・燃料など) は、それぞれの箇所で持ち物・装備の描き直しを要求する
-        static constexpr auto flags_swrf = {
-            SubWindowRedrawingFlag::INVENTORY,
-            SubWindowRedrawingFlag::EQUIPMENT,
-        };
-        rfu.set_flags(flags_swrf);
+        // 能力の再計算を伴わない変化 (充填・感触・燃料など) は、それぞれの箇所で描き直しを要求する (足元の品もありうるなら床のアイテムの一覧も)
+        dur.request_carried_item_lists_redrawing();
 
         PlayerAlignment(player_ptr).update_alignment();
         PlayerSkill ps(player_ptr);
@@ -2602,23 +2598,23 @@ void update_creature(PlayerType *player_ptr)
         update_bonuses(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::TORCH)) {
-        rfu.reset_flag(StatusRecalculatingFlag::TORCH);
+    if (dur.has(StatusRecalculatingFlag::TORCH)) {
+        dur.reset_flag(StatusRecalculatingFlag::TORCH);
         update_lite_radius(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::HP)) {
-        rfu.reset_flag(StatusRecalculatingFlag::HP);
+    if (dur.has(StatusRecalculatingFlag::HP)) {
+        dur.reset_flag(StatusRecalculatingFlag::HP);
         update_max_hitpoints(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::MP)) {
-        rfu.reset_flag(StatusRecalculatingFlag::MP);
+    if (dur.has(StatusRecalculatingFlag::MP)) {
+        dur.reset_flag(StatusRecalculatingFlag::MP);
         update_max_mana(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::SPELLS)) {
-        rfu.reset_flag(StatusRecalculatingFlag::SPELLS);
+    if (dur.has(StatusRecalculatingFlag::SPELLS)) {
+        dur.reset_flag(StatusRecalculatingFlag::SPELLS);
         update_num_of_spells(player_ptr);
     }
 
@@ -2627,48 +2623,48 @@ void update_creature(PlayerType *player_ptr)
         return;
     }
 
-    if (rfu.has(StatusRecalculatingFlag::UN_LITE)) {
-        rfu.reset_flag(StatusRecalculatingFlag::UN_LITE);
+    if (dur.has(StatusRecalculatingFlag::UN_LITE)) {
+        dur.reset_flag(StatusRecalculatingFlag::UN_LITE);
         floor.forget_lite();
     }
 
-    if (rfu.has(StatusRecalculatingFlag::UN_VIEW)) {
-        rfu.reset_flag(StatusRecalculatingFlag::UN_VIEW);
+    if (dur.has(StatusRecalculatingFlag::UN_VIEW)) {
+        dur.reset_flag(StatusRecalculatingFlag::UN_VIEW);
         floor.forget_view();
     }
 
-    if (rfu.has(StatusRecalculatingFlag::VIEW)) {
-        rfu.reset_flag(StatusRecalculatingFlag::VIEW);
+    if (dur.has(StatusRecalculatingFlag::VIEW)) {
+        dur.reset_flag(StatusRecalculatingFlag::VIEW);
         update_view(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::LITE)) {
-        rfu.reset_flag(StatusRecalculatingFlag::LITE);
+    if (dur.has(StatusRecalculatingFlag::LITE)) {
+        dur.reset_flag(StatusRecalculatingFlag::LITE);
         update_lite(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::FLOW)) {
-        rfu.reset_flag(StatusRecalculatingFlag::FLOW);
+    if (dur.has(StatusRecalculatingFlag::FLOW)) {
+        dur.reset_flag(StatusRecalculatingFlag::FLOW);
         update_flow(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::DISTANCE)) {
-        rfu.reset_flag(StatusRecalculatingFlag::DISTANCE);
+    if (dur.has(StatusRecalculatingFlag::DISTANCE)) {
+        dur.reset_flag(StatusRecalculatingFlag::DISTANCE);
         update_monsters(player_ptr, true);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::MONSTER_LITE)) {
-        rfu.reset_flag(StatusRecalculatingFlag::MONSTER_LITE);
+    if (dur.has(StatusRecalculatingFlag::MONSTER_LITE)) {
+        dur.reset_flag(StatusRecalculatingFlag::MONSTER_LITE);
         update_mon_lite(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::DELAY_VISIBILITY)) {
-        rfu.reset_flag(StatusRecalculatingFlag::DELAY_VISIBILITY);
+    if (dur.has(StatusRecalculatingFlag::DELAY_VISIBILITY)) {
+        dur.reset_flag(StatusRecalculatingFlag::DELAY_VISIBILITY);
         delayed_visual_update(player_ptr);
     }
 
-    if (rfu.has(StatusRecalculatingFlag::MONSTER_STATUSES)) {
-        rfu.reset_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+    if (dur.has(StatusRecalculatingFlag::MONSTER_STATUSES)) {
+        dur.reset_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
         update_monsters(player_ptr, false);
     }
 }
@@ -2759,30 +2755,26 @@ void check_experience(PlayerType *player_ptr)
         player_ptr->max_max_exp = player_ptr->max_exp;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(MainWindowRedrawingFlag::EXP);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(MainWindowRedrawingFlag::EXP);
     handle_stuff(player_ptr);
 
     PlayerRace pr(player_ptr);
     bool android = pr.equals(PlayerRaceType::ANDROID);
     PLAYER_LEVEL old_lev = player_ptr->lev;
-    // 一時的な発光の明るさもレベルで決まる
-    static constexpr auto flags_srf = {
-        StatusRecalculatingFlag::BONUS,
-        StatusRecalculatingFlag::HP,
-        StatusRecalculatingFlag::MP,
-        StatusRecalculatingFlag::SPELLS,
-        StatusRecalculatingFlag::TORCH,
+    const auto request_level_change_recalculation = [&dur] {
+        dur.request_player_status_recalculation();
+        dur.set_flag(StatusRecalculatingFlag::TORCH); // 一時的な発光の明るさもレベルで決まる
     };
     while ((player_ptr->lev > 1) && (player_ptr->exp < ((android ? player_exp_a : player_exp)[player_ptr->lev - 2] * player_ptr->expfact / 100L))) {
         player_ptr->lev--;
-        rfu.set_flags(flags_srf);
+        request_level_change_recalculation();
         static constexpr auto flags_mwrf = {
             MainWindowRedrawingFlag::LEVEL,
             MainWindowRedrawingFlag::TITLE,
         };
-        rfu.set_flags(flags_mwrf);
-        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+        dur.set_flags(flags_mwrf);
+        dur.set_flag(SubWindowRedrawingFlag::PLAYER);
         handle_stuff(player_ptr);
     }
 
@@ -2809,14 +2801,14 @@ void check_experience(PlayerType *player_ptr)
 
         sound(SoundKind::LEVEL);
         msg_print(_("レベル {} にようこそ。", "Welcome to level {}."), player_ptr->lev);
-        rfu.set_flags(flags_srf);
+        request_level_change_recalculation();
         const auto flags_mwrf_levelup = {
             MainWindowRedrawingFlag::LEVEL,
             MainWindowRedrawingFlag::TITLE,
             MainWindowRedrawingFlag::EXP,
         };
-        rfu.set_flags(flags_mwrf_levelup);
-        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+        dur.set_flags(flags_mwrf_levelup);
+        dur.set_flag(SubWindowRedrawingFlag::PLAYER);
         player_ptr->level_up_message = true;
         handle_stuff(player_ptr);
 
@@ -2836,10 +2828,11 @@ void check_experience(PlayerType *player_ptr)
                     prt(fmt::format(_("        f) 魅力 (現在値 {})", "        f) Chr (cur {})"), cnv_stat(player_ptr->stat_max[5])), 7, 14);
 
                     prt("", 8, 14);
-                    prt(_("        どの能力値を上げますか？", "        Which stat do you want to raise?"), 1, 14);
+                    constexpr auto prompt = _("        どの能力値を上げますか？", "        Which stat do you want to raise?");
+                    prt(prompt, 1, 14);
 
                     while (true) {
-                        choice = inkey();
+                        choice = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
                         if ((choice >= 'a') && (choice <= 'f')) {
                             break;
                         }
@@ -2875,13 +2868,13 @@ void check_experience(PlayerType *player_ptr)
             level_reward = false;
         }
 
-        rfu.set_flags(flags_srf);
+        request_level_change_recalculation();
         static constexpr auto flags_mwrf = {
             MainWindowRedrawingFlag::LEVEL,
             MainWindowRedrawingFlag::TITLE,
         };
-        rfu.set_flags(flags_mwrf);
-        rfu.set_flag(SubWindowRedrawingFlag::PLAYER);
+        dur.set_flags(flags_mwrf);
+        dur.set_flag(SubWindowRedrawingFlag::PLAYER);
         handle_stuff(player_ptr);
     }
 

@@ -7,8 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from json_validation_test_helper import validate_document
+from json_validation_test_helper import baseitem_id_schema_maximum, validate_document
 from jsonschema import ValidationError
+from jsonschema.validators import validator_for
 from validate_json import (build_schema_registry, build_validation_pairs, load_all_schemas, load_jsonc, validate_one,
                            validate_town_map_semantics, validate_town_preferences_semantics)
 
@@ -84,7 +85,7 @@ class QuestGridValidationTest(unittest.TestCase):
         cases = (
             ({}, True),
             ({"terrain": "*", "caveInfo": ["GLOW", "MARK"], "special": -1}, True),
-            ({"monster": 1, "object": 1, "ego": 1, "artifact": 1, "trap": "TRAP"}, True),
+            ({"monster": 1, "object": 1, "ego": 1, "artifact": 1, "trap": "TRAP_PIT"}, True),
             ({"monster": {"random": True, "oodLevel": 0}, "object": {"random": True, "oodLevel": 0},
               "ego": {"random": True, "id": 1}, "artifact": {"random": True, "id": 1}, "trap": {"random": True}}, True),
             ({"monster": {"cloneOf": 1}, "object": {"questReward": True}, "artifact": {"questReward": True}}, True),
@@ -174,13 +175,15 @@ class QuestGridValidationTest(unittest.TestCase):
 
 class BaseitemValidationTest(unittest.TestCase):
     def test_id_boundary_matches_reader_and_short_storage(self):
+        # BaseitemReader と同じく、IDを扱う型(short)の上限−1までを受け付ける。
+        maximum = baseitem_id_schema_maximum()
         root = Path(__file__).resolve().parents[2]
         schema_path = root / "schema/BaseitemDefinitions.schema.json"
         schema = load_jsonc(schema_path)
         example = load_jsonc(root / "lib/edit/BaseitemDefinitions.jsonc")["baseitems"][-1]
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "BaseitemDefinitions.jsonc"
-            for item_id, accepted in ((9999, True), (32767, True), (32768, False)):
+            for item_id, accepted in ((9999, True), (maximum, True), (maximum + 1, False)):
                 with self.subTest(item_id=item_id):
                     target.write_text(json.dumps({"version": 1, "baseitems": [{**example, "id": item_id}]}), encoding="utf-8")
                     ok, message = validate_one((target, schema_path, schema))
@@ -312,12 +315,12 @@ class EgoValidationTest(unittest.TestCase):
         ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertFalse(ok)
 
-    def test_level_matches_activation_difficulty_domain(self):
-        """levelの発動難易度上限128を受理し、その直外を拒否する。"""
-        record = {**self.record, "level": 128}
+    def test_level_is_limited_to_the_deepest_reachable_floor(self):
+        """levelは発動の基本難易度で、ベースアイテム・アーティファクトのlevelと同じ127までを受理し、その直外を拒否する。"""
+        record = {**self.record, "level": 127}
         ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertTrue(ok, message)
-        record["level"] = 129
+        record["level"] = 128
         ok, message = self.validate({"version": 2, "egos": [record]})
         self.assertFalse(ok)
 
@@ -418,7 +421,7 @@ class EgoValidationTest(unittest.TestCase):
 
     def test_every_remaining_numeric_domain_boundary(self):
         """残る全スカラーと7種類の符号付きボーナスの境界・直外を確認する。"""
-        domains = [(field, 0, {"rating": 100, "level": 128, "rarity": 255, "cost": 67108863}[field])
+        domains = [(field, 0, {"rating": 100, "level": 127, "rarity": 255, "cost": 67108863}[field])
                    for field in ("rating", "level", "rarity", "cost")]
         domains += [(group + "." + field, -32768, 32767)
                     for group, fields in (("base_bonuses", ("to_hit", "to_damage", "to_ac")),
@@ -446,7 +449,9 @@ class WildernessValidationTest(unittest.TestCase):
             "version": 1,
             "width": 3,
             "height": 3,
-            "towns": [{"id": 1, "name": {"ja": "街", "en": "Town"}}],
+            # 初期化は町1〜5の名前と町1の別名を求める。
+            "towns": [{"id": 1, "name": {"ja": "街", "en": "Town"}, "alias": {"ja": "街", "en": "Town"}}]
+            + [{"id": town_id, "name": {"ja": "街", "en": "Town"}} for town_id in range(2, 6)],
             "maps": {
                 "normal": {
                     "letters": [
@@ -493,7 +498,8 @@ class WildernessValidationTest(unittest.TestCase):
         for map_name in ("normal", "compact"):
             with self.subTest(map_name=map_name):
                 data = copy.deepcopy(self.data)
-                data["maps"][map_name]["letters"][0]["town"] = 2
+                # 町1〜5は定義済みなので、上限内で未定義の町6を参照する。
+                data["maps"][map_name]["letters"][0]["town"] = 6
                 ok, message = self.validate(data)
                 self.assertFalse(ok)
                 self.assertIn("undefined town ID", message)
@@ -608,6 +614,10 @@ class TownDefinitionListValidationTest(unittest.TestCase):
                     "none": "towns/01_Outpost_OnlyAngband.jsonc",
                 },
                 "2": "towns/02_Telmora.jsonc",
+                # 同梱の荒野の町（1〜5）はすべて一覧に要る。
+                "3": "towns/03_Morivant.jsonc",
+                "4": "towns/04_Angwil.jsonc",
+                "5": "towns/05_Zul.jsonc",
             },
         }
 
@@ -650,18 +660,14 @@ class TownMapValidationTest(unittest.TestCase):
         self.schema_path = Path(__file__).resolve().parents[2] / "schema/TownMap.schema.json"
         self.schema = load_jsonc(self.schema_path)
         self.data = {
-            "version": 2,
+            "version": 3,
             "featureRules": [
                 {
                     "when": "[EQU $QUEST1 1]",
                     "symbol": "#",
                     "definition": {
                         "terrain": "PERMANENT",
-                        "caveInfo": 3,
-                        "monster": "0",
-                        "object": "0",
-                        "ego": "0",
-                        "artifact": "0",
+                        "caveInfo": ["MARK", "GLOW"],
                         "trap": "NONE",
                         "special": 0,
                     },
@@ -678,6 +684,59 @@ class TownMapValidationTest(unittest.TestCase):
     def test_valid_map_and_start(self):
         ok, message = self.validate(self.data)
         self.assertTrue(ok, message)
+
+    def test_optional_ego_and_positive_byte_ids(self):
+        # 省略はエゴなし。ランダム指定のIDも同じ範囲で検証する。
+        for token in (1, 255, {"random": True}):
+            with self.subTest(token=token):
+                data = copy.deepcopy(self.data)
+                data["featureRules"][0]["definition"]["ego"] = token
+                ok, message = self.validate(data)
+                self.assertTrue(ok, message)
+        for token in ("0", "-0", "0000", "256", "-1", "-2147483648", "*0", "*256", "*-1", "**", "+1", "*+1", "!", "c1", None, 0, 256, -1, {"random": True, "id": 1}):
+            with self.subTest(token=token):
+                data = copy.deepcopy(self.data)
+                data["featureRules"][0]["when"] = "0"
+                data["featureRules"][0]["definition"]["ego"] = token
+                ok, message = self.validate(data)
+                self.assertFalse(ok, message)
+
+    def test_v3_constraints_and_positions(self):
+        cases = (
+            ("caveInfo", 3), ("caveInfo", ["MARK", "MARK"]), ("caveInfo", ["UNKNOWN"]),
+            ("trap", "*"), ("trap", ""), ("terrain", ""), ("unknown", 1),
+            ("monster", {}), ("monster", {"oodLevel": 1}),
+            ("monster", {"random": False}), ("monster", {"random": True, "cloneOf": 1}),
+            ("object", {"questReward": False}), ("ego", {"random": True, "id": 1}),
+            ("object", 0), ("artifact", 32768), ("special", -32769),
+        )
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                data = copy.deepcopy(self.data)
+                data["featureRules"][0]["definition"][field] = value
+                ok, message = self.validate(data)
+                self.assertFalse(ok, message)
+                self.assertIn("['featureRules', 0, 'definition'", message)
+
+    def test_all_fields_optional_and_common_modes(self):
+        for definition in ({}, {"monster": {"cloneOf": 32767}},
+                           {"object": {"random": True, "oodLevel": 0}},
+                           {"artifact": {"random": True, "id": 32767}},
+                           {"trap": {"random": True}},
+                           {"object": {"questReward": True}, "artifact": {"questReward": True}}):
+            data = copy.deepcopy(self.data)
+            data["featureRules"][0]["definition"] = definition
+            ok, message = self.validate(data)
+            self.assertTrue(ok, message)
+
+    def test_only_integer_version_three(self):
+        for version in (2, 4, 3.0, True, None, "3"):
+            data = copy.deepcopy(self.data)
+            data["version"] = version
+            self.assertFalse(self.validate(data)[0])
+        data = copy.deepcopy(self.data)
+        del data["version"]
+        self.assertFalse(self.validate(data)[0])
 
     def test_start_must_be_inside_layout(self):
         invalid = copy.deepcopy(self.data)
@@ -800,7 +859,7 @@ class TownMapValidationTest(unittest.TestCase):
             for delimiter in ("/", "\\"):
                 with self.subTest(field=field, delimiter=delimiter):
                     invalid = copy.deepcopy(self.data)
-                    invalid["featureRules"][0]["definition"][field] += delimiter
+                    invalid["featureRules"][0]["definition"][field] = invalid["featureRules"][0]["definition"].get(field, "1") + delimiter
                     self.assertFalse(self.validate(invalid)[0])
 
     def test_start_must_fit_every_map_variant(self):
@@ -821,10 +880,13 @@ class TownMapValidationTest(unittest.TestCase):
 
     def test_integer_representation_matches_reader(self):
         cases = {
-            "version": lambda data: data.update(version=2.0),
+            "version": lambda data: data.update(version=3.0),
             "starting position y": lambda data: data["startingPositions"][0].update(y=1.0),
             "starting position x": lambda data: data["startingPositions"][0].update(x=1.0),
-            "caveInfo": lambda data: data["featureRules"][0]["definition"].update(caveInfo=3.0),
+            "monster": lambda data: data["featureRules"][0]["definition"].update(monster=5.0),
+            "oodLevel": lambda data: data["featureRules"][0]["definition"].update(object={"random": True, "oodLevel": 5.0}),
+            "id": lambda data: data["featureRules"][0]["definition"].update(artifact={"random": True, "id": 5.0}),
+            "cloneOf": lambda data: data["featureRules"][0]["definition"].update(monster={"cloneOf": 5.0}),
             "special": lambda data: data["featureRules"][0]["definition"].update(special=0.0),
             "building index": lambda data: data["buildingRules"][0].update(index=0.0),
         }
@@ -920,6 +982,45 @@ class TownMapValidationTest(unittest.TestCase):
                 invalid = copy.deepcopy(self.data)
                 invalid["featureRules"][0]["definition"][field] = token
                 self.assertFalse(self.validate(invalid)[0])
+
+
+class DefinitionVersionValidationTest(unittest.TestCase):
+    """reader が読まない version もほかの定義と同じく 1 に限る。"""
+
+    VERSION_KEYS = {
+        "ArtifactDefinitions": "version",
+        "BaseitemDefinitions": "version",
+        "ClassMagicDefinitions": "version",
+        "SpellDefinitions": "version",
+        "TerrainDefinitions": "version",
+        "MonraceDefinitions": "versions",
+        "MonsterMessages": "versions",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(__file__).resolve().parents[2]
+        cls.loaded, cls.schema_map = load_all_schemas(cls.root / "schema")
+        cls.registry = build_schema_registry(cls.loaded)
+
+    def test_version_subschema_accepts_only_one(self):
+        # 同梱のデータには 1.0 と書いたものもあり、JSON Schema の const は 1.0 を 1 と等しく扱う。
+        for name, key in self.VERSION_KEYS.items():
+            schema = self.loaded[self.schema_map[name]]["properties"][key]
+            validator = validator_for(schema)(schema)
+            for value, accepted in ((1, True), (1.0, True), (2, False), (0, False), (1.5, False), (True, False), ("1", False)):
+                with self.subTest(name=name, value=value):
+                    self.assertEqual(validator.is_valid(value), accepted)
+
+    def test_bundled_document_with_another_version_is_rejected(self):
+        for name, key in self.VERSION_KEYS.items():
+            with self.subTest(name=name):
+                document = load_jsonc(self.root / "lib/edit" / f"{name}.jsonc")
+                document[key] = 2
+                schema_path = self.schema_map[name]
+                ok, message = validate_document(document, schema_path, self.loaded[schema_path], self.registry)
+                self.assertFalse(ok, message)
+                self.assertIn(f"Location: {[key]}", message)
 
 
 if __name__ == "__main__":

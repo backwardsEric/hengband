@@ -3,16 +3,16 @@
 #include "flavor/flavor-describer.h"
 #include "flavor/object-flavor-types.h"
 #include "floor/floor-object.h"
-#include "object-enchant/item-feeling.h"
 #include "object-enchant/tr-types.h"
 #include "object-enchant/trc-types.h"
 #include "object-hook/hook-weapon.h"
 #include "object/item-tester-hooker.h"
 #include "object/item-use-flags.h"
+#include "perception/simple-perception.h"
 #include "racial/racial-android.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "util/bit-flags-calculator.h"
 #include "view/display-messages.h"
 
@@ -33,7 +33,7 @@ bool bless_weapon(PlayerType *player_ptr)
 
     const auto item_name = describe_flavor(player_ptr, *item, OD_OMIT_PREFIX | OD_NAME_ONLY);
     const auto item_flags = item->get_flags();
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (item->is_cursed()) {
         auto can_disturb_blessing = item->curse_flags.has(CurseTraitType::HEAVY_CURSE) && (randint1(100) < 33);
         can_disturb_blessing |= item_flags.has(TR_ADD_L_CURSE);
@@ -46,7 +46,7 @@ bool bless_weapon(PlayerType *player_ptr)
 #else
             msg_print("The black aura on {} {} disrupts the blessing!", ((i_idx >= 0) ? "your" : "the"), item_name);
 #endif
-
+            sense_curse(player_ptr, i_idx);
             return true;
         }
 
@@ -55,11 +55,9 @@ bool bless_weapon(PlayerType *player_ptr)
 #else
         msg_print("A malignant aura leaves {} {}.", ((i_idx >= 0) ? "your" : "the"), item_name);
 #endif
-        item->curse_flags.clear();
-        item->set_identification_flag(IdentificationFlag::SENSE);
-        item->feeling = FEEL_NONE;
-        rfu.set_flag(StatusRecalculatingFlag::BONUS);
-        rfu.request_item_lists_redrawing();
+        item->remove_curses();
+        dur.set_flag(StatusRecalculatingFlag::BONUS);
+        dur.request_item_lists_redrawing();
     }
 
     /*
@@ -132,8 +130,8 @@ bool bless_weapon(PlayerType *player_ptr)
         }
     }
 
-    rfu.set_flag(StatusRecalculatingFlag::BONUS);
-    rfu.request_item_lists_redrawing();
+    dur.set_flag(StatusRecalculatingFlag::BONUS);
+    dur.request_item_lists_redrawing();
     calc_android_exp(player_ptr);
     return true;
 }

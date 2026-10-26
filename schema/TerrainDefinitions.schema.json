@@ -3,7 +3,7 @@
   "required": ["version", "terrains"],
   "properties": {
     "version": {
-      "type": "number",
+      "const": 1,
       "description": "Version情報"
     },
     "terrains": {
@@ -16,7 +16,7 @@
           "id": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9999
+            "maximum": 32766
           },
           "key": {
             "description": "地形の識別子",
@@ -63,10 +63,10 @@
             "type": ["string", "null"]
           },
           "map_priority": {
-            "description": "マップ表示優先度",
+            "description": "縮小マップの表示優先度 (0..125)。null・省略は新しい地形では 0 (読み直すときは今の値のまま)。同順位で +1 されても自動拾い印の 127 未満に収める。",
             "type": ["integer", "null"],
-            "minimum": -9999,
-            "maximum": 9999
+            "minimum": 0,
+            "maximum": 125
           },
           "flags": {
             "type": "array",
@@ -244,9 +244,11 @@
                 "enum": ["FLOOR", "WALL", "INNER", "OUTER", "SOLID", "STREAM"]
               },
               "stream_index": {
+                "$comment": "maximum 254 was carried over from the old one-byte SUBTYPE when it was moved to stream_index (commit 51228d3210); the number of streams in a dungeon is not limited.",
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 254
+                "maximum": 254,
+                "description": "変換先にするダンジョン定義の streams (読み込み後に priority の順に並べたもの) の位置。そのダンジョンの streams の数を超える位置を指したときは、失敗せずに元の地形のままにする。"
               }
             },
             "additionalProperties": false

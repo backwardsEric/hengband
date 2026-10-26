@@ -3,9 +3,11 @@
 #include "info-reader/terrain-reader.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include <algorithm>
 #include <doctest/doctest.h>
+#include <initializer_list>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -23,6 +25,8 @@ public:
         , saved_terrains(terrains.begin(), terrains.end())
     {
     }
+
+    TerrainReader::Session session;
 
     TerrainStateGuard(const TerrainStateGuard &) = delete;
     TerrainStateGuard &operator=(const TerrainStateGuard &) = delete;
@@ -101,7 +105,7 @@ TEST_CASE("TerrainReader reads a valid terrain and replaces generation changes o
 {
     TerrainStateGuard guard;
     auto data = make_terrain();
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     const auto &terrain = TerrainList::get_instance().get_terrain(0);
     CHECK(error_idx == 0);
     CHECK(terrain.idx == 0);
@@ -115,28 +119,74 @@ TEST_CASE("TerrainReader reads a valid terrain and replaces generation changes o
     CHECK(terrain.generation_changes[1].result_tag == "WALL");
     CHECK(terrain.generation_changes[1].probability == 40);
 
+    // 再読み込みは新しいロードセッションとして実行する。
+    guard.session = {};
     data["generation"]["changes"] = { { { "terrain", "FLOOR" }, { "probability", 100 } } };
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     REQUIRE(terrain.generation_changes.size() == 1);
     CHECK(terrain.generation_changes[0].result_tag == "FLOOR");
     CHECK(terrain.generation_changes[0].probability == 100);
+}
+
+TEST_CASE("TerrainReader accepts map priority from 0 to 125 and rejects values outside")
+{
+    TerrainStateGuard guard;
+    auto &terrains = TerrainList::get_instance();
+    for (const auto priority : { 0, 125 }) {
+        CAPTURE(priority);
+        terrains.resize(0);
+        auto data = make_terrain();
+        data["map_priority"] = priority;
+        guard.session = {};
+        REQUIRE(TerrainReader(data, guard.session).read().has_value());
+        CHECK(terrains.get_terrain(0).priority == priority);
+    }
+
+    terrains.resize(0);
+    auto data = make_terrain();
+    data["map_priority"] = nullptr;
+    guard.session = {};
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    CHECK(terrains.get_terrain(0).priority == 0);
+
+    data = make_terrain();
+    guard.session = {};
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    const auto before = terrains.get_terrain(0);
+    const auto size_before = terrains.size();
+    for (const auto priority : { -1, 126 }) {
+        CAPTURE(priority);
+        for (const auto id : { 0, 3 }) {
+            CAPTURE(id);
+            data["id"] = id;
+            data["name"]["ja"] = "replacement";
+            data["name"]["en"] = "replacement";
+            data["map_priority"] = priority;
+            guard.session = {};
+            CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::INVALID_FLAG);
+            CHECK(error_idx == id);
+            CHECK(terrains.size() == size_before);
+            check_existing_terrain(terrains.get_terrain(0), before);
+        }
+    }
 }
 
 TEST_CASE("TerrainReader leaves an existing terrain unchanged after a late parse error")
 {
     TerrainStateGuard guard;
     auto data = make_terrain();
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     const auto before = TerrainList::get_instance().get_terrain(0);
     const auto size_before = TerrainList::get_instance().size();
 
+    guard.session = {};
     data["key"] = "FLOOR";
     data["name"]["ja"] = "replacement";
     data["name"]["en"] = "replacement";
     data["map_priority"] = 19;
     data["generation"]["changes"] = { { { "terrain", "WALL" }, { "probability", 90 } } };
     data["interactions"] = { { "DESTROYED", 42 } };
-    CHECK(TerrainReader(data).read() == PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::TOO_FEW_ARGUMENTS);
 
     const auto &after = TerrainList::get_instance().get_terrain(0);
     CHECK(TerrainList::get_instance().size() == size_before);
@@ -160,7 +210,7 @@ TEST_CASE("TerrainReader accepts single-byte symbol characters")
         character = " ";
     }
     data["symbol"]["character"] = character;
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     const auto &terrain = TerrainList::get_instance().get_terrain(0);
     for (int lighting = F_LIT_STANDARD; lighting < F_LIT_MAX; ++lighting) {
         CHECK(terrain.symbol_definitions.at(lighting).character == character.front());
@@ -171,18 +221,18 @@ TEST_CASE("TerrainReader rejects invalid symbol lengths without publishing a ter
 {
     TerrainStateGuard guard;
     auto data = make_terrain();
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     auto &terrains = TerrainList::get_instance();
     const auto before = terrains.get_terrain(0);
     const auto size_before = terrains.size();
 
     std::string character = "..";
-    int expected = PARSE_ERROR_INVALID_VALUE;
+    auto expected = ParseErrorType::INVALID_VALUE;
     SUBCASE("multiple ASCII characters") {}
     SUBCASE("empty string keeps its existing error")
     {
         character.clear();
-        expected = PARSE_ERROR_GENERIC;
+        expected = ParseErrorType::GENERIC;
     }
     SUBCASE("two-byte UTF-8 character")
     {
@@ -192,10 +242,11 @@ TEST_CASE("TerrainReader rejects invalid symbol lengths without publishing a ter
     {
         character = "\xf0\x9f\x8c\xb2";
     }
+    guard.session = {};
     data["symbol"]["character"] = character;
     data["name"]["ja"] = "replacement";
     data["name"]["en"] = "replacement";
-    CHECK(TerrainReader(data).read() == expected);
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == expected);
     CHECK(terrains.size() == size_before);
     const auto &after = terrains.get_terrain(0);
     CHECK(after.name == before.name);
@@ -205,7 +256,7 @@ TEST_CASE("TerrainReader rejects invalid symbol lengths without publishing a ter
     }
 
     data["id"] = size_before + 1;
-    CHECK(TerrainReader(data).read() == expected);
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == expected);
     CHECK(terrains.size() == size_before);
     CHECK(terrains.get_terrain(0).name == before.name);
 }
@@ -217,7 +268,7 @@ TEST_CASE("TerrainReader does not grow the terrain list after a failed new entry
     const auto size_before = TerrainList::get_instance().size();
     data["id"] = size_before + 1;
     data["interactions"] = { { "DESTROYED", 42 } };
-    CHECK(TerrainReader(data).read() == PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::TOO_FEW_ARGUMENTS);
     CHECK(TerrainList::get_instance().size() == size_before);
 }
 
@@ -230,73 +281,95 @@ TEST_CASE("TerrainReader propagates helper errors without publishing staged terr
     auto &terrains = TerrainList::get_instance();
     terrains.resize(0);
     const auto original = make_terrain();
-    REQUIRE(TerrainReader(original).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(original, guard.session).read().has_value());
     const auto before = terrains.get_terrain(0);
     const auto size_before = terrains.size();
     struct InvalidField {
         const char *path;
         nlohmann::json value;
-        parse_error_type error;
+        ParseErrorType error;
     };
     const std::vector<InvalidField> invalid_fields = {
-        { "/symbol", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/symbol/character", "", PARSE_ERROR_GENERIC },
-        { "/symbol/character", "..", PARSE_ERROR_INVALID_VALUE },
-        { "/symbol/color", "UNKNOWN", PARSE_ERROR_INVALID_FLAG },
-        { "/symbol/lit", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/door", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/door", nlohmann::json::object(), PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/door/power", false, PARSE_ERROR_INVALID_TYPE },
-        { "/door/power", 256, PARSE_ERROR_INVALID_FLAG },
-        { "/tunnel", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/tunnel/power", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/tunnel/power", -1, PARSE_ERROR_INVALID_FLAG },
-        { "/trap", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/trap", { { "power", 1 } }, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/trap", { { "type", "PIT" } }, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/trap", { { "type", "UNKNOWN" }, { "power", 1 } }, PARSE_ERROR_INVALID_FLAG },
-        { "/pattern", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/pattern/type", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/pattern/type", "UNKNOWN", PARSE_ERROR_INVALID_FLAG },
-        { "/store", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/store/type", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/store/type", "UNKNOWN", PARSE_ERROR_INVALID_FLAG },
-        { "/building", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/building/type", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/building/type", "UNKNOWN", PARSE_ERROR_INVALID_FLAG },
-        { "/convert", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/convert/type", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/convert/type", "UNKNOWN", PARSE_ERROR_INVALID_FLAG },
-        { "/convert", { { "type", "STREAM" } }, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/convert", { { "type", "STREAM" }, { "stream_index", 255 } }, PARSE_ERROR_INVALID_FLAG },
-        { "/generation", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/generation/changes", nullptr, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/generation/changes/0", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/generation/changes/0/terrain", "", PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/generation/changes/0/probability", false, PARSE_ERROR_INVALID_TYPE },
-        { "/generation/changes/0/probability", 0, PARSE_ERROR_INVALID_FLAG },
-        { "/generation/changes/1/probability", 100, PARSE_ERROR_INVALID_FLAG },
-        { "/interactions", false, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/interactions/DESTROYED", 1, PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/interactions/OPEN", "", PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/interactions/DROP_GOLD", "bad", PARSE_ERROR_TOO_FEW_ARGUMENTS },
-        { "/interactions/UNKNOWN", "FLOOR", PARSE_ERROR_INVALID_FLAG },
+        { "/symbol", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/symbol/character", "", ParseErrorType::GENERIC },
+        { "/symbol/character", "..", ParseErrorType::INVALID_VALUE },
+        { "/symbol/color", "UNKNOWN", ParseErrorType::INVALID_FLAG },
+        { "/symbol/lit", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/door", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/door", nlohmann::json::object(), ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/door/power", false, ParseErrorType::INVALID_TYPE },
+        { "/door/power", 256, ParseErrorType::INVALID_FLAG },
+        { "/tunnel", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/tunnel/power", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/tunnel/power", -1, ParseErrorType::INVALID_FLAG },
+        { "/trap", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/trap", { { "power", 1 } }, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/trap", { { "type", "PIT" } }, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/trap", { { "type", "UNKNOWN" }, { "power", 1 } }, ParseErrorType::INVALID_FLAG },
+        { "/pattern", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/pattern/type", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/pattern/type", "UNKNOWN", ParseErrorType::INVALID_FLAG },
+        { "/store", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/store/type", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/store/type", "UNKNOWN", ParseErrorType::INVALID_FLAG },
+        { "/building", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/building/type", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/building/type", "UNKNOWN", ParseErrorType::INVALID_FLAG },
+        { "/convert", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/convert/type", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/convert/type", "UNKNOWN", ParseErrorType::INVALID_FLAG },
+        { "/convert", { { "type", "STREAM" } }, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/convert", { { "type", "STREAM" }, { "stream_index", 255 } }, ParseErrorType::INVALID_FLAG },
+        { "/generation", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/generation/changes", nullptr, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/generation/changes/0", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/generation/changes/0/terrain", "", ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/generation/changes/0/probability", false, ParseErrorType::INVALID_TYPE },
+        { "/generation/changes/0/probability", 0, ParseErrorType::INVALID_FLAG },
+        { "/generation/changes/1/probability", 100, ParseErrorType::INVALID_FLAG },
+        { "/interactions", false, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/interactions/DESTROYED", 1, ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/interactions/OPEN", "", ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/interactions/DROP_GOLD", "bad", ParseErrorType::TOO_FEW_ARGUMENTS },
+        { "/interactions/UNKNOWN", "FLOOR", ParseErrorType::INVALID_FLAG },
     };
     for (const auto id : { 0, 3 }) {
         CAPTURE(id);
         for (const auto &invalid : invalid_fields) {
             CAPTURE(invalid.path);
+            guard.session = {};
             auto data = original;
             data["id"] = id;
             data["name"]["ja"] = "replacement";
             data["name"]["en"] = "replacement";
             data[nlohmann::json::json_pointer(invalid.path)] = invalid.value;
-            CHECK(TerrainReader(data).read() == invalid.error);
+            CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == invalid.error);
             CHECK(error_idx == id);
             CHECK(terrains.size() == size_before);
             check_existing_terrain(terrains.get_terrain(0), before);
         }
     }
+}
+
+TEST_CASE("TerrainReader accepts IDs up to one below the FEAT_IDX storage maximum")
+{
+    TerrainStateGuard guard;
+    auto &terrains = TerrainList::get_instance();
+    terrains.resize(0);
+    // 地形IDの上限は、IDを格納する型(FEAT_IDX)の上限−1とする。
+    constexpr short max_id = 32766;
+    static_assert(max_id == MAX_TERRAIN_ID);
+    auto data = make_terrain();
+    data["id"] = max_id;
+    // 上限のIDを読むため、地形の一覧を 32,767 件に広げるのは意図どおり。
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    CHECK(terrains.size() == static_cast<size_t>(max_id) + 1);
+    CHECK(terrains.get_terrain(max_id).idx == max_id);
+    CHECK(error_idx == max_id);
+
+    data["id"] = max_id + 1;
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::INVALID_FLAG);
+    CHECK(terrains.size() == static_cast<size_t>(max_id) + 1);
 }
 
 /*!
@@ -308,18 +381,19 @@ TEST_CASE("TerrainReader keeps helper validation order and error index timing")
     auto &terrains = TerrainList::get_instance();
     terrains.resize(0);
     auto data = make_terrain();
-    data["id"] = 10000;
-    CHECK(TerrainReader(data).read() == PARSE_ERROR_INVALID_FLAG);
+    data["id"] = 32767;
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::INVALID_FLAG);
     CHECK(error_idx == 73);
     data["id"] = 0;
     data["key"] = "";
-    CHECK(TerrainReader(data).read() == PARSE_ERROR_GENERIC);
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == ParseErrorType::GENERIC);
     CHECK(error_idx == 73);
     data = make_terrain();
-    REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
     const auto before = terrains.get_terrain(0);
-    const auto check_invalid = [&](parse_error_type expected) {
-        CHECK(TerrainReader(data).read() == expected);
+    const auto check_invalid = [&](ParseErrorType expected) {
+        guard.session = {};
+        CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == expected);
         CHECK(error_idx == 0);
         CHECK(terrains.size() == 1);
         CHECK(terrains.get_terrain(0).flags == before.flags);
@@ -328,32 +402,32 @@ TEST_CASE("TerrainReader keeps helper validation order and error index timing")
     data["symbol"]["character"] = "";
     data["door"] = { { "power", 256 } };
     data["tunnel"] = nlohmann::json::object();
-    check_invalid(PARSE_ERROR_GENERIC);
+    check_invalid(ParseErrorType::GENERIC);
     data["symbol"]["character"] = ".";
-    check_invalid(PARSE_ERROR_INVALID_FLAG);
+    check_invalid(ParseErrorType::INVALID_FLAG);
     data["door"]["power"] = 0;
-    check_invalid(PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    check_invalid(ParseErrorType::TOO_FEW_ARGUMENTS);
     data["tunnel"]["power"] = 0;
     data["trap"] = { { "type", "UNKNOWN" }, { "power", 1 } };
     data["pattern"] = nlohmann::json::object();
-    check_invalid(PARSE_ERROR_INVALID_FLAG);
+    check_invalid(ParseErrorType::INVALID_FLAG);
     data["trap"]["type"] = "PIT";
-    check_invalid(PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    check_invalid(ParseErrorType::TOO_FEW_ARGUMENTS);
     data["pattern"]["type"] = "START";
     data["store"] = { { "type", "UNKNOWN" } };
     data["building"] = nlohmann::json::object();
-    check_invalid(PARSE_ERROR_INVALID_FLAG);
+    check_invalid(ParseErrorType::INVALID_FLAG);
     data["store"]["type"] = "GENERAL";
-    check_invalid(PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    check_invalid(ParseErrorType::TOO_FEW_ARGUMENTS);
     data["building"]["type"] = "BUILDING_00";
     data["convert"] = { { "type", "STREAM" } };
     data["generation"]["changes"][0]["probability"] = 101;
     data["interactions"] = { { "DESTROYED", 1 } };
-    check_invalid(PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    check_invalid(ParseErrorType::TOO_FEW_ARGUMENTS);
     data["convert"]["stream_index"] = 0;
-    check_invalid(PARSE_ERROR_INVALID_FLAG);
+    check_invalid(ParseErrorType::INVALID_FLAG);
     data["generation"]["changes"][0]["probability"] = 25;
-    check_invalid(PARSE_ERROR_TOO_FEW_ARGUMENTS);
+    check_invalid(ParseErrorType::TOO_FEW_ARGUMENTS);
 }
 
 /*!
@@ -365,6 +439,7 @@ TEST_CASE("TerrainReader preserves optional helpers and successful endpoint valu
     auto &terrains = TerrainList::get_instance();
     for (const auto use_null : { false, true }) {
         CAPTURE(use_null);
+        guard.session = {};
         terrains.resize(0);
         auto data = make_terrain();
         data.erase("generation");
@@ -373,7 +448,7 @@ TEST_CASE("TerrainReader preserves optional helpers and successful endpoint valu
                 data[key] = nullptr;
             }
         }
-        REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+        REQUIRE(TerrainReader(data, guard.session).read().has_value());
         CHECK(error_idx == 0);
         CHECK(terrains.get_terrain(0).flags.has(TerrainCharacteristics::LOS));
         CHECK(terrains.get_terrain(0).generation_changes.empty());
@@ -382,6 +457,7 @@ TEST_CASE("TerrainReader preserves optional helpers and successful endpoint valu
     }
     for (const auto power : { 0, 255 }) {
         CAPTURE(power);
+        guard.session = {};
         terrains.resize(0);
         auto data = make_terrain();
         data["door"] = { { "power", power } };
@@ -394,7 +470,7 @@ TEST_CASE("TerrainReader preserves optional helpers and successful endpoint valu
         const auto stream_index = power == 0 ? 0 : 254;
         data["convert"] = { { "type", "STREAM" }, { "stream_index", stream_index } };
         data["interactions"] = { { "DESTROYED", "WALL" }, { "DROP_GOLD", "1d2" }, { "OPEN", "FLOOR" } };
-        REQUIRE(TerrainReader(data).read() == PARSE_ERROR_NONE);
+        REQUIRE(TerrainReader(data, guard.session).read().has_value());
         const auto &terrain = terrains.get_terrain(0);
         CHECK(error_idx == 0);
         CHECK(terrain.symbol_definitions[F_LIT_STANDARD].character == '.');
@@ -415,4 +491,85 @@ TEST_CASE("TerrainReader preserves optional helpers and successful endpoint valu
         REQUIRE(terrain.generation_changes.size() == 2);
         CHECK(terrain.generation_changes[1].probability == 40);
     }
+}
+
+TEST_CASE("TerrainReader rejects duplicate IDs and keys within one session without publication")
+{
+    TerrainStateGuard guard;
+    auto &terrains = TerrainList::get_instance();
+    terrains.resize(0);
+    auto data = make_terrain();
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    data["id"] = 2;
+    data["key"] = "WALL";
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    const std::vector<TerrainType> before(terrains.begin(), terrains.end());
+
+    auto expected = ParseErrorType::NON_SEQUENTIAL_RECORDS;
+    SUBCASE("duplicate ID after another record")
+    {
+        data["id"] = 0;
+        data["key"] = "FLOOR";
+    }
+    SUBCASE("duplicate key with a new ID")
+    {
+        data["id"] = 4;
+        data["key"] = "NONE";
+        expected = ParseErrorType::INVALID_VALUE;
+    }
+    SUBCASE("duplicate key with an existing unused ID")
+    {
+        data["id"] = 1;
+        data["key"] = "NONE";
+        expected = ParseErrorType::INVALID_VALUE;
+    }
+    data["name"]["ja"] = "replacement";
+    data["name"]["en"] = "replacement";
+    CHECK(test::to_error_code(TerrainReader(data, guard.session).read()) == expected);
+    CHECK(error_idx == data["id"].get<int>());
+    REQUIRE(terrains.size() == before.size());
+    for (size_t i = 0; i < before.size(); ++i) {
+        check_existing_terrain(terrains.get_terrain(static_cast<short>(i)), before[i]);
+    }
+}
+
+TEST_CASE("TerrainReader accepts distinct IDs and keys in any order within a session")
+{
+    TerrainStateGuard guard;
+    auto &terrains = TerrainList::get_instance();
+    terrains.resize(0);
+    auto data = make_terrain();
+    data["id"] = 2;
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    data["id"] = 0;
+    data["key"] = "FLOOR";
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    data["id"] = 1;
+    data["key"] = "WALL";
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    CHECK(terrains.size() == 3);
+    CHECK(terrains.get_terrain(0).tag == "FLOOR");
+    CHECK(terrains.get_terrain(1).tag == "WALL");
+    CHECK(terrains.get_terrain(2).tag == "NONE");
+}
+
+TEST_CASE("TerrainReader reloads existing IDs and keys in a new session")
+{
+    TerrainStateGuard guard;
+    auto &terrains = TerrainList::get_instance();
+    terrains.resize(0);
+    auto data = make_terrain();
+    REQUIRE(TerrainReader(data, guard.session).read().has_value());
+    data["name"]["ja"] = "replacement";
+    data["name"]["en"] = "replacement";
+    data["generation"]["changes"] = { { { "terrain", "WALL" }, { "probability", 100 } } };
+    TerrainReader::Session reload_session;
+    REQUIRE(TerrainReader(data, reload_session).read().has_value());
+    CHECK(terrains.size() == 1);
+    const auto &terrain = terrains.get_terrain(0);
+    CHECK(terrain.tag == "NONE");
+    CHECK(terrain.name == "replacement");
+    REQUIRE(terrain.generation_changes.size() == 1);
+    CHECK(terrain.generation_changes[0].probability == 100);
+    CHECK(test::to_error_code(TerrainReader(data, reload_session).read()) == ParseErrorType::NON_SEQUENTIAL_RECORDS);
 }

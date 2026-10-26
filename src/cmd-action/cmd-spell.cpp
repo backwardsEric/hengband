@@ -9,6 +9,7 @@
 #include "action/action-limited.h"
 #include "autopick/autopick-reader-writer.h"
 #include "avatar/avatar.h"
+#include "bot/bot-json-output.h"
 #include "cmd-action/cmd-mind.h"
 #include "cmd-io/cmd-dump.h"
 #include "core/asking-player.h"
@@ -21,7 +22,7 @@
 #include "grid/grid.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/command-repeater.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "io/write-diary.h"
 #include "locale/japanese.h"
@@ -57,10 +58,10 @@
 #include "status/base-status.h"
 #include "status/experience.h"
 #include "system/baseitem/baseitem-key.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "util/bit-flags-calculator.h"
@@ -305,6 +306,7 @@ static bool spell_okay(PlayerType *player_ptr, int spell_id, bool learned, bool 
  * @param sval 魔道書のsval
  * @param learned 閲覧/使用選択ならばTRUE、学習処理ならFALSE
  * @param use_realm 魔法領域ID
+ * @param browse 閲覧ならばTRUE (選ぶと説明を表示して選び直す)
  * @return
  * <pre>
  * If a valid spell is chosen, saves it in '*sn' and returns TRUE
@@ -314,7 +316,7 @@ static bool spell_okay(PlayerType *player_ptr, int spell_id, bool learned, bool 
  * The "known" should be TRUE for cast/pray, FALSE for study
  * </pre>
  */
-static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view prompt_verb, int sval, bool learned, RealmType use_realm)
+static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view prompt_verb, int sval, bool learned, RealmType use_realm, bool browse = false)
 {
     int i;
     SPELL_IDX spell = -1;
@@ -379,7 +381,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
     auto flag = false;
     auto redraw = false;
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(player_ptr);
 
     const auto spell_category = spell_category_name(mp_ptr->spell_book);
@@ -389,14 +391,17 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
 #else
     const auto verb = prompt_verb;
 #endif
-    const auto prompt = fmt::format(fmt, str_upcase_first(spell_category), I2A(0), I2A(num - 1), spell_category, str_upcase_first(verb));
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(num - 1);
+    const auto prompt = fmt::format(fmt, str_upcase_first(spell_category), first_label, last_label, spell_category, str_upcase_first(verb));
 
+    BotDrawnScreenScope bot_screen;
     auto choice = (always_show_list || use_menu) ? ESCAPE : '\1';
     while (!flag) {
         if (choice == ESCAPE) {
             choice = ' ';
         } else {
-            const auto new_choice = input_command(prompt);
+            const auto new_choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = redraw, .browse = browse, .menu = use_menu });
             if (!new_choice) {
                 break;
             }
@@ -463,6 +468,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
 
                     /* Hide list */
                     redraw = false;
+                    hide_bot_drawn_screen();
                     screen_load();
                 }
 
@@ -502,7 +508,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
         screen_load();
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(player_ptr);
 
     /* Abort if needed */
@@ -521,8 +527,9 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
 
 /*!
  * @brief プレイヤーの職業が練気術師の時、領域魔法と練気術を切り換える処理のインターフェイス
+ * @param player_ptr プレイヤーへの参照ポインタ
  * @param browse_only 魔法と技能の閲覧を行うならばTRUE
- * @return 魔道書を一冊も持っていないならTRUEを返す
+ * @details 魔道書を持っていないときと、盲目や暗闇で魔道書を読めないときに呼ばれ、'w' なら練気術を使う (閲覧する)。
  */
 static void confirm_use_force(PlayerType *player_ptr, bool browse_only)
 {
@@ -531,10 +538,11 @@ static void confirm_use_force(PlayerType *player_ptr, bool browse_only)
         return;
     }
 
-    prt(_("('w'練気術, ESC) 'w'かESCを押してください。 ", "(w for the Force, ESC) Hit 'w' or ESC. "), 0, 0);
+    constexpr auto prompt = _("('w'練気術, ESC) 'w'かESCを押してください。 ", "(w for the Force, ESC) Hit 'w' or ESC. ");
+    prt(prompt, 0, 0);
     char which;
     while (true) {
-        which = inkey();
+        which = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
         if (which == ESCAPE) {
             break;
         }
@@ -636,22 +644,24 @@ void do_cmd_browse(PlayerType *player_ptr)
     /* Keep browsing spells.  Exit browsing on cancel. */
     while (true) {
         /* Ask for a spell, allow cancel */
-        if (!get_spell(player_ptr, &spell, _("読む", "browse"), sval, true, use_realm)) {
+        if (!get_spell(player_ptr, &spell, _("読む", "browse"), sval, true, use_realm, /* browse = */ true)) {
             /* If cancelled, leave immediately. */
             if (spell == -1) {
                 break;
             }
 
             /* Display a list of spells */
+            BotDrawnScreenScope bot_screen;
             print_spells(player_ptr, 0, spells.data(), spells.size(), 1, 15, use_realm, true);
 
             /* Notify that there's nothing to see, and wait. */
+            std::string_view prompt = _("読める呪文がない。", "No spells to browse.");
             if (use_realm == RealmType::HISSATSU) {
-                prt(_("読める技がない。", "No techniques to browse."), 0, 0);
-            } else {
-                prt(_("読める呪文がない。", "No spells to browse."), 0, 0);
+                prompt = _("読める技がない。", "No techniques to browse.");
             }
-            (void)inkey();
+
+            prt(prompt, 0, 0);
+            (void)input_key_with_context(InputKind::ANY_KEY, prompt);
 
             screen_load();
 
@@ -690,9 +700,9 @@ static void change_realm2(PlayerType *player_ptr, PlayerRealm &pr, RealmType nex
     player_ptr->old_realm |= 1U << (enum2i(pr.realm2().to_enum()) - 1);
     pr.set(pr.realm1().to_enum(), next_realm);
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(StatusRecalculatingFlag::SPELLS);
-    rfu.set_flag(InventoryArrangementFlag::REORDER);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(StatusRecalculatingFlag::SPELLS);
+    dur.set_flag(InventoryArrangementFlag::REORDER);
     handle_stuff(player_ptr);
 
     /* Load an autopick preference file */
@@ -883,8 +893,8 @@ void do_cmd_study(PlayerType *player_ptr)
     /* One less spell available */
     player_ptr->learned_spells++;
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.set_flag(StatusRecalculatingFlag::SPELLS);
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.set_flag(StatusRecalculatingFlag::SPELLS);
     update_creature(player_ptr);
 }
 
@@ -1267,7 +1277,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
         over_exerted = true;
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::MP);
+    DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::MP);
 
     /* Over-exert the player */
     if (over_exerted) {
@@ -1307,6 +1317,6 @@ bool do_cmd_cast(PlayerType *player_ptr)
         }
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::PLAYER);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::PLAYER);
     return true; //!< @note 詠唱した
 }

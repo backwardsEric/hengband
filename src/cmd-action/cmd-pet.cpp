@@ -16,7 +16,7 @@
 #include "inventory/inventory-slot-types.h"
 #include "io/command-repeater.h"
 #include "io/cursor.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "io/write-diary.h"
 #include "main/sound-of-music.h"
@@ -43,13 +43,13 @@
 #include "player/player-status-flags.h"
 #include "player/special-defense-types.h"
 #include "status/action-setter.h"
+#include "system/deferred-update-requests.h"
 #include "system/floor/floor-info.h"
 #include "system/grid-type-definition.h"
 #include "system/item/item-entity.h"
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "system/terrain/terrain-definition.h"
 #include "target/target-checker.h"
 #include "target/target-getter.h"
@@ -91,7 +91,7 @@ void do_cmd_pet_dismiss(PlayerType *player_ptr)
     /* Process the monsters (backwards) */
     auto all_pets = false;
     auto num_dismissed = 0;
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     const int num_pet_index = std::ssize(pet_index);
     for (auto i = 0; i < num_pet_index; i++) {
         const auto pet_ctr = pet_index[i];
@@ -103,18 +103,20 @@ void do_cmd_pet_dismiss(PlayerType *player_ptr)
             health_track(player_ptr, pet_ctr);
             handle_stuff(player_ptr);
             constexpr auto mes = _("{}を放しますか？ [Yes/No/Unnamed ({}体)]", "Dismiss {}? [Yes/No/Unnamed ({} remain)]");
-            msg_print(mes, friend_name, num_pet_index - i);
+            const auto prompt = fmt::format(mes, friend_name, num_pet_index - i);
+            msg_print(prompt);
             if (monster.ml) {
                 move_cursor_relative(monster.fy, monster.fx);
             }
 
             while (true) {
-                auto ch = inkey();
+                auto ch = input_key_with_context(InputKind::CONFIRM, prompt);
                 if (ch == 'Y' || ch == 'y') {
                     delete_this = true;
                     if (should_ask) {
-                        msg_print(_("本当によろしいですか？ ({}) ", "Are you sure? ({}) "), friend_name);
-                        ch = inkey();
+                        const auto confirmation = fmt::format(_("本当によろしいですか？ ({}) ", "Are you sure? ({}) "), friend_name);
+                        msg_print(confirmation);
+                        ch = input_key_with_context(InputKind::CONFIRM, confirmation);
                         if (ch != 'Y' && ch != 'y') {
                             delete_this = false;
                         }
@@ -144,14 +146,14 @@ void do_cmd_pet_dismiss(PlayerType *player_ptr)
 
             if (monster.is_riding()) {
                 msg_print(_("{}から降りた。", "You dismount from {}. "), friend_name);
-                player_ptr->ride_monster(0);
-                rfu.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
-                rfu.request_riding_status_redrawing();
+                player_ptr->dismount();
+                dur.set_flag(StatusRecalculatingFlag::MONSTER_STATUSES);
+                dur.request_riding_change_updates();
             }
 
             msg_print(_("{} を放した。", "Dismissed {}."), friend_name);
-            rfu.set_flag(StatusRecalculatingFlag::BONUS);
-            rfu.set_flag(SubWindowRedrawingFlag::MESSAGE);
+            dur.set_flag(StatusRecalculatingFlag::BONUS);
+            dur.set_flag(SubWindowRedrawingFlag::MESSAGE);
             delete_monster_idx(player_ptr, pet_ctr);
             num_dismissed++;
         }
@@ -271,15 +273,14 @@ bool do_cmd_riding(PlayerType *player_ptr, bool force)
 
     PlayerEnergy(player_ptr).set_player_turn_energy(100);
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     static constexpr auto flags_srf = {
         StatusRecalculatingFlag::UN_VIEW,
         StatusRecalculatingFlag::UN_LITE,
-        StatusRecalculatingFlag::BONUS,
     };
-    rfu.set_flags(flags_srf);
-    rfu.set_flag(MainWindowRedrawingFlag::MAP);
-    rfu.request_riding_status_redrawing();
+    dur.set_flags(flags_srf);
+    dur.request_map_redrawing();
+    dur.request_riding_change_updates();
     (void)move_player_effect(player_ptr, pos.y, pos.x, MPE_HANDLE_STUFF | MPE_ENERGY_USE | MPE_DONT_PICKUP | MPE_DONT_SWAP_MON);
     return true;
 }
@@ -516,13 +517,15 @@ void do_cmd_pet(PlayerType *player_ptr)
         flag = false;
         redraw = false;
 
+        const auto first_label = I2A(0);
+        const auto last_label = I2A(num - 1);
         std::string prompt;
         if (use_menu) {
             screen_save();
             prompt = _("(コマンド、ESC=終了) コマンドを選んでください:", "(Command, ESC=exit) Choose command from menu.");
         } else {
             constexpr auto fmt = _("(コマンド {:c}-{:c}、'*'=一覧、ESC=終了) コマンドを選んでください:", "(Command {:c}-{:c}, *=List, ESC=exit) Select a command: ");
-            prompt = fmt::format(fmt, I2A(0), I2A(num - 1));
+            prompt = fmt::format(fmt, first_label, last_label);
         }
 
         choice = (always_show_list || use_menu) ? ESCAPE : '\1';
@@ -532,7 +535,7 @@ void do_cmd_pet(PlayerType *player_ptr)
             if (choice == ESCAPE) {
                 choice = ' ';
             } else {
-                const auto new_choice = input_command(prompt);
+                const auto new_choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = redraw, .menu = use_menu });
                 if (!new_choice) {
                     break;
                 }
@@ -794,7 +797,7 @@ void do_cmd_pet(PlayerType *player_ptr)
             player_ptr->pet_extra_flags |= (PF_TWO_HANDS);
         }
 
-        RedrawingFlagsUpdater::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
+        DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::BONUS);
         handle_stuff(player_ptr);
         break;
     }

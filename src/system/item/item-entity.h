@@ -185,6 +185,10 @@ public:
 
     void mark_as_known();
     void sense(item_feel_type feel);
+    void remove_curses();
+    bool add_curses(const EnumClassFlagGroup<CurseTraitType> &curses);
+    void match_feeling_to_curses();
+    tl::optional<item_feel_type> find_curse_feeling() const;
     void mark_as_tried() const;
 
     void set_position(const Pos2D &pos);
@@ -193,7 +197,6 @@ public:
     void set_fixed_artifact_generated(bool new_state) const;
     void set_identification_flag(IdentificationFlag flag);
     void reset_identification_flag(IdentificationFlag flag);
-    void set_identification_flags(const EnumClassFlagGroup<IdentificationFlag> &flags);
     void reset_identification_flags(const EnumClassFlagGroup<IdentificationFlag> &flags);
     bool has_identification_flag(IdentificationFlag flag) const;
     bool has_not_identification_flag(IdentificationFlag flag) const;

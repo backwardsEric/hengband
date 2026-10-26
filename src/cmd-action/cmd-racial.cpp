@@ -13,7 +13,7 @@
 #include "core/window-redrawer.h"
 #include "game-option/text-display-options.h"
 #include "io/command-repeater.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "main/sound-of-music.h"
 #include "mutation/mutation-flag-types.h"
@@ -30,8 +30,8 @@
 #include "racial/racial-util.h"
 #include "status/action-setter.h"
 #include "system/angband-exceptions.h"
+#include "system/deferred-update-requests.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "util/bit-flags-calculator.h"
 #include "util/int-char-converter.h"
@@ -60,9 +60,14 @@ static void racial_power_erase_cursor(rc_type *rc_ptr)
  * @brief レイシャルパワー一覧を表示
  * @param player_ptr プレイヤー情報への参照ポインタ
  * @param rc_ptr レイシャルパワー情報への参照ポインタ
+ * @details 一覧を表示していない (ページが -1) ときは何も描かない。
  */
 static void racial_power_display_list(PlayerType *player_ptr, rc_type *rc_ptr)
 {
+    if (rc_ptr->page < 0) {
+        return;
+    }
+
     TERM_LEN x = 11;
     prt(_("                                   Lv   MP 失率 効果", "                                   Lv   MP Fail Effect"), 1, x);
     auto y = 0;
@@ -76,14 +81,7 @@ static void racial_power_display_list(PlayerType *player_ptr, rc_type *rc_ptr)
         if (use_menu) {
             dummy = "    ";
         } else {
-            char letter;
-            if (ctr < 26) {
-                letter = I2A(ctr);
-            } else {
-                letter = '0' + ctr - 26;
-            }
-
-            dummy = fmt::format(" {:c}) ", letter);
+            dummy = fmt::format(" {:c}) ", I2AD(ctr));
         }
 
         auto &rpi = rc_ptr->power_desc[ctr];
@@ -101,7 +99,7 @@ static void racial_power_display_list(PlayerType *player_ptr, rc_type *rc_ptr)
     std::vector<BotPowerListRow> bot_rows;
     for (auto ctr = 0; ctr < rc_ptr->power_count(); ctr++) {
         const auto &rpi = rc_ptr->power_desc[ctr];
-        const auto letter = (ctr < 26) ? I2A(ctr) : static_cast<char>('0' + ctr - 26);
+        const auto letter = I2AD(ctr);
         bot_rows.push_back({ letter, ctr / RC_PAGE_SIZE, rpi.racial_name, rpi.min_level, rpi.cost, 100 - racial_chance(player_ptr, &rc_ptr->power_desc[ctr]), rpi.info });
     }
     output_bot_json_power_list_snapshot(player_ptr, "racial", bot_rows, rc_ptr->page, rc_ptr->browse_mode);
@@ -115,7 +113,7 @@ static void racial_power_make_prompt(rc_type *rc_ptr)
 {
     constexpr auto fmt_browse = _("(特殊能力 {:c}-{:c}, '*':一覧, '/'で使用, ESCで中断) どの能力について知りますか？", "(Powers {:c}-{:c}, *=List. /=Use, ESC=exit) Browse which power? ");
     constexpr auto fmt_use = _("(特殊能力 {:c}-{:c}, '*'で一覧, '/'で閲覧, ESCで中断) どの能力を使いますか？", "(Powers {:c}-{:c}, *=List, /=Browse, ESC=exit) Use which power? ");
-    const auto last = (rc_ptr->power_count() <= 26) ? I2A(rc_ptr->power_count() - 1) : static_cast<char>('0' + rc_ptr->power_count() - 27);
+    const auto last = I2AD(rc_ptr->power_count() - 1);
     rc_ptr->out_val = rc_ptr->browse_mode ? fmt::format(fmt_browse, I2A(0), last) : fmt::format(fmt_use, I2A(0), last);
 }
 
@@ -312,8 +310,9 @@ static void racial_power_display_explanation(PlayerType *player_ptr, rc_type *rc
     term_erase(12, 16);
     display_wrap_around(rpi.text, 62, 17, 15);
 
-    prt(_("何かキーを押して下さい。", "Hit any key."), 0, 0);
-    (void)inkey();
+    constexpr auto prompt = _("何かキーを押して下さい。", "Hit any key.");
+    prt(prompt, 0, 0);
+    (void)input_key_with_context(InputKind::ANY_KEY, prompt);
 
     screen_load();
     screen_save();
@@ -330,12 +329,16 @@ static void racial_power_display_explanation(PlayerType *player_ptr, rc_type *rc
 static bool racial_power_process_input(PlayerType *player_ptr, rc_type *rc_ptr)
 {
     rc_ptr->choice = (always_show_list || use_menu) ? ESCAPE : 1;
+    const auto first_label = I2A(0);
+    const auto last_label = I2AD(rc_ptr->power_count() - 1);
 
     while (true) {
         if (rc_ptr->choice == ESCAPE) {
             rc_ptr->choice = ' ';
         } else {
-            const auto choice = input_command(rc_ptr->out_val);
+            // ページが -1 なら一覧を表示していない。max_page のページは行が無く見出しだけを描く (一覧を隠した状態)
+            const auto is_list_shown = rc_ptr->page >= 0 && rc_ptr->page < rc_ptr->max_page;
+            const auto choice = input_spell_choice(rc_ptr->out_val, { .first_label = first_label, .last_label = last_label, .list = is_list_shown, .browse = rc_ptr->browse_mode, .menu = use_menu });
             if (!choice) {
                 return false;
             }
@@ -382,6 +385,8 @@ static bool racial_power_select_power(PlayerType *player_ptr, rc_type *rc_ptr)
         }
     }
 
+    // 一覧は選び終えるまで消さないので、この関数を抜けるまで登録する
+    BotDrawnScreenScope bot_screen;
     screen_save();
     if (use_menu) {
         racial_power_display_list(player_ptr, rc_ptr);
@@ -499,10 +504,5 @@ void do_cmd_racial_power(PlayerType *player_ptr)
         return;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    const auto &flags_mwrf = {
-        MainWindowRedrawingFlag::HP,
-        MainWindowRedrawingFlag::MP,
-    };
-    rfu.set_flags(flags_mwrf);
+    DeferredUpdateRequests::get_instance().request_hp_mp_redrawing();
 }

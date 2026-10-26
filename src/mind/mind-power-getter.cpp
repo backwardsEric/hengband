@@ -5,6 +5,7 @@
 #include "game-option/text-display-options.h"
 #include "inventory/inventory-slot-types.h"
 #include "io/command-repeater.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "main/sound-of-music.h"
 #include "mind/mind-explanations-table.h"
@@ -14,8 +15,8 @@
 #include "player-info/class-info.h"
 #include "player-info/equipment-info.h"
 #include "player/player-status-table.h"
+#include "system/deferred-update-requests.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "timed-effect/timed-effects.h"
 #include "util/enum-converter.h"
@@ -64,21 +65,22 @@ bool MindPowerGetter::get_mind_power(SPELL_IDX *sn, bool only_browse)
     constexpr auto fmt_browse = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}について知りますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Browse which {}? ");
     constexpr auto fmt_use = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}を使いますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Use which {}? ");
     const auto desc_upcased = str_upcase_first(this->mind_description);
-    const auto first_letter = I2A(0);
-    const auto last_letter = I2A(this->num - 1);
-    const auto prompt = only_browse ? fmt::format(fmt_browse, desc_upcased, first_letter, last_letter, this->mind_description) : fmt::format(fmt_use, desc_upcased, first_letter, last_letter, this->mind_description);
+    const auto first_label = I2A(0);
+    const auto last_label = I2A(this->num - 1);
+    const auto prompt = only_browse ? fmt::format(fmt_browse, desc_upcased, first_label, last_label, this->mind_description) : fmt::format(fmt_use, desc_upcased, first_label, last_label, this->mind_description);
 
     if (use_menu && !only_browse) {
         screen_save();
     }
 
     this->choice = (always_show_list || use_menu) ? ESCAPE : 1;
-    this->decide_mind_choice(prompt, only_browse);
+    this->decide_mind_choice(prompt, first_label, last_label, only_browse);
+
     if (this->redraw && !only_browse) {
         screen_load();
     }
 
-    RedrawingFlagsUpdater::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
+    DeferredUpdateRequests::get_instance().set_flag(SubWindowRedrawingFlag::SPELL);
     window_stuff(this->player_ptr);
     if (!this->flag) {
         return false;
@@ -142,13 +144,13 @@ bool MindPowerGetter::select_spell_index(SPELL_IDX *sn)
     return mind_ptr->info[*sn].min_lev <= this->player_ptr->lev;
 }
 
-bool MindPowerGetter::decide_mind_choice(std::string_view prompt, const bool only_browse)
+bool MindPowerGetter::decide_mind_choice(std::string_view prompt, char first_label, char last_label, const bool only_browse)
 {
     while (!this->flag) {
         if (this->choice == ESCAPE) {
             this->choice = ' ';
         } else {
-            const auto command = input_command(prompt);
+            const auto command = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = this->redraw, .browse = only_browse, .menu = use_menu });
             if (!command) {
                 break;
             }
@@ -245,6 +247,8 @@ bool MindPowerGetter::display_minds_chance(const bool only_browse)
     }
 
     this->redraw = false;
+    hide_bot_drawn_screen();
+
     screen_load();
     return true;
 }

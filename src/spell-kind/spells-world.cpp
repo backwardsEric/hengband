@@ -13,7 +13,7 @@
 #include "game-option/birth-options.h"
 #include "game-option/play-record-options.h"
 #include "game-option/special-options.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/write-diary.h"
 #include "main/sound-definitions-table.h"
 #include "main/sound-of-music.h"
@@ -22,6 +22,7 @@
 #include "monster/monster-describer.h"
 #include "monster/monster-description-types.h"
 #include "system/angband-system.h"
+#include "system/deferred-update-requests.h"
 #include "system/dungeon/dungeon-definition.h"
 #include "system/dungeon/dungeon-list.h"
 #include "system/dungeon/dungeon-record.h"
@@ -36,7 +37,6 @@
 #include "system/monrace/monrace-definition.h"
 #include "system/monster-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "system/services/dungeon-service.h"
 #include "target/projection-path-calculator.h"
 #include "target/target-checker.h"
@@ -290,7 +290,7 @@ bool tele_town(PlayerType *player_ptr)
     const auto towns_size = towns.size();
     const auto &town_records = TownRecords::get_instance();
     for (size_t i = 1; i < towns_size; i++) {
-        if ((i == VALID_TOWNS) || (i == SECRET_TOWN) || (i == world.get_town_index()) || !town_records.has_visited(i2enum<TownId>(i - 1))) {
+        if ((i == VALID_TOWNS) || (i == SECRET_TOWN) || (i == world.get_town_index()) || !town_records.has_visited(to_town_id(i))) {
             continue;
         }
 
@@ -306,10 +306,11 @@ bool tele_town(PlayerType *player_ptr)
         return false;
     }
 
-    prt(_("どこに行きますか:", "Where do you want to go: "), 0, 0);
+    constexpr auto prompt = _("どこに行きますか:", "Where do you want to go: ");
+    prt(prompt, 0, 0);
     char key;
     while (true) {
-        key = inkey();
+        key = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
 
         if (key == ESCAPE) {
             screen_load();
@@ -321,7 +322,7 @@ bool tele_town(PlayerType *player_ptr)
         }
 
         const size_t town_num = key - 'a' + 1;
-        if ((town_num == world.get_town_index()) || (town_num == VALID_TOWNS) || (town_num == SECRET_TOWN) || !town_records.has_visited(i2enum<TownId>(key - 'a'))) {
+        if ((town_num == world.get_town_index()) || (town_num == VALID_TOWNS) || (town_num == SECRET_TOWN) || !town_records.has_visited(to_town_id(town_num))) {
             continue;
         }
 
@@ -352,17 +353,17 @@ void reserve_alter_reality(PlayerType *player_ptr, TIME_EFFECT turns)
         return;
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (player_ptr->alter_reality || turns == 0) {
         player_ptr->alter_reality = 0;
         msg_print(_("景色が元に戻った...", "The view around you returns to normal..."));
-        rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+        dur.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
         return;
     }
 
     player_ptr->alter_reality = turns;
     msg_print(_("回りの景色が変わり始めた...", "The view around you begins to change..."));
-    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+    dur.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
 }
 
 /*!
@@ -398,10 +399,11 @@ static tl::optional<DungeonId> choose_dungeon(std::string_view note, int row, in
         prt(_("      選べるダンジョンがない。", "      No dungeon is available."), row, col);
     }
 
-    prt(fmt::format(_("どのダンジョン{}しますか:", "Which dungeon do you {}?: "), note), 0, 0);
+    const auto prompt = fmt::format(_("どのダンジョン{}しますか:", "Which dungeon do you {}?: "), note);
+    prt(prompt, 0, 0);
     const auto ids = dungeon_records.collect_entered_dungeon_ids();
     while (true) {
-        const auto key = inkey();
+        const auto key = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
         if ((key == ESCAPE) || ids.empty()) {
             screen_load();
             return tl::nullopt;
@@ -446,11 +448,11 @@ bool recall_player(PlayerType *player_ptr, TIME_EFFECT turns)
         }
     }
 
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
+    auto &dur = DeferredUpdateRequests::get_instance();
     if (player_ptr->word_recall || turns == 0) {
         player_ptr->word_recall = 0;
         msg_print(_("張りつめた大気が流れ去った...", "A tension leaves the air around you..."));
-        rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+        dur.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
         return true;
     }
 
@@ -465,7 +467,7 @@ bool recall_player(PlayerType *player_ptr, TIME_EFFECT turns)
 
     player_ptr->word_recall = turns;
     msg_print(_("回りの大気が張りつめてきた...", "The air about you becomes charged..."));
-    rfu.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+    dur.set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     return true;
 }
 
@@ -504,7 +506,7 @@ bool free_level_recall(PlayerType *player_ptr)
     }
 
     msg_print(_("回りの大気が張りつめてきた...", "The air about you becomes charged..."));
-    RedrawingFlagsUpdater::get_instance().set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
+    DeferredUpdateRequests::get_instance().set_flag(MainWindowRedrawingFlag::TIMED_EFFECT);
     return true;
 }
 

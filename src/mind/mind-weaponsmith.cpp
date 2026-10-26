@@ -8,7 +8,7 @@
 #include "floor/floor-object.h"
 #include "game-option/text-display-options.h"
 #include "io/command-repeater.h"
-#include "io/input-key-acceptor.h"
+#include "io/input-context.h"
 #include "io/input-key-requester.h"
 #include "main/sound-of-music.h"
 #include "object-enchant/tr-types.h"
@@ -17,9 +17,9 @@
 #include "player-status/player-energy.h"
 #include "smith/object-smith.h"
 #include "smith/smith-types.h"
+#include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "system/player-type-definition.h"
-#include "system/redrawing-flags-updater.h"
 #include "term/screen-processor.h"
 #include "term/term-color-types.h"
 #include "util/bit-flags-calculator.h"
@@ -74,8 +74,9 @@ static void display_essence(PlayerType *player_ptr)
             prt(fmt::format("{:<11} {:5}", fmt::bytes(name), amount), 2 + num % row_count, 8 + (num / row_count) * column_width);
         }
 
-        prt(fmt::format(_("現在所持しているエッセンス {}/{}", "List of all essences you have. {}/{}"), (page + 1), page_max), 0, 0);
-        const auto key = inkey();
+        const auto prompt = fmt::format(_("現在所持しているエッセンス {}/{}", "List of all essences you have. {}/{}"), (page + 1), page_max);
+        prt(prompt, 0, 0);
+        const auto key = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
         if (key == ESCAPE) {
             break;
         }
@@ -141,9 +142,9 @@ static void drain_essence(PlayerType *player_ptr)
 
     /* Apply autodestroy/inscription to the drained item */
     autopick_alter_item(player_ptr, i_idx, true);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
 }
 
 /*!
@@ -178,9 +179,9 @@ static COMMAND_CODE choose_essence(void)
 #endif
             }
 
-            prt(_("どの種類のエッセンス付加を行いますか？", "Choose from menu."), 0, 0);
-
-            choice = inkey();
+            constexpr auto prompt = _("どの種類のエッセンス付加を行いますか？", "Choose from menu.");
+            prt(prompt, 0, 0);
+            choice = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
             switch (choice) {
             case ESCAPE:
             case 'z':
@@ -317,6 +318,7 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
     if (effect_index < 0 || effect_index >= smith_effect_list_max) {
         flag = false;
         screen_save();
+        const auto first_label = I2A(0);
         while (!flag) {
             std::string prompt;
             if (page_max > 1) {
@@ -328,7 +330,8 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
             display_smith_effect_list(smith, smith_effect_list, menu_line, page * effect_num_per_page, effect_num_per_page);
 
             const auto page_effect_num = std::min<int>(effect_num_per_page, smith_effect_list.size() - (page * effect_num_per_page));
-            const auto choice = input_command(prompt);
+            const auto last_label = I2A(page_effect_num - 1);
+            const auto choice = input_spell_choice(prompt, { .first_label = first_label, .last_label = last_label, .list = true, .menu = use_menu });
             if (!choice) {
                 break;
             }
@@ -495,9 +498,9 @@ static void add_essence(PlayerType *player_ptr, SmithCategoryType mode)
     auto effect_name = Smith::get_effect_name(effect);
 
     msg_print(_("{0}に{1}の能力を付加しました。", "You have added ability of {1} to {0}."), item_name, effect_name);
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
 }
 
 /*!
@@ -522,9 +525,9 @@ static void erase_essence(PlayerType *player_ptr)
     Smith(player_ptr).erase_essence(item.get());
 
     msg_print(_("エッセンスを取り去った。", "You removed all essence you have added."));
-    auto &rfu = RedrawingFlagsUpdater::get_instance();
-    rfu.request_inventory_arrangement();
-    rfu.request_item_lists_redrawing();
+    auto &dur = DeferredUpdateRequests::get_instance();
+    dur.request_inventory_arrangement();
+    dur.request_item_lists_redrawing();
 }
 
 /*!
@@ -560,6 +563,7 @@ void do_cmd_kaji(PlayerType *player_ptr, bool only_browse)
             }
 
             if (use_menu) {
+                const auto prompt = _(only_browse ? "どの種類の技術を調べますか？" : "どの種類の技術を使いますか？", "Choose command from menu.");
                 while (mode == 0) {
 #ifdef JP
                     prt(fmt::format(" {} エッセンス一覧", (menu_line == 1) ? "》" : "  "), 2, 14);
@@ -567,16 +571,15 @@ void do_cmd_kaji(PlayerType *player_ptr, bool only_browse)
                     prt(fmt::format(" {} エッセンス消去", (menu_line == 3) ? "》" : "  "), 4, 14);
                     prt(fmt::format(" {} エッセンス付加", (menu_line == 4) ? "》" : "  "), 5, 14);
                     prt(fmt::format(" {} 武器/防具強化", (menu_line == 5) ? "》" : "  "), 6, 14);
-                    prt(fmt::format("どの種類の技術を{}ますか？", only_browse ? "調べ" : "使い"), 0, 0);
 #else
                     prt(fmt::format(" {} List essences", (menu_line == 1) ? "> " : "  "), 2, 14);
                     prt(fmt::format(" {} Extract essence", (menu_line == 2) ? "> " : "  "), 3, 14);
                     prt(fmt::format(" {} Remove essence", (menu_line == 3) ? "> " : "  "), 4, 14);
                     prt(fmt::format(" {} Add essence", (menu_line == 4) ? "> " : "  "), 5, 14);
                     prt(fmt::format(" {} Enchant weapon/armor", (menu_line == 5) ? "> " : "  "), 6, 14);
-                    prt("Choose command from menu.", 0, 0);
 #endif
-                    const auto choice = inkey();
+                    prt(prompt, 0, 0);
+                    const auto choice = input_key_with_context(InputKind::COMMAND_CHAR, prompt);
                     switch (choice) {
                     case ESCAPE:
                     case 'z':
