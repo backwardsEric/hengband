@@ -4139,7 +4139,7 @@ D:$ sacrifice.  It has been wielded by generations of the Belmont family, the
 D:$ vampire hunters, and is the great bane of any with an unclean soul.
 
 N:245:運命のオーブ
-E:The Orb of Fate 
+E:The Orb of Fate
 I:39:10:3
 W:70:70:15:45000
 P:0:1d1:0:0:20

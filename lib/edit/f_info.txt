@@ -1799,7 +1799,7 @@ F:HURT_DISI | GLASS
 
 N:227:HEAVY_COLD_ZONE
 J:極低温帯
-E:heavy cold zone 
+E:heavy cold zone
 G:~:W
 W:2
 F:LOS | PROJECT | MOVE | PLACE | REMEMBER | GLOW | COLD_PUDDLE | DEEP | CAN_FLY |
