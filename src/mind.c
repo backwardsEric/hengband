@@ -774,7 +774,7 @@ static bool_hack get_mind_power(SPELL_IDX *sn, bool only_browse)
 	if (only_browse)
 	{
 		(void)strnfmt(out_val, 78,
-			_("(%^s %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%^ss %c-%c, *=List, ESC=exit) Use which %s? "),
+			_("(%^s %c-%c, '*'で一覧, ESC) どの%sについて知りますか？", "(%^ss %c-%c, *=List, ESC=exit) Browse which %s? "),
 			p, I2A(0), I2A(num - 1), p);
 	}
 	else
