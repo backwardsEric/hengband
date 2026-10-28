@@ -4528,7 +4528,7 @@ errr make_character_dump(FILE *fff)
 #ifdef JP
 			fprintf(fff, "\n Æ®µ»¾ì: %2d¾¡\n", (p_ptr->arena_number > MAX_ARENA_MONS ? MAX_ARENA_MONS : p_ptr->arena_number));
 #else
-			fprintf(fff, "\n Arena: %2d Victor%s\n", (p_ptr->arena_number > MAX_ARENA_MONS ? MAX_ARENA_MONS : p_ptr->arena_number), (p_ptr->arena_number > 1) ? "ies" : "y");
+			fprintf(fff, "\n Arena: %2d Victor%s\n", (p_ptr->arena_number > MAX_ARENA_MONS ? MAX_ARENA_MONS : p_ptr->arena_number), (p_ptr->arena_number == 1) ? "y" : "ies");
 #endif
 		}
 	}
