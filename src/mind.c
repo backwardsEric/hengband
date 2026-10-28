@@ -560,7 +560,7 @@ void mindcraft_info(char *p, int use_mind, int power)
 #ifdef JP
 	  (void) strnfmt(out_val, 78, "(%^s %c-%c, '*'で一覧, ESC) どの%sについて知りますか？",
 #else
-	  (void) strnfmt(out_val, 78, "(%^ss %c-%c, *=List, ESC=exit) Use which %s? ",
+	  (void) strnfmt(out_val, 78, "(%^ss %c-%c, *=List, ESC=exit) Browse which %s? ",
 #endif
 				       p, I2A(0), I2A(num - 1), p);
 	  }
