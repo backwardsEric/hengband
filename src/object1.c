@@ -421,7 +421,7 @@ static concptr item_activation_aux(object_type *o_ptr)
 		break;
 	case ACT_RESIST_POIS:
 		if (o_ptr->name2 == EGO_BRAND_POIS)
-			desc = _("悪臭雲 (100) と毒への耐性", "ball of poison (100) and resist elec");
+			desc = _("悪臭雲 (100) と毒への耐性", "ball of poison (100) and resist poison");
 		break;
 	}
 
