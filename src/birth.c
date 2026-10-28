@@ -4659,7 +4659,7 @@ void dump_yourself(FILE *fff)
 	}
 	roff_to_buf(seikaku_jouhou[p_ptr->pseikaku], 78, temp, sizeof(temp));
 	fprintf(fff, "\n");
-	fprintf(fff, _("性格: %s\n", "Pesonality: %s\n"), seikaku_info[p_ptr->pseikaku].title);
+	fprintf(fff, _("性格: %s\n", "Personality: %s\n"), seikaku_info[p_ptr->pseikaku].title);
 
 	t = temp;
 	for (i = 0; i < A_MAX; i++)
