@@ -1351,7 +1351,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_RESIST_ACID:
 	{
-		msg_format(_("%sが黒く輝いた...", "The %s grows black."), name);
+		msg_format(_("%sが黒く輝いた...", "The %s glows black."), name);
 		if ((o_ptr->tval == TV_RING) && (o_ptr->sval == SV_RING_ACID))
 		{
 			if (!get_aim_dir(&dir)) return FALSE;
@@ -1363,7 +1363,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_RESIST_FIRE:
 	{
-		msg_format(_("%sが赤く輝いた...", "The %s grows red."), name);
+		msg_format(_("%sが赤く輝いた...", "The %s glows red."), name);
 		if ((o_ptr->tval == TV_RING) && (o_ptr->sval == SV_RING_FLAMES))
 		{
 			if (!get_aim_dir(&dir)) return FALSE;
@@ -1375,7 +1375,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_RESIST_COLD:
 	{
-		msg_format(_("%sが白く輝いた...", "The %s grows white."), name);
+		msg_format(_("%sが白く輝いた...", "The %s glows white."), name);
 		if ((o_ptr->tval == TV_RING) && (o_ptr->sval == SV_RING_ICE))
 		{
 			if (!get_aim_dir(&dir)) return FALSE;
@@ -1387,7 +1387,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_RESIST_ELEC:
 	{
-		msg_format(_("%sが青く輝いた...", "The %s grows blue."), name);
+		msg_format(_("%sが青く輝いた...", "The %s glows blue."), name);
 		if ((o_ptr->tval == TV_RING) && (o_ptr->sval == SV_RING_ELEC))
 		{
 			if (!get_aim_dir(&dir)) return FALSE;
@@ -1399,7 +1399,7 @@ bool activate_artifact(object_type *o_ptr)
 
 	case ACT_RESIST_POIS:
 	{
-		msg_format(_("%sが緑に輝いた...", "The %s grows green."), name);
+		msg_format(_("%sが緑に輝いた...", "The %s glows green."), name);
 		(void)set_oppose_pois(randint1(20) + 20, FALSE);
 		break;
 	}
