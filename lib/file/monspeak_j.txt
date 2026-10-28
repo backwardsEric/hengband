@@ -294,11 +294,11 @@ N:186:Grishnakh, the Hill Orc
 「俺はもう馬鹿じゃねえ」
 #yells, 'Nazgul, Nazgul!'
 は「ナズグルだ！ナズグルだ！」と叫んだ。
-#says, 'Fine leadership!　I hope the great Ugluk will lead us out again.'
+#says, 'Fine leadership! I hope the great Ugluk will lead us out again.'
 「良き指導者！偉大なるウグルクよ、再び我らを導き給わんことを」
 #hisses, 'My dear tender little fools.'
 は「弱っちくて可愛いお馬鹿ちゃん」と、あなたを嘲っている。
-#says, 'Well, my little ones!　Enjoying your nice rest?'
+#says, 'Well, my little ones! Enjoying your nice rest?'
 「おう、ちびっ子、休暇は楽しんでいるか？」
 #snarls, 'Have you got it -- either of you?'
 
