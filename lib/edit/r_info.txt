@@ -21744,7 +21744,7 @@ D:$He is a junior brother of the king of the southerners, Meng Huo.
 D:南蛮王孟獲の弟だ。武勇には多少の自信がある。
 
 N:1074:火の神『祝融』
-E:Lady Zhurong, the Avater of Flame Spirit
+E:Lady Zhurong, Avatar of the Flame Spirit
 G:p:R
 I:115:24d11:20:45:20
 W:14:2:0:150:0:0
