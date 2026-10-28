@@ -5715,7 +5715,7 @@ P:0:1d1:0:0:0
 F:ACTIVATE
 
 N:594:»à¤ÎÂç³ù
-E:& Death Scythe~ 
+E:& Death Scythe~
 G:/:R
 I:22:50:0
 W:70:0:350:10000
