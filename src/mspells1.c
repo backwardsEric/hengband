@@ -1710,10 +1710,10 @@ bool make_attack_spell(MONSTER_IDX m_idx)
 		return (TRUE);
 	}
 
-	/* Hex: Anti Magic Barrier */
+	/* Hex: Anti-Magic Barrier */
 	if (!spell_is_inate(thrown_spell) && magic_barrier(m_idx))
 	{
-		msg_format(_("反魔法バリアが%^sの呪文をかき消した。", "Anti magic barrier cancels the spell which %^s casts."), m_name);
+		msg_format(_("反魔法バリアが%^sの呪文をかき消した。", "Anti-magic barrier cancels the spell which %^s casts."), m_name);
 		return (TRUE);
 	}
 
