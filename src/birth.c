@@ -6592,7 +6592,7 @@ void dump_yourself(FILE *fff)
 #ifdef JP
 	fprintf(fff, "À­³Ê: %s\n", seikaku_info[p_ptr->pseikaku].title);
 #else
-	fprintf(fff, "Pesonality: %s\n", seikaku_info[p_ptr->pseikaku].title);
+	fprintf(fff, "Personality: %s\n", seikaku_info[p_ptr->pseikaku].title);
 #endif
 	t = temp;
 	for (i = 0; i < 6; i++)
