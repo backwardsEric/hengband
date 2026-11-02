@@ -4,21 +4,29 @@
 
 #include "artifact/fixed-art-types.h"
 #include "bot/bot-json-output.h"
+#include "locale/localized-string.h"
 #include "object-enchant/object-ego.h"
 #include "object-enchant/tr-types.h"
 #include "object/tval-types.h"
+#include "player/player-known-flags.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/baseitem/baseitem-record.h"
 #include "system/baseitem/baseitem-records.h"
 #include "system/baseitem/baseitem-service.h"
 #include "system/item/item-entity.h"
+#include "system/monrace/monrace-definition.h"
+#include "system/monrace/monrace-list.h"
+#include "system/monster-entity.h"
 #include "test/scoped-rng.h"
 #include "test/scoped-vector-wrapper.h"
+#include "test/system/monrace-list-test-access.h"
 #include "util/enum-converter.h"
 #include <doctest/doctest.h>
 #include <nlohmann/json.hpp>
 #include <range/v3/algorithm.hpp>
+#include <string>
+#include <utility>
 #include <vector>
 
 TEST_CASE("find_bot_knowledge_category maps knowledge menu keys to categories")
@@ -201,4 +209,84 @@ TEST_CASE("make_bot_found_item_identity_json hides the ids while hallucinating")
     const ItemEntity potion(POTION_A_ID);
     CHECK(make_bot_found_item_identity_json(potion, true).is_null());
     CHECK(make_bot_found_item_identity_json(potion, false) == nlohmann::json{ { "flavor_id", POTION_B_ID } });
+}
+
+TEST_CASE("make_bot_pet_row_json hides the race while hallucinating")
+{
+    test::MonraceListTestAccess monraces;
+    auto &monrace = MonraceList::get_instance().emplace(static_cast<MonraceId>(1));
+    monrace.name = LocalizedString("Test pet", "Test pet");
+    MonsterEntity monster;
+    monster.r_idx = static_cast<MonraceId>(1);
+    CHECK(make_bot_pet_row_json(5, monster, false) == nlohmann::json{ { "index", 5 }, { "race_id", 1 }, { "name", "Test pet" } });
+    CHECK(make_bot_pet_row_json(5, monster, true) == nlohmann::json{ { "index", 5 }, { "hallucinated", true } });
+}
+
+TEST_CASE("make_bot_player_ability_sources_json reports each source of the character sheet abilities")
+{
+    const std::vector<std::pair<std::string, tr_type>> abilities{
+        { "hold_exp", TR_HOLD_EXP },
+        { "warning", TR_WARNING },
+        { "slow_digest", TR_SLOW_DIGEST },
+        { "regenerate", TR_REGEN },
+        { "levitation", TR_LEVITATION },
+        { "reflect", TR_REFLECT },
+        { "sustain_str", TR_SUST_STR },
+        { "sustain_int", TR_SUST_INT },
+        { "sustain_wis", TR_SUST_WIS },
+        { "sustain_dex", TR_SUST_DEX },
+        { "sustain_con", TR_SUST_CON },
+        { "sustain_chr", TR_SUST_CHR },
+    };
+    // 供給源を 1 つずつ立て、そのキーの同じ供給源だけが true になることを確かめる
+    const std::vector<std::pair<std::string, TrFlags PlayerKnownFlags::*>> source_members{
+        { "equipment", &PlayerKnownFlags::equipment },
+        { "permanent", &PlayerKnownFlags::permanent },
+        { "temporary", &PlayerKnownFlags::temporary },
+    };
+    for (const auto &[key, flag] : abilities) {
+        CAPTURE(key);
+        for (const auto &[source, member] : source_members) {
+            CAPTURE(source);
+            PlayerKnownFlags flags;
+            (flags.*member).set(flag);
+            const auto sources = make_bot_player_ability_sources_json(flags);
+            REQUIRE(sources.contains(key));
+            for (const auto &other : source_members) {
+                CHECK(sources.at(key).at(other.first) == (other.first == source));
+            }
+        }
+
+        // 乗馬の分を持つのは浮遊だけ
+        CHECK(make_bot_player_ability_sources_json({}).at(key).contains("riding") == (key == "levitation"));
+    }
+}
+
+TEST_CASE("make_bot_player_ability_sources_json reports the levitation from the mount")
+{
+    // 乗馬の分は浮遊の riding にだけ出て、どの能力の供給源にも混ざらない
+    PlayerKnownFlags riding_only;
+    riding_only.riding.set(TR_LEVITATION);
+    const auto riding_only_sources = make_bot_player_ability_sources_json(riding_only);
+    for (const auto &[key, value] : riding_only_sources.items()) {
+        CAPTURE(key);
+        CHECK(value.at("equipment") == false);
+        CHECK(value.at("permanent") == false);
+        CHECK(value.at("temporary") == false);
+    }
+
+    PlayerKnownFlags flags;
+    flags.equipment.set(TR_LEVITATION);
+    CHECK(make_bot_player_ability_sources_json(flags).at("levitation").at("riding").is_null());
+
+    // 浮遊する馬に乗っている
+    flags.riding.set(TR_LEVITATION);
+    CHECK(make_bot_player_ability_sources_json(flags).at("levitation").at("riding") == true);
+
+    // 浮遊しない馬に乗っていて、装備の浮遊があっても浮遊しない
+    flags.riding.reset(TR_LEVITATION);
+    flags.riding_negative.set(TR_LEVITATION);
+    const auto sources = make_bot_player_ability_sources_json(flags);
+    CHECK(sources.at("levitation").at("riding") == false);
+    CHECK(sources.at("levitation").at("equipment") == true);
 }

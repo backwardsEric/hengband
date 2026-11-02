@@ -8,9 +8,11 @@
 #include <vector>
 
 class ItemEntity;
+class MonsterEntity;
 class PlayerType;
 class Store;
 class StoreScreen;
+struct PlayerKnownFlags;
 enum class MonraceId : short;
 
 /*!
@@ -142,6 +144,8 @@ nlohmann::json make_bot_proficiency_values_json(int exp, int max, bool show_valu
 nlohmann::json make_bot_character_speed_json(int total, int temporary, bool lightspeed, bool riding);
 nlohmann::json make_bot_item_identity_json(const ItemEntity &item, bool store_identified);
 nlohmann::json make_bot_found_item_identity_json(const ItemEntity &item, bool is_hallucinated);
+nlohmann::json make_bot_pet_row_json(int index, const MonsterEntity &monster, bool is_hallucinated);
+nlohmann::json make_bot_player_ability_sources_json(const PlayerKnownFlags &flags);
 nlohmann::json make_bot_json_snapshot(PlayerType *player_ptr, bool include_map = true);
 void output_bot_json_snapshot(PlayerType *player_ptr);
 void output_bot_json_screen_snapshot(PlayerType *player_ptr);

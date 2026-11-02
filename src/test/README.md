@@ -302,9 +302,10 @@ const auto restore_hoge = util::make_finalizer([&system, backup = system.get_hog
 
 TEST_CASE("VaultReader keeps the existing vaults on a parse error")
 {
-    const auto restore = test::scoped_restore(vaults_info, error_idx);
+    const auto restore = test::scoped_restore(vaults_info);
     vaults_info.clear();
-    error_idx = -1;
+    auto session = VaultReader::create_session();
+    // test::read_and_commit(VaultReader(data, session), session) で成功した記録を確定する。
     ...
 }
 ```
@@ -312,12 +313,16 @@ TEST_CASE("VaultReader keeps the existing vaults on a parse error")
 配列のようにコピー代入できないものや、関数を呼んで戻すもの（`initialize()` など）は、
 `util::make_finalizer()` を直接使ってください。
 
+エゴの一覧（`egos_info`）はエゴの定義をコピーできないので、`test::scoped_restore()` は使えません。
+`test/scoped-ego-list.h` の `test::ScopedEgoList` を使ってください。構築時に空の一覧と入れ替え、
+スコープを抜けるときに元の一覧へ戻します。
+
 更新フラグ（`DeferredUpdateRequests`）を立てたり調べたりするテストでは、`test/scoped-redrawing-flags.h` の
 `test::scoped_restore_redrawing_flags<Flag>()` で、フラグの型ごとにすべてのフラグを退避して元へ戻せます。
 これも戻り値は必ず変数で受けてください。
 
 データの読み込み処理（`info-reader/`）のテストでは、`test/info-reader/scoped-reader-state.h` の
-`test::ScopedReaderState` を使ってください。エラーの位置（`error_idx`）を設定し、端末が無くてもメッセージを
+`test::ScopedReaderState` を使ってください。端末が無くてもメッセージを
 出さないようにして、スコープを抜けるときに元へ戻します。
 
 そのうえで、**必要な前提は各テストケースの中で自分で設定してください。**

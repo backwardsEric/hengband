@@ -1,22 +1,22 @@
 #pragma once
 
+#include "info-reader/parse-error-types.h"
 #include "system/angband.h"
 #include "system/h-type.h"
 #include "util/bit-flags-calculator.h"
 #include <concepts>
 #include <cstdint>
 #include <limits>
+#include <nlohmann/json_fwd.hpp>
 #include <string_view>
+#include <tl/expected.hpp>
 #include <tl/optional.hpp>
 #include <type_traits>
 #include <utility>
 
-extern int error_idx; //!< エラーが発生したinfo ID
-
 enum class FixedArtifactId : short;
 enum class MonraceId : short;
 enum class QuestId : short;
-enum class RandomArtActType : short;
 
 /*
  * 定義のIDの上限は、IDを格納する型の上限−1とする。
@@ -27,8 +27,6 @@ constexpr int MAX_MONRACE_ID = std::numeric_limits<std::underlying_type_t<Monrac
 constexpr int MAX_FIXED_ARTIFACT_ID = std::numeric_limits<std::underlying_type_t<FixedArtifactId>>::max() - 1; //!< 固定アーティファクトIDの上限
 constexpr int MAX_TERRAIN_ID = std::numeric_limits<FEAT_IDX>::max() - 1; //!< 地形IDの上限
 constexpr int MAX_QUEST_ID = std::numeric_limits<std::underlying_type_t<QuestId>>::max() - 1; //!< クエストIDの上限
-
-RandomArtActType grab_one_activation_flag(std::string_view what);
 
 /*!
  * @brief 型Keyをキーとして持つような連想配列型のコンセプト

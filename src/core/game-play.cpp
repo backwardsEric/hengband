@@ -140,7 +140,7 @@ static void send_waiting_record(PlayerType *player_ptr)
     } else {
         system.set_awaiting_report_score(false);
         top_twenty(player_ptr);
-        if (!save_player(player_ptr, SaveType::CLOSE_GAME)) {
+        if (!save_player(player_ptr)) {
             msg_print(_("セーブ失敗！", "death save failed!"));
         }
     }
@@ -376,7 +376,6 @@ static void process_game_turn(PlayerType *player_ptr)
         world.character_xtra = true;
         handle_stuff_with_inventory_arrangement(player_ptr);
         world.character_xtra = false;
-        Target::clear_last_target();
         health_track(player_ptr, 0);
         floor.forget_lite();
         floor.forget_view();

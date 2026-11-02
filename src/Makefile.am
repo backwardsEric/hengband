@@ -615,10 +615,12 @@ libhengband_a_SOURCES = \
 	hpmp/hp-mp-processor.cpp hpmp/hp-mp-processor.h \
 	hpmp/hp-mp-regenerator.cpp hpmp/hp-mp-regenerator.h \
 	\
+	info-reader/activation-reader.cpp info-reader/activation-reader.h \
 	info-reader/artifact-reader.cpp info-reader/artifact-reader.h \
 	info-reader/baseitem-reader.cpp info-reader/baseitem-reader.h \
 	info-reader/baseitem-tokens-table.cpp info-reader/baseitem-tokens-table.h \
 	info-reader/definition-hash-data.cpp info-reader/definition-hash-data.h \
+	info-reader/definition-id-checker.cpp info-reader/definition-id-checker.h \
 	info-reader/dungeon-info-tokens-table.cpp info-reader/dungeon-info-tokens-table.h \
 	info-reader/dungeon-reader.cpp info-reader/dungeon-reader.h \
 	info-reader/ego-reader.cpp info-reader/ego-reader.h \
@@ -626,20 +628,30 @@ libhengband_a_SOURCES = \
 	info-reader/feature-info-tokens-table.cpp info-reader/feature-info-tokens-table.h \
 	info-reader/fixed-map-parser.cpp info-reader/fixed-map-parser.h \
 	info-reader/general-parser.cpp info-reader/general-parser.h \
-	info-reader/info-reader-util.cpp info-reader/info-reader-util.h \
+	info-reader/info-reader-util.h \
+	info-reader/item-flag-reader.cpp info-reader/item-flag-reader.h \
 	info-reader/item-reader-limits.h \
 	info-reader/json-reader-util.cpp info-reader/json-reader-util.h \
 	info-reader/jsonc-document-loader.cpp info-reader/jsonc-document-loader.h \
+	info-reader/magic-info-tokens-table.cpp info-reader/magic-info-tokens-table.h \
 	info-reader/magic-reader.cpp info-reader/magic-reader.h \
 	info-reader/message-reader.cpp info-reader/message-reader.h \
+	info-reader/monster-flag-reader.cpp info-reader/monster-flag-reader.h \
 	info-reader/parse-error-messages.cpp info-reader/parse-error-messages.h \
 	info-reader/parse-error-types.h \
+	info-reader/legend-ego-validator.cpp \
+	info-reader/legend-ego-validator.h \
+	info-reader/legend-object-trap-validator.cpp \
+	info-reader/legend-object-trap-validator.h \
 	info-reader/quest-reader.cpp info-reader/quest-reader.h \
 	info-reader/race-info-tokens-table.cpp info-reader/race-info-tokens-table.h \
 	info-reader/race-reader.cpp info-reader/race-reader.h \
 	info-reader/random-grid-effect-types.h \
+	info-reader/range.h \
+	info-reader/record-diagnostic.cpp info-reader/record-diagnostic.h \
 	info-reader/skill-reader.cpp info-reader/skill-reader.h \
 	info-reader/spell-reader.cpp info-reader/spell-reader.h \
+	info-reader/symbol-reader-util.h \
 	info-reader/terrain-reader.cpp info-reader/terrain-reader.h \
 	info-reader/town-definition-list-reader.cpp info-reader/town-definition-list-reader.h \
 	info-reader/town-map-condition.h \
@@ -1055,6 +1067,7 @@ libhengband_a_SOURCES = \
 	player/temporary-resistances.cpp player/temporary-resistances.h \
 	player/digestion-processor.cpp player/digestion-processor.h \
 	player/player-damage.cpp player/player-damage.h \
+	player/player-known-flags.cpp player/player-known-flags.h \
 	player/player-move.cpp player/player-move.h \
 	player/player-personality.cpp player/player-personality.h \
 	player/player-realm.cpp player/player-realm.h \
@@ -1409,6 +1422,7 @@ libhengband_a_SOURCES = \
 	util/flag-group.h \
 	util/dice.cpp util/dice.h \
 	util/int-char-converter.h \
+	util/menu-column-switcher.h \
 	util/object-sort.cpp util/object-sort.h \
 	util/point-2d.h \
 	util/probability-table.h \
@@ -1427,6 +1441,7 @@ libhengband_a_SOURCES = \
 	view/display-lore-status.cpp view/display-lore-status.h \
 	view/display-lore.cpp view/display-lore.h \
 	view/display-map.cpp view/display-map.h \
+	view/original-tiles.cpp view/original-item-tiles.cpp view/original-monster-tiles.cpp view/original-monster-catalog.h view/original-monster-catalog.inc view/original-player-tiles.cpp view/original-player-tiles.h view/original-tiles.h view/original-symbol-tiles.h view/original-item-catalog.h view/original-catalog-base.inc view/original-catalog-artifacts.inc view/original-catalog-colors.inc view/original-tile-supplement.inc view/actor-readability.h view/map-tile-layout.h term/tile-layout.h \
 	view/display-messages.cpp view/display-messages.h \
 	view/display-player-stat-info.cpp view/display-player-stat-info.h \
 	view/display-player-misc-info.cpp view/display-player-misc-info.h \
@@ -1508,6 +1523,7 @@ hengband_test_SOURCES = \
 	test/save/scoped-save-io.h \
 	test/scoped-vector-wrapper.h \
 	test/scoped-rng.h \
+	test/scoped-ego-list.h \
 	test/string-helpers.h \
 	test/temporary-json-files.h \
 	test/info-reader/parse-result-helpers.h \
@@ -1535,6 +1551,7 @@ hengband_test_SOURCES = \
 	test/info-reader/test-activation-reader.cpp \
 	test/info-reader/test-artifact-reader.cpp \
 	test/info-reader/test-baseitem-reader.cpp \
+	test/info-reader/test-definition-id-checker.cpp \
 	test/info-reader/test-dungeon-reader.cpp \
 	test/info-reader/test-ego-reader.cpp \
 	test/floor/test-floor-events.cpp \
@@ -1547,18 +1564,25 @@ hengband_test_SOURCES = \
 	test/system/item/test-item-entity.cpp \
 	test/info-reader/test-wilderness-reader.cpp \
 	test/info-reader/test-info-reader-util.cpp \
+	test/info-reader/test-item-flag-reader.cpp \
 	test/info-reader/test-json-reader-util.cpp \
 	test/info-reader/test-jsonc-document-loader.cpp \
 	test/info-reader/test-magic-reader.cpp \
 	test/info-reader/test-message-reader.cpp \
+	test/info-reader/test-monster-flag-reader.cpp \
 	test/info-reader/test-parse-error-messages.cpp \
+	test/info-reader/legend-ego-fixture.h \
+	test/info-reader/test-legend-ego-validator.cpp \
+	test/info-reader/test-legend-object-trap-validator.cpp \
 	test/info-reader/test-quest-reader.cpp \
 	test/info-reader/test-race-reader.cpp \
+	test/info-reader/test-record-diagnostic.cpp \
 	test/info-reader/test-skill-reader.cpp \
 	test/info-reader/test-spell-reader.cpp \
 	test/info-reader/test-terrain-reader.cpp \
 	test/info-reader/test-town-definition-list-reader.cpp \
 	test/info-reader/test-fixed-map-parser.cpp \
+	test/info-reader/test-general-parser.cpp \
 	test/info-reader/test-town-map-reader.cpp \
 	test/info-reader/test-town-preferences-reader.cpp \
 	test/info-reader/test-vault-reader.cpp \
@@ -1573,11 +1597,13 @@ hengband_test_SOURCES = \
 	test/io/test-tokenizer.cpp \
 	test/knowledge/test-knowledge-features.cpp \
 	test/load/test-angband-version-comparer.cpp \
+	test/load/test-floor-loader.cpp \
 	test/locale/test-character-encoding.cpp \
 	test/locale/test-japanese.cpp \
 	test/lore/test-monster-lore-snapshot.cpp \
 	test/market/test-building-recharger.cpp \
 	test/monster-race/test-race-ability-mask.cpp \
+	test/mspell/mspell-attack/test-mspell-ball.cpp \
 	test/mspell/test-mspell-projection-table.cpp \
 	test/mutation/test-mutation-roll-table.cpp \
 	test/object/test-object-info.cpp \
@@ -1594,6 +1620,7 @@ hengband_test_SOURCES = \
 	test/store/test-store.cpp \
 	test/system/baseitem/test-baseitem-definition.cpp \
 	test/save/test-item-writer.cpp \
+	test/save/test-monster-entity-writer.cpp \
 	test/system/baseitem/test-baseitem-allocation.cpp \
 	test/system/baseitem/test-baseitem-list.cpp \
 	test/system/floor/test-floor-info.cpp \
@@ -1615,12 +1642,14 @@ hengband_test_SOURCES = \
 	test/util/test-finalizer.cpp \
 	test/util/test-flag-group.cpp \
 	test/util/test-int-char-converter.cpp \
+	test/util/test-menu-column-switcher.cpp \
 	test/util/test-probability-table.cpp \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
 	test/util/test-temporary-json-files.cpp \
 	test/view/test-display-messages.cpp \
 	test/view/test-map-info-cache.cpp \
+	test/view/test-original-tiles.cpp test/view/original-terrain-coverage.inc test/view/original-item-coverage.inc test/view/original-monster-coverage.inc test/view/original-symbol-coverage.inc \
 	test/view/test-map-terrain-visibility.cpp \
 	test/view/test-screen-parity-helpers.cpp \
 	test/window/test-overview-map-cache.cpp \

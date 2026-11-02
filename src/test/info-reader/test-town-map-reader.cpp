@@ -2,10 +2,13 @@
 #include "info-reader/fixed-map-parser.h"
 #include "info-reader/general-parser.h"
 #include "info-reader/jsonc-document-loader.h"
+#include "info-reader/legend-object-trap-validator.h"
+#include "info-reader/quest-reader.h"
 #include "info-reader/random-grid-effect-types.h"
 #include "info-reader/town-map-reader.h"
 #include "io/condition-expression.h"
 #include "locale/character-encoding.h"
+#include "locale/language-switcher.h"
 #include "object-enchant/trg-types.h"
 #include "object/tval-types.h"
 #include "player-info/class-info.h"
@@ -23,18 +26,21 @@
 #include "system/system-variables.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "test/info-reader/legend-ego-fixture.h"
 #include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include "test/scoped-vector-wrapper.h"
 #include "test/system/artifact-list-test-access.h"
 #include "test/system/terrain-list-test-access.h"
 #include "util/finalizer.h"
+#include "view/display-messages.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <doctest/doctest.h>
 #include <filesystem>
+#include <fmt/format.h>
 #include <limits>
 #include <map>
 #include <nlohmann/json.hpp>
@@ -121,22 +127,22 @@ class TownFeatureStateGuard {
 public:
     TownFeatureStateGuard()
         : saved_init_flags(init_flags)
-        , terrain_count(TerrainList::get_instance().size())
+        , terrain_state(TerrainList::get_instance())
         , none_tag(TerrainTag::NONE, 0)
     {
         std::copy(std::begin(letter), std::end(letter), saved_letters.begin());
         init_flags = static_cast<init_flags_type>(0);
         auto &terrains = TerrainList::get_instance();
-        terrains.resize(terrain_count + 2);
-        terrains.get_terrain(static_cast<short>(terrain_count)).tag = "TOWN_FEATURE_TEST_FLOOR";
-        terrains.get_terrain(static_cast<short>(terrain_count + 1)).tag = "TOWN_FEATURE_TEST_TRAP";
+        terrains.resize(3);
+        terrains.get_terrain(0).tag = "NONE";
+        terrains.get_terrain(1).tag = "TOWN_FEATURE_TEST_FLOOR";
+        terrains.get_terrain(2).tag = "TOWN_FEATURE_TEST_TRAP";
     }
 
     ~TownFeatureStateGuard()
     {
         std::copy(saved_letters.begin(), saved_letters.end(), std::begin(letter));
         init_flags = saved_init_flags;
-        TerrainList::get_instance().resize(terrain_count);
     }
 
     TownFeatureStateGuard(const TownFeatureStateGuard &) = delete;
@@ -144,17 +150,17 @@ public:
 
     short floor_id() const
     {
-        return static_cast<short>(terrain_count);
+        return 1;
     }
     short trap_id() const
     {
-        return static_cast<short>(terrain_count + 1);
+        return 2;
     }
 
 private:
     init_flags_type saved_init_flags;
-    size_t terrain_count;
     std::array<dungeon_grid, 255> saved_letters;
+    test::ScopedVectorWrapper<TerrainList> terrain_state;
     test::TerrainListTestAccess none_tag;
     test::ScopedReaderState reader_state;
 };
@@ -200,15 +206,17 @@ nlohmann::json make_town_map()
     };
 }
 
-TownMapDefinition read_reward_town_map(FloorType &floor, ArtifactDefinition artifact)
+TownMapDefinition read_reward_town_map(FloorType &floor, ArtifactDefinition artifact, bool artifact_only_with_trap = false)
 {
     ArtifactList::get_instance().emplace(FixedArtifactId::GALADRIEL_PHIAL, std::move(artifact));
     floor.quest_number = QuestId::THIEF;
     auto data = make_town_map();
     auto &fields = data["featureRules"][0]["definition"];
     fields["terrain"] = "TOWN_FEATURE_TEST_FLOOR";
-    fields["trap"] = "TOWN_FEATURE_TEST_TRAP";
-    fields["object"] = { { "questReward", true } };
+    fields["trap"] = artifact_only_with_trap ? "TOWN_FEATURE_TEST_TRAP" : "NONE";
+    if (!artifact_only_with_trap) {
+        fields["object"] = { { "questReward", true } };
+    }
     fields["artifact"] = { { "questReward", true } };
     TownMapDefinition definition;
     REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
@@ -220,6 +228,103 @@ tl::expected<void, ParseErrorType> read_town(const nlohmann::json &data, bool on
     TownMapDefinition definition;
     return TownMapReader(data).read(definition, 3, 3, only_buildings);
 }
+}
+
+TEST_CASE("TownMapReader shares legend cave flag names")
+{
+    test::ScopedReaderState reader_state;
+    for (const auto *name : { "MARK", "GLOW", "NO_TELEPORT_DEST", "ROOM", "LITE" }) {
+        CAPTURE(name);
+        REQUIRE(is_legend_cave_flag(name));
+        auto data = make_town_map();
+        auto &fields = data["featureRules"][0]["definition"];
+        fields["caveInfo"] = nlohmann::json::array();
+        fields["caveInfo"].push_back(name);
+        DeferredQuestLegendCell parsed;
+        REQUIRE(parse_quest_legend_cell_deferred(fields, parsed).has_value());
+        TownMapDefinition town;
+        REQUIRE(TownMapReader(data).read(town, 3, 3).has_value());
+        REQUIRE(town.features.size() == 1);
+        CHECK(town.features.front().cell.grid.cave_info == parsed.cell.grid.cave_info);
+        CHECK(parsed.cell.grid.cave_info != 0);
+    }
+    auto data = make_town_map();
+    data["featureRules"][0]["definition"]["caveInfo"] = { "UNKNOWN" };
+    CHECK_FALSE(is_legend_cave_flag("UNKNOWN"));
+    const auto result = read_town(data);
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error() == ParseErrorType::INVALID_FLAG);
+}
+
+TEST_CASE("TownMapReader preserves scalar legend boundaries")
+{
+    test::ScopedReaderState reader_state;
+    test::LegendEgoFixture fixture;
+    // 境界のエゴIDも有効な剣用定義として用意し、数値検証後の存在・相性検証を通す。
+    for (const auto id : { 1, 255 }) {
+        const auto ego_id = static_cast<EgoType>(id);
+        auto &ego = egos_info[ego_id];
+        ego.idx = ego_id;
+        ego.slot = INVEN_MAIN_HAND;
+        ego.rating = 10;
+    }
+    struct Boundary {
+        const char *field;
+        int minimum;
+        int maximum;
+    };
+    for (const auto boundary : { Boundary{ "special", -32768, 32767 }, Boundary{ "monster", 1, 32767 },
+             Boundary{ "object", 1, 32767 }, Boundary{ "artifact", 1, 32767 }, Boundary{ "ego", 1, 255 } }) {
+        CAPTURE(boundary.field);
+        for (const int value : { boundary.minimum - 1, boundary.minimum, boundary.maximum, boundary.maximum + 1 }) {
+            CAPTURE(value);
+            auto data = make_town_map();
+            auto &fields = data["featureRules"][0]["definition"];
+            if (std::string_view(boundary.field) == "ego") {
+                fields["object"] = 42;
+            }
+            fields[boundary.field] = value;
+            const auto result = read_town(data);
+            if (value >= boundary.minimum && value <= boundary.maximum) {
+                CHECK(test::to_error_code(result) == ParseErrorType::NONE);
+            } else {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error() == ParseErrorType::INVALID_VALUE);
+            }
+        }
+    }
+}
+
+TEST_CASE("TownMapReader preserves structured legend boundaries")
+{
+    test::ScopedReaderState reader_state;
+    struct Boundary {
+        const char *field;
+        const char *key;
+        int minimum;
+    };
+    for (const auto boundary : { Boundary{ "monster", "cloneOf", 1 }, Boundary{ "monster", "oodLevel", 0 },
+             Boundary{ "object", "oodLevel", 0 }, Boundary{ "artifact", "id", 1 } }) {
+        CAPTURE(boundary.field);
+        CAPTURE(boundary.key);
+        for (const int value : { boundary.minimum - 1, boundary.minimum, 32767, 32768 }) {
+            CAPTURE(value);
+            auto data = make_town_map();
+            auto &spec = data["featureRules"][0]["definition"][boundary.field];
+            spec = nlohmann::json::object();
+            if (std::string_view(boundary.key) != "cloneOf") {
+                spec["random"] = true;
+            }
+            spec[boundary.key] = value;
+            const auto result = read_town(data);
+            if (value >= boundary.minimum && value <= 32767) {
+                CHECK(test::to_error_code(result) == ParseErrorType::NONE);
+            } else {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error() == ParseErrorType::INVALID_VALUE);
+            }
+        }
+    }
 }
 
 TEST_CASE("TownMapReader byte diagnostics preserve control and UTF-8 bytes")
@@ -345,7 +450,7 @@ TEST_CASE("TownMapReader validates root and conditions on every rule")
     for (const auto &version : { nlohmann::json(1), nlohmann::json(2.0), nlohmann::json("2") }) {
         auto data = make_town_map();
         data["version"] = version;
-        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_TYPE);
+        CHECK(test::to_error_code(read_town(data)) == (version.is_number_integer() ? ParseErrorType::INVALID_VALUE : ParseErrorType::INVALID_TYPE));
     }
     for (const auto *field : { "mapVariants", "startingPositions" }) {
         auto data = make_town_map();
@@ -356,11 +461,16 @@ TEST_CASE("TownMapReader validates root and conditions on every rule")
 
 TEST_CASE("TownMapReader validates v3 modes types and narrowing bounds")
 {
+    const test::ScopedReaderState reader_state;
     for (const auto *field : { "monster", "object", "artifact", "ego" }) {
         for (const auto &value : std::array<nlohmann::json, 4>{ { 1, 255, { { "random", true } }, nullptr } }) {
             auto data = make_town_map();
             data["featureRules"][0]["definition"][field] = value;
-            CHECK(test::to_error_code(read_town(data)) == (value.is_null() ? ParseErrorType::INVALID_TYPE : ParseErrorType::NONE));
+            // エゴ単独では配置対象がなく、固定ID 1/255 も未定義なので拒否する。
+            const auto expected = value.is_null()                    ? ParseErrorType::INVALID_TYPE
+                                  : std::string_view(field) == "ego" ? ParseErrorType::INVALID_VALUE
+                                                                     : ParseErrorType::NONE;
+            CHECK(test::to_error_code(read_town(data)) == expected);
         }
         for (const auto &value : std::array<nlohmann::json, 6>{ { 0, -1, 32768, { { "random", false } }, { { "random", true }, { "questReward", true } }, nlohmann::json::object() } }) {
             auto data = make_town_map();
@@ -376,13 +486,15 @@ TEST_CASE("TownMapReader validates v3 modes types and narrowing bounds")
     }
 }
 
-TEST_CASE("TownMapReader ego is optional and uses positive byte IDs")
+TEST_CASE("TownMapReader ego is optional and validates placed equipment")
 {
+    const test::LegendEgoFixture ego_state;
     auto data = make_town_map();
     TownMapDefinition definition;
     REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     CHECK(definition.features.front().cell.grid.ego == EgoType::NONE);
-    for (const int id : { 1, 255 }) {
+    data["featureRules"][0]["definition"]["object"] = 42;
+    for (const int id : { static_cast<int>(EgoType::DF), static_cast<int>(EgoType::BRAND_FIRE) }) {
         data["featureRules"][0]["definition"]["ego"] = id;
         REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
         CHECK(enum2i(definition.features.front().cell.grid.ego) == id);
@@ -549,7 +661,8 @@ TEST_CASE("TownMapReader validates rectangular printable maps and all start boun
         auto data = make_town_map();
         data["mapVariants"][0]["when"] = "0";
         data["mapVariants"][0]["rows"] = rows;
-        CHECK(test::to_error_code(read_town(data)) == ParseErrorType::INVALID_VALUE);
+        const auto oversize = rows.size() > 3 || (rows.front().is_string() && rows.front().get_ref<const std::string &>().size() > 3);
+        CHECK(test::to_error_code(read_town(data)) == (oversize ? ParseErrorType::OUT_OF_BOUNDS : ParseErrorType::INVALID_VALUE));
     }
     auto data = make_town_map();
     data["mapVariants"].push_back({ { "when", "0" }, { "rows", { "#" } } });
@@ -558,8 +671,8 @@ TEST_CASE("TownMapReader validates rectangular printable maps and all start boun
     data["startingPositions"][0]["y"] = 0;
     CHECK(read_town(data).has_value());
     TownMapDefinition definition;
-    CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 3)) == ParseErrorType::INVALID_VALUE);
-    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 0)) == ParseErrorType::INVALID_VALUE);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 3)) == ParseErrorType::OUT_OF_BOUNDS);
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 0)) == ParseErrorType::OUT_OF_BOUNDS);
 }
 
 TEST_CASE("TownMapReader building-only mode skips map and start contents, not root requirements")
@@ -829,7 +942,6 @@ TEST_CASE("TownMapReader preserves output on root errors and value errors at eve
         const std::string_view kind = failure;
         if (kind == "version") {
             data["version"] = 1;
-            expected = ParseErrorType::INVALID_TYPE;
         } else if (kind == "emptyMaps") {
             data["mapVariants"] = nlohmann::json::array();
         } else if (kind == "missingFeatures") {
@@ -1205,7 +1317,7 @@ TEST_CASE("TownMapReader applies typed feature values and random flags")
         auto data = make_town_map();
         auto &fields = data["featureRules"][0]["definition"];
         fields["terrain"] = "TOWN_FEATURE_TEST_FLOOR";
-        fields["trap"] = "TOWN_FEATURE_TEST_TRAP";
+        fields["trap"] = "NONE";
         fields["caveInfo"] = { "MARK", "GLOW", "NO_TELEPORT_DEST", "ROOM", "LITE" };
         fields["special"] = -32768;
         for (const auto *field : { "monster", "object", "artifact" }) {
@@ -1214,7 +1326,7 @@ TEST_CASE("TownMapReader applies typed feature values and random flags")
         TownMapDefinition definition;
         REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
         const short value = random ? short{ 0 } : short{ 32767 };
-        const dungeon_grid expected{ .feature = state.floor_id(), .monster = value, .object = value, .ego = EgoType::NONE, .artifact = i2enum<FixedArtifactId>(value), .trap = state.trap_id(), .cave_info = 31, .special = -32768, .random = random ? RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_ARTIFACT : 0 };
+        const dungeon_grid expected{ .feature = state.floor_id(), .monster = value, .object = value, .ego = EgoType::NONE, .artifact = i2enum<FixedArtifactId>(value), .trap = 0, .cave_info = 31, .special = -32768, .random = random ? RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_ARTIFACT : 0 };
         letter['#'] = {};
         REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
         check_same_grid(letter['#'], expected);
@@ -1275,19 +1387,17 @@ TEST_CASE("TownMapReader applies random terrain trap clones and reward placehold
     fields["terrain"] = "*";
     fields["trap"] = { { "random", true } };
     fields["monster"] = { { "cloneOf", 32767 } };
-    fields["object"] = { { "questReward", true } };
     fields["artifact"] = { { "questReward", true } };
-    fields["ego"] = 255;
     fields["special"] = 32767;
     TownMapDefinition definition;
     REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
-    const dungeon_grid expected{ .feature = 0, .monster = -32767, .object = 0, .ego = i2enum<EgoType>(255), .artifact = FixedArtifactId::NONE, .trap = 0, .cave_info = 0, .special = 32767, .random = RANDOM_FEATURE | RANDOM_TRAP };
+    const dungeon_grid expected{ .feature = 0, .monster = -32767, .object = 0, .ego = EgoType::NONE, .artifact = FixedArtifactId::NONE, .trap = 0, .cave_info = 0, .special = 32767, .random = RANDOM_FEATURE | RANDOM_TRAP };
     letter['#'] = {};
     REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     check_same_grid(letter['#'], expected);
     CHECK(letter['#'].monster == -32767);
     CHECK(letter['#'].random == (RANDOM_FEATURE | RANDOM_TRAP));
-    CHECK(definition.features.front().cell.object_is_quest_reward);
+    CHECK_FALSE(definition.features.front().cell.object_is_quest_reward);
     CHECK(definition.features.front().cell.artifact_is_quest_reward);
 }
 
@@ -1331,7 +1441,7 @@ TEST_CASE("TownMapReader resolves quest rewards at feature application time")
     CHECK(letter['#'].object == 0);
     CHECK(letter['#'].artifact == FixedArtifactId::NONE);
     test::QuestFeatureTestAccess::set_resolved_reward(FixedArtifactId::GALADRIEL_PHIAL);
-    const dungeon_grid expected{ .feature = state.floor_id(), .monster = 0, .object = 0, .ego = EgoType::NONE, .artifact = FixedArtifactId::GALADRIEL_PHIAL, .trap = state.trap_id(), .cave_info = 0, .special = 0, .random = 0 };
+    const dungeon_grid expected{ .feature = state.floor_id(), .monster = 0, .object = 0, .ego = EgoType::NONE, .artifact = FixedArtifactId::GALADRIEL_PHIAL, .trap = 0, .cave_info = 0, .special = 0, .random = 0 };
     letter['#'] = {};
     REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     check_same_grid(letter['#'], expected);
@@ -1365,8 +1475,12 @@ TEST_CASE("TownMapReader applies resolved ordinary quest reward baseitem and art
     REQUIRE(apply_town_map_feature(floor, definition.features.front()).has_value());
     CHECK(letter['#'].object == 7);
     CHECK(letter['#'].artifact == FixedArtifactId::GALADRIEL_PHIAL);
+    auto grid = definition.features.front().cell.grid;
+    resolve_legend_reward(grid, definition.features.front().cell, QuestList::get_instance().get_quest(floor.quest_number));
+    CHECK(grid.object == 7);
+    CHECK(grid.artifact == FixedArtifactId::GALADRIEL_PHIAL);
     CHECK(letter['#'].feature == state.floor_id());
-    CHECK(letter['#'].trap == state.trap_id());
+    CHECK(letter['#'].trap == 0);
 }
 
 TEST_CASE("TownMapReader returns an error and preserves the feature when quest reward reference lookup fails")
@@ -1435,6 +1549,28 @@ TEST_CASE("TownMapReader returns an error and preserves the feature when quest r
     check_same_grid(letter['#'], original);
 }
 
+TEST_CASE("TownMapReader preserves an artifact-only quest reward with a fixed trap")
+{
+    const TownFeatureStateGuard state;
+    const test::QuestFeatureTestAccess quest_state;
+    const test::ArtifactListTestAccess artifact_state;
+    ArtifactDefinition artifact;
+    artifact.gen_flags.set(ItemGenerationTraitType::INSTA_ART);
+    FloorType floor;
+    const auto definition = read_reward_town_map(floor, std::move(artifact), true);
+    const auto &feature = definition.features.front();
+    CHECK(feature.cell.artifact_is_quest_reward);
+    CHECK_FALSE(feature.cell.object_is_quest_reward);
+    CHECK(feature.cell.grid.object == 0);
+    CHECK(feature.trap == "TOWN_FEATURE_TEST_TRAP");
+    test::QuestFeatureTestAccess::set_resolved_reward(FixedArtifactId::GALADRIEL_PHIAL);
+    REQUIRE(apply_town_map_feature(floor, feature).has_value());
+    CHECK(letter['#'].artifact == FixedArtifactId::GALADRIEL_PHIAL);
+    CHECK(letter['#'].trap == state.trap_id());
+    CHECK(letter['#'].object == 0);
+    CHECK(letter['#'].feature == state.floor_id());
+}
+
 TEST_CASE("TownMapReader applies an artifact-only reward without resolving its baseitem")
 {
     const TownFeatureStateGuard state;
@@ -1460,7 +1596,7 @@ TEST_CASE("TownMapReader applies an artifact-only reward without resolving its b
     CHECK(letter['#'].object == 19);
     CHECK(letter['#'].artifact == reward.value_or(FixedArtifactId::NONE));
     CHECK(letter['#'].feature == state.floor_id());
-    CHECK(letter['#'].trap == state.trap_id());
+    CHECK(letter['#'].trap == 0);
 }
 
 TEST_CASE("TownMapReader v3 validates precedence and preserves output and letters")
@@ -1499,7 +1635,13 @@ TEST_CASE("TownMapReader v3 validates precedence and preserves output and letter
     for (const auto &version : std::array<nlohmann::json, 6>{ { 2, 4, 3.0, true, nullptr, "3" } }) {
         data = make_town_map();
         data["version"] = version;
-        CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 0, true)) == ParseErrorType::INVALID_TYPE);
+        auto expected = ParseErrorType::INVALID_TYPE;
+        if (version.is_null()) {
+            expected = ParseErrorType::TOO_FEW_ARGUMENTS;
+        } else if (version.is_number_integer()) {
+            expected = ParseErrorType::INVALID_VALUE;
+        }
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 0, 0, true)) == expected);
     }
     data = make_town_map();
     data["featureRules"][0]["definition"] = { { "terrain", "UNINITIALIZED_TOWN_TAG" } };
@@ -1676,7 +1818,7 @@ TEST_CASE("TownMapReader later v3 rules replace the whole cell")
         { "terrain", "*" }, { "trap", { { "random", true } } },
         { "monster", { { "random", true }, { "oodLevel", 10 } } },
         { "object", { { "random", true }, { "oodLevel", 25 } } },
-        { "ego", { { "random", true } } }, { "artifact", { { "random", true }, { "id", 3 } } },
+        { "artifact", { { "random", true }, { "id", 3 } } },
         { "caveInfo", { "MARK", "GLOW" } }, { "special", 42 }
     };
     data["featureRules"].push_back({ { "symbol", "#" }, { "definition", { { "terrain", "TOWN_FEATURE_TEST_FLOOR" }, { "trap", "TOWN_FEATURE_TEST_TRAP" } } } });
@@ -1684,10 +1826,129 @@ TEST_CASE("TownMapReader later v3 rules replace the whole cell")
     REQUIRE(TownMapReader(data).read(definition, 3, 3).has_value());
     REQUIRE(apply_town_map_feature(floor, definition.features[0]).has_value());
     CHECK(letter['#'].object == 25);
-    CHECK(letter['#'].random == (RANDOM_FEATURE | RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_EGO | RANDOM_ARTIFACT | RANDOM_TRAP));
+    CHECK(letter['#'].random == (RANDOM_FEATURE | RANDOM_MONSTER | RANDOM_OBJECT | RANDOM_ARTIFACT | RANDOM_TRAP));
     REQUIRE(apply_town_map_feature(floor, definition.features[1]).has_value());
     dungeon_grid expected{};
     expected.feature = state.floor_id();
     expected.trap = state.trap_id();
     check_same_grid(letter['#'], expected);
+}
+
+TEST_CASE("TownMapReader reports incompatible ego with rule and symbol")
+{
+    const test::ScopedReaderState reader_state;
+    const test::LegendEgoFixture ego_state;
+    auto data = make_town_map();
+    data["featureRules"][0]["definition"]["object"] = 54;
+    data["featureRules"][0]["definition"]["ego"] = static_cast<int>(EgoType::DF);
+    for (const bool only_buildings : { false, true }) {
+        ScopedMessageCapture diagnostics;
+        TownMapDefinition definition;
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3, only_buildings)) == ParseErrorType::INVALID_VALUE);
+        CHECK(definition.features.empty());
+        REQUIRE(diagnostics.messages().size() == 1);
+        CHECK(diagnostics.messages().front() == _("町のエゴ指定が不正です: featureRules[0] (記号 '#').ego 65 (object 54): 品の種類と相性が合わない",
+                                                    "Invalid town ego: featureRules[0] (symbol '#').ego 65 (object 54): incompatible object kind"));
+    }
+}
+
+TEST_CASE("TownMapReader names an omitted object as none in ego diagnostics")
+{
+    const test::ScopedReaderState reader_state;
+    const test::LegendEgoFixture ego_state;
+    auto data = make_town_map();
+    REQUIRE_FALSE(data["featureRules"][0]["definition"].contains("object"));
+    data["featureRules"][0]["definition"]["ego"] = static_cast<int>(EgoType::DF);
+    ScopedMessageCapture diagnostics;
+    TownMapDefinition definition;
+    CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
+    REQUIRE(diagnostics.messages().size() == 1);
+    CHECK(diagnostics.messages().front() == _("町のエゴ指定が不正です: featureRules[0] (記号 '#').ego 65 (object none): 固定の配置対象がない",
+                                                "Invalid town ego: featureRules[0] (symbol '#').ego 65 (object none): no fixed object to place"));
+}
+
+TEST_CASE("TownMapReader names random and quest reward objects in ego diagnostics")
+{
+    const test::ScopedReaderState reader_state;
+    const test::LegendEgoFixture ego_state;
+    struct Case {
+        nlohmann::json object;
+        std::string_view expected;
+    };
+    const Case cases[]{
+        { nlohmann::json{ { "random", true }, { "oodLevel", 12 } },
+            _("町のエゴ指定が不正です: featureRules[0] (記号 '#').ego 65 (object random): ランダムな品には指定できない",
+                "Invalid town ego: featureRules[0] (symbol '#').ego 65 (object random): cannot apply to a random object") },
+        { nlohmann::json{ { "questReward", true } },
+            _("町のエゴ指定が不正です: featureRules[0] (記号 '#').ego 65 (object questReward): クエスト報酬には指定できない",
+                "Invalid town ego: featureRules[0] (symbol '#').ego 65 (object questReward): cannot apply to a quest reward") },
+    };
+    for (const auto &entry : cases) {
+        CAPTURE(entry.object.dump());
+        auto data = make_town_map();
+        data["featureRules"][0]["definition"]["object"] = entry.object;
+        data["featureRules"][0]["definition"]["ego"] = static_cast<int>(EgoType::DF);
+        ScopedMessageCapture diagnostics;
+        TownMapDefinition definition;
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3)) == ParseErrorType::INVALID_VALUE);
+        REQUIRE(diagnostics.messages().size() == 1);
+        CHECK(diagnostics.messages().front() == entry.expected);
+    }
+}
+
+TEST_CASE("TownMapReader reports fixed trap tags including typos in conflicts")
+{
+    const test::ScopedReaderState reader_state;
+    auto &terrains = TerrainList::get_instance();
+    const test::ScopedVectorWrapper<TerrainList> terrain_state(terrains);
+    terrains.resize(3);
+    terrains.get_terrain(0).tag = "NONE";
+    terrains.get_terrain(1).tag = "TRAP_PIT";
+    terrains.get_terrain(1).flags.set(TerrainCharacteristics::TRAP);
+    terrains.get_terrain(2).tag = "FLOOR";
+    for (const auto *tag : { "TRAP_PIT", "TRAP_PTI", "FLOOR" }) {
+        for (const bool only_buildings : { false, true }) {
+            CAPTURE(tag);
+            CAPTURE(only_buildings);
+            auto data = make_town_map();
+            auto &fields = data["featureRules"][0]["definition"];
+            fields["object"] = 54;
+            fields["trap"] = tag;
+            ScopedMessageCapture diagnostics;
+            TownMapDefinition definition;
+            CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3, only_buildings)) == ParseErrorType::INVALID_VALUE);
+            CHECK(definition.features.empty());
+            REQUIRE(diagnostics.messages().size() == 1);
+            // 罠の地形のタグだけは、未知のタグや誤記への言及を付けない。罠ではない地形のタグには付ける。
+            const auto known = std::string_view(tag) == "TRAP_PIT";
+            const auto hint = known ? std::string(_("固定の罠として扱われます", "is treated as a fixed trap"))
+                                    : std::string(_("固定の罠として扱われます。未知のタグや誤記も固定の罠になります", "is treated as a fixed trap; unknown tags and typos are treated the same way"));
+            const auto expected = fmt::format(_("町の配置指定が不正です: featureRules[0] (記号 '#').trap: {} (trap '{}' は{})",
+                                                  "Invalid town placement: featureRules[0] (symbol '#').trap: {} (trap '{}' {})"),
+                describe_legend_object_trap_conflict(), tag, hint);
+            CHECK(diagnostics.messages().front() == expected);
+        }
+    }
+}
+
+TEST_CASE("TownMapReader reports oversize maps as out of bounds")
+{
+    for (const auto &[height, width] : { std::pair{ 2, 3 }, std::pair{ 3, 2 }, std::pair{ 0, 3 }, std::pair{ 3, 0 } }) {
+        const auto data = make_town_map();
+        TownMapDefinition definition;
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, height, width)) == ParseErrorType::OUT_OF_BOUNDS);
+    }
+    auto data = make_town_map();
+    data["mapVariants"][0]["rows"][1] = "####";
+    CHECK(test::to_error_code(read_town(data)) == ParseErrorType::OUT_OF_BOUNDS);
+}
+
+TEST_CASE("TownMapReader classifies missing version in both reading modes")
+{
+    auto data = make_town_map();
+    data.erase("version");
+    for (const bool only_buildings : { false, true }) {
+        TownMapDefinition definition;
+        CHECK(test::to_error_code(TownMapReader(data).read(definition, 3, 3, only_buildings)) == ParseErrorType::TOO_FEW_ARGUMENTS);
+    }
 }
