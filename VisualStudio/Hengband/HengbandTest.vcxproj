@@ -133,10 +133,13 @@
     <ClCompile Include="..\..\src\test\player-status\test-player-speed.cpp" />
     <ClCompile Include="..\..\src\test\player-status\test-player-status-base.cpp" />
     <ClCompile Include="..\..\src\test\player\test-player-skill.cpp" />
+    <ClCompile Include="..\..\src\test\player\test-player-status-flags.cpp" />
+    <ClCompile Include="..\..\src\test\player\test-player-status-resist.cpp" />
     <ClCompile Include="..\..\src\test\player\test-process-name.cpp" />
     <ClCompile Include="..\..\src\test\racial\test-racial-android.cpp" />
     <ClCompile Include="..\..\src\test\save\test-item-writer.cpp" />
     <ClCompile Include="..\..\src\test\save\test-monster-entity-writer.cpp" />
+    <ClCompile Include="..\..\src\test\save\test-player-class-specific-data-writer.cpp" />
     <ClCompile Include="..\..\src\test\spell-realm\test-spells-hex.cpp" />
     <ClCompile Include="..\..\src\test\spell\test-spell-info.cpp" />
     <ClCompile Include="..\..\src\test\store\test-pricing.cpp" />
@@ -157,6 +160,7 @@
     <ClCompile Include="..\..\src\test\target\test-target-getter.cpp" />
     <ClCompile Include="..\..\src\test\term\test-screen-processor.cpp" />
     <ClCompile Include="..\..\src\test\term\test-z-rand.cpp" />
+    <ClCompile Include="..\..\src\test\term\test-z-term.cpp" />
     <ClCompile Include="..\..\src\test\test-main.cpp" />
     <ClCompile Include="..\..\src\test\timed-effect\test-player-cut.cpp" />
     <ClCompile Include="..\..\src\test\timed-effect\test-player-stun.cpp" />
@@ -172,6 +176,7 @@
     <ClCompile Include="..\..\src\test\util\test-sha256.cpp" />
     <ClCompile Include="..\..\src\test\util\test-string-processor.cpp" />
     <ClCompile Include="..\..\src\test\util\test-temporary-json-files.cpp" />
+    <ClCompile Include="..\..\src\test\view\test-display-lore.cpp" />
     <ClCompile Include="..\..\src\test\view\test-display-messages.cpp" />
     <ClCompile Include="..\..\src\test\view\test-map-info-cache.cpp" />
     <ClCompile Include="..\..\src\test\view\test-map-terrain-visibility.cpp" />
@@ -183,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stdafx.h" />
+    <ClInclude Include="..\..\src\test\info-reader\dungeon-grid-checks.h" />
     <ClInclude Include="..\..\src\test\info-reader\legend-ego-fixture.h" />
     <ClInclude Include="..\..\src\test\info-reader\parse-result-helpers.h" />
     <ClInclude Include="..\..\src\test\info-reader\scoped-reader-state.h" />

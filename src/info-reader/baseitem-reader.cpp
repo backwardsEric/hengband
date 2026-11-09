@@ -16,7 +16,6 @@
 #include "info-reader/json-reader-util.h"
 #include "info-reader/parse-error-types.h"
 #include "info-reader/symbol-reader-util.h"
-#include "locale/japanese.h"
 #include "locale/language-switcher.h"
 #include "object-enchant/tr-types.h"
 #include "object/tval-types.h"
@@ -28,13 +27,9 @@
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
 #include "system/gamevalue.h"
-#include "util/bit-flags-calculator.h"
-#include "util/enum-converter.h"
 #include "view/display-messages.h"
 #include <algorithm>
-#include <array>
 #include <iterator>
-#include <memory>
 #include <nlohmann/json.hpp>
 #include <utility>
 
@@ -194,7 +189,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::read() const
 
     const auto id_result = this->session.read_and_report(get_json_value(this->baseitem_data, "id"));
     if (!id_result) {
-        return tl::unexpected(id_result.error());
+        return tl::make_unexpected(id_result.error());
     }
     const auto item_id = *id_result;
 
@@ -230,7 +225,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::read() const
         msg_print(_("アイテムのレベル読込失敗。", "Failed to load level of item."));
         return result;
     }
-    if (const auto result = info_set_integer(get_json_value(this->baseitem_data, "weight"), baseitem.weight, true, Range(0, 9999)); !result) {
+    if (const auto result = info_set_integer(get_json_value(this->baseitem_data, "weight"), baseitem.weight, true, Range(0, ITEM_WEIGHT_MAX)); !result) {
         msg_print(_("アイテムの重量読込失敗。", "Failed to load weight of item."));
         return result;
     }
@@ -243,8 +238,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::read() const
         msg_print(_("アイテムのベースAC読込失敗。", "Failed to load base AC of item."));
         return result;
     }
-    // セーブではダイスの個数・面数をそれぞれ1バイトで書くため、0〜255に限る。
-    if (const auto result = info_set_dice(get_json_value(this->baseitem_data, "base_dice"), baseitem.damage_dice, false, Range(0, 255)); !result) {
+    if (const auto result = info_set_dice(get_json_value(this->baseitem_data, "base_dice"), baseitem.damage_dice, false, Range(0, ITEM_DICE_MAX)); !result) {
         msg_print(_("アイテムのベースダイス読込失敗。", "Failed to load base dice of item."));
         return result;
     }
@@ -315,7 +309,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_symbol(BaseitemD
 {
     const auto symbol = info_read_symbol(get_json_value(this->baseitem_data, "symbol"));
     if (!symbol) {
-        return tl::unexpected(symbol.error());
+        return tl::make_unexpected(symbol.error());
     }
     baseitem.init_symbol(*symbol);
     return {};
@@ -330,11 +324,8 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_symbol(BaseitemD
 tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_kind(BaseitemDefinition &baseitem) const
 {
     const auto &itemkind_data = get_json_value(this->baseitem_data, "itemkind");
-    if (itemkind_data.is_null()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
-    }
-    if (!itemkind_data.is_object()) {
-        return tl::unexpected(ParseErrorType::INVALID_TYPE);
+    if (const auto result = info_require_object(itemkind_data); !result) {
+        return result;
     }
 
     // 失敗時は直後に返るが、gcc の最適化で未初期化と誤検出されないよう初期化しておく。
@@ -344,7 +335,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_kind(BaseitemDef
         return result;
     }
     if (std::find(std::begin(DEFINED_ITEM_KINDS), std::end(DEFINED_ITEM_KINDS), type_value) == std::end(DEFINED_ITEM_KINDS)) {
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
     int subtype_value = 0;
     if (const auto result = info_set_integer(get_json_value(itemkind_data, "subtype_value"), subtype_value, true, Range(0, item_subtype_max({ type_value, 0 }))); !result) {
@@ -371,7 +362,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_parameter_value(
     }
     // 省略・nullでは既存の値（新規なら0）を保つため、種別を変えた再読込もここで検査する。
     if (pval < range.first || pval > range.second) {
-        return tl::unexpected(ParseErrorType::INVALID_PVAL);
+        return tl::make_unexpected(ParseErrorType::INVALID_PVAL);
     }
 
     baseitem.pval = static_cast<short>(pval);
@@ -391,16 +382,16 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_allocations(Base
         return {};
     }
     if (!allocations_data.is_array()) {
-        return tl::unexpected(ParseErrorType::INVALID_TYPE);
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     for (auto i = 0U; const auto &alloc : allocations_data) {
         if (i >= baseitem.alloc_tables.size()) {
-            return tl::unexpected(ParseErrorType::INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
 
         if (!alloc.is_object()) {
-            return tl::unexpected(ParseErrorType::INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
 
         auto &table = baseitem.alloc_tables[i];
@@ -428,7 +419,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_activate(Baseite
 {
     const auto activation = read_activation(get_json_value(this->baseitem_data, "activate"));
     if (!activation) {
-        return tl::unexpected(activation.error());
+        return tl::make_unexpected(activation.error());
     }
     if (*activation == RandomArtActType::NONE) {
         return {};
@@ -453,7 +444,7 @@ tl::expected<void, ParseErrorType> BaseitemReader::set_baseitem_natural_generati
         return {};
     }
     if (!natural_generation_data.is_boolean()) {
-        return tl::unexpected(ParseErrorType::INVALID_TYPE);
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     baseitem.natural_generation = natural_generation_data.get<bool>();

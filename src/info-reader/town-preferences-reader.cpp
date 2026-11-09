@@ -8,9 +8,8 @@
 #include "locale/language-switcher.h"
 #include "system/dungeon/quest-fixed-map.h"
 #include "view/display-messages.h"
-#include <cstdint>
-#include <limits>
 #include <nlohmann/json.hpp>
+#include <string>
 #include <utility>
 
 TownPreferencesReader::TownPreferencesReader(const nlohmann::json &data)
@@ -18,6 +17,12 @@ TownPreferencesReader::TownPreferencesReader(const nlohmann::json &data)
 {
 }
 
+/*!
+ * @brief 町の共通凡例を読み込み、全件成功した場合に限り出力を置き換える。
+ * @param legend 読み込んだ凡例の格納先
+ * @param parse_cell 凡例の 1 セルを読み取る関数
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> TownPreferencesReader::read(TownPreferencesLegend &legend, TownPreferencesCellParser parse_cell) const
 {
     if (const auto result = info_validate_version(this->data, 1); !result) {
@@ -44,7 +49,7 @@ tl::expected<void, ParseErrorType> TownPreferencesReader::read(TownPreferencesLe
         }
         int special = 0;
         if (cell_data.contains("special") &&
-            !info_set_integer(cell_data["special"], special, true, Range(std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()))) {
+            !info_set_integer(cell_data["special"], special, true, LEGEND_SHORT_RANGE)) {
             return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
 
@@ -54,13 +59,15 @@ tl::expected<void, ParseErrorType> TownPreferencesReader::read(TownPreferencesLe
         const auto parse_result = parse_cell(cell_data, cell, reason);
         if (!parse_result) {
             if (!reason.empty()) {
+                reason += describe_town_fixed_trap_tag(cell_data, LegendTrapTagResolution::IMMEDIATE);
                 msg_print(_("町の配置指定が不正です: legend['{}'].trap: {}", "Invalid town placement: legend['{}'].trap: {}"), symbol, reason);
             }
             return parse_result;
         }
         const auto random_trap = (cell.grid.random & RANDOM_TRAP) != 0;
         if (has_legend_object_trap_conflict(cell.grid, cell.object_is_quest_reward, cell.grid.trap != 0 && !random_trap, random_trap)) {
-            msg_print(_("町の配置指定が不正です: legend['{}'].trap: {}", "Invalid town placement: legend['{}'].trap: {}"), symbol, describe_legend_object_trap_conflict());
+            const auto conflict = std::string(describe_legend_object_trap_conflict()) + describe_town_fixed_trap_tag(cell_data, LegendTrapTagResolution::IMMEDIATE);
+            msg_print(_("町の配置指定が不正です: legend['{}'].trap: {}", "Invalid town placement: legend['{}'].trap: {}"), symbol, conflict);
             return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
         if (const auto result = validate_legend_ego(cell.grid, cell.object_is_quest_reward); !result) {

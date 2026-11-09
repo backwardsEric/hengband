@@ -26,6 +26,7 @@
 #include "system/system-variables.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "test/info-reader/dungeon-grid-checks.h"
 #include "test/info-reader/legend-ego-fixture.h"
 #include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
@@ -165,18 +166,7 @@ private:
     test::ScopedReaderState reader_state;
 };
 
-void check_same_grid(const dungeon_grid &actual, const dungeon_grid &expected)
-{
-    CHECK(actual.feature == expected.feature);
-    CHECK(actual.monster == expected.monster);
-    CHECK(actual.object == expected.object);
-    CHECK(actual.ego == expected.ego);
-    CHECK(actual.artifact == expected.artifact);
-    CHECK(actual.trap == expected.trap);
-    CHECK(actual.cave_info == expected.cave_info);
-    CHECK(actual.special == expected.special);
-    CHECK(actual.random == expected.random);
-}
+using test::check_same_grid;
 
 std::string hex_bytes(std::string_view value)
 {
@@ -1718,9 +1708,9 @@ TEST_CASE("TownMapReader bundled v3 cells preserve all v2 letter values")
 
     for (const auto &[name, expected_rows] : town_v2_expected.items()) {
         CAPTURE(name);
-        JsoncDocumentLoader loader(root / "lib/edit/towns" / name);
-        REQUIRE(loader.is_open());
-        const auto data = loader.parse();
+        const auto loaded = JsoncDocumentLoader::load(root / "lib/edit/towns" / name);
+        REQUIRE(loaded.has_value());
+        const auto &data = *loaded;
         // ビルド後にソースcheckoutが戻された場合も、実際に読んだ版を診断に残す。
         const auto input_version = data.value("version", nlohmann::json{}).dump();
         CAPTURE(input_version);
@@ -1755,7 +1745,7 @@ TEST_CASE("TownMapReader bundled v3 cells preserve all v2 letter values")
             const auto &row = expected_rows[i];
             const auto &feature = definition.features[i];
             CHECK(std::string(1, feature.symbol) == row[0].get<std::string>());
-            CHECK(feature.condition == (row[1].is_null() ? std::optional<std::string>{} : std::optional<std::string>{ row[1].get<std::string>() }));
+            CHECK(feature.condition == (row[1].is_null() ? tl::optional<std::string>{} : tl::optional<std::string>{ row[1].get<std::string>() }));
             CHECK(feature.terrain == row[2].get<std::string>());
             CHECK(feature.trap == row[3].get<std::string>());
             CHECK(feature.cell.grid.feature == 0);

@@ -17,6 +17,7 @@
 #include "system/grid-type-definition.h"
 #include "system/terrain/terrain-definition.h"
 #include "system/terrain/terrain-list.h"
+#include "test/info-reader/dungeon-grid-checks.h"
 #include "test/info-reader/parse-result-helpers.h"
 #include "test/info-reader/scoped-reader-state.h"
 #include "test/scoped-restore.h"
@@ -38,15 +39,7 @@ namespace {
 
 void check_same_legend_cell(const QuestLegendCell &actual, const QuestLegendCell &expected)
 {
-    CHECK(actual.grid.feature == expected.grid.feature);
-    CHECK(actual.grid.trap == expected.grid.trap);
-    CHECK(actual.grid.monster == expected.grid.monster);
-    CHECK(actual.grid.object == expected.grid.object);
-    CHECK(actual.grid.ego == expected.grid.ego);
-    CHECK(actual.grid.artifact == expected.grid.artifact);
-    CHECK(actual.grid.cave_info == expected.grid.cave_info);
-    CHECK(actual.grid.special == expected.grid.special);
-    CHECK(actual.grid.random == expected.grid.random);
+    test::check_same_grid(actual.grid, expected.grid);
     CHECK(actual.object_is_quest_reward == expected.object_is_quest_reward);
     CHECK(actual.artifact_is_quest_reward == expected.artifact_is_quest_reward);
 }
@@ -569,6 +562,42 @@ TEST_CASE("QuestReader rejects non-object rewards")
         REQUIRE(QuestReader(data, quest, fixed_map).read().has_value());
         CHECK(fixed_map.metadata.reward_artifact == 0);
         CHECK(fixed_map.reward_artifact_candidates.empty());
+    }
+}
+
+TEST_CASE("QuestReader separates a missing definition from a definition of a wrong type")
+{
+    const auto read_with = [](const nlohmann::json &definition) {
+        auto data = make_quest_with_description("New description");
+        data["definition"] = definition;
+        QuestType quest;
+        QuestFixedMap fixed_map;
+        set_existing_output(quest, fixed_map);
+        const auto error = test::to_error_code(QuestReader(data, quest, fixed_map).read());
+        check_existing_output(quest, fixed_map);
+        return error;
+    };
+    CHECK(read_with(nullptr) == ParseErrorType::TOO_FEW_ARGUMENTS);
+    for (const auto &value : { nlohmann::json(1), nlohmann::json("text"), nlohmann::json(true), nlohmann::json::array() }) {
+        CAPTURE(value);
+        CHECK(read_with(value) == ParseErrorType::INVALID_TYPE);
+    }
+}
+
+TEST_CASE("QuestReader separates a missing record from a record of a wrong type")
+{
+    const auto read_with = [](const nlohmann::json &data) {
+        QuestType quest;
+        QuestFixedMap fixed_map;
+        set_existing_output(quest, fixed_map);
+        const auto error = test::to_error_code(QuestReader(data, quest, fixed_map).read());
+        check_existing_output(quest, fixed_map);
+        return error;
+    };
+    CHECK(read_with(nlohmann::json(nullptr)) == ParseErrorType::TOO_FEW_ARGUMENTS);
+    for (const auto &value : { nlohmann::json(1), nlohmann::json("text"), nlohmann::json::array() }) {
+        CAPTURE(value);
+        CHECK(read_with(value) == ParseErrorType::INVALID_TYPE);
     }
 }
 

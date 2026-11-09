@@ -25,10 +25,13 @@
 #include <cstdint>
 #include <exception>
 #include <limits>
-#include <memory>
 #include <nlohmann/json.hpp>
-#include <span>
 #include <utility>
+
+namespace {
+//! 入口の座標 (wild_y・wild_x) の上限。読み込んだ荒野の大きさに収まるかは validate_wilderness_positions() で確かめる。
+constexpr int DUNGEON_ENTRANCE_COORD_MAX = 32766;
+}
 
 DungeonReader::Session DungeonReader::create_session(tl::optional<int> last_id)
 {
@@ -48,13 +51,13 @@ DungeonReader::DungeonReader(const nlohmann::json &dungeon_data, Session &sessio
 tl::expected<void, ParseErrorType> DungeonReader::read() const
 {
     const auto &element = this->dungeon_data;
-    if (element.is_null() || !element.is_object()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(element); !result) {
+        return result;
     }
 
     const auto id_result = this->session.read_and_report(get_json_value(element, "id"));
     if (!id_result) {
-        return tl::unexpected(id_result.error());
+        return tl::make_unexpected(id_result.error());
     }
     const auto id = *id_result;
 
@@ -67,15 +70,15 @@ tl::expected<void, ParseErrorType> DungeonReader::read() const
     }
 
     const auto &position_obj = get_json_value(element, "position");
-    if (position_obj.is_null() || !position_obj.is_object()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(position_obj); !result) {
+        return result;
     }
     int wild_y = 0;
     int wild_x = 0;
-    if (const auto result = info_set_integer(get_json_value(position_obj, "wild_y"), wild_y, true, Range(0, 32766)); !result) {
+    if (const auto result = info_set_integer(get_json_value(position_obj, "wild_y"), wild_y, true, Range(0, DUNGEON_ENTRANCE_COORD_MAX)); !result) {
         return result;
     }
-    if (const auto result = info_set_integer(get_json_value(position_obj, "wild_x"), wild_x, true, Range(0, 32766)); !result) {
+    if (const auto result = info_set_integer(get_json_value(position_obj, "wild_x"), wild_x, true, Range(0, DUNGEON_ENTRANCE_COORD_MAX)); !result) {
         return result;
     }
     dungeon.initialize_position({ wild_y, wild_x });
@@ -138,7 +141,7 @@ tl::expected<void, ParseErrorType> DungeonReader::validate_wilderness_positions(
  */
 bool DungeonReader::grab_one_dungeon_flag(DungeonDefinition &dungeon, std::string_view what) const
 {
-    if (EnumClassFlagGroup<DungeonFeatureType>::grab_one_flag(dungeon.flags, dungeon_flags, what)) {
+    if (info_grab_one_flag(dungeon.flags, dungeon_flags, what)) {
         return true;
     }
 
@@ -146,6 +149,7 @@ bool DungeonReader::grab_one_dungeon_flag(DungeonDefinition &dungeon, std::strin
     return false;
 }
 
+namespace {
 /*!
  * @brief JSON配列からEnumClassFlagGroupを読み込む
  * @param obj JSONオブジェクト
@@ -156,25 +160,24 @@ bool DungeonReader::grab_one_dungeon_flag(DungeonDefinition &dungeon, std::strin
  * @return 成功、またはパースエラー
  */
 template <typename Enum>
-static tl::expected<void, ParseErrorType> info_set_enum_flag_group(const nlohmann::json &obj, std::string_view key, EnumClassFlagGroup<Enum> &flags, const std::unordered_map<std::string_view, Enum> &tokens, std::string_view label)
+tl::expected<void, ParseErrorType> info_set_enum_flag_group(const nlohmann::json &obj, std::string_view key, EnumClassFlagGroup<Enum> &flags, const std::unordered_map<std::string_view, Enum> &tokens, std::string_view label)
 {
-    const auto it = obj.find(key);
-    if (it == obj.end() || it->is_null()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    const auto &array_obj = get_json_value(obj, key);
+    if (array_obj.is_null()) {
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
-
-    const auto &array_obj = *it;
 
     return info_read_flag_array(array_obj, [&](const nlohmann::json &flag_obj) {
         const auto token = flag_obj.get<std::string_view>();
         if (token.empty()) {
             return true;
         }
-        if (EnumClassFlagGroup<Enum>::grab_one_flag(flags, tokens, token)) {
+        if (info_grab_one_flag(flags, tokens, token)) {
             return true;
         }
         msg_print(_("未知のダンジョン{}種別 '{}'。", "Unknown dungeon {} kind '{}'."), label, token);
         return false; });
+}
 }
 
 /*!
@@ -187,25 +190,25 @@ static tl::expected<void, ParseErrorType> info_set_enum_flag_group(const nlohman
 bool DungeonReader::grab_one_basic_monster_flag(DungeonDefinition &dungeon, std::string_view what) const
 {
     // NONEは種族の性別未設定を表す値であり、出現条件のフラグにはしない。
-    if (what != "NONE" && EnumClassFlagGroup<MonsterSex>::grab_one_flag(dungeon.mon_sex, r_info_sex, what)) {
+    if (what != "NONE" && info_grab_one_flag(dungeon.mon_sex, r_info_sex, what)) {
         return true;
     }
 
     return grab_one_monster_basic_flag(
         {
-            .resistance_flags = &dungeon.mon_resistance_flags,
-            .aura_flags = &dungeon.mon_aura_flags,
-            .behavior_flags = &dungeon.mon_behavior_flags,
-            .visual_flags = &dungeon.mon_visual_flags,
-            .kind_flags = &dungeon.mon_kind_flags,
-            .drop_flags = &dungeon.mon_drop_flags,
-            .wilderness_flags = &dungeon.mon_wilderness_flags,
-            .feature_flags = &dungeon.mon_feature_flags,
-            .population_flags = &dungeon.mon_population_flags,
-            .speak_flags = &dungeon.mon_speak_flags,
-            .brightness_flags = &dungeon.mon_brightness_flags,
-            .special_flags = &dungeon.mon_special_flags,
-            .misc_flags = &dungeon.mon_misc_flags,
+            dungeon.mon_resistance_flags,
+            dungeon.mon_aura_flags,
+            dungeon.mon_behavior_flags,
+            dungeon.mon_visual_flags,
+            dungeon.mon_kind_flags,
+            dungeon.mon_drop_flags,
+            dungeon.mon_wilderness_flags,
+            dungeon.mon_feature_flags,
+            dungeon.mon_population_flags,
+            dungeon.mon_speak_flags,
+            dungeon.mon_brightness_flags,
+            dungeon.mon_special_flags,
+            dungeon.mon_misc_flags,
         },
         what);
 }
@@ -221,6 +224,7 @@ bool DungeonReader::grab_one_spell_monster_flag(DungeonDefinition &dungeon, std:
     return grab_one_monster_spell_flag(dungeon.mon_ability_flags, what);
 }
 
+namespace {
 /*!
  * @brief 床・壁の地形の抽選表を読み込む。
  * @param tiles_obj 地形と重みの配列
@@ -229,27 +233,20 @@ bool DungeonReader::grab_one_spell_monster_flag(DungeonDefinition &dungeon, std:
  * 重みが範囲外か重みの合計が100でなければ INVALID_VALUE
  * @details 重みは百分率で、各0～100・合計はちょうど100とする。重みが0の地形は抽選表に登録しない。
  */
-static tl::expected<ProbabilityTable<short>, ParseErrorType> parse_terrain_probability(const nlohmann::json &tiles_obj, std::string_view section)
+tl::expected<ProbabilityTable<short>, ParseErrorType> parse_terrain_probability(const nlohmann::json &tiles_obj, std::string_view section)
 {
-    if (!tiles_obj.is_array()) {
-        return tl::unexpected(tiles_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
-    }
-
     constexpr auto total_percent = 100;
     const auto &terrains = TerrainList::get_instance();
     ProbabilityTable<short> prob_table;
     int total_probability = 0;
-    for (const auto &tile_obj : tiles_obj) {
-        if (!tile_obj.is_object()) {
-            return tl::unexpected(ParseErrorType::INVALID_TYPE);
-        }
+    const auto read_result = info_read_object_array(tiles_obj, [&](const nlohmann::json &tile_obj) -> tl::expected<void, ParseErrorType> {
         const auto &type_obj = get_json_value(tile_obj, "type");
         if (!type_obj.is_string()) {
-            return tl::unexpected(type_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
+            return tl::make_unexpected(type_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
         }
         const auto &rate_obj = get_json_value(tile_obj, "rate");
         if (!rate_obj.is_number_integer()) {
-            return tl::unexpected(rate_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
+            return tl::make_unexpected(rate_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
         }
 
         int prob = 0;
@@ -257,14 +254,14 @@ static tl::expected<ProbabilityTable<short>, ParseErrorType> parse_terrain_proba
             msg_print(_("DungeonDefinitions.jsonc: {}.tiles の rate '{}' が0～100の範囲外です (百分率で指定してください)。",
                           "DungeonDefinitions.jsonc: {}.tiles rate '{}' is outside 0 to 100 (they are percentages)."),
                 section, rate_obj.dump());
-            return tl::unexpected(ParseErrorType::INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
 
         try {
             const auto terrain_id = terrains.get_terrain_id(type_obj.get<std::string>());
             prob_table.entry_item(terrain_id, prob);
         } catch (const std::exception &) {
-            return tl::unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
+            return tl::make_unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
         }
 
         // 合計は全項目の地形と重みを確かめてから判定し、未知の地形は位置によらず UNDEFINED_TERRAIN_TAG とする。
@@ -272,24 +269,34 @@ static tl::expected<ProbabilityTable<short>, ParseErrorType> parse_terrain_proba
         if (total_probability <= total_percent) {
             total_probability += prob;
         }
+        return {};
+    });
+    if (!read_result) {
+        return tl::make_unexpected(read_result.error());
     }
 
     if (total_probability > total_percent) {
         msg_print(_("DungeonDefinitions.jsonc: {}.tiles の rate の合計が '{}' となり100を超えています (百分率で指定してください)。",
                       "DungeonDefinitions.jsonc: {}.tiles rates reach a total of '{}', exceeding 100 (they are percentages)."),
             section, total_probability);
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
     if (total_probability != total_percent) {
         msg_print(_("DungeonDefinitions.jsonc: {}.tiles の rate の合計 '{}' が100ではありません (百分率で指定してください)。",
                       "DungeonDefinitions.jsonc: {}.tiles rates total '{}', not 100 (they are percentages)."),
             section, total_probability);
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     return prob_table;
 }
+}
 
+/*!
+ * @brief ダンジョンの説明文を読み込む
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_description(DungeonDefinition &dungeon) const
 {
     if (const auto result = info_set_string(get_json_value(this->dungeon_data, "description"), dungeon.text, false); !result) {
@@ -305,8 +312,8 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_description(Dungeo
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_generation(DungeonDefinition &dungeon) const
 {
     const auto &generation_obj = get_json_value(this->dungeon_data, "generation");
-    if (generation_obj.is_null() || !generation_obj.is_object()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(generation_obj); !result) {
+        return result;
     }
 
     if (const auto result = info_set_integer(get_json_value(generation_obj, "minDepth"), dungeon.mindepth, true, Range(0, std::numeric_limits<int16_t>::max())); !result) {
@@ -320,7 +327,7 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_generation(Dungeon
         msg_print(_("DungeonDefinitions.jsonc: minDepth '{}' がmaxDepth '{}' を超えています。",
                       "DungeonDefinitions.jsonc: minDepth '{}' exceeds maxDepth '{}'."),
             dungeon.mindepth, dungeon.maxdepth);
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
     if (const auto result = info_set_integer(get_json_value(generation_obj, "minPlayerLevel"), dungeon.min_plev, true, Range(0, PY_MAX_LEVEL)); !result) {
         return result;
@@ -343,16 +350,21 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_generation(Dungeon
     return {};
 }
 
+/*!
+ * @brief 床の地形の抽選表と通路の生成率を読み込む
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_floor(DungeonDefinition &dungeon) const
 {
     const auto &floor_obj = get_json_value(this->dungeon_data, "floor");
-    if (floor_obj.is_null() || !floor_obj.is_object()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(floor_obj); !result) {
+        return result;
     }
 
     auto prob_table = parse_terrain_probability(get_json_value(floor_obj, "tiles"), "floor");
     if (!prob_table) {
-        return tl::unexpected(prob_table.error());
+        return tl::make_unexpected(prob_table.error());
     }
     dungeon.prob_table_floor = std::move(*prob_table);
 
@@ -362,26 +374,29 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_floor(DungeonDefin
     return {};
 }
 
+/*!
+ * @brief 壁の鉱脈の地形・本数・生成率・優先度を読み込む
+ * @param streams_obj 鉱脈の配列（無ければ null）
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_streams(const nlohmann::json &streams_obj, DungeonDefinition &dungeon) const
 {
     if (streams_obj.is_null()) {
         return {};
     }
-    if (!streams_obj.is_array()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
-    }
 
     const auto &terrains = TerrainList::get_instance();
-    for (const auto &stream_obj : streams_obj) {
-        if (!stream_obj.is_object() || !get_json_value(stream_obj, "type").is_string()) {
-            return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    const auto read_result = info_read_object_array(streams_obj, [&terrains, &dungeon](const nlohmann::json &stream_obj) -> tl::expected<void, ParseErrorType> {
+        if (!get_json_value(stream_obj, "type").is_string()) {
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
         }
 
         DungeonStreamDefinition stream;
         try {
             stream.terrain_id = terrains.get_terrain_id(get_json_value(stream_obj, "type").get<std::string>());
         } catch (const std::exception &) {
-            return tl::unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
+            return tl::make_unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
         }
 
         if (const auto result = info_set_integer(get_json_value(stream_obj, "count"), stream.count, true, Range(1, 255)); !result) {
@@ -395,6 +410,10 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_streams(const nloh
         }
 
         dungeon.streams.emplace_back(stream);
+        return {};
+    });
+    if (!read_result) {
+        return read_result;
     }
 
     dungeon.sort_streams_by_priority();
@@ -402,16 +421,21 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_streams(const nloh
     return {};
 }
 
+/*!
+ * @brief 壁の地形の抽選表と、外壁・内壁などの地形、鉱脈を読み込む
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_wall(DungeonDefinition &dungeon) const
 {
     const auto &wall_obj = get_json_value(this->dungeon_data, "wall");
-    if (wall_obj.is_null() || !wall_obj.is_object()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(wall_obj); !result) {
+        return result;
     }
 
     auto prob_table = parse_terrain_probability(get_json_value(wall_obj, "tiles"), "wall");
     if (!prob_table) {
-        return tl::unexpected(prob_table.error());
+        return tl::make_unexpected(prob_table.error());
     }
     dungeon.prob_table_wall = std::move(*prob_table);
 
@@ -419,21 +443,26 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_wall(DungeonDefini
     for (const auto &[key, wall_id] : { std::pair{ "outer", &dungeon.outer_wall }, std::pair{ "inner", &dungeon.inner_wall } }) {
         const auto &terrain_obj = get_json_value(wall_obj, key);
         if (terrain_obj.is_null()) {
-            return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
         }
         if (!terrain_obj.is_string()) {
-            return tl::unexpected(ParseErrorType::INVALID_TYPE);
+            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
         }
         try {
             *wall_id = terrains.get_terrain_id(terrain_obj.get<std::string>());
         } catch (const std::exception &) {
-            return tl::unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
+            return tl::make_unexpected(ParseErrorType::UNDEFINED_TERRAIN_TAG);
         }
     }
 
     return this->set_dungeon_streams(get_json_value(wall_obj, "streams"), dungeon);
 }
 
+/*!
+ * @brief ダンジョンのフラグを読み込む
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_flags(DungeonDefinition &dungeon) const
 {
     const auto &flags_obj = get_json_value(this->dungeon_data, "flags");
@@ -445,8 +474,18 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_flags(DungeonDefin
         return token.empty() || this->grab_one_dungeon_flag(dungeon, token); });
 }
 
+namespace {
+/*!
+ * @brief 範囲内の整数を読み込み、ID として有効な場合だけ列挙型の値で格納する
+ * @param json 読み込む値
+ * @param data 格納先
+ * @param label 診断に表示する項目名
+ * @param range 受け付ける整数の範囲
+ * @param validator ID が有効かを判定する関数
+ * @return 成功、またはエラーコード。範囲外や無効な ID は INVALID_VALUE
+ */
 template <typename Enum, typename Validator>
-static tl::expected<void, ParseErrorType> info_set_enum_from_integer_checked(const nlohmann::json &json, Enum &data, std::string_view label, Range range, Validator validator)
+tl::expected<void, ParseErrorType> info_set_enum_from_integer_checked(const nlohmann::json &json, Enum &data, std::string_view label, Range range, Validator validator)
 {
     Enum enum_value{};
     if (const auto result = info_set_integer(json, enum_value, true, range); !result) {
@@ -460,14 +499,20 @@ static tl::expected<void, ParseErrorType> info_set_enum_from_integer_checked(con
 
     if (!validator(enum_value)) {
         msg_print(_("不正な{} ID '{}'。", "Invalid {} ID '{}'."), label, value);
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     data = enum_value;
     return {};
 }
 
-static tl::expected<void, ParseErrorType> info_set_baseitem_id_checked(const nlohmann::json &json, DungeonDefinition &dungeon)
+/*!
+ * @brief 最下層で手に入るベースアイテムの ID を読み込み、定義済みの場合だけ格納する
+ * @param json 読み込む値
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード。未定義の ID は INVALID_VALUE
+ */
+tl::expected<void, ParseErrorType> info_set_baseitem_id_checked(const nlohmann::json &json, DungeonDefinition &dungeon)
 {
     int value{};
     if (const auto result = info_set_integer(json, value, true, Range(1, std::numeric_limits<short>::max())); !result) {
@@ -479,13 +524,19 @@ static tl::expected<void, ParseErrorType> info_set_baseitem_id_checked(const nlo
         static_cast<void>(BaseitemList::get_instance().get_baseitem(value_short));
     } catch (const std::exception &) {
         msg_print(_("不正なfinal_floor.object ID '{}'。", "Invalid final_floor.object ID '{}'."), value);
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     dungeon.final_object = value_short;
     return {};
 }
+}
 
+/*!
+ * @brief 最下層の守護者と、最下層で手に入るベースアイテム・アーティファクトを読み込む
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_final_floor(DungeonDefinition &dungeon) const
 {
     const auto &final_floor_obj = get_json_value(this->dungeon_data, "final_floor");
@@ -494,12 +545,12 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_final_floor(Dungeo
     }
 
     if (!final_floor_obj.is_object()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     if (final_floor_obj.contains("artifact") && !final_floor_obj.contains("guardian")) {
         msg_print(_("final_floor.artifactを指定する場合はguardianも必要です。", "final_floor.guardian is required when final_floor.artifact is specified."));
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
 
     if (final_floor_obj.contains("guardian")) {
@@ -529,6 +580,12 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_final_floor(Dungeo
     return {};
 }
 
+/*!
+ * @brief モンスターの出現条件のうち、基本のフラグを読み込む
+ * @param flags_obj フラグの配列（無ければ null）
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_flags(const nlohmann::json &flags_obj, DungeonDefinition &dungeon) const
 {
     if (flags_obj.is_null()) {
@@ -539,18 +596,24 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_flags(cons
         return token.empty() || this->grab_one_basic_monster_flag(dungeon, token); });
 }
 
+/*!
+ * @brief モンスターの出現条件のうち、表示文字を読み込む
+ * @param symbols_obj 1 文字の文字列の配列（無ければ null）
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_symbols(const nlohmann::json &symbols_obj, DungeonDefinition &dungeon) const
 {
     if (symbols_obj.is_null()) {
         return {};
     }
     if (!symbols_obj.is_array()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
     }
 
     for (const auto &symbol_obj : symbols_obj) {
         if (!symbol_obj.is_string()) {
-            return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
         }
 
         const auto symbol = symbol_obj.get<std::string>();
@@ -558,7 +621,7 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_symbols(co
             continue;
         }
         if (symbol.size() != 1) {
-            return tl::unexpected(ParseErrorType::INVALID_VALUE);
+            return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
 
         dungeon.r_chars.push_back(symbol[0]);
@@ -567,6 +630,12 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_symbols(co
     return {};
 }
 
+/*!
+ * @brief モンスターの出現条件のうち、魔法のフラグを読み込む
+ * @param spells_obj 魔法のフラグの配列（無ければ null）
+ * @param dungeon 読み込み先のダンジョン
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_spells(const nlohmann::json &spells_obj, DungeonDefinition &dungeon) const
 {
     if (spells_obj.is_null()) {
@@ -584,8 +653,8 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monster_spells(con
 tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monsters(DungeonDefinition &dungeon) const
 {
     const auto &monsters_obj = get_json_value(this->dungeon_data, "monsters");
-    if (monsters_obj.is_null() || !monsters_obj.is_object()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(monsters_obj); !result) {
+        return result;
     }
 
     if (const auto result = info_set_integer(get_json_value(monsters_obj, "minCount"), dungeon.min_monster_count_on_floor, true, Range(0, 100)); !result) {
@@ -611,22 +680,16 @@ tl::expected<void, ParseErrorType> DungeonReader::set_dungeon_monsters(DungeonDe
     }
     dungeon.mode = *mode;
 
-    if (auto it = monsters_obj.find("flags"); it != monsters_obj.end()) {
-        if (const auto result = this->set_dungeon_monster_flags(*it, dungeon); !result) {
-            return result;
-        }
+    if (const auto result = this->set_dungeon_monster_flags(get_json_value(monsters_obj, "flags"), dungeon); !result) {
+        return result;
     }
 
-    if (auto it = monsters_obj.find("symbols"); it != monsters_obj.end()) {
-        if (const auto result = this->set_dungeon_monster_symbols(*it, dungeon); !result) {
-            return result;
-        }
+    if (const auto result = this->set_dungeon_monster_symbols(get_json_value(monsters_obj, "symbols"), dungeon); !result) {
+        return result;
     }
 
-    if (auto it = monsters_obj.find("spells"); it != monsters_obj.end()) {
-        if (const auto result = this->set_dungeon_monster_spells(*it, dungeon); !result) {
-            return result;
-        }
+    if (const auto result = this->set_dungeon_monster_spells(get_json_value(monsters_obj, "spells"), dungeon); !result) {
+        return result;
     }
 
     return {};

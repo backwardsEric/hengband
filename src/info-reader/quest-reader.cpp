@@ -30,7 +30,6 @@ const Range LEGEND_MONSTER_RANGE(-std::numeric_limits<MONSTER_IDX>::max(), std::
 const Range LEGEND_EGO_RANGE(1, MAX_EGO_ID);
 
 namespace {
-constexpr Range QUEST_INTEGER_RANGE(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
 // メタデータはintで保持するが、対象モンスターと報酬は実行時にshort基底のIDへ変換される。
 // どちらも 0 は指定なしで、ほかの定義と同じくIDの型から決めた上限までとする。
 constexpr Range QUEST_MONSTER_RANGE(0, MAX_MONRACE_ID);
@@ -437,8 +436,8 @@ tl::expected<void, ParseErrorType> QuestReader::read(std::string *reason) const
     if (reason != nullptr) {
         reason->clear();
     }
-    if (!this->quest_data.is_object()) {
-        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
+    if (const auto result = info_require_object(this->quest_data); !result) {
+        return result;
     }
 
     std::string name;
@@ -467,6 +466,11 @@ tl::expected<void, ParseErrorType> QuestReader::read(std::string *reason) const
     return {};
 }
 
+/*!
+ * @brief クエストの名前を読み込む
+ * @param name 読み込み先
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_name(std::string &name) const
 {
     // info_set_string は {ja, en} オブジェクトを受け取り、ビルド言語に応じた文字列を格納する
@@ -476,11 +480,16 @@ tl::expected<void, ParseErrorType> QuestReader::set_name(std::string &name) cons
     return {};
 }
 
+/*!
+ * @brief クエストの種類・階・目標などの定義を読み込む
+ * @param parsed 読み込み先の固定マップ
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_definition(QuestFixedMap &parsed) const
 {
     const auto &definition = get_json_value(this->quest_data, "definition");
-    if (!definition.is_object()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(definition); !result) {
+        return result;
     }
 
     auto &meta = parsed.metadata;
@@ -496,7 +505,7 @@ tl::expected<void, ParseErrorType> QuestReader::set_definition(QuestFixedMap &pa
     if (const auto result = info_set_integer(get_json_value(definition, "level"), meta.level, true, QUEST_LEVEL_RANGE); !result) {
         return result;
     }
-    if (const auto result = info_set_integer(get_json_value(definition, "numMon"), meta.num_mon, false, QUEST_INTEGER_RANGE); !result) {
+    if (const auto result = info_set_integer(get_json_value(definition, "numMon"), meta.num_mon, false); !result) {
         return result;
     }
     if (const auto result = info_set_integer(get_json_value(definition, "maxNum"), meta.max_num, false, QUEST_MAX_NUM_RANGE); !result) {
@@ -552,6 +561,11 @@ tl::expected<void, ParseErrorType> QuestReader::set_definition(QuestFixedMap &pa
     return {};
 }
 
+/*!
+ * @brief クエストの説明文を読み込む
+ * @param parsed 読み込み先の固定マップ
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_descriptions(QuestFixedMap &parsed) const
 {
     const auto &descriptions = get_json_value(this->quest_data, "descriptions");
@@ -619,6 +633,12 @@ tl::expected<void, ParseErrorType> QuestReader::set_descriptions(QuestFixedMap &
     return {};
 }
 
+/*!
+ * @brief 固定マップの凡例を読み込む
+ * @param parsed 読み込み先の固定マップ
+ * @param reason 失敗した理由の格納先（不要なら nullptr）
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_legend(QuestFixedMap &parsed, std::string *reason) const
 {
     const auto &legend = get_json_value(this->quest_data, "legend");
@@ -630,7 +650,8 @@ tl::expected<void, ParseErrorType> QuestReader::set_legend(QuestFixedMap &parsed
     }
 
     for (const auto &[symbol, cell_data] : legend.items()) {
-        if (!parse_fixed_map_symbol(symbol)) {
+        const auto parsed_symbol = parse_fixed_map_symbol(symbol);
+        if (!parsed_symbol) {
             return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
         }
 
@@ -642,12 +663,17 @@ tl::expected<void, ParseErrorType> QuestReader::set_legend(QuestFixedMap &parsed
             }
             return result;
         }
-        parsed.legend.insert_or_assign(symbol.front(), cell);
+        parsed.legend.insert_or_assign(*parsed_symbol, cell);
     }
 
     return {};
 }
 
+/*!
+ * @brief 固定マップの行を読み込む
+ * @param parsed 読み込み先の固定マップ
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_maps(QuestFixedMap &parsed) const
 {
     const auto &map = get_json_value(this->quest_data, "map");
@@ -683,15 +709,20 @@ tl::expected<void, ParseErrorType> QuestReader::set_maps(QuestFixedMap &parsed) 
     return {};
 }
 
+/*!
+ * @brief プレイヤーの開始位置を読み込む
+ * @param parsed 読み込み先の固定マップ
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> QuestReader::set_starts(QuestFixedMap &parsed) const
 {
     const auto &start = get_json_value(this->quest_data, "start");
     if (!start.is_null()) {
         QuestStartPosition position;
-        if (const auto result = info_set_integer(get_json_value(start, "y"), position.y, true, QUEST_INTEGER_RANGE); !result) {
+        if (const auto result = info_set_integer(get_json_value(start, "y"), position.y, true); !result) {
             return result;
         }
-        if (const auto result = info_set_integer(get_json_value(start, "x"), position.x, true, QUEST_INTEGER_RANGE); !result) {
+        if (const auto result = info_set_integer(get_json_value(start, "x"), position.x, true); !result) {
             return result;
         }
         if (const auto result = validate_quest_start(parsed, position); !result) {
@@ -717,10 +748,10 @@ tl::expected<void, ParseErrorType> QuestReader::set_starts(QuestFixedMap &parsed
                 }
                 position.leaving_quest = leaving_id;
             }
-            if (const auto result = info_set_integer(get_json_value(variant, "y"), position.y, true, QUEST_INTEGER_RANGE); !result) {
+            if (const auto result = info_set_integer(get_json_value(variant, "y"), position.y, true); !result) {
                 return result;
             }
-            if (const auto result = info_set_integer(get_json_value(variant, "x"), position.x, true, QUEST_INTEGER_RANGE); !result) {
+            if (const auto result = info_set_integer(get_json_value(variant, "x"), position.x, true); !result) {
                 return result;
             }
             if (const auto result = validate_quest_start(parsed, position); !result) {

@@ -1,5 +1,4 @@
 #include "info-reader/json-reader-util.h"
-#include "info-reader/info-reader-util.h"
 #include "info-reader/symbol-reader-util.h"
 #include "locale/character-encoding.h"
 #include "locale/language-switcher.h"
@@ -25,6 +24,65 @@ tl::expected<void, ParseErrorType> info_read_flag_array(const nlohmann::json &js
         }
         if (!grab_flag(flag)) {
             return tl::make_unexpected(ParseErrorType::INVALID_FLAG);
+        }
+    }
+    return {};
+}
+
+/*!
+ * @brief 必須のJSON値がオブジェクトであることを確かめる。
+ * @details 省略してよい値は、呼び出し元でnullを先に判定して成功を返し、この関数には渡さない。
+ * @param json 検査する値
+ * @return 成功時は空、nullはTOO_FEW_ARGUMENTS、それ以外の型はINVALID_TYPE
+ */
+tl::expected<void, ParseErrorType> info_require_object(const nlohmann::json &json)
+{
+    if (json.is_null()) {
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    }
+    if (!json.is_object()) {
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
+    }
+    return {};
+}
+
+/*!
+ * @brief 必須のJSON値が配列であることを確かめる。
+ * @details 省略してよい値は、呼び出し元でnullを先に判定して成功を返し、この関数には渡さない。
+ * @param json 検査する値
+ * @return 成功時は空、nullはTOO_FEW_ARGUMENTS、それ以外の型はINVALID_TYPE
+ */
+tl::expected<void, ParseErrorType> info_require_array(const nlohmann::json &json)
+{
+    if (json.is_null()) {
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    }
+    if (!json.is_array()) {
+        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
+    }
+    return {};
+}
+
+/*!
+ * @brief オブジェクトの配列を先頭から読み込み、各要素を呼び出し元へ渡す。
+ * @details 配列も要素も info_require_array() / info_require_object() と同じく、nullと型の誤りを区別する。
+ * 最初のエラーで停止する。エラーより前に処理済みの要素は巻き戻さない。
+ * 省略してよい配列は、呼び出し元でnullを先に判定して成功を返す。
+ * @param json オブジェクトの配列
+ * @param read_element 各要素を読み込む関数
+ * @return 成功時は空、配列か要素がnullならTOO_FEW_ARGUMENTS、型の誤りはINVALID_TYPE、read_elementのエラーはそのまま返す
+ */
+tl::expected<void, ParseErrorType> info_read_object_array(const nlohmann::json &json, const std::function<tl::expected<void, ParseErrorType>(const nlohmann::json &)> &read_element)
+{
+    if (const auto result = info_require_array(json); !result) {
+        return result;
+    }
+    for (const auto &element : json) {
+        if (const auto result = info_require_object(element); !result) {
+            return result;
+        }
+        if (const auto result = read_element(element); !result) {
+            return result;
         }
     }
     return {};
@@ -202,32 +260,32 @@ tl::expected<DisplaySymbol, ParseErrorType> info_read_symbol(const nlohmann::jso
 {
     const auto monster = policy == SymbolReadPolicy::MONSTER_COLOR_FIRST;
     if (json.is_null()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
     if (!json.is_object()) {
-        return tl::unexpected(monster ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
+        return tl::make_unexpected(monster ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
     }
 
     const auto &character_obj = get_json_value(json, "character");
     if (!character_obj.is_string()) {
-        return tl::unexpected(monster || character_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
+        return tl::make_unexpected(monster || character_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
     }
     const auto &character = character_obj.get_ref<const std::string &>();
     if (!monster && character.size() != 1) {
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     const auto &color_obj = get_json_value(json, "color");
     if (!color_obj.is_string()) {
-        return tl::unexpected(monster || color_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
+        return tl::make_unexpected(monster || color_obj.is_null() ? ParseErrorType::TOO_FEW_ARGUMENTS : ParseErrorType::INVALID_TYPE);
     }
     // 文字列であることは確かめたので、ここで返るエラーは未知の色の INVALID_FLAG だけになる
     const auto color = info_read_token(color_obj, color_list);
     if (!color) {
-        return tl::unexpected(color.error());
+        return tl::make_unexpected(color.error());
     }
     if (character.size() != 1) {
-        return tl::unexpected(ParseErrorType::INVALID_VALUE);
+        return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
     }
 
     return DisplaySymbol(*color, character.front());

@@ -1,5 +1,4 @@
 #include "info-reader/magic-reader.h"
-#include "info-reader/info-reader-util.h"
 #include "info-reader/json-reader-util.h"
 #include "info-reader/magic-info-tokens-table.h"
 #include "info-reader/parse-error-types.h"
@@ -45,7 +44,7 @@ tl::expected<void, ParseErrorType> MagicReader::read() const
 
     const auto id_result = this->session.check_and_report(*class_id_result);
     if (!id_result) {
-        return tl::unexpected(id_result.error());
+        return tl::make_unexpected(id_result.error());
     }
     const auto class_id = *id_result;
     // レコード全体が有効と確定するまで、既存の職業定義を維持する。
@@ -183,14 +182,7 @@ tl::expected<void, ParseErrorType> MagicReader::set_spell_data(const nlohmann::j
 tl::expected<void, ParseErrorType> MagicReader::set_realm_data(player_magic &magics_info) const
 {
     const auto &realms_data = get_json_value(this->class_data, "realms");
-    if (realms_data.is_null()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
-    }
-    if (!realms_data.is_array()) {
-        return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
-    }
-
-    for (const auto &realm : realms_data) {
+    return info_read_object_array(realms_data, [this, &magics_info](const nlohmann::json &realm) -> tl::expected<void, ParseErrorType> {
         const auto &realm_name_obj = get_json_value(realm, "name");
         const auto realm_name = info_read_token(realm_name_obj, realms_list);
         if (!realm_name) {
@@ -199,19 +191,8 @@ tl::expected<void, ParseErrorType> MagicReader::set_realm_data(player_magic &mag
 
         const auto realm_id = *realm_name;
         const auto &spells_info_obj = get_json_value(realm, "spells_info");
-        if (spells_info_obj.is_null()) {
-            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
-        }
-        if (!spells_info_obj.is_array()) {
-            return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
-        }
-
-        for (const auto &spell : spells_info_obj) {
-            if (const auto result = this->set_spell_data(spell, magics_info, realm_id); !result) {
-                return tl::make_unexpected(result.error());
-            }
-        }
-    }
-
-    return {};
+        return info_read_object_array(spells_info_obj, [this, &magics_info, realm_id](const nlohmann::json &spell) -> tl::expected<void, ParseErrorType> {
+            return this->set_spell_data(spell, magics_info, realm_id);
+        });
+    });
 }

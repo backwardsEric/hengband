@@ -1,20 +1,16 @@
 #include "info-reader/town-map-reader.h"
 #include "info-reader/json-reader-util.h"
 #include "info-reader/legend-ego-validator.h"
+#include "info-reader/legend-object-trap-validator.h"
 #include "info-reader/quest-reader.h"
-#include "info-reader/random-grid-effect-types.h"
 #include "locale/language-switcher.h"
 #include "player-info/class-info.h"
 #include "player-info/race-info.h"
 #include "player/player-realm.h"
 #include "system/building-type-definition.h"
-#include "system/enums/terrain/terrain-characteristics.h"
-#include "system/terrain/terrain-definition.h"
-#include "system/terrain/terrain-list.h"
 #include "view/display-messages.h"
 #include <algorithm>
 #include <charconv>
-#include <cstdint>
 #include <fmt/format.h>
 #include <limits>
 #include <nlohmann/json.hpp>
@@ -153,10 +149,15 @@ ParseErrorType validate_town_cell(const nlohmann::json &fields)
     return ParseErrorType::NONE;
 }
 
-tl::expected<std::optional<std::string>, ParseErrorType> read_condition(const nlohmann::json &data)
+/*!
+ * @brief 規則の適用条件 (when) を読み込む
+ * @param data 規則のオブジェクト
+ * @return 条件の式（when が無ければ空）、または空文字列や文字列以外なら INVALID_TYPE
+ */
+tl::expected<tl::optional<std::string>, ParseErrorType> read_condition(const nlohmann::json &data)
 {
     if (!data.contains("when")) {
-        return std::optional<std::string>{};
+        return tl::optional<std::string>{};
     }
     if (!data["when"].is_string() || data["when"].get_ref<const std::string &>().empty()) {
         return tl::make_unexpected(ParseErrorType::INVALID_TYPE);
@@ -209,6 +210,11 @@ tl::expected<void, ParseErrorType> TownMapReader::read(TownMapDefinition &defini
     return {};
 }
 
+/*!
+ * @brief 地形の宣言を型付きデータへ解析する。
+ * @param definition 読み込み先の町の定義
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> TownMapReader::read_features(TownMapDefinition &definition) const
 {
     for (const auto &[index, rule] : this->data["featureRules"].items()) {
@@ -235,24 +241,7 @@ tl::expected<void, ParseErrorType> TownMapReader::read_features(TownMapDefinitio
         std::string reason;
         if (const auto result = parse_quest_legend_cell_deferred(fields, parsed, reason); !result) {
             if (!reason.empty()) {
-                if (fields.contains("trap") && fields["trap"].is_string()) {
-                    const auto &tag = fields["trap"].get_ref<const std::string &>();
-                    if (tag != "NONE" && tag != "*") {
-                        // 罠の地形を指すタグなら誤記の可能性に触れない。
-                        // 罠ではない地形のタグ (FLOOR など) は一覧にあっても誤記の可能性があるため、短くしない。
-                        short terrain_id = 0;
-                        auto random_flags = 0;
-                        const auto is_trap_tag = resolve_legend_terrain(tag, terrain_id, random_flags, RANDOM_NONE) &&
-                                                 TerrainList::get_instance().get_terrain(terrain_id).has(TerrainCharacteristics::TRAP);
-                        if (is_trap_tag) {
-                            reason += fmt::format(_(" (trap '{}' は固定の罠として扱われます)", " (trap '{}' is treated as a fixed trap)"), tag);
-                        } else {
-                            reason += fmt::format(_(" (trap '{}' は固定の罠として扱われます。未知のタグや誤記も固定の罠になります)",
-                                                      " (trap '{}' is treated as a fixed trap; unknown tags and typos are treated the same way)"),
-                                tag);
-                        }
-                    }
-                }
+                reason += describe_town_fixed_trap_tag(fields, LegendTrapTagResolution::DEFERRED);
                 msg_print(_("町の配置指定が不正です: featureRules[{}] (記号 '{}').trap: {}",
                               "Invalid town placement: featureRules[{}] (symbol '{}').trap: {}"),
                     index, symbol, reason);
@@ -333,8 +322,7 @@ tl::expected<void, ParseErrorType> TownMapReader::read_buildings(TownMapDefiniti
                                           command == "C" || command == "M" || command == "R";
             if (is_numeric_field) {
                 const auto short_field = command != "A" || field_index == 5 || field_index == 6;
-                const auto minimum = short_field ? std::numeric_limits<int16_t>::min() : std::numeric_limits<int>::min();
-                const auto maximum = short_field ? std::numeric_limits<int16_t>::max() : std::numeric_limits<int>::max();
+                const auto [minimum, maximum] = short_field ? LEGEND_SHORT_RANGE : Range(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
                 if (!is_integer_in_range(value, minimum, maximum)) {
                     return tl::make_unexpected(ParseErrorType::INVALID_VALUE);
                 }
@@ -367,6 +355,13 @@ tl::expected<void, ParseErrorType> TownMapReader::read_buildings(TownMapDefiniti
     return {};
 }
 
+/*!
+ * @brief マップの候補を型付きデータへ解析する。
+ * @param definition 読み込み先の町の定義
+ * @param maximum_height マップの高さの上限
+ * @param maximum_width マップの幅の上限
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> TownMapReader::read_maps(TownMapDefinition &definition, int maximum_height, int maximum_width) const
 {
     for (const auto &variant : this->data["mapVariants"]) {
@@ -409,6 +404,11 @@ tl::expected<void, ParseErrorType> TownMapReader::read_maps(TownMapDefinition &d
     return {};
 }
 
+/*!
+ * @brief 開始位置の候補を型付きデータへ解析する。
+ * @param definition 読み込み先の町の定義
+ * @return 成功、またはエラーコード
+ */
 tl::expected<void, ParseErrorType> TownMapReader::read_starts(TownMapDefinition &definition) const
 {
     for (const auto &start : this->data["startingPositions"]) {

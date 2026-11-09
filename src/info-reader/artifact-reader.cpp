@@ -8,18 +8,15 @@
 #include "info-reader/item-reader-limits.h"
 #include "info-reader/json-reader-util.h"
 #include "info-reader/parse-error-types.h"
-#include "locale/japanese.h"
 #include "locale/language-switcher.h"
 #include "object-enchant/tr-types.h"
 #include "system/artifact/artifact-definition.h"
 #include "system/artifact/artifact-list.h"
 #include "system/baseitem/baseitem-definition.h"
 #include "system/baseitem/baseitem-list.h"
-#include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "view/display-messages.h"
 #include <algorithm>
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
 ArtifactReader::Session ArtifactReader::create_session(tl::optional<int> last_id)
@@ -41,7 +38,7 @@ tl::expected<void, ParseErrorType> ArtifactReader::read() const
 {
     const auto id_result = this->session.read_and_report(get_json_value(this->art_data, "id"));
     if (!id_result) {
-        return tl::unexpected(id_result.error());
+        return tl::make_unexpected(id_result.error());
     }
     const auto int_id = *id_result;
     const auto artifact_id = i2enum<FixedArtifactId>(int_id);
@@ -73,7 +70,7 @@ tl::expected<void, ParseErrorType> ArtifactReader::read() const
         msg_print(_("アーティファクトの希少度読込失敗。", "Failed to load rarity of artifact."));
         return result;
     }
-    if (const auto result = info_set_integer(get_json_value(this->art_data, "weight"), artifact.weight, true, Range(0, 9999)); !result) {
+    if (const auto result = info_set_integer(get_json_value(this->art_data, "weight"), artifact.weight, true, Range(0, ITEM_WEIGHT_MAX)); !result) {
         msg_print(_("アーティファクトの重量読込失敗。", "Failed to load weight of artifact."));
         return result;
     }
@@ -85,8 +82,7 @@ tl::expected<void, ParseErrorType> ArtifactReader::read() const
         msg_print(_("アーティファクトのベースAC読込失敗。", "Failed to load base AC of artifact."));
         return result;
     }
-    // セーブではダイスの個数・面数をそれぞれ1バイトで書くため、0〜255に限る。
-    if (const auto result = info_set_dice(get_json_value(this->art_data, "base_dice"), artifact.damage_dice, false, Range(0, 255)); !result) {
+    if (const auto result = info_set_dice(get_json_value(this->art_data, "base_dice"), artifact.damage_dice, false, Range(0, ITEM_DICE_MAX)); !result) {
         msg_print(_("アーティファクトのベースダイス読込失敗。", "Failed to load base dice of artifact."));
         return result;
     }
@@ -138,7 +134,7 @@ tl::expected<void, ParseErrorType> ArtifactReader::set_art_baseitem(ArtifactDefi
 {
     const auto &baseitem_data = get_json_value(this->art_data, "base_item");
     if (baseitem_data.is_null()) {
-        return tl::unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
     }
 
     // 失敗時は直後に返るが、gcc の最適化で未初期化と誤検出されないよう初期化しておく。
@@ -165,7 +161,7 @@ tl::expected<void, ParseErrorType> ArtifactReader::set_art_activate(ArtifactDefi
 {
     const auto activation = read_activation(get_json_value(this->art_data, "activate"));
     if (!activation) {
-        return tl::unexpected(activation.error());
+        return tl::make_unexpected(activation.error());
     }
     if (*activation == RandomArtActType::NONE) {
         return {};

@@ -839,6 +839,58 @@ TEST_CASE("RaceReader rejects malformed blow flags and skill list types without 
     CHECK(list.get_monrace(static_cast<MonraceId>(1)).level == 0);
 }
 
+TEST_CASE("RaceReader separates missing values from wrong types in nested definitions")
+{
+    auto session = RaceReader::create_session();
+    test::MonraceListTestAccess races;
+    test::MonraceMessageListTestAccess messages;
+    const auto read_with = [&session](const std::string &key, const nlohmann::json &value) {
+        auto data = make_monrace();
+        data[key] = value;
+        return test::to_error_code(read_as_first_record(data, session));
+    };
+
+    for (const std::string key : { "artifacts", "escorts", "blows", "final_summon", "message", "skill" }) {
+        CAPTURE(key);
+        CHECK(read_with(key, 1) == ParseErrorType::INVALID_TYPE);
+        CHECK(read_with(key, "text") == ParseErrorType::INVALID_TYPE);
+    }
+    for (const std::string key : { "artifacts", "escorts", "blows", "final_summon", "message" }) {
+        CAPTURE(key);
+        CHECK(read_with(key, nlohmann::json::object()) == ParseErrorType::INVALID_TYPE);
+        CHECK(read_with(key, nlohmann::json::parse("[1]")) == ParseErrorType::INVALID_TYPE);
+        CHECK(read_with(key, nlohmann::json::parse("[null]")) == ParseErrorType::TOO_FEW_ARGUMENTS);
+    }
+    CHECK(read_with("skill", nlohmann::json::array()) == ParseErrorType::INVALID_TYPE);
+
+    // 打撃の数の上限より、要素の型の誤りを先に報告する。
+    auto blows = nlohmann::json::array();
+    for (auto i = 0; i < MAX_NUM_BLOWS; ++i) {
+        blows.push_back({ { "method", "HIT" }, { "effect", "HURT" }, { "damage_dice", "1d4" } });
+    }
+    auto too_many_blows = blows;
+    too_many_blows.push_back(blows[0]);
+    CHECK(read_with("blows", too_many_blows) == ParseErrorType::INVALID_VALUE);
+    auto wrong_extra_blow = blows;
+    wrong_extra_blow.push_back(1);
+    CHECK(read_with("blows", wrong_extra_blow) == ParseErrorType::INVALID_TYPE);
+    auto null_extra_blow = blows;
+    null_extra_blow.push_back(nullptr);
+    CHECK(read_with("blows", null_extra_blow) == ParseErrorType::TOO_FEW_ARGUMENTS);
+}
+
+TEST_CASE("RaceReader separates a missing record from a record of a wrong type")
+{
+    auto session = RaceReader::create_session();
+    test::MonraceListTestAccess races;
+    test::MonraceMessageListTestAccess messages;
+    CHECK(test::to_error_code(read_as_first_record(nlohmann::json(nullptr), session)) == ParseErrorType::TOO_FEW_ARGUMENTS);
+    for (const auto &value : { nlohmann::json(1), nlohmann::json("text"), nlohmann::json::array() }) {
+        CAPTURE(value);
+        CHECK(test::to_error_code(read_as_first_record(value, session)) == ParseErrorType::INVALID_TYPE);
+    }
+}
+
 TEST_CASE("RaceReader rejects non-boolean message use_name without publishing")
 {
     auto session = RaceReader::create_session();
@@ -872,7 +924,6 @@ TEST_CASE("RaceReader pins flag array type errors and missing values")
             CAPTURE(path);
             CAPTURE(input);
             test::MonraceListTestAccess guard;
-            auto session = RaceReader::create_session();
             auto data = make_monrace();
             const auto pointer = nlohmann::json::json_pointer(path);
             const std::string input_text = input;
@@ -888,7 +939,7 @@ TEST_CASE("RaceReader pins flag array type errors and missing values")
             if (std::string(path) == "/skill/list" && (input_text == "null" || input_text == "missing")) {
                 expected = ParseErrorType::TOO_FEW_ARGUMENTS;
             }
-            CHECK(test::to_error_code(test::read_and_commit(RaceReader(data, session), session)) == expected);
+            CHECK(test::to_error_code(test::read_record<RaceReader>(data)) == expected);
         }
     }
 }
@@ -955,5 +1006,24 @@ TEST_CASE("RaceReader reports non-string tokens as invalid types")
             CHECK(test::to_error_code(RaceReader(data, session).read()) == ParseErrorType::INVALID_TYPE);
             CHECK(MonraceList::get_instance().empty());
         }
+    }
+}
+
+TEST_CASE("RaceReader limits experience to the same cap as evolution experience")
+{
+    auto session = RaceReader::create_session();
+    test::MonraceListTestAccess guard;
+    auto data = make_monrace();
+    for (const auto exp : { 0, 9999999 }) {
+        CAPTURE(exp);
+        data["exp"] = exp;
+        REQUIRE(read_as_first_record(data, session).has_value());
+        CHECK(test_monrace().mexp == exp);
+    }
+    for (const auto exp : { -1, 10000000 }) {
+        CAPTURE(exp);
+        data["exp"] = exp;
+        CHECK(test::to_error_code(read_as_first_record(data, session)) == ParseErrorType::INVALID_VALUE);
+        CHECK(test_monrace().mexp == 9999999);
     }
 }

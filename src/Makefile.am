@@ -1526,6 +1526,7 @@ hengband_test_SOURCES = \
 	test/scoped-ego-list.h \
 	test/string-helpers.h \
 	test/temporary-json-files.h \
+	test/info-reader/dungeon-grid-checks.h \
 	test/info-reader/parse-result-helpers.h \
 	test/info-reader/scoped-reader-state.h \
 	test/system/artifact-list-test-access.h \
@@ -1610,6 +1611,8 @@ hengband_test_SOURCES = \
 	test/object-use/quaff/test-quaff-execution.cpp \
 	test/player-status/test-player-status-base.cpp \
 	test/player/test-player-skill.cpp \
+	test/player/test-player-status-flags.cpp \
+	test/player/test-player-status-resist.cpp \
 	test/player/test-process-name.cpp \
 	test/player-status/test-player-speed.cpp \
 	test/spell/test-spell-info.cpp \
@@ -1621,6 +1624,7 @@ hengband_test_SOURCES = \
 	test/system/baseitem/test-baseitem-definition.cpp \
 	test/save/test-item-writer.cpp \
 	test/save/test-monster-entity-writer.cpp \
+	test/save/test-player-class-specific-data-writer.cpp \
 	test/system/baseitem/test-baseitem-allocation.cpp \
 	test/system/baseitem/test-baseitem-list.cpp \
 	test/system/floor/test-floor-info.cpp \
@@ -1633,6 +1637,7 @@ hengband_test_SOURCES = \
 	test/target/test-target-getter.cpp \
 	test/term/test-screen-processor.cpp \
 	test/term/test-z-rand.cpp \
+	test/term/test-z-term.cpp \
 	test/timed-effect/test-player-cut.cpp \
 	test/timed-effect/test-player-stun.cpp \
 	test/timed-effect/test-timed-effect.cpp \
@@ -1647,6 +1652,7 @@ hengband_test_SOURCES = \
 	test/util/test-sha256.cpp \
 	test/util/test-string-processor.cpp \
 	test/util/test-temporary-json-files.cpp \
+	test/view/test-display-lore.cpp \
 	test/view/test-display-messages.cpp \
 	test/view/test-map-info-cache.cpp \
 	test/view/test-original-tiles.cpp test/view/original-terrain-coverage.inc test/view/original-item-coverage.inc test/view/original-monster-coverage.inc test/view/original-symbol-coverage.inc \

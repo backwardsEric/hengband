@@ -63,6 +63,7 @@ struct term_type {
     bool never_frosh{}; //!< Flag "never_frosh" Never call the "TERM_XTRA_FROSH" action
     bool never_fresh{}; //!< Flag "never_fresh" Never redraw the Term
     bool never_events{}; //!< Flag "never_events" This "term" never produces input events by itself
+    bool has_drawn_zoom_tiles{}; //!< 拡大タイルを描いたことがあるか (一度立てたら戻さない。無ければセルに書くときに拡大タイルの範囲を調べない)
 
     byte attr_blank{}; //!< Value "attr_blank" Use this "attr" value for "blank" grids
     char char_blank{}; //!< Value "char_blank" Use this "char" value for "blank" grids
@@ -237,6 +238,7 @@ DisplaySymbol term_what(int x, int y, const DisplaySymbol &ds);
 
 void term_flush();
 errr term_key_push(int k);
+int term_key_queue_pending(const term_type &term);
 int term_key_queue_room();
 errr term_keys_push(std::string_view keys);
 char term_inkey(bool wait, bool take);

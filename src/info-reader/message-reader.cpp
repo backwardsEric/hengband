@@ -33,6 +33,7 @@ tl::expected<void, ParseErrorType> MessageReader::read() const
     return {};
 }
 
+namespace {
 /*!
  * @brief JSON Objectからid群をセットする
  * @param id_list_data id群情報の格納されたJSON Object
@@ -40,10 +41,10 @@ tl::expected<void, ParseErrorType> MessageReader::read() const
  * @return 成功時は空の値、失敗時は解析エラーコード
  * @details モンスター種族の定義を読み込んだ後に呼ぶ。未定義の種族IDは ParseErrorType::INVALID_VALUE を返す。
  */
-static tl::expected<void, ParseErrorType> set_id_list(const nlohmann::json &id_list_data, std::vector<int> &id_list)
+tl::expected<void, ParseErrorType> set_id_list(const nlohmann::json &id_list_data, std::vector<int> &id_list)
 {
-    if (!id_list_data.is_array()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_array(id_list_data); !result) {
+        return result;
     }
 
     for (const auto &id_data : id_list_data) {
@@ -63,6 +64,7 @@ static tl::expected<void, ParseErrorType> set_id_list(const nlohmann::json &id_l
     }
     return {};
 }
+}
 
 /*!
  * @brief JSON Objectからモンスターのメッセージをセットする
@@ -73,11 +75,14 @@ static tl::expected<void, ParseErrorType> set_id_list(const nlohmann::json &id_l
 tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
 {
     const auto &group_data = this->message_data;
-    const auto message_iter = group_data.find("message");
-    if (message_iter == group_data.end() || !message_iter->is_array()) {
-        return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+    if (const auto result = info_require_object(group_data); !result) {
+        return result;
     }
-    const auto &message_array = message_iter.value();
+    const auto &message_array = get_json_value(group_data, "message");
+    // id_list の誤りより先に報告する
+    if (const auto result = info_require_array(message_array); !result) {
+        return result;
+    }
     auto id_list = std::vector<int>();
     struct PendingMessage {
         MonsterMessageType action;
@@ -87,8 +92,7 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
     };
     std::vector<PendingMessage> pending_messages;
 
-    const auto id_list_iter = group_data.find("id_list");
-    const auto has_id_list = (id_list_iter != group_data.end());
+    const auto has_id_list = group_data.contains("id_list");
     const auto publish = [&] {
         for (const auto &message : pending_messages) {
             if (has_id_list) {
@@ -102,7 +106,7 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
     };
 
     if (has_id_list) {
-        if (const auto result = set_id_list(id_list_iter.value(), id_list); !result) {
+        if (const auto result = set_id_list(get_json_value(group_data, "id_list"), id_list); !result) {
             return result;
         }
     } else {
@@ -117,36 +121,30 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
         }
     }
 
-    for (const auto &message : message_array) {
+    const auto read_result = info_read_object_array(message_array, [&pending_messages](const nlohmann::json &message) -> tl::expected<void, ParseErrorType> {
         const auto action = info_read_token(get_json_value(message, "action"), r_info_message_flags);
         if (!action) {
             return tl::make_unexpected(action.error());
         }
 
-        const auto chance_iter = message.find("chance");
-        if (chance_iter == message.end() || !chance_iter->is_number()) {
+        const auto &chance_data = get_json_value(message, "chance");
+        if (!chance_data.is_number()) {
             return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
         }
-        const auto &chance_data = chance_iter.value();
         int chance = 0;
         if (const auto result = info_set_integer(chance_data, chance, true, Range(1, 100)); !result) {
             return result;
         }
 
         bool use_name = true;
-        const auto use_name_iter = message.find("use_name");
-        if (use_name_iter != message.end()) {
-            const auto &use_name_data = use_name_iter.value();
-            if (const auto result = info_set_bool(use_name_data, use_name, false); !result) {
-                return result;
-            }
+        if (const auto result = info_set_bool(get_json_value(message, "use_name"), use_name, false); !result) {
+            return result;
         }
 
-        const auto language_iter = message.find("message");
-        if (language_iter == message.end() || !language_iter->is_object()) {
-            return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
+        const auto &language_list = get_json_value(message, "message");
+        if (const auto result = info_require_object(language_list); !result) {
+            return result;
         }
-        const auto &language_list = language_iter.value();
 
         const auto &ja_list = language_list.find("ja");
         const auto &en_list = language_list.find("en");
@@ -155,7 +153,7 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
             if (en_list == language_list.end()) {
                 return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
             }
-            continue;
+            return {};
         }
         const auto &message_list = ja_list.value();
 #else
@@ -163,7 +161,7 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
             if (ja_list == language_list.end()) {
                 return tl::make_unexpected(ParseErrorType::TOO_FEW_ARGUMENTS);
             }
-            continue;
+            return {};
         }
         const auto &message_list = en_list.value();
 #endif
@@ -188,6 +186,10 @@ tl::expected<void, ParseErrorType> MessageReader::set_mon_message() const
             }
             pending_messages.push_back({ *action, chance, use_name, std::move(*str_test) });
         }
+        return {};
+    });
+    if (!read_result) {
+        return read_result;
     }
     publish();
     return {};

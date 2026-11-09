@@ -92,7 +92,7 @@ TEST_CASE("input_key_with_context publishes the given context while waiting for 
     CHECK(input_key_with_context(InputKind::CONFIRM, "Really? [y/n/Auto]") == 'A');
 }
 
-TEST_CASE("input_key_with_context publishes the any-key context also when all terms are refreshed")
+TEST_CASE("input_key_with_context publishes the any-key context also when the main screen is redrawn")
 {
     test::ScopedInputTerm term;
     term.expect({ InputKind::ANY_KEY, "Hit any key.", {} }, " ");
@@ -104,6 +104,13 @@ TEST_CASE("input_special_key_with_context publishes the given context while wait
     test::ScopedInputTerm term;
     term.expect({ InputKind::FILE_VIEW, "[Press ESC to exit.]", {} }, " ");
     CHECK(input_special_key_with_context(InputKind::FILE_VIEW, "[Press ESC to exit.]") == ' ');
+}
+
+TEST_CASE("input_special_key_with_context publishes the details of the given context")
+{
+    test::ScopedInputTerm term;
+    term.expect({ InputKind::BIRTH, "[ Cursor key for Move, Enter for End ]", BirthInputDetails{ BirthStep::HISTORY } }, "a");
+    CHECK(input_special_key_with_context({ InputKind::BIRTH, "[ Cursor key for Move, Enter for End ]", BirthInputDetails{ BirthStep::HISTORY } }) == 'a');
 }
 
 TEST_CASE("pause_line publishes the any-key context")
