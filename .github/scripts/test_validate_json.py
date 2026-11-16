@@ -234,7 +234,7 @@ class VaultValidationTest(unittest.TestCase):
 
     def test_id_upper_bound(self):
         # schema の上限と C++ の定数を照合するため、ID の上限はソースから読む。
-        maximum = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/info-reader-util.h", "MAX_VAULT_ID")
+        maximum = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/definitions-reader-util.h", "MAX_VAULT_ID")
         for value, accepted in ((maximum, True), (maximum + 1, False)):
             with self.subTest(value=value):
                 record = {**self.record, "id": value}
@@ -1121,7 +1121,6 @@ class DefinitionVersionValidationTest(unittest.TestCase):
         "ArtifactDefinitions": "version",
         "BaseitemDefinitions": "version",
         "ClassMagicDefinitions": "version",
-        "SpellDefinitions": "version",
         "TerrainDefinitions": "version",
         "MonraceDefinitions": "versions",
         "MonsterMessages": "versions",
@@ -1291,8 +1290,8 @@ class FixedMapSymbolSiteTest(unittest.TestCase):
             ("quest map row", lambda: validate_quest_layout_semantics({"map": [f"#{character}#"]})),
         )
 
-    def test_boundaries_follow_general_parser(self):
-        # general-parser.h の is_fixed_map_symbol() と同じく、空白から '~' までの印字可能な ASCII を受け付ける。
+    def test_boundaries_follow_dungeon_grid(self):
+        # dungeon-grid.h の is_fixed_map_symbol() と同じく、空白から '~' までの印字可能な ASCII を受け付ける。
         for character, accepted in ((" ", True), ("~", True), ("\x1f", False), ("\x7f", False), ("é", False)):
             for site, check in self.sites(character):
                 with self.subTest(site=site, character=character):
@@ -1303,7 +1302,7 @@ class FixedMapSymbolSiteTest(unittest.TestCase):
                             check()
 
     def test_helper_accepts_exactly_one_character(self):
-        # general-parser.h の is_fixed_map_symbol() は1文字を受け取る。範囲内の文字を並べた文字列や空の文字列は記号ではない。
+        # dungeon-grid.h の is_fixed_map_symbol() は1文字を受け取る。範囲内の文字を並べた文字列や空の文字列は記号ではない。
         for symbol, accepted in ((" ", True), ("A", True), ("~", True), ("", False), ("AB", False), ("  ", False), ("~~", False),
                                  ("A\x7f", False)):
             with self.subTest(symbol=symbol):

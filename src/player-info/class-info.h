@@ -4,7 +4,7 @@
 #include "object/tval-types.h"
 #include "player-info/class-types.h"
 #include "realm/realm-types.h"
-#include "spell/technic-info-table.h"
+#include "spell/magic-type.h"
 #include "system/angband.h"
 #include <map>
 #include <string>
@@ -30,7 +30,11 @@ struct player_magic {
     int spell_first{}; /* Level of first spell */
     int spell_weight{}; /* Weight that hurts spells */
 
-    magic_type info[MAX_MAGIC + 1][32]{}; /* The available spells */
+    magic_type info[MAX_MAGIC + 1][32]{}; /* The available spells (第一領域として選んだときの値) */
+    magic_type info_second[MAX_MAGIC + 1][32]{}; /* 第二領域として選んだときの値 */
+
+    const magic_type &spell_info(RealmType realm, int spell_id, RealmPosition position) const;
+    bool has_distinct_second(RealmType realm) const;
 };
 
 extern std::vector<player_magic> class_magics_info;

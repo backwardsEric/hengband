@@ -166,14 +166,14 @@ MAX_EGO_ID = load_cpp_constant(REPOSITORY_ROOT / "src/object-enchant/object-ego.
 MAX_HGT = load_cpp_constant(REPOSITORY_ROOT / "src/floor/floor-base-definitions.h", "MAX_HGT")
 MAX_WID = load_cpp_constant(REPOSITORY_ROOT / "src/floor/floor-base-definitions.h", "MAX_WID")
 # ベースアイテム・アーティファクトの種別・副種別・価格の上限。
-ITEM_TYPE_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/item-reader-limits.h", "ITEM_TYPE_MAX")
-ITEM_SUBTYPE_DEFAULT_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/item-reader-limits.h", "ITEM_SUBTYPE_DEFAULT_MAX")
-ITEM_COST_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/item-reader-limits.h", "ITEM_COST_MAX")
+ITEM_TYPE_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/item-reader-limits.h", "ITEM_TYPE_MAX")
+ITEM_SUBTYPE_DEFAULT_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/item-reader-limits.h", "ITEM_SUBTYPE_DEFAULT_MAX")
+ITEM_COST_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/item-reader-limits.h", "ITEM_COST_MAX")
 # BaseitemReader の pval_range() と金貨の価格の上限。
-GOLD_COST_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/baseitem-reader.cpp", "GOLD_COST_MAX")
-EQUIPMENT_PVAL_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/baseitem-reader.cpp", "EQUIPMENT_PVAL_MAX")
-DEVICE_CHARGES_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/baseitem-reader.cpp", "DEVICE_CHARGES_MAX")
-ROD_PVAL_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/baseitem-reader.cpp", "ROD_PVAL_MAX")
+GOLD_COST_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/baseitem-reader.cpp", "GOLD_COST_MAX")
+EQUIPMENT_PVAL_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/baseitem-reader.cpp", "EQUIPMENT_PVAL_MAX")
+DEVICE_CHARGES_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/baseitem-reader.cpp", "DEVICE_CHARGES_MAX")
+ROD_PVAL_MAX = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/baseitem-reader.cpp", "ROD_PVAL_MAX")
 PY_FOOD_FULL = load_cpp_constant(REPOSITORY_ROOT / "src/player/digestion-processor.h", "PY_FOOD_FULL")
 FUEL_LAMP = load_cpp_constant(REPOSITORY_ROOT / "src/system/gamevalue.h", "FUEL_LAMP")
 # ItemKindType の列挙子の名前から値を引く表。種別は番号ではなく列挙子の名前で書く。
@@ -197,7 +197,7 @@ def item_kind(name: str) -> int:
 # 金貨の種別（ItemKindType::GOLD）。凡例のエゴは金貨に付けられない。
 ITEM_KIND_GOLD = item_kind("GOLD")
 # RaceReader は最大の出目（個数×面数）を捕獲したモンスターのHPを持つ short に収める。
-MAX_MONRACE_DICE_ROLL = load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/race-reader.cpp", "MAX_MONRACE_DICE_ROLL")
+MAX_MONRACE_DICE_ROLL = load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/race-reader.cpp", "MAX_MONRACE_DICE_ROLL")
 # TownList::is_all_initialized() が名前を求める町（1〜VALID_TOWNS-1）。町1には別名も要る。
 REQUIRED_TOWN_IDS = range(1, load_cpp_constant(REPOSITORY_ROOT / "src/system/floor/town-list.h", "VALID_TOWNS"))
 # TownMapReader の C・M・R の欄の数の上限（PLAYER_CLASS_TYPE_MAX・MAX_MAGIC・MAX_RACES）。
@@ -325,7 +325,7 @@ def load_cpp_tokens(path: Path) -> set[str]:
 def validate_ego_semantics(data: dict, schema_path: Path) -> None:
     """Check unique IDs, strict integers and integer-percent probabilities."""
     repository_root = schema_path.resolve().parent.parent
-    valid_flags = load_cpp_tokens(repository_root / "src/info-reader/baseitem-tokens-table.cpp")
+    valid_flags = load_cpp_tokens(repository_root / "src/definitions-reader/baseitem-tokens-table.cpp")
     valid_activations = load_cpp_tokens(repository_root / "src/object-enchant/activation-info-table.cpp")
     require_integer(data["version"], ["version"])
     ids = set()
@@ -372,7 +372,7 @@ def require_reader_dice(value: str, path: list, minimum: int = INT_MIN, maximum:
 
 
 # セーブではアイテムのダイスの個数・面数をそれぞれ1バイトで書くため、BaseitemReader・ArtifactReaderは0〜255に限る。
-ITEM_DICE_RANGE = (0, load_cpp_constant(REPOSITORY_ROOT / "src/info-reader/item-reader-limits.h", "ITEM_DICE_MAX"))
+ITEM_DICE_RANGE = (0, load_cpp_constant(REPOSITORY_ROOT / "src/definitions-reader/item-reader-limits.h", "ITEM_DICE_MAX"))
 
 
 INVALID_BASEITEM_NAMES = {"ja": "異常アイテム", "en": "Invalid item"}
@@ -640,7 +640,7 @@ def validate_quest_semantics(data: dict) -> None:
 
 
 def is_fixed_map_symbol(character: str) -> bool:
-    """固定マップの記号（印字可能なASCIIの1文字）か。general-parser.h の is_fixed_map_symbol と揃える。"""
+    """固定マップの記号（印字可能なASCIIの1文字）か。dungeon-grid.h の is_fixed_map_symbol と揃える。"""
     # C++ は1文字（unsigned char）を受け取る。文字列どうしの比較では "AB" なども範囲に入るため、1文字に限る。
     return len(character) == 1 and " " <= character <= "~"
 
@@ -1162,7 +1162,7 @@ def load_cpp_map_keys(path: Path, table: str) -> set[str]:
 def validate_terrain_semantics(data: dict, schema_path: Path) -> None:
     """地形の整数・表示・参照・状態数を確認する。重複定義はCIで拒否する。"""
     repository_root = schema_path.resolve().parent.parent
-    flags = load_cpp_map_keys(repository_root / "src/info-reader/feature-info-tokens-table.cpp", "f_info_flags")
+    flags = load_cpp_map_keys(repository_root / "src/definitions-reader/terrain-tokens-table.cpp", "terrain_flags")
     colors = load_cpp_map_keys(repository_root / "src/term/gameterm.cpp", "color_list")
     ids = set()
     tags = set()
@@ -1233,7 +1233,7 @@ def validate_terrain_semantics(data: dict, schema_path: Path) -> None:
 def load_class_ids(repository_root: Path) -> dict[str, int]:
     """Read the class magic tokens table and PlayerClassType values, not map order."""
     enum_ids = load_cpp_enum_values(repository_root / "src/player-info/class-types.h", "PlayerClassType")
-    reader_path = repository_root / "src/info-reader/magic-info-tokens-table.cpp"
+    reader_path = repository_root / "src/definitions-reader/magic-tokens-table.cpp"
     tokens = re.findall(r'\{\s*"([A-Z][A-Z0-9_]*)"\s*,\s*PlayerClassType::([A-Z][A-Z0-9_]*)\s*\}',
                         reader_path.read_text(encoding="utf-8"))
     if not tokens or any(name not in enum_ids for _, name in tokens):
@@ -1241,10 +1241,14 @@ def load_class_ids(repository_root: Path) -> dict[str, int]:
     return {token: enum_ids[name] for token, name in tokens}
 
 
-def load_spell_tags(schema_path: Path, data_path: Path, registry: Registry) -> dict[str, set[str]]:
+def load_spell_definitions(schema_path: Path, data_path: Path, registry: Registry) -> dict:
     """Use adjacent candidate definitions, or the schema repository's bundled data."""
-    spells = load_validated_companion(schema_path, data_path, registry,
-                                     "SpellDefinitions", "spell", validate_spell_semantics)
+    return load_validated_companion(schema_path, data_path, registry,
+                                    "SpellDefinitions", "spell", validate_spell_semantics)
+
+
+def collect_spell_tags(spells: dict) -> dict[str, set[str]]:
+    """領域ごとに、職業魔法の定義から参照できる呪文タグを集める。"""
     tag_ids = {}
     for realm in spells["realms"]:
         realm_tag_ids = tag_ids.setdefault(realm["name"], {})
@@ -1264,7 +1268,9 @@ def load_spell_tags(schema_path: Path, data_path: Path, registry: Registry) -> d
 def validate_class_magic_semantics(data: dict, schema_path: Path, data_path: Path, registry: Registry) -> None:
     """Check MagicReader's strict integers, class order and realm spell references."""
     class_ids = load_class_ids(schema_path.resolve().parent.parent)
-    spell_tags = load_spell_tags(schema_path, data_path, registry)
+    spells = load_spell_definitions(schema_path, data_path, registry)
+    spell_tags = collect_spell_tags(spells)
+    spell_base_values = collect_spell_base_values(spells)
     previous_id = -1
     for class_index, record in enumerate(data["classes"]):
         path = ["classes", class_index]
@@ -1283,6 +1289,13 @@ def validate_class_magic_semantics(data: dict, schema_path: Path, data_path: Pat
                     raise ValidationError("unknown spell tag in this realm", path=spell_path + ["spell_tag"])
                 for field in ("learn_level", "mana_cost", "difficulty", "first_cast_exp_rate"):
                     require_integer(spell[field], spell_path + [field])
+                if record["name"] == SPELL_BASE_CLASS:
+                    # #5905 の移行の間だけの検査。職業ごとの値を基準値から導く形にしたら消す。
+                    base_values = spell_base_values[realm["name"], spell["spell_tag"]]
+                    for field, base_value in zip(SPELL_BASE_FIELDS, base_values):
+                        if spell[field] != base_value:
+                            raise ValidationError(f"{SPELL_BASE_CLASS} must have the base value {base_value} of SpellDefinitions.jsonc",
+                                                  path=spell_path + [field])
 
 
 def validate_class_skill_semantics(data: dict) -> None:
@@ -1308,8 +1321,54 @@ def validate_class_skill_semantics(data: dict) -> None:
                 raise ValidationError("start experience must not exceed maximum experience", path=skill_path + ["start_exp"])
 
 
+SPELL_BASE_FIELDS = ("learn_level", "mana_cost", "difficulty", "first_cast_exp_rate")
+# 基準値の出どころ。魔法領域はこの職業の値、歌・武芸・呪術は technic_info (この順に 32 件ずつ) と同じにしてある。
+# どちらも #5905 の移行の間だけ値が二重にあるので、食い違いをここで止める。
+SPELL_BASE_CLASS = "MAGE"
+TECHNIC_REALMS = ("MUSIC", "HISSATSU", "HEX")
+SPELLS_IN_REALM = 32
+
+
+def collect_spell_base_values(spells: dict) -> dict[tuple[str, str], tuple[int, ...]]:
+    """(領域, 呪文タグ) から基準値の 4 つ組を引く表を作る。"""
+    return {(realm["name"], spell["spell_tag"]): tuple(spell[field] for field in SPELL_BASE_FIELDS)
+            for realm in spells["realms"] for book in realm["books"] for spell in book["spells"]}
+
+
+def load_technic_info(repository_root: Path) -> dict[str, list[tuple[int, ...]]]:
+    """technic_info の 4 つ組を、領域ごとに呪文 ID の順で返す。"""
+    path = repository_root / "src/spell/technic-info-table.cpp"
+    rows = [tuple(int(value) for value in row)
+            for row in re.findall(r"\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}", path.read_text(encoding="utf-8"))]
+    if len(rows) != len(TECHNIC_REALMS) * SPELLS_IN_REALM:
+        raise ValueError(f"Invalid technic_info table in {path}")
+    return {realm: rows[index * SPELLS_IN_REALM:(index + 1) * SPELLS_IN_REALM] for index, realm in enumerate(TECHNIC_REALMS)}
+
+
+def validate_spell_base_matches_technic_info(data: dict, schema_path: Path) -> None:
+    """歌・武芸・呪術の基準値が technic_info と同じであることを確かめる。
+
+    #5905 の移行の間だけの検査。technic_info を消して基準値から引く形にしたら消す。
+    """
+    if not any(realm["name"] in TECHNIC_REALMS for realm in data["realms"]):
+        return
+    technic_info = load_technic_info(schema_path.resolve().parent.parent)
+    for realm_index, realm in enumerate(data["realms"]):
+        if realm["name"] not in TECHNIC_REALMS:
+            continue
+        for book_index, book in enumerate(realm["books"]):
+            for spell_index, spell in enumerate(book["spells"]):
+                expected = technic_info[realm["name"]][spell["spell_id"]]
+                for field, value in zip(SPELL_BASE_FIELDS, expected):
+                    if spell[field] != value:
+                        raise ValidationError(f"base value must be {value} to match technic_info",
+                                              path=["realms", realm_index, "books", book_index, "spells", spell_index, field])
+
+
 def validate_spell_semantics(data: dict) -> None:
     """Reject strict integer failures, overwrites and ambiguous tag lookups."""
+    # info_validate_version は 2.0 を整数として受け付けない。
+    require_integer(data["version"], ["version"])
     realm_ids = {}
     realm_tags = {}
     for realm_index, realm in enumerate(data["realms"]):
@@ -1326,6 +1385,8 @@ def validate_spell_semantics(data: dict) -> None:
                 if spell["spell_tag"] in tags:
                     raise ValidationError("spell tags must be unique within each realm", path=tag_path)
                 tags.add(spell["spell_tag"])
+                for field in SPELL_BASE_FIELDS:
+                    require_integer(spell[field], path[:-1] + [field])
 
 
 # 小さなID集合だけを保持し、一時候補の検証を繰り返しても保持件数を制限する。
@@ -1497,7 +1558,8 @@ def validate_one(pair: tuple[Path, Path, dict], registry: Registry | None = None
             "MonraceDefinitions.schema.json": lambda: validate_monrace_semantics(data, schema_path, data_path, registry),
             "ClassMagicDefinitions.schema.json": lambda: validate_class_magic_semantics(data, schema_path, data_path, registry),
             "ClassSkillDefinitions.schema.json": lambda: validate_class_skill_semantics(data),
-            "SpellDefinitions.schema.json": lambda: validate_spell_semantics(data),
+            "SpellDefinitions.schema.json": lambda: (validate_spell_semantics(data),
+                                                     validate_spell_base_matches_technic_info(data, schema_path)),
             "MonsterMessages.schema.json": lambda: validate_monster_message_semantics(data, schema_path, data_path, registry),
             "Quest.schema.json": lambda: validate_quest_file_semantics(data, schema_path, data_path, registry),
             "QuestPreferences.schema.json": lambda: validate_quest_preferences_semantics(data, schema_path, data_path, registry),

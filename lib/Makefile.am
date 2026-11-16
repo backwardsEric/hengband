@@ -9,6 +9,9 @@ SUBDIRS = apex bone data edit file help info pref save script user
 
 xtra_graf_hengband_tilesets = \
 	xtra/graf/8x8.bmp
+	xtra/graf/original32.png \
+	xtra/graf/original32.README.txt \
+	xtra/graf/original32.LICENSE.txt
 
 xtra_graf_angband4_conf = xtra/graf/list.txt
 xtra_graf_converted_tilesets = \

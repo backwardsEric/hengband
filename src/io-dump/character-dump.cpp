@@ -1,11 +1,11 @@
 #include "io-dump/character-dump.h"
 #include "artifact/fixed-art-types.h"
 #include "avatar/avatar.h"
+#include "definitions-reader/definition-hash-data.h"
 #include "dungeon/quest.h"
 #include "flavor/flavor-describer.h"
 #include "game-option/birth-options.h"
 #include "game-option/game-play-options.h"
-#include "info-reader/definition-hash-data.h"
 #include "inventory/inventory-slot-types.h"
 #include "io-dump/player-status-dump.h"
 #include "io-dump/special-class-dump.h"
@@ -377,7 +377,7 @@ static void dump_aux_monsters(FILE *fff)
 
         // shape_buffer() は終端文字の分を除いた maxlen - 1 バイトごとに区切るので、名前の欄の幅 + 1 を渡す
         const auto names = shape_buffer(monrace.name, 40 + 1);
-        fmt::println(fff, _("  {:<40} (レベル{:3}){}", "  {:<40} (level {:3}){}"), fmt::bytes(names.front()), monrace.level, defeat_info);
+        fmt::println(fff, _("  {:<40} (レベル{:3}){}", "  {:<40} (level {:3}){}"), names.front(), monrace.level, defeat_info);
         for (const auto &name : names | ranges::views::drop(1)) {
             fmt::println(fff, "  {}", name);
         }

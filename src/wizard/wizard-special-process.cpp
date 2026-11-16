@@ -421,7 +421,6 @@ void wiz_create_feature(PlayerType *player_ptr)
 
     note_spot(player_ptr, *pos);
     lite_spot(player_ptr, *pos);
-    DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
 }
 
 /*!
@@ -515,7 +514,7 @@ void wiz_jump_to_dungeon(PlayerType *player_ptr)
 
     msg_print("You jump to dungeon level {}.", *level);
     if (autosave_l) {
-        do_cmd_save_game(player_ptr, true);
+        request_auto_save();
     }
 
     wiz_jump_floor(player_ptr, *dungeon_id, *level);

@@ -85,7 +85,8 @@
  * setenv ANGBAND_X11_GAMMA 142
  *
  * # Launch Angband
- * ./src/angband -mx11 -- -n6 &
+ * # 上のフォント名はビットマップフォントのものなので、Xft 版でも -fb でビットマップフォントを使う
+ * ./src/hengband -mx11 -- -fb -n6 &
  *
  */
 
@@ -105,20 +106,28 @@
 #include "system/system-variables.h"
 #include "term/gameterm.h"
 #include "term/term-color-types.h"
+#include "term/tile-layout.h"
 #include "util/angband-files.h"
 #include "util/bit-flags-calculator.h"
 #include "util/enum-converter.h"
 #include "util/enum-range.h"
 #include "util/int-char-converter.h"
 #include "util/string-processor.h"
+#include "view/actor-readability.h"
 #include "view/display-symbol.h"
+#include "view/map-tile-layout.h"
+#include "view/original-monster-catalog.h"
+#include "view/original-symbol-tiles.h"
+#include "view/original-tiles.h"
 #include <algorithm>
 #include <filesystem>
 #include <fmt/format.h>
 #include <map>
 #include <memory>
-#include <span>
 #include <string>
+#include <string_view>
+#include <tl/optional.hpp>
+#include <utility>
 /*
  * Available graphic modes
  */
@@ -127,6 +136,7 @@ enum : byte {
     GRAPHICS_ORIGINAL = 1,
     GRAPHICS_ADAM_BOLT = 2,
     GRAPHICS_HENGBAND = 3,
+    GRAPHICS_ORIGINAL_TERRAIN = 4,
 };
 
 #ifdef USE_X11
@@ -456,7 +466,7 @@ static errr Metadpy_init_2(Display *dpy, concptr name)
     m->depth = DefaultDepthOfScreen(m->screen);
 
 #ifdef USE_XFT
-    Visual *vis = DefaultVisual(dpy, 0);
+    Visual *vis = DefaultVisualOfScreen(m->screen);
     if (!XftColorAllocName(dpy, vis, m->cmap, "black", &m->black.xft)) {
         m->black.pixel = BlackPixelOfScreen(m->screen);
         m->black.xft.pixel = m->black.pixel;
@@ -540,11 +550,14 @@ static errr Infowin_prepare(Window xid)
     XGetGeometry(Metadpy->dpy, xid, &tmp_win, &x, &y, &w, &h, &b, &d);
 
 #ifdef USE_XFT
-    Visual *vis = DefaultVisual(Metadpy->dpy, 0);
-    if (vis->c_class != TrueColor) {
-        quit("Display does not support truecolor.\n");
+    // TrueColor の画面が要るのは TrueType フォントで描くときだけで、ビットマップフォントなら要らない
+    if (use_xft_runtime) {
+        Visual *vis = DefaultVisualOfScreen(Metadpy->screen);
+        if (vis->c_class != TrueColor) {
+            quit("Display does not support truecolor. Use \"-- -fb\" to use bitmap fonts.\n");
+        }
+        iwin->draw = XftDrawCreate(Metadpy->dpy, iwin->win, vis, Metadpy->cmap);
     }
-    iwin->draw = XftDrawCreate(Metadpy->dpy, iwin->win, vis, Metadpy->cmap);
 #endif
 
     iwin->x = x;
@@ -710,10 +723,7 @@ static errr Infoclr_init_data(Pixell fg, Pixell bg, int op, int stip)
 {
     infoclr *iclr = Infoclr;
 
-    GC gc = (GC)0;
-    XGCValues gcv;
-    unsigned long gc_mask = 0UL;
-
+    // TrueType フォントのときの画素値は XftColor から取ったもので、従来から zg とは比べていない
     if (!use_xft_runtime) {
         if (bg.pixel > Metadpy->zg) {
             return -1;
@@ -721,25 +731,25 @@ static errr Infoclr_init_data(Pixell fg, Pixell bg, int op, int stip)
         if (fg.pixel > Metadpy->zg) {
             return -1;
         }
-        if ((op < 0) || (op > 15)) {
-            return -1;
-        }
-
-        gcv.function = op;
-        gcv.background = bg.pixel;
-        gcv.foreground = fg.pixel;
-        if (op == 6) {
-            gcv.background = 0;
-        }
-        if (op == 6) {
-            gcv.foreground = (bg.pixel ^ fg.pixel);
-        }
-
-        gcv.fill_style = (stip ? FillStippled : FillSolid);
-        gcv.graphics_exposures = False;
-        gc_mask = (GCFunction | GCBackground | GCForeground | GCFillStyle | GCGraphicsExposures);
-        gc = XCreateGC(Metadpy->dpy, Metadpy->root, gc_mask, &gcv);
     }
+    if ((op < 0) || (op > 15)) {
+        return -1;
+    }
+
+    // TrueType フォントの文字は XftColor で描くが、タイルやカーソルの枠は GC で描くので、フォントの種類によらず作る
+    XGCValues gcv;
+    gcv.function = op;
+    gcv.background = bg.pixel;
+    gcv.foreground = fg.pixel;
+    if (op == 6) {
+        gcv.background = 0;
+        gcv.foreground = (bg.pixel ^ fg.pixel);
+    }
+
+    gcv.fill_style = (stip ? FillStippled : FillSolid);
+    gcv.graphics_exposures = False;
+    const auto gc_mask = (GCFunction | GCBackground | GCForeground | GCFillStyle | GCGraphicsExposures);
+    const auto gc = XCreateGC(Metadpy->dpy, Metadpy->root, gc_mask, &gcv);
 
     *iclr = {};
 
@@ -763,12 +773,7 @@ static errr Infoclr_change_fg(Pixell fg)
 {
     infoclr *iclr = Infoclr;
 
-    if (use_xft_runtime) {
-        iclr->fg = fg;
-        return 0;
-    }
-
-    if (fg.pixel > Metadpy->zg) {
+    if (!use_xft_runtime && (fg.pixel > Metadpy->zg)) {
         return -1;
     }
     XSetForeground(Metadpy->dpy, iclr->gc, fg.pixel);
@@ -795,6 +800,38 @@ static void Infofnt_prepare_xft(XftFont *info)
 }
 #endif
 
+/*!
+ * @brief フォントセットで、ゲームが描く文字に使われるフォントの ascent と descent を求める
+ * @param info フォントセット
+ * @return ascent と descent の組。求められなければ tl::nullopt
+ * @details フォントセットには、ロケールが扱う文字集合ごとのフォントがすべて入る。UTF-8 のロケールでは
+ * iso10646-1 のフォント (アラビア文字のフォントなど) も入り、ゲームでは使わないそのフォントの descent で
+ * 行が高くなってしまう。そこで ASCII と日本語の文字を実際に測り、使われるフォントだけから求める。
+ * XmbTextExtents() の論理的な大きさは、文字列に使われたフォントの ascent と descent の最大になる。
+ * 測っていない文字 (JIS X 0212 の文字など) が別の背の高いフォントで描かれると行からはみ出すが、まれなので許容する。
+ */
+static tl::optional<std::pair<int, int>> measure_fontset_vertical_extents(XFontSet info)
+{
+    // 描くときは UTF-8 で渡すので、測る文字も UTF-8 で書く (英語版は C のロケールなので ASCII だけ)。
+    // 日本語版は ASCII・漢字・半角カナに加え、ロケールによって別のフォントで描かれうる文字も測る。
+    // 日本でだけ使う漢字 (込) は KSC5601・GB2312 のフォントに無く、ギリシャ文字・キリル文字は
+    // en_US.UTF-8 などでは ISO8859-7・KOI8-R などのフォントで描かれる。
+    // -fexec-charset の無いコンパイラではソースを EUC-JP に変換してからビルドするので、
+    // ASCII 以外の文字はユニバーサル文字名で書く ("A漢込αЖｱ")
+    constexpr std::u8string_view sample = _(u8"A\u6F22\u8FBC\u03B1\u0416\uFF71", u8"A");
+
+    XRectangle ink{};
+    XRectangle logical{};
+    XmbTextExtents(info, reinterpret_cast<const char *>(sample.data()), static_cast<int>(sample.length()), &ink, &logical);
+    const auto ascent = -logical.y;
+    const auto descent = logical.height + logical.y;
+    if ((ascent <= 0) || (descent < 0)) {
+        return tl::nullopt;
+    }
+
+    return std::make_pair(ascent, descent);
+}
+
 static errr Infofnt_prepare_fontset(XFontSet info)
 {
     infofnt *ifnt = Infofnt;
@@ -802,7 +839,7 @@ static errr Infofnt_prepare_fontset(XFontSet info)
     XFontStruct **fontinfo;
     char **fontname;
     int n_fonts;
-    int ascent, descent, width;
+    int max_ascent, max_descent, width;
 
     ifnt->fontset_info = info;
 
@@ -811,14 +848,14 @@ static errr Infofnt_prepare_fontset(XFontSet info)
         return -1;
     }
 
-    ascent = descent = width = 0;
+    max_ascent = max_descent = width = 0;
     while (n_fonts-- > 0) {
         cs = &((*fontinfo)->max_bounds);
-        if (ascent < (*fontinfo)->ascent) {
-            ascent = (*fontinfo)->ascent;
+        if (max_ascent < (*fontinfo)->ascent) {
+            max_ascent = (*fontinfo)->ascent;
         }
-        if (descent < (*fontinfo)->descent) {
-            descent = (*fontinfo)->descent;
+        if (max_descent < (*fontinfo)->descent) {
+            max_descent = (*fontinfo)->descent;
         }
         if (((*fontinfo)->max_byte1) > 0) {
             /* 多バイト文字の場合は幅半分(端数切り上げ)で評価する */
@@ -833,6 +870,9 @@ static errr Infofnt_prepare_fontset(XFontSet info)
         fontinfo++;
         fontname++;
     }
+    // 幅は従来どおりすべてのフォントから決め、高さは使われるフォントだけから決める。
+    // 測れなかったときは、高さもすべてのフォントの最大にする
+    const auto [ascent, descent] = measure_fontset_vertical_extents(info).value_or(std::make_pair(max_ascent, max_descent));
     ifnt->asc = ascent;
     ifnt->hgt = ascent + descent;
     ifnt->wid = width;
@@ -869,7 +909,7 @@ static void Infofnt_init_data(concptr name)
 
 #ifdef USE_XFT
     if (use_xft_runtime) {
-        XftFont *info = XftFontOpenName(Metadpy->dpy, 0, name);
+        XftFont *info = XftFontOpenName(Metadpy->dpy, XScreenNumberOfScreen(Metadpy->screen), name);
         if (!info) {
             quit(fmt::format("Failed to find font:\"{}\"", name));
         }
@@ -934,6 +974,28 @@ static void Infofnt_text_std_xft(int x, int y, int len, const XftColor &fg, cons
 }
 #endif
 
+/*!
+ * @brief ビットマップフォントで描く文字の背景を、セルの高さいっぱいに塗る
+ * @param x 左端 (画素)
+ * @param y 上端 (画素)
+ * @param width 幅 (画素)
+ * @details XmbDrawImageString() は、文字ごとに使うフォント自身の大きさの分しか背景を塗らない。
+ * セルの高さはフォントセットの中で最も高いフォントに、幅は最も広いフォントに合わせてあるので、
+ * 低いフォントや狭いフォントの文字ではセルの下や右が塗られず、タイルなど前に描いたものが残る。
+ * そこで背景はこの関数で塗り、文字は XmbDrawString() で描く。
+ */
+static void fill_text_background(int x, int y, int width)
+{
+    static GC gc = nullptr;
+    if (gc == nullptr) {
+        XGCValues gcv{};
+        gcv.graphics_exposures = False;
+        gc = XCreateGC(Metadpy->dpy, Metadpy->root, GCGraphicsExposures, &gcv);
+    }
+    XSetForeground(Metadpy->dpy, gc, Infoclr->bg.pixel);
+    XFillRectangle(Metadpy->dpy, Infowin->win, gc, x, y, width, Infofnt->hgt);
+}
+
 /*
  * Standard Text
  */
@@ -979,7 +1041,8 @@ static errr Infofnt_text_std(int x, int y, concptr str, int len)
             /* unreachable when XFT not compiled */
 #endif
         } else {
-            XmbDrawImageString(Metadpy->dpy, Infowin->win, Infofnt->fontset_info, Infoclr->gc, x, y, _(utf8_buf, str), _(utf8_len, len));
+            fill_text_background(x, y - Infofnt->asc, len * Infofnt->wid);
+            XmbDrawString(Metadpy->dpy, Infowin->win, Infofnt->fontset_info, Infoclr->gc, x, y, _(utf8_buf, str), _(utf8_len, len));
         }
     }
 
@@ -1001,12 +1064,7 @@ static errr Infofnt_text_non(int x, int y, concptr str, int len)
     h = Infofnt->hgt;
     y = y * h + Infowin->oy;
 
-#ifdef USE_XFT
-    if (use_xft_runtime) {
-        XftDrawRect(Infowin->draw, &Infoclr->fg.xft, x, y, w, h);
-        return 0;
-    }
-#endif
+    // TrueType フォントのときも GC の前景は XftColor と同じ画素値なので、同じく GC で塗る
     XFillRectangle(Metadpy->dpy, Infowin->win, Infoclr->gc, x, y, w, h);
 
     return 0;
@@ -1039,10 +1097,9 @@ struct term_data {
     term_type t;
     std::unique_ptr<infofnt> fnt;
     std::unique_ptr<infowin> win;
-#ifndef USE_XFT
     XImage *tiles;
     XImage *TmpImage;
-#endif
+    XImage *original32_canvas; //!< Original32 のタイルを拡大・合成する作業用の画像
 };
 }
 
@@ -1237,40 +1294,11 @@ static void sort_co_ord(co_ord *min, co_ord *max, const co_ord *b, const co_ord 
 }
 
 #ifdef USE_XFT
-template <class T, class D>
-auto make_unique_ptr_with_deleter(T *p, D d) noexcept
-{
-    return std::unique_ptr<T, D>(p, std::move(d));
-}
-
-/*!
- * @brief 矩形領域の枠を描画する
- *
- * ドラッグ時の選択範囲の表示に使用する。
- *
- * @param x 矩形領域の左上のX座標(ピクセル単位)
- * @param y 矩形領域の左上のY座標(ピクセル単位)
- * @param widht 矩形領域の幅(ピクセル単位)
- * @param height 矩形領域の高さ(ピクセル単位)
- */
-static void draw_rectangle_frame(int x, int y, int width, int height)
-{
-    auto gc = make_unique_ptr_with_deleter(XCreateGC(Metadpy->dpy, Infowin->win, 0, NULL),
-        [dpy = Metadpy->dpy](GC gc) { XFreeGC(dpy, gc); });
-
-    XSetForeground(Metadpy->dpy, gc.get(), WhitePixel(Metadpy->dpy, DefaultScreen(Metadpy->dpy)));
-    XDrawLine(Metadpy->dpy, Infowin->win, gc.get(), x, y, x + width, y);
-    XDrawLine(Metadpy->dpy, Infowin->win, gc.get(), x, y, x, y + height);
-    XDrawLine(Metadpy->dpy, Infowin->win, gc.get(), x + width, y, x + width, y + height);
-    XDrawLine(Metadpy->dpy, Infowin->win, gc.get(), x, y + height, x + width, y + height);
-}
-#endif
-
-#ifdef USE_XFT
 static void draw_cursor_xft(int x, int y, int len)
 {
-    // term_what() では中央寄せ時に座標がずれるので直接取得
-    const std::span<const char> cursor_chars(&game_term->scr->c[y][x], len);
+    // term_what_cell() では中央寄せ時に座標がずれるので直接取得する。全角文字の片側のマスだけにかかるなら空白を描く
+    std::string cursor_chars;
+    game_term->scr->append_text(x, y, std::min(len, game_term->wid - x), cursor_chars);
 
 #ifdef JP
     char utf8_buf[16];
@@ -1279,7 +1307,7 @@ static void draw_cursor_xft(int x, int y, int len)
         return;
     }
 #endif
-    Infofnt_text_std_xft(x, y, len, Infoclr->bg.xft, Infoclr->fg.xft, _(utf8_buf, cursor_chars.data()), _(utf8_len, len));
+    Infofnt_text_std_xft(x, y, len, Infoclr->bg.xft, Infoclr->fg.xft, _(utf8_buf, cursor_chars.data()), _(utf8_len, static_cast<int>(cursor_chars.size())));
 }
 #endif
 
@@ -1315,11 +1343,7 @@ static void mark_selection_mark(int x1, int y1, int x2, int y2)
 {
     square_to_pixel(&x1, &y1, x1, y1);
     square_to_pixel(&x2, &y2, x2, y2);
-#ifdef USE_XFT
-    draw_rectangle_frame(x1, y1, x2 - x1 + Infofnt->wid - 1, y2 - y1 + Infofnt->hgt - 1);
-#else
-    XDrawRectangle(Metadpy->dpy, Infowin->win, clr[2]->gc, x1, y1, x2 - x1 + Infofnt->wid - 1, y2 - y1 + Infofnt->hgt - 1);
-#endif
+    XDrawRectangle(Metadpy->dpy, Infowin->win, clr[TERM_SLATE]->gc, x1, y1, x2 - x1 + Infofnt->wid - 1, y2 - y1 + Infofnt->hgt - 1);
 }
 
 /*
@@ -1540,21 +1564,13 @@ static void paste_x11_accept(const XSelectionEvent *ptr)
  */
 static bool paste_x11_send_text(XSelectionRequestEvent *rq)
 {
-    char buf[1024];
     co_ord max, min;
-    TERM_LEN x, y;
-    int l;
-    DisplaySymbol ds;
-
     sort_co_ord(&min, &max, &s_ptr->init, &s_ptr->cur);
     if (XGetSelectionOwner(DPY, XA_PRIMARY) != WIN) {
         return false;
     }
 
-    for (y = 0; y < game_term->hgt; y++) {
-#ifdef JP
-        int kanji = 0;
-#endif
+    for (TERM_LEN y = 0; y < game_term->hgt; y++) {
         if (y < min.y) {
             continue;
         }
@@ -1562,66 +1578,33 @@ static bool paste_x11_send_text(XSelectionRequestEvent *rq)
             break;
         }
 
-        for (l = 0, x = 0; x < game_term->wid; x++) {
-#ifdef JP
-            if (x > max.x) {
-                break;
-            }
-
-            ds = term_what(x, y, ds);
-            if (1 == kanji) {
-                kanji = 2;
-            } else if (iskanji(ds.character)) {
-                kanji = 1;
-            } else {
-                kanji = 0;
-            }
-
-            if (x < min.x) {
-                continue;
-            }
-
-            /*
-             * A single kanji character was divided in two...
-             * Delete the garbage.
-             */
-            if ((2 == kanji && x == min.x) || (1 == kanji && x == max.x)) {
-                ds.character = ' ';
-            }
-#else
-            if (x > max.x) {
-                break;
-            }
-            if (x < min.x) {
-                continue;
-            }
-
-            ds = term_what(x, y, ds);
-#endif
-
-            buf[l] = ds.character;
-            l++;
+        // 選択範囲の端で分断された全角文字は空白にする。座標は term_what_cell() と同じく端末のオフセットを加えて読む
+        std::string line;
+        const auto term_y = y + game_term->offset_y;
+        const auto term_x_begin = std::max(min.x + game_term->offset_x, 0);
+        const auto term_x_end = std::min(std::min(max.x, game_term->wid - 1) + game_term->offset_x, game_term->wid - 1);
+        if ((term_y >= 0) && (term_y < game_term->hgt) && (term_x_begin <= term_x_end)) {
+            game_term->scr->append_text(term_x_begin, term_y, term_x_end - term_x_begin + 1, line);
         }
 
         // 末尾の空白を削る。
-        while (l >= 1 && buf[l - 1] == ' ') {
-            l--;
+        while (line.ends_with(' ')) {
+            line.pop_back();
         }
 
         // 複数行の場合、各行末に改行を付加。
         if (min.y != max.y) {
-            buf[l] = '\n';
-            l++;
+            line.push_back('\n');
         }
-
-        buf[l] = '\0';
 
 #ifdef JP
         char utf8_buf[2048];
-        const int len = euc_to_utf8(buf, l, utf8_buf, sizeof(utf8_buf));
+        const int len = euc_to_utf8(line.data(), line.length(), utf8_buf, sizeof(utf8_buf));
+#else
+        const auto len = static_cast<int>(line.size());
 #endif
-        if (_(len, l) > 0) {
-            XChangeProperty(DPY, rq->requestor, rq->property, xa_utf8, 8, PropModeAppend, (unsigned char *)_(utf8_buf, buf), _(len, l));
+        if (len > 0) {
+            XChangeProperty(DPY, rq->requestor, rq->property, xa_utf8, 8, PropModeAppend, (unsigned char *)_(utf8_buf, line.data()), len);
         }
     }
 
@@ -1995,8 +1978,15 @@ static errr game_term_xtra_x11_react(void)
 #else
                 pixel.pixel = create_pixel(Metadpy->dpy, color_table[i][1], color_table[i][2], color_table[i][3]);
 #endif
+                // カラーの画面では、前景色は初期化のときもここでも create_pixel() で確保したものなので、使わなくなった側を解放する
+                const auto old_pixel = clr[i]->fg;
                 Infoclr_set(clr[i].get());
-                Infoclr_change_fg(pixel);
+                const auto &unused_pixel = (Infoclr_change_fg(pixel) == 0) ? old_pixel : pixel;
+#ifdef USE_XFT
+                free_pixel(Metadpy->dpy, unused_pixel.xft);
+#else
+                free_pixel(Metadpy->dpy, unused_pixel.pixel);
+#endif
             }
         }
     }
@@ -2030,15 +2020,10 @@ static errr game_term_xtra_x11(int n, int v)
     case TERM_XTRA_SCENE: {
         return game_term_xtra_x11_scene(v) ? 0 : 1;
     }
-#ifdef USE_XFT
     case TERM_XTRA_FRESH:
-        Metadpy_update(1, 1, 0);
+        // TrueType フォントで描くときだけ X サーバとの同期を待ち、ビットマップフォントなら送るだけにする
+        Metadpy_update(1, use_xft_runtime, 0);
         return 0;
-#else
-    case TERM_XTRA_FRESH:
-        Metadpy_update(1, 0, 0);
-        return 0;
-#endif
     case TERM_XTRA_BORED:
         return CheckEvent(0);
     case TERM_XTRA_EVENT:
@@ -2066,6 +2051,22 @@ static errr game_term_xtra_x11(int n, int v)
     return 1;
 }
 
+/*!
+ * @brief タイルを使っているときのカーソルを、二重の枠で描く
+ * @param x 左端の桁
+ * @param y 上端の行
+ * @param width 枠の幅 (画素)
+ * @param height 枠の高さ (画素)
+ */
+static void draw_tile_cursor(int x, int y, int width, int height)
+{
+    int left;
+    int top;
+    square_to_pixel(&left, &top, x, y);
+    XDrawRectangle(Metadpy->dpy, Infowin->win, xor_->gc, left, top, width - 1, height - 1);
+    XDrawRectangle(Metadpy->dpy, Infowin->win, xor_->gc, left + 1, top + 1, width - 3, height - 3);
+}
+
 /*
  * Draw the cursor as an inverted rectangle.
  *
@@ -2074,17 +2075,7 @@ static errr game_term_xtra_x11(int n, int v)
 static errr game_term_curs_x11(int x, int y)
 {
     if (use_graphics) {
-#ifdef USE_XFT
-        if (use_xft_runtime) {
-            XftDrawRect(Infowin->draw, &xor_->fg.xft, x * Infofnt->wid + Infowin->ox, y * Infofnt->hgt + Infowin->oy, Infofnt->wid - 1, Infofnt->hgt - 1);
-            XftDrawRect(Infowin->draw, &xor_->fg.xft, x * Infofnt->wid + Infowin->ox + 1, y * Infofnt->hgt + Infowin->oy + 1, Infofnt->wid - 3, Infofnt->hgt - 3);
-            return 0;
-        }
-#endif
-        XDrawRectangle(
-            Metadpy->dpy, Infowin->win, xor_->gc, x * Infofnt->wid + Infowin->ox, y * Infofnt->hgt + Infowin->oy, Infofnt->wid - 1, Infofnt->hgt - 1);
-        XDrawRectangle(
-            Metadpy->dpy, Infowin->win, xor_->gc, x * Infofnt->wid + Infowin->ox + 1, y * Infofnt->hgt + Infowin->oy + 1, Infofnt->wid - 3, Infofnt->hgt - 3);
+        draw_tile_cursor(x, y, Infofnt->wid, Infofnt->hgt);
     } else {
         Infoclr_set(xor_.get());
         draw_cursor(x, y, 1);
@@ -2099,17 +2090,18 @@ static errr game_term_curs_x11(int x, int y)
 static errr game_term_bigcurs_x11(int x, int y)
 {
     if (use_graphics) {
-#ifdef USE_XFT
-        if (use_xft_runtime) {
-            XftDrawRect(Infowin->draw, &xor_->fg.xft, x * Infofnt->wid + Infowin->ox, y * Infofnt->hgt + Infowin->oy, Infofnt->twid - 1, Infofnt->hgt - 1);
-            XftDrawRect(Infowin->draw, &xor_->fg.xft, x * Infofnt->wid + Infowin->ox + 1, y * Infofnt->hgt + Infowin->oy + 1, Infofnt->twid - 3, Infofnt->hgt - 3);
-            return 0;
+        // 地図を拡大したタイル (4 セル × 2 行) の中なら、そのブロック全体を囲む (Windows 版と同じ)
+        const auto block = term_tile_block_at(*game_term->scr, x, y);
+        int width = Infofnt->twid;
+        int height = Infofnt->hgt;
+        if (block.zoomed()) {
+            x = block.x;
+            y = block.y;
+            width = Infofnt->wid * block.width;
+            height = Infofnt->hgt * block.height;
         }
-#endif
-        XDrawRectangle(
-            Metadpy->dpy, Infowin->win, xor_->gc, x * Infofnt->wid + Infowin->ox, y * Infofnt->hgt + Infowin->oy, Infofnt->twid - 1, Infofnt->hgt - 1);
-        XDrawRectangle(
-            Metadpy->dpy, Infowin->win, xor_->gc, x * Infofnt->wid + Infowin->ox + 1, y * Infofnt->hgt + Infowin->oy + 1, Infofnt->twid - 3, Infofnt->hgt - 3);
+
+        draw_tile_cursor(x, y, width, height);
     } else {
         Infoclr_set(xor_.get());
         draw_cursor(x, y, 2);
@@ -2140,7 +2132,6 @@ static errr game_term_text_x11(TERM_LEN x, TERM_LEN y, int n, TERM_COLOR a, conc
     return 0;
 }
 
-#ifndef USE_XFT
 /*
  * Draw some graphical characters.
  */
@@ -2203,6 +2194,212 @@ static errr game_term_pict_x11(TERM_LEN x, TERM_LEN y, int n, const TERM_COLOR *
     s_ptr->drawn = false;
     return 0;
 }
+
+#ifdef HAVE_LIBPNG
+namespace {
+/*!
+ * @brief TrueColor の画面で、0x00RRGGBB の色を X の画素値に変える
+ */
+class TrueColorConverter {
+public:
+    explicit TrueColorConverter(const Visual &visual)
+        : red(visual.red_mask)
+        , green(visual.green_mask)
+        , blue(visual.blue_mask)
+    {
+    }
+
+    unsigned long to_pixel(uint32_t rgb) const
+    {
+        return this->red.place((rgb >> 16) & 0xff) | this->green.place((rgb >> 8) & 0xff) | this->blue.place(rgb & 0xff);
+    }
+
+private:
+    class Channel {
+    public:
+        explicit Channel(unsigned long mask)
+        {
+            while ((mask != 0) && !((mask >> this->shift) & 1)) {
+                ++this->shift;
+            }
+            while ((mask >> (this->shift + this->bits)) & 1) {
+                ++this->bits;
+            }
+        }
+
+        unsigned long place(uint32_t value) const
+        {
+            const auto scaled = this->bits >= 8 ? static_cast<unsigned long>(value) << (this->bits - 8) : static_cast<unsigned long>(value) >> (8 - this->bits);
+            return scaled << this->shift;
+        }
+
+    private:
+        int shift = 0;
+        int bits = 0;
+    };
+
+    Channel red;
+    Channel green;
+    Channel blue;
+};
+
+tl::optional<RgbImage> original32_image;
+tl::optional<TrueColorConverter> original32_converter;
+
+/*!
+ * @brief Original32 の画像を読み込み、見やすく補正する
+ * @param path 画像のパス
+ * @return 読み込めたか
+ */
+bool load_original32(const std::filesystem::path &path)
+{
+    auto *visual = DefaultVisual(Metadpy->dpy, DefaultScreen(Metadpy->dpy));
+    if (visual->c_class != TrueColor) {
+        plog(_("Original32 のタイルは TrueColor の画面でしか使えません。", "Original32 tiles require a TrueColor display."));
+        return false;
+    }
+    auto image = read_png(path);
+    if (!image) {
+        plog(fmt::format(_("画像 '{}' を読み込めません。", "Cannot read image file '{}'"), path.string()));
+        return false;
+    }
+    original_tiles::detect_catalogs(image->width, image->height);
+    // 補正できないのは、幅が違うかモンスターやプレイヤーの画像の範囲が無い画像なので、文字の表示に戻す
+    if (!original_tiles::make_image_readable(image->pixels, image->width, image->height)) {
+        original_tiles::detect_catalogs(0, 0);
+        plog(fmt::format(_("画像 '{}' は Original32 のタイルの画像ではありません。", "Image file '{}' is not an Original32 tile image."), path.string()));
+        return false;
+    }
+    original32_image = std::move(image);
+    original32_converter.emplace(*visual);
+    return true;
+}
+
+/*!
+ * @brief 拡大タイルの大きさまで描ける作業用の画像を作る
+ * @param dpy ディスプレイ
+ * @param width 幅 (画素)
+ * @param height 高さ (画素)
+ * @return 作った画像。作れなければ nullptr
+ */
+XImage *create_original32_canvas(Display *dpy, int width, int height)
+{
+    auto *image = XCreateImage(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultDepth(dpy, DefaultScreen(dpy)), ZPixmap, 0, nullptr, width, height, 32, 0);
+    if (image == nullptr) {
+        return nullptr;
+    }
+    image->data = static_cast<char *>(malloc(static_cast<size_t>(image->bytes_per_line) * height));
+    if (image->data == nullptr) {
+        XDestroyImage(image);
+        return nullptr;
+    }
+    return image;
+}
+
+/*!
+ * @brief 記号に対応するタイルを、作業用の画像に拡大して描く
+ * @param canvas 作業用の画像
+ * @param width 描く幅 (画素)
+ * @param height 描く高さ (画素)
+ * @param symbol 端末のセルの属性と文字
+ * @details Windows 版の StretchBlt (COLORONCOLOR) と同じく最近傍で拡大し、透過するタイルは透過色の画素を描かない。
+ */
+void paint_original32_tile(XImage *canvas, int width, int height, DisplaySymbol symbol)
+{
+    const auto source = original_tiles::tile_source(symbol);
+    if (!source) {
+        return;
+    }
+    const auto &image = *original32_image;
+    const auto source_x = source->column * 32;
+    const auto source_y = source->row * 32;
+    if ((source_x + 32 > image.width) || (source_y + 32 > image.height)) {
+        return;
+    }
+    for (auto y = 0; y < height; ++y) {
+        const auto *row = &image.pixels[static_cast<size_t>(source_y + y * 32 / height) * image.width + source_x];
+        for (auto x = 0; x < width; ++x) {
+            const auto pixel = row[x * 32 / width] & 0x00ffffffU;
+            if (source->transparent && (pixel == original_tiles::ACTOR_TRANSPARENT)) {
+                continue;
+            }
+            XPutPixel(canvas, x, y, original32_converter->to_pixel(pixel));
+        }
+    }
+}
+
+/*!
+ * @brief タイルの上に実際のフォントで文字を描く (黒い縁取り付き)
+ * @param td 端末
+ * @param x 描く範囲の左端 (画素)
+ * @param y 描く範囲の上端 (画素)
+ * @param width 描く範囲の幅 (画素)
+ * @param height 描く範囲の高さ (画素)
+ * @param character 文字
+ * @param color 文字の色
+ */
+void draw_original32_glyph(const term_data &td, int x, int y, int width, int height, char character, int color)
+{
+    const auto &font = *td.fnt;
+    const auto text_x = x + (width - font.wid) / 2;
+    const auto text_y = y + (height - font.hgt) / 2 + font.asc;
+    const auto draw = [&](int dx, int dy, const infoclr &iclr) {
+#ifdef USE_XFT
+        if (use_xft_runtime) {
+            // ASCII の文字なので UTF-8 への変換は要らない
+            XftDrawString8(td.win->draw, &iclr.fg.xft, font.xft_info, text_x + dx, text_y + dy, reinterpret_cast<const FcChar8 *>(&character), 1);
+            return;
+        }
+#endif
+        XmbDrawString(Metadpy->dpy, td.win->win, font.fontset_info, iclr.gc, text_x + dx, text_y + dy, &character, 1);
+    };
+    for (const auto &[dx, dy] : { std::pair{ -1, 0 }, std::pair{ 1, 0 }, std::pair{ 0, -1 }, std::pair{ 0, 1 } }) {
+        draw(dx, dy, *clr[TERM_DARK]);
+    }
+    draw(0, 0, *clr[color]);
+}
+}
+
+/*!
+ * @brief Original32 のタイルを描く
+ * @details Windows 版の term_pict_win() の Original32 の描画と同じ順で、地形の上にアクターやアイテムを重ねる。
+ */
+static errr game_term_pict_original32_x11(TERM_LEN x, TERM_LEN y, int n, const TERM_COLOR *ap, const char *cp, const TERM_COLOR *tap, const char *tcp)
+{
+    auto *td = static_cast<term_data *>(game_term->data);
+    auto *canvas = td->original32_canvas;
+    const auto black = original32_converter->to_pixel(0);
+    auto px = x * td->fnt->wid + td->win->ox;
+    const auto py = y * td->fnt->hgt + td->win->oy;
+    for (auto i = 0; i < n; ++i, px += td->fnt->wid) {
+        // 一括描画には、左側のタイルで描画済みの右半分が含まれることがある。
+        if (original_tiles::is_bigtile_continuation({ ap[i], cp[i] })) {
+            continue;
+        }
+        const auto block = term_tile_block_at(term_pict_buffer(), x + i, y);
+        const auto width = std::min(td->fnt->wid * block.width, canvas->width);
+        const auto height = std::min(td->fnt->hgt * block.height, canvas->height);
+        for (auto yy = 0; yy < height; ++yy) {
+            for (auto xx = 0; xx < width; ++xx) {
+                XPutPixel(canvas, xx, yy, black);
+            }
+        }
+        paint_original32_tile(canvas, width, height, { tap[i], tcp[i] });
+        const DisplaySymbol foreground{ ap[i], cp[i] };
+        const auto is_catalog_monster = original_tiles::monster_catalog_available && original_tiles::decode_monster_catalog_tile(foreground).has_value();
+        const auto glyph_color = is_catalog_monster ? tl::optional<int>{} : original_tiles::decode_glyph_color(foreground);
+        if (is_catalog_monster || (!glyph_color && ((ap[i] != tap[i]) || (cp[i] != tcp[i])))) {
+            paint_original32_tile(canvas, width, height, foreground);
+        }
+        XPutImage(Metadpy->dpy, td->win->win, clr[0]->gc, canvas, 0, 0, px, py, width, height);
+        if (glyph_color) {
+            draw_original32_glyph(*td, px, py, width, height, static_cast<char>(cp[i] & 0x7f), *glyph_color);
+        }
+    }
+
+    s_ptr->drawn = false;
+    return 0;
+}
 #endif
 
 #ifdef USE_XIM
@@ -2233,12 +2430,13 @@ static void IMInstantiateCallback(Display *display, XPointer unused1, XPointer u
             break;
         }
     }
-    if (i >= xim_styles->count_styles) {
+    const auto is_supported = i < xim_styles->count_styles;
+    XFree(xim_styles);
+    if (!is_supported) {
         fmt::println("Sorry, your IM does not support 'Root' preedit style...");
         XCloseIM(xim);
         return;
     }
-    XFree(xim_styles);
 
     Metadpy->xim = xim;
 
@@ -2557,12 +2755,10 @@ errr init_x11(int argc, char *argv[])
     concptr dpy_name = "";
     int num_term = 3;
 
-#ifndef USE_XFT
     int pict_wid = 0;
     int pict_hgt = 0;
 
     char *TmpData;
-#endif
 
     for (i = 1; i < argc; i++) {
         if (prefix(argv[i], "-d")) {
@@ -2584,7 +2780,6 @@ errr init_x11(int argc, char *argv[])
             continue;
         }
 
-#ifndef USE_XFT
         if (prefix(argv[i], "-s")) {
             smoothRescaling = false;
             continue;
@@ -2599,7 +2794,16 @@ errr init_x11(int argc, char *argv[])
             arg_graphics = GRAPHICS_ORIGINAL;
             continue;
         }
-#endif
+
+        if (prefix(argv[i], "-t")) {
+            arg_graphics = GRAPHICS_ORIGINAL_TERRAIN;
+            continue;
+        }
+
+        if (prefix(argv[i], "-z")) {
+            original_tiles::double_map_size = true;
+            continue;
+        }
 
         if (prefix(argv[i], "-b")) {
             arg_bigtile = use_bigtile = true;
@@ -2707,7 +2911,6 @@ errr init_x11(int argc, char *argv[])
     }
     use_music = arg_music;
 
-#ifndef USE_XFT
     char filename[1024]{};
     switch (arg_graphics) {
     case GRAPHICS_ORIGINAL: {
@@ -2730,7 +2933,49 @@ errr init_x11(int argc, char *argv[])
         }
         break;
     }
+    case GRAPHICS_ORIGINAL_TERRAIN: {
+#ifdef HAVE_LIBPNG
+        if (load_original32(path_build(ANGBAND_DIR_XTRA, "graf/original32.png"))) {
+            use_graphics = true;
+            ANGBAND_GRAF = "original32";
+        }
+#else
+        plog(_("このビルドでは Original32 のタイルを使えません (libpng が要ります)。", "Original32 tiles are not available in this build (libpng is required)."));
+#endif
+        break;
     }
+    }
+
+#ifdef HAVE_LIBPNG
+    if (use_graphics && (ANGBAND_GRAF == "original32")) {
+        for (i = 0; i < num_term; i++) {
+            auto &td = data[i];
+            // 拡大した地図のタイル (4 セル × 2 行) まで描ける大きさにする
+            td.original32_canvas = create_original32_canvas(Metadpy->dpy, td.fnt->wid * 4, td.fnt->hgt * 2);
+            if (td.original32_canvas == nullptr) {
+                plog(_("Original32 のタイルの作業用の画像を作れません。", "Cannot create a work image for Original32 tiles."));
+                use_graphics = false;
+                ANGBAND_GRAF = "ascii";
+                return 0;
+            }
+        }
+        for (i = 0; i < num_term; i++) {
+            auto &t = data[i].t;
+            t.pict_hook = game_term_pict_original32_x11;
+            t.higher_pict = true;
+        }
+
+        // 地図の拡大は 2 倍幅のタイルを前提とする。実際に Original32 へ切り替わったときだけ有効にする (Windows 版と同じ)
+        if (original_tiles::double_map_size && !use_bigtile) {
+            arg_bigtile = use_bigtile = true;
+            for (i = 0; i < num_term; i++) {
+                auto &fnt = *data[i].fnt;
+                fnt.twid = static_cast<int16_t>(fnt.wid * 2);
+            }
+        }
+        return 0;
+    }
+#endif
 
     if (use_graphics) {
         Display *dpy = Metadpy->dpy;
@@ -2743,6 +2988,9 @@ errr init_x11(int argc, char *argv[])
             t->higher_pict = true;
             td->tiles = ResizeImage(dpy, tiles_raw, pict_wid, pict_hgt, td->fnt->twid, td->fnt->hgt);
         }
+
+        // 端末ごとに拡大・縮小した画像を作ったので、読み込んだ元の画像はもう使わない
+        XDestroyImage(tiles_raw);
 
         for (i = 0; i < num_term; i++) {
             term_data *td = &data[i];
@@ -2760,7 +3008,6 @@ errr init_x11(int argc, char *argv[])
             td->TmpImage = XCreateImage(dpy, visual, depth, ZPixmap, 0, TmpData, td->fnt->twid, td->fnt->hgt, 8, 0);
         }
     }
-#endif /* ! USE_XFT */
     return 0;
 }
 

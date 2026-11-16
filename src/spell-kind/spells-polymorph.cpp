@@ -24,9 +24,11 @@
  * @brief 変身処理向けにモンスターの近隣レベル帯モンスターを返す
  * @param player_ptr プレイヤーへの参照ポインタ
  * @param monrace_id 基準となるモンスター種族ID
+ * @param pos 変身するモンスターの座標
  * @return 変更先のモンスター種族ID
+ * @details 生成テーブルは、その座標にモンスターが自然発生するときと同じ条件 (階の生成条件と地形) で絞り込む。
  */
-static MonraceId select_polymorph_monrace_id(PlayerType *player_ptr, MonraceId monrace_id)
+static MonraceId select_polymorph_monrace_id(PlayerType *player_ptr, MonraceId monrace_id, const Pos2D &pos)
 {
     const auto &monraces = MonraceList::get_instance();
     const auto &monrace = monraces.get_monrace(monrace_id);
@@ -40,8 +42,12 @@ static MonraceId select_polymorph_monrace_id(PlayerType *player_ptr, MonraceId m
     };
     const auto lev1 = monrace.level - roll_level_diff();
     const auto lev2 = monrace.level + roll_level_diff();
+
+    // 生成テーブルの絞り込みを毎回設定し直す。設定しないと直前の召喚などの絞り込みが残っていて、それに沿った種族に偏る
+    const auto &floor = *player_ptr->current_floor_ptr;
+    get_mon_num_prep_enum(player_ptr, floor.get_monrace_hook(), floor.get_monrace_hook_terrain_at(pos));
     for (auto i = 0; i < 1000; i++) {
-        const auto new_monrace_id = get_mon_num(player_ptr, 0, (player_ptr->current_floor_ptr->dun_level + monrace.level) / 2 + 5, PM_NONE);
+        const auto new_monrace_id = get_mon_num(player_ptr, 0, (floor.dun_level + monrace.level) / 2 + 5, PM_NONE);
         if (!MonraceList::is_valid(new_monrace_id)) {
             break;
         }
@@ -88,7 +94,7 @@ bool polymorph_monster(PlayerType *player_ptr, POSITION y, POSITION x)
     }
 
     auto back_m = monster.clone();
-    new_r_idx = select_polymorph_monrace_id(player_ptr, old_r_idx);
+    new_r_idx = select_polymorph_monrace_id(player_ptr, old_r_idx, { y, x });
     if (new_r_idx == old_r_idx) {
         return false;
     }

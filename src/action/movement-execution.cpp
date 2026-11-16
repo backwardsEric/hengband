@@ -30,7 +30,6 @@
 #include "player/player-move.h"
 #include "player/player-status-flags.h"
 #include "player/player-status.h"
-#include "system/deferred-update-requests.h"
 #include "system/enums/monrace/monrace-id.h"
 #include "system/floor/floor-info.h"
 #include "system/floor/wilderness-grid.h"
@@ -94,44 +93,37 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
                 wilderness.move_player_to(Direction(7));
                 player_ptr->oldpy = floor.height - 2;
                 player_ptr->oldpx = floor.width - 2;
-                player_ptr->ambush_flag = false;
             } else if ((pos.y == 0) && (pos.x == MAX_WID - 1)) {
                 wilderness.move_player_to(Direction(9));
                 player_ptr->oldpy = floor.height - 2;
                 player_ptr->oldpx = 1;
-                player_ptr->ambush_flag = false;
             } else if ((pos.y == MAX_HGT - 1) && (pos.x == 0)) {
                 wilderness.move_player_to(Direction(1));
                 player_ptr->oldpy = 1;
                 player_ptr->oldpx = floor.width - 2;
-                player_ptr->ambush_flag = false;
             } else if ((pos.y == MAX_HGT - 1) && (pos.x == MAX_WID - 1)) {
                 wilderness.move_player_to(Direction(3));
                 player_ptr->oldpy = 1;
                 player_ptr->oldpx = 1;
-                player_ptr->ambush_flag = false;
             } else if (pos.y == 0) {
                 wilderness.move_player_to(Direction(8));
                 player_ptr->oldpy = floor.height - 2;
                 player_ptr->oldpx = pos.x;
-                player_ptr->ambush_flag = false;
             } else if (pos.y == MAX_HGT - 1) {
                 wilderness.move_player_to(Direction(2));
                 player_ptr->oldpy = 1;
                 player_ptr->oldpx = pos.x;
-                player_ptr->ambush_flag = false;
             } else if (pos.x == 0) {
                 wilderness.move_player_to(Direction(4));
                 player_ptr->oldpx = floor.width - 2;
                 player_ptr->oldpy = pos.y;
-                player_ptr->ambush_flag = false;
             } else if (pos.x == MAX_WID - 1) {
                 wilderness.move_player_to(Direction(6));
                 player_ptr->oldpx = 1;
                 player_ptr->oldpy = pos.y;
-                player_ptr->ambush_flag = false;
             }
 
+            player_ptr->ambush_flag = false;
             player_ptr->leaving = true;
             PlayerEnergy(player_ptr).set_player_turn_energy(100);
             return;
@@ -349,7 +341,6 @@ void exe_movement(PlayerType *player_ptr, const Direction &dir, bool do_pickup, 
 
     if (p_can_kill_walls) {
         cave_alter_feat(player_ptr, pos.y, pos.x, TerrainCharacteristics::CAN_DISINTEGRATE);
-        DeferredUpdateRequests::get_instance().set_flag(StatusRecalculatingFlag::FLOW);
     }
 
     uint32_t mpe_mode = MPE_ENERGY_USE;

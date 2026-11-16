@@ -9,8 +9,8 @@ License: unknown
 Group: Amusements/Games
 Url: https://hengband.github.io
 Source: hengband-%{version}.tar.gz
-Requires: ncurses-libs libstdc++ libcurl libX11 libXft
-BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf libX11-devel libXft-devel
+Requires: ncurses-libs libstdc++ libcurl libX11 libXft libpng
+BuildRequires: autoconf automake gcc-c++ ncurses-devel libcurl-devel nkf libX11-devel libXft-devel libpng-devel
 
 Requires: %{name}-data = %{version}
 
@@ -20,7 +20,7 @@ Summary: %{name}-data %{version}
 
 %package en
 
-Requires: ncurses-libs libstdc++ libcurl libX11 libXft
+Requires: ncurses-libs libstdc++ libcurl libX11 libXft libpng
 Requires: %{name}-data = %{version}
 Summary: %{name}-en %{version}
 
@@ -150,6 +150,9 @@ exit 0
 %{_datadir}/games/%{name}/lib/help/*.txt
 %{_datadir}/games/%{name}/lib/pref/*.prf
 %{_datadir}/games/%{name}/lib/xtra/graf/8x8.bmp
+%{_datadir}/games/%{name}/lib/xtra/graf/original32.png
+%{_datadir}/games/%{name}/lib/xtra/graf/original32.LICENSE.txt
+%{_datadir}/games/%{name}/lib/xtra/graf/original32.README.txt
 %doc readme.md readme_angband readme-eng.md autopick.txt autopick_eng.txt
 %license lib/help/jlicense.txt THIRD-PARTY-NOTICES.txt
 

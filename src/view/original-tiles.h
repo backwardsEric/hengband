@@ -2,9 +2,12 @@
 
 #include "util/point-2d.h"
 #include "view/display-symbol.h"
+#include <cstdint>
+#include <span>
 #include <string_view>
 #include <tl/optional.hpp>
 
+class MapVisibilityContext;
 class PlayerType;
 class TerrainType;
 class ItemEntity;
@@ -54,7 +57,20 @@ struct FloorConnections {
     int variant;
 };
 
+/*!
+ * @brief 記号に対応するタイルの画像上の位置 (タイル単位)
+ */
+struct TileSource {
+    int column; //!< 画像上の列
+    int row; //!< 画像上の行
+    bool transparent; //!< 透過色 (マゼンタ) の画素を描かずに重ねるか
+};
+
 bool is_enabled();
+tl::optional<TileSource> tile_source(DisplaySymbol symbol);
+tl::optional<int> decode_glyph_color(DisplaySymbol symbol);
+void detect_catalogs(int width, int height);
+bool make_image_readable(std::span<uint32_t> pixels, int width, int height);
 int item_tile_index(ItemKindType type, int subtype, int appearance);
 DisplaySymbol item_tile_symbol(int icon, int color);
 tl::optional<int> decode_item_tile(DisplaySymbol symbol);
@@ -68,6 +84,7 @@ int floor_variant(const Pos2D &pos, uint32_t seed);
 int supplemental_tile_index(std::string_view tag);
 bool is_animated_liquid(std::string_view tag);
 int liquid_variant(const Pos2D &pos, uint32_t frame);
+bool is_liquid_animation_visible(const MapVisibilityContext &context, const Pos2D &pos);
 bool is_liquid_animation_visible(const PlayerType &player, const Pos2D &pos);
 void advance_liquid_animation(PlayerType &player);
 int standalone_floor_variant(const Pos2D &pos, uint32_t seed);
@@ -78,6 +95,8 @@ tl::optional<FloorConnections> decode_connected_floor(DisplaySymbol symbol);
 int connected_floor_tile_index(const FloorConnections &connections);
 bool needs_neighbor_redraw(const PlayerType &player, const Pos2D &pos);
 DisplaySymbol tile_symbol(int index, int lighting);
+DisplaySymbol terrain_symbol(const MapVisibilityContext &context, const Pos2D &pos, const TerrainType &terrain, int lighting, DisplaySymbol fallback);
 DisplaySymbol terrain_symbol(const PlayerType &player, const Pos2D &pos, const TerrainType &terrain, int lighting, DisplaySymbol fallback);
+DisplaySymbolPair encode_foreground(const MapVisibilityContext &context, const Pos2D &pos, DisplaySymbolPair symbols);
 DisplaySymbolPair encode_foreground(const PlayerType &player, const Pos2D &pos, DisplaySymbolPair symbols);
 }

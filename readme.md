@@ -38,6 +38,8 @@
 
 * [Ubuntu Linux でソースコードからビルドして実行する](https://github.com/hengband/hengband/wiki/Ubuntu-Linux-%E3%81%A7%E3%82%BD%E3%83%BC%E3%82%B9%E3%82%B3%E3%83%BC%E3%83%89%E3%81%8B%E3%82%89%E3%83%93%E3%83%AB%E3%83%89%E3%81%97%E3%81%A6%E5%AE%9F%E8%A1%8C%E3%81%99%E3%82%8B)
 
+**フォント:** Xft (Ubuntu では `libxft-dev` パッケージ) があれば、`./configure` が自動で TrueType フォントを使えるようにし、起動時の既定も TrueType フォントになります。ビットマップフォントを使うには、起動時に `-- -fb` を付けるか、`./configure --disable-xft` でビルドしてください。
+
 **ゲームの起動例:**
 
 * **ASCIIモード:**
@@ -62,6 +64,12 @@
 
   ```bash
   ./hengband -g -- -b -n<ウィンドウ数>
+  ```
+
+* **オリジナル地形 32x32 タイルモード:** (libpng を入れてビルドする必要がある。`-z` を足すとマップを 2 倍に拡大)
+
+  ```bash
+  ./hengband -g -- -t -b -n<ウィンドウ数>
   ```
 
 **効果音・BGM・タイル:** 効果音、BGM (mp3)、8x8 のタイルは、`lib/xtra` サブモジュールの [hengband.xtra](https://github.com/hengband/hengband.xtra) にあります。git でクローンした場合は `git submodule update --init lib/xtra` で入手できます。GitHub が自動で作るソースのアーカイブ (Source code) では `lib/xtra` が空のディレクトリになり、`make dist` で作ったアーカイブには容量の都合で BGM が含まれません。その場合は hengband.xtra を入手し、中身を `lib/xtra` に置いてください。setgid でインストールする場合 (`./configure --with-setgid=games` の後に `make install`) は、`./configure` の前に置いてください。
@@ -243,6 +251,7 @@ Windows/Macではメニューから、Linuxでは起動オプションでグラ�
 * **8x8タイル:** `-g`
 * **16x16タイル:** `-g -- -a` (別途タイルセットの配置が必要)
 * **2倍幅タイル:** `-g -- -b` (タイルが大きく表示されます)
+* **オリジナル地形 32x32 タイル:** `-g -- -t -b` (libpng を入れてビルドする必要がある。`-z` を足すとマップを 2 倍に拡大)
 * **大画面表示:** ウィンドウサイズをマウスで変更すると、マップの表示領域が広がります。
 
 ## 🌐 コミュニティと貢献

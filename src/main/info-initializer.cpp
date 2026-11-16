@@ -4,24 +4,24 @@
  */
 
 #include "main/info-initializer.h"
+#include "definitions-reader/artifact-reader.h"
+#include "definitions-reader/baseitem-reader.h"
+#include "definitions-reader/definition-hash-data.h"
+#include "definitions-reader/definitions-reader-util.h"
+#include "definitions-reader/dungeon-reader.h"
+#include "definitions-reader/ego-reader.h"
+#include "definitions-reader/json-reader-util.h"
+#include "definitions-reader/jsonc-document-loader.h"
+#include "definitions-reader/magic-reader.h"
+#include "definitions-reader/message-reader.h"
+#include "definitions-reader/parse-error-messages.h"
+#include "definitions-reader/race-reader.h"
+#include "definitions-reader/skill-reader.h"
+#include "definitions-reader/spell-reader.h"
+#include "definitions-reader/terrain-reader.h"
+#include "definitions-reader/vault-reader.h"
+#include "definitions-reader/wilderness-reader.h"
 #include "floor/wild.h"
-#include "info-reader/artifact-reader.h"
-#include "info-reader/baseitem-reader.h"
-#include "info-reader/definition-hash-data.h"
-#include "info-reader/dungeon-reader.h"
-#include "info-reader/ego-reader.h"
-#include "info-reader/info-reader-util.h"
-#include "info-reader/json-reader-util.h"
-#include "info-reader/jsonc-document-loader.h"
-#include "info-reader/magic-reader.h"
-#include "info-reader/message-reader.h"
-#include "info-reader/parse-error-messages.h"
-#include "info-reader/race-reader.h"
-#include "info-reader/skill-reader.h"
-#include "info-reader/spell-reader.h"
-#include "info-reader/terrain-reader.h"
-#include "info-reader/vault-reader.h"
-#include "info-reader/wilderness-reader.h"
 #include "io/files-util.h"
 #include "io/uid-checker.h"
 #include "object-enchant/object-ego.h"
@@ -284,7 +284,9 @@ void init_spell_info()
     auto parser = [&spell_info_list, &session](nlohmann::json &spell_data) {
         return SpellReader(spell_data, spell_info_list, session).read();
     };
-    init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser);
+    // 基準値 (習得レベル・消費MP・難易度・初回経験値倍率) を持たない旧形式は読み込まない。
+    const auto validate_root = [](const nlohmann::json &root) { return info_validate_version(root, 2); };
+    init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser, nullptr, true, validate_root);
 }
 
 /*!

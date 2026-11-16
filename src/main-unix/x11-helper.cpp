@@ -23,6 +23,9 @@
 #include <X11/Xutil.h>
 #include <fmt/format.h>
 #include <math.h>
+#ifdef HAVE_LIBPNG
+#include <png.h>
+#endif
 
 /*
  * This file defines some "XImage" manipulation functions for X11.
@@ -60,7 +63,7 @@
 
 #endif /* IsModifierKey */
 
-static bool gamma_table_ready = true;
+static bool gamma_table_ready = false;
 static int gamma_val = 0;
 
 /*
@@ -72,7 +75,8 @@ XftColor create_pixel(Display *dpy, uint8_t red, uint8_t green, uint8_t blue)
 unsigned long create_pixel(Display *dpy, uint8_t red, uint8_t green, uint8_t blue)
 #endif
 {
-    Colormap cmap = DefaultColormapOfScreen(DefaultScreenOfDisplay(dpy));
+    Screen *screen = DefaultScreenOfDisplay(dpy);
+    Colormap cmap = DefaultColormapOfScreen(screen);
     XColor xcolour;
     if (!gamma_table_ready) {
         concptr str = getenv("ANGBAND_X11_GAMMA");
@@ -109,7 +113,7 @@ unsigned long create_pixel(Display *dpy, uint8_t red, uint8_t green, uint8_t blu
     xcol.green = xcolour.green;
     xcol.blue = xcolour.blue;
     xcol.alpha = 0xFFFF;
-    if (!XftColorAllocValue(dpy, DefaultVisual(dpy, 0), cmap, &xcol, &color)) {
+    if (!XftColorAllocValue(dpy, DefaultVisualOfScreen(screen), cmap, &xcol, &color)) {
         quit(fmt::format("Couldn't allocate bitmap color '#{:02x}{:02x}{:02x}'\n", red, green, blue));
     }
 
@@ -124,7 +128,43 @@ unsigned long create_pixel(Display *dpy, uint8_t red, uint8_t green, uint8_t blu
 #endif
 }
 
-#ifndef USE_XFT
+/*!
+ * @brief create_pixel() で確保した色を解放する
+ * @param dpy ディスプレイ
+ * @param color 解放する色
+ * @details TrueColor の画面ではサーバに何も確保していないので、XftColorFree() は何もしない。
+ * PseudoColor などの画面では、XAllocColor() で確保したカラーマップのセルを返す。
+ */
+#ifdef USE_XFT
+void free_pixel(Display *dpy, XftColor color)
+{
+    const auto screen = DefaultScreenOfDisplay(dpy);
+    XftColorFree(dpy, DefaultVisualOfScreen(screen), DefaultColormapOfScreen(screen), &color);
+}
+#else
+void free_pixel(Display *dpy, unsigned long color)
+{
+    XFreeColors(dpy, DefaultColormapOfScreen(DefaultScreenOfDisplay(dpy)), &color, 1, 0);
+}
+#endif
+
+/*!
+ * @brief RGB の値を X の画素値に変える
+ * @param dpy ディスプレイ
+ * @param red 赤 (0〜255)
+ * @param green 緑 (0〜255)
+ * @param blue 青 (0〜255)
+ * @return X の画素値
+ * @details XFT の版の create_pixel() は XftColor を返すので、画素値だけを取り出す。
+ */
+static unsigned long create_pixel_value(Display *dpy, uint8_t red, uint8_t green, uint8_t blue)
+{
+#ifdef USE_XFT
+    return create_pixel(dpy, red, green, blue).pixel;
+#else
+    return create_pixel(dpy, red, green, blue);
+#endif
+}
 
 /*
  * The Win32 "BITMAPFILEHEADER" type.
@@ -271,7 +311,7 @@ XImage *ReadBMP(Display *dpy, char *Name)
         rd_byte(f, &(clrg.filler));
 
         /* Analyze the color */
-        clr_pixels[i] = create_pixel(dpy, clrg.r, clrg.g, clrg.b);
+        clr_pixels[i] = create_pixel_value(dpy, clrg.r, clrg.g, clrg.b);
     }
 
     /* Determine total bytes needed for image */
@@ -314,7 +354,7 @@ XImage *ReadBMP(Display *dpy, char *Name)
                     quit(fmt::format("Unexpected end of file in {}", Name));
                 }
 
-                XPutPixel(Res, x, y2, create_pixel(dpy, ch, c2, c3));
+                XPutPixel(Res, x, y2, create_pixel_value(dpy, ch, c2, c3));
             } else if (infoheader.biBitCount == 8) {
                 XPutPixel(Res, x, y2, clr_pixels[ch]);
             } else if (infoheader.biBitCount == 4) {
@@ -336,11 +376,6 @@ XImage *ReadBMP(Display *dpy, char *Name)
 /* ========================================================*/
 /* Code for smooth icon rescaling from Uwe Siems, Jan 2000 */
 /* ========================================================*/
-
-/*
- * to save ourselves some labour, define a maximum expected icon width here:
- */
-constexpr auto MAX_ICON_WIDTH = 32;
 
 /* some static variables for composing and decomposing pixel values into
  * red, green and blue values
@@ -421,7 +456,7 @@ static void GetScaledRow(XImage *Im, int x, int y, int iw, int ow, unsigned long
                 sifrac -= ow;
                 getNextPix = true;
             } else {
-                getNextPix = true;
+                getNextPix = false;
             }
         }
     } else {
@@ -508,15 +543,16 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
     int xi, yi, si, sifrac, ci, cifrac, addWhole, addFrac;
 
     /* buffers for pixel rows: */
-    unsigned long prevRed[MAX_ICON_WIDTH];
-    unsigned long prevGreen[MAX_ICON_WIDTH];
-    unsigned long prevBlue[MAX_ICON_WIDTH];
-    unsigned long nextRed[MAX_ICON_WIDTH];
-    unsigned long nextGreen[MAX_ICON_WIDTH];
-    unsigned long nextBlue[MAX_ICON_WIDTH];
-    unsigned long tempRed[MAX_ICON_WIDTH];
-    unsigned long tempGreen[MAX_ICON_WIDTH];
-    unsigned long tempBlue[MAX_ICON_WIDTH];
+    // 出力の幅 (拡大したタイルの幅) の分だけ確保する。2 倍幅のタイルや大きなフォントでは 32 画素を超える
+    std::vector<unsigned long> prevRed(ox);
+    std::vector<unsigned long> prevGreen(ox);
+    std::vector<unsigned long> prevBlue(ox);
+    std::vector<unsigned long> nextRed(ox);
+    std::vector<unsigned long> nextGreen(ox);
+    std::vector<unsigned long> nextBlue(ox);
+    std::vector<unsigned long> tempRed(ox);
+    std::vector<unsigned long> tempGreen(ox);
+    std::vector<unsigned long> tempBlue(ox);
 
     bool getNextRow;
 
@@ -532,8 +568,8 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
     if (iy == oy) {
         /* no scaling needed vertically: */
         for (yi = 0; yi < oy; yi++) {
-            GetScaledRow(ImIn, x1, y1 + yi, ix, ox, tempRed, tempGreen, tempBlue);
-            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed, tempGreen, tempBlue);
+            GetScaledRow(ImIn, x1, y1 + yi, ix, ox, tempRed.data(), tempGreen.data(), tempBlue.data());
+            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed.data(), tempGreen.data(), tempBlue.data());
         }
     } else if (iy < oy) {
         /* scaling by subsampling (grow): */
@@ -541,7 +577,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
         oy--;
         div *= oy;
         /* get first row: */
-        GetScaledRow(ImIn, x1, y1, ix, ox, nextRed, nextGreen, nextBlue);
+        GetScaledRow(ImIn, x1, y1, ix, ox, nextRed.data(), nextGreen.data(), nextBlue.data());
         /* si and sifrac give the subsampling position: */
         si = y1;
         sifrac = 0;
@@ -556,7 +592,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
                 }
                 if (yi < oy) {
                     /* only get next row if in same icon */
-                    GetScaledRow(ImIn, x1, si + 1, ix, ox, nextRed, nextGreen, nextBlue);
+                    GetScaledRow(ImIn, x1, si + 1, ix, ox, nextRed.data(), nextGreen.data(), nextBlue.data());
                 }
             }
 
@@ -569,7 +605,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
             }
 
             /* write row to output image: */
-            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed, tempGreen, tempBlue);
+            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed.data(), tempGreen.data(), tempBlue.data());
 
             /* advance sampling position: */
             sifrac += iy;
@@ -578,7 +614,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
                 sifrac -= oy;
                 getNextRow = true;
             } else {
-                getNextRow = true;
+                getNextRow = false;
             }
         }
     } else {
@@ -591,7 +627,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
         si = y1;
         sifrac = 0;
         /* get first input row: */
-        GetScaledRow(ImIn, x1, y1, ix, ox, nextRed, nextGreen, nextBlue);
+        GetScaledRow(ImIn, x1, y1, ix, ox, nextRed.data(), nextGreen.data(), nextBlue.data());
         for (yi = 0; yi < oy; yi++) {
             /* find endpoint of the current output row: */
             ci = si + addWhole;
@@ -609,7 +645,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
             si++;
             /* add values for whole pixels: */
             while (si < ci) {
-                GetScaledRow(ImIn, x1, si, ix, ox, nextRed, nextGreen, nextBlue);
+                GetScaledRow(ImIn, x1, si, ix, ox, nextRed.data(), nextGreen.data(), nextBlue.data());
                 for (xi = 0; xi < ox; xi++) {
                     tempRed[xi] += nextRed[xi] * oy;
                     tempGreen[xi] += nextGreen[xi] * oy;
@@ -620,7 +656,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
             /* add fraction of current input row (ending segment): */
             if (yi < oy - 1) {
                 /* only get next row if still in icon: */
-                GetScaledRow(ImIn, x1, si, ix, ox, nextRed, nextGreen, nextBlue);
+                GetScaledRow(ImIn, x1, si, ix, ox, nextRed.data(), nextGreen.data(), nextBlue.data());
             }
             sifrac = cifrac;
             for (xi = 0; xi < ox; xi++) {
@@ -629,7 +665,7 @@ static void ScaleIcon(XImage *ImIn, XImage *ImOut, int x1, int y1, int x2, int y
                 tempBlue[xi] += nextBlue[xi] * sifrac;
             }
             /* write row to output image: */
-            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed, tempGreen, tempBlue);
+            PutRGBScan(ImOut, x2, y2 + yi, ox, div, tempRed.data(), tempGreen.data(), tempBlue.data());
         }
     }
 }
@@ -775,6 +811,36 @@ XImage *ResizeImage(Display *dpy, XImage *Im, int ix, int iy, int ox, int oy)
     return Tmp;
 }
 
-#endif /* !USE_XFT */
+#ifdef HAVE_LIBPNG
+/*!
+ * @brief PNG を読み込む
+ * @param path 画像のパス
+ * @return 読み込んだ画像。読み込めなければ tl::nullopt
+ * @details 半透明の画素は黒に重ねた色にする (Windows 版の GDI+ での読み込みと揃える)。
+ */
+tl::optional<RgbImage> read_png(const std::filesystem::path &path)
+{
+    png_image image{};
+    image.version = PNG_IMAGE_VERSION;
+    if (!png_image_begin_read_from_file(&image, path.string().data())) {
+        return tl::nullopt;
+    }
+
+    image.format = PNG_FORMAT_RGB;
+    std::vector<png_byte> buffer(PNG_IMAGE_SIZE(image));
+    const png_color background{ 0, 0, 0 };
+    if (!png_image_finish_read(&image, &background, buffer.data(), 0, nullptr)) {
+        png_image_free(&image);
+        return tl::nullopt;
+    }
+
+    RgbImage result{ static_cast<int>(image.width), static_cast<int>(image.height), {} };
+    result.pixels.resize(static_cast<size_t>(image.width) * image.height);
+    for (size_t i = 0; i < result.pixels.size(); ++i) {
+        result.pixels[i] = (uint32_t{ buffer[i * 3] } << 16) | (uint32_t{ buffer[i * 3 + 1] } << 8) | buffer[i * 3 + 2];
+    }
+    return result;
+}
+#endif
 
 #endif /* USE_X11 */

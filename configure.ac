@@ -184,7 +184,9 @@ AC_ARG_ENABLE(xim,
 AC_ARG_ENABLE(fontset,
 [  --disable-fontset       disable fontset support], use_fontset=no, use_fontset=yes)
 AC_ARG_ENABLE([xft],
-	AS_HELP_STRING([--enable-xft], [Enable xft support]))
+	AS_HELP_STRING([--disable-xft], [Do not use Xft (disables TrueType fonts on X11). Xft is checked only when building the X11 version. By default Xft is used if found; --enable-xft makes configure fail if it is not found]))
+AC_ARG_WITH([libpng],
+	AS_HELP_STRING([--without-libpng], [Do not use libpng (disables Original32 tiles on X11)]))
 AC_ARG_ENABLE(net,
 [  --disable-net           disable networking support], use_net=no)
 AC_ARG_ENABLE(worldscore,
@@ -306,9 +308,26 @@ AS_IF([test "$have_x" = yes && test x"$enable_cocoa" != xyes], [
     AC_CHECK_LIB(xpg4, setlocale, LIBS="$LIBS -lxpg4")
   fi
 
-  AS_IF([test "x$enable_xft" = "xyes"], [
+  dnl X11 版で TrueType フォントを表示するために使う。無ければビットマップフォントだけになるが、ビルドはできる。
+  dnl 実行時に -- -fb / -- -ft でどちらのフォントを使うか選べるので、見つかれば既定で有効にする。
+  dnl --enable-xft なら見つからないときに失敗し、指定が無ければ見つからない理由を知らせて無効にする。
+  AS_IF([test "x$enable_xft" != "xno"], [
     PKG_CHECK_MODULES(XFT, [xft],
-      [AC_DEFINE([USE_XFT], [1], [Use XFT])])
+      [AC_DEFINE([USE_XFT], [1], [Use XFT])],
+      [AS_IF([test -z "$PKG_CONFIG"],
+         [xft_missing="a usable pkg-config was not found"],
+         [xft_missing="pkg-config could not find a usable xft (see config.log)"])
+       AS_IF([test "x$enable_xft" = "xyes"],
+         [AC_MSG_ERROR([Xft was requested, but $xft_missing${XFT_PKG_ERRORS:+:
+$XFT_PKG_ERRORS}])],
+         [AC_MSG_NOTICE([TrueType fonts on X11 are disabled because $xft_missing])])])
+  ])
+
+  dnl Original32 のタイル (original32.png) を X11 版で読むために使う。無ければタイルを使えないだけでビルドはできる。
+  AS_IF([test "x$with_libpng" != "xno"], [
+    PKG_CHECK_MODULES(LIBPNG, [libpng >= 1.6],
+      [AC_DEFINE([HAVE_LIBPNG], [1], [Use libpng to read Original32 tiles on X11])],
+      [AS_IF([test "x$with_libpng" = "xyes"], [AC_MSG_ERROR([libpng was requested but not found])])])
   ])
 ])
 
