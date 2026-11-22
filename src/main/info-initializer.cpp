@@ -102,8 +102,12 @@ void init_json(std::string_view filename, std::string_view keyname, DefinitionHa
         quit(fmt::format(_("{}: ルートオブジェクトに配列 '{}' が必要です", "{}: expected a root object containing array '{}'"), filename, keyname));
     }
 
-    if (validate_root && !validate_root(json_object)) {
-        quit(fmt::format(_("{}: 定義形式のversionが不正です", "{}: invalid definition version"), filename));
+    if (validate_root) {
+        // 何が誤っているか (版、版以外のルートの項目) は、ルートの検証が診断として出す
+        ScopedMessageCapture diagnostics;
+        if (!validate_root(json_object)) {
+            quit(format_definition_load_error(diagnostics.messages(), fmt::format(_("{}: ルートの定義が不正です", "{}: invalid root definition"), filename)));
+        }
     }
 
     auto &elements = json_object[keyname];
@@ -201,7 +205,37 @@ void init_baseitems_info()
 void init_class_magics_info()
 {
     class_magics_info.assign(PLAYER_CLASS_TYPE_MAX, {});
-    init_json_reader<MagicReader>("ClassMagicDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_MAGICS, class_magics_info);
+    // 技能領域の値は職業によらず魔法の定義の基準値 (SpellDefinitions を先に読んでおく)
+    for (auto &magic : class_magics_info) {
+        magic.set_technic_base_values();
+    }
+    // 段階 1 つあたりの動きはルートに 1 つだけあり、職業の定義を読む前に読む
+    AptitudeSteps steps;
+    const auto validate_root = [&steps](const nlohmann::json &root) -> tl::expected<void, ParseErrorType> {
+        const auto result = MagicReader::read_aptitude_steps(root);
+        if (!result) {
+            return tl::make_unexpected(result.error());
+        }
+        steps = *result;
+        return {};
+    };
+    auto session = MagicReader::create_session();
+    auto parser = [&session, &steps](nlohmann::json &element) {
+        auto result = MagicReader(element, session, steps).read();
+        if (result) {
+            session.commit();
+        }
+        return result;
+    };
+    // 定義の無い職業は魔法を使えない初期値のまま動いてしまうので、全職業がそろっていることを確かめる。
+    const auto check_all_defined = [&session] {
+        constexpr std::string_view filename = "ClassMagicDefinitions.jsonc";
+        ScopedMessageCapture diagnostics;
+        if (!MagicReader::validate_all_defined(session)) {
+            quit(format_definition_load_error(diagnostics.messages(), fmt::format(_("{}: 職業魔法の定義がそろっていません", "{}: class magic definitions are incomplete"), filename)));
+        }
+    };
+    init_json("ClassMagicDefinitions.jsonc", "classes", DefinitionHashDataType::CLASS_MAGICS, class_magics_info, parser, check_all_defined, true, validate_root);
 }
 
 /*!
@@ -285,8 +319,18 @@ void init_spell_info()
         return SpellReader(spell_data, spell_info_list, session).read();
     };
     // 基準値 (習得レベル・消費MP・難易度・初回経験値倍率) を持たない旧形式は読み込まない。
-    const auto validate_root = [](const nlohmann::json &root) { return info_validate_version(root, 2); };
-    init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser, nullptr, true, validate_root);
+    const auto validate_root = [](const nlohmann::json &root) {
+        return info_validate_version_with_message(root, 2);
+    };
+    // 定義の無い枠は全職業で習得できない魔法になってしまうので、全領域の全魔法がそろっていることを確かめる。
+    const auto check_all_defined = [&session] {
+        constexpr std::string_view filename = "SpellDefinitions.jsonc";
+        ScopedMessageCapture diagnostics;
+        if (!SpellReader::validate_all_defined(session)) {
+            quit(format_definition_load_error(diagnostics.messages(), fmt::format(_("{}: 魔法の定義がそろっていません", "{}: spell definitions are incomplete"), filename)));
+        }
+    };
+    init_json("SpellDefinitions.jsonc", "realms", DefinitionHashDataType::SPELLS, spell_info_list, parser, check_all_defined, true, validate_root);
 }
 
 /*!

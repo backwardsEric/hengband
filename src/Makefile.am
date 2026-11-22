@@ -170,6 +170,7 @@ libhengband_a_SOURCES = \
 	core/magic-effects-timeout-reducer.cpp core/magic-effects-timeout-reducer.h \
 	core/object-compressor.cpp core/object-compressor.h \
 	core/player-processor.cpp core/player-processor.h \
+	core/score-file.cpp core/score-file.h \
 	core/score-util.cpp core/score-util.h \
 	core/scores.cpp core/scores.h \
 	core/show-file.cpp core/show-file.h \
@@ -1068,6 +1069,7 @@ libhengband_a_SOURCES = \
 	player/temporary-resistances.cpp player/temporary-resistances.h \
 	player/digestion-processor.cpp player/digestion-processor.h \
 	player/player-damage.cpp player/player-damage.h \
+	player/player-history.cpp player/player-history.h \
 	player/player-known-flags.cpp player/player-known-flags.h \
 	player/player-move.cpp player/player-move.h \
 	player/player-personality.cpp player/player-personality.h \
@@ -1216,7 +1218,8 @@ libhengband_a_SOURCES = \
 	specific-object/toragoroshi.cpp specific-object/toragoroshi.h \
 	specific-object/torch.cpp specific-object/torch.h \
 	\
-	spell/magic-type.h \
+	spell/magic-aptitude.cpp spell/magic-aptitude.h \
+	spell/magic-type.cpp spell/magic-type.h \
 	spell/range-calc.cpp spell/range-calc.h \
 	spell/spells-describer.cpp spell/spells-describer.h \
 	spell/spells-diceroll.cpp spell/spells-diceroll.h \
@@ -1228,7 +1231,6 @@ libhengband_a_SOURCES = \
 	spell/spells-status.cpp spell/spells-status.h \
 	spell/spells-util.h \
 	spell/summon-types.h \
-	spell/technic-info-table.cpp spell/technic-info-table.h \
 	\
 	spell-class/spells-mirror-master.cpp spell-class/spells-mirror-master.h \
 	\
@@ -1544,10 +1546,14 @@ hengband_test_SOURCES = \
 	test/autopick/test-autopick-editor-util.cpp \
 	test/autopick/test-autopick-finder.cpp \
 	test/autopick/test-autopick-reader-writer.cpp \
+	test/birth/test-history-editor.cpp \
 	test/bot/test-bot-json-output.cpp \
+	test/cmd-action/test-cmd-hissatsu.cpp \
 	test/cmd-io/test-cmd-autopick.cpp \
 	test/cmd-item/test-cmd-item.cpp \
 	test/core/test-asking-player.cpp \
+	test/core/test-score-file.cpp \
+	test/core/test-score-util.cpp \
 	test/definitions-reader/test-activation-reader.cpp \
 	test/definitions-reader/test-artifact-reader.cpp \
 	test/definitions-reader/test-baseitem-reader.cpp \
@@ -1620,7 +1626,9 @@ hengband_test_SOURCES = \
 	test/player/test-player-status-flags.cpp \
 	test/player/test-player-status-resist.cpp \
 	test/player/test-process-name.cpp \
+	test/player-base/test-player-class.cpp \
 	test/player-status/test-player-speed.cpp \
+	test/spell/test-magic-aptitude.cpp \
 	test/spell/test-spell-info.cpp \
 	test/spell-realm/test-spells-hex.cpp \
 	test/store/test-pricing.cpp \
@@ -1667,7 +1675,8 @@ hengband_test_SOURCES = \
 	test/view/test-screen-parity-helpers.cpp \
 	test/window/test-overview-map-cache.cpp \
 	test/window/test-shrunk-overview-map.cpp \
-	test/wizard/test-spoiler-util.cpp
+	test/wizard/test-spoiler-util.cpp \
+	test/wizard/test-wizard-spoiler.cpp
 
 # VPATHビルドでも同じソースツリーの同梱データを参照する。
 AM_TESTS_ENVIRONMENT = HENGBAND_TEST_SOURCE_DIR='$(abs_top_srcdir)'; export HENGBAND_TEST_SOURCE_DIR;

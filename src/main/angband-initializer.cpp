@@ -14,10 +14,11 @@
 
 #include "main/angband-initializer.h"
 #include "autopick/autopick-menu-data-table.h"
+#include "core/score-file.h"
 #include "floor/wild.h"
 #include "io/files-util.h"
 #include "io/read-pref-file.h"
-#include "io/uid-checker.h"
+#include "locale/multibyte-char.h"
 #include "main/game-data-initializer.h"
 #include "main/info-initializer.h"
 #include "market/building-initializer.h"
@@ -197,7 +198,8 @@ static void init_angband_aux(const std::string &why)
 static void put_title()
 {
     const auto title = AngbandSystem::get_instance().build_version_expression(VersionExpression::FULL);
-    const auto col = (title.length() <= MAIN_TERM_MIN_COLS) ? (MAIN_TERM_MIN_COLS - title.length()) / 2 : 0;
+    const auto title_width = static_cast<int>(str_display_width(title));
+    const auto col = (title_width <= MAIN_TERM_MIN_COLS) ? (MAIN_TERM_MIN_COLS - title_width) / 2 : 0;
     constexpr auto row_version_info = 3; //!< タイトル表記(行)
     prt(title, row_version_info, col);
 }
@@ -239,22 +241,13 @@ void init_angband(PlayerType *player_ptr, bool no_term)
         term_flush();
     }
 
-    const auto path_score = path_build(ANGBAND_DIR_APEX, "scores.raw");
-    fd = fd_open(path_score, O_RDONLY);
-    if (fd < 0) {
-        safe_setuid_grab();
-        fd = fd_make(path_score, true);
-        safe_setuid_drop();
-        if (fd < 0) {
-            const auto &filename_score = path_score.string();
-            std::string why = _("'", "Cannot create the '");
-            why.append(filename_score);
-            why.append(_("'ファイルを作成できません!", "' file!"));
-            init_angband_aux(why);
-        }
+    if (!prepare_score_file()) {
+        // 作れない理由はスコアファイルと前の版のスコアファイルのどちらのこともあるので、ディレクトリを示す
+        std::string why = _("'", "Cannot prepare the score file in '");
+        why.append(ANGBAND_DIR_APEX.string());
+        why.append(_("'のスコアファイルを準備できません!", "'!"));
+        init_angband_aux(why);
     }
-
-    (void)fd_close(fd);
     if (!no_term) {
         put_title();
     }

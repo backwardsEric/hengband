@@ -272,7 +272,7 @@ static bool spell_okay(PlayerType *player_ptr, int spell_id, bool learned, bool 
     const auto &spell = PlayerRealm::get_spell_info(use_realm, spell_id, pr.position_of(use_realm));
 
     /* Spell is illegal */
-    if (spell.slevel > player_ptr->lev) {
+    if (!spell.can_learn_at(player_ptr->lev)) {
         return false;
     }
 
@@ -371,7 +371,7 @@ static int get_spell(PlayerType *player_ptr, SPELL_IDX *sn, std::string_view pro
     if (is_every_magic && !PlayerRealm::is_magic(use_realm)) {
         return false;
     }
-    if (pc.equals(PlayerClassType::RED_MAGE) && ((use_realm) != RealmType::ARCANE) && (sval > 1)) {
+    if (!PlayerRealm::can_use_book(use_realm, sval)) {
         return false;
     }
 
@@ -1138,7 +1138,7 @@ bool do_cmd_cast(PlayerType *player_ptr)
             /* The spell worked */
             realm_status.set_worked(spell_id);
 
-            gain_exp(player_ptr, e * spell.slevel);
+            gain_exp(player_ptr, e * spell.get_learn_level());
 
             switch (use_realm) {
             case RealmType::LIFE:

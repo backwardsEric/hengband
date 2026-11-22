@@ -21,6 +21,9 @@ using Lines = std::vector<std::string>;
 #if defined(JP) && defined(SJIS)
 constexpr std::string_view KUTEN = "\x81\x42"; //!< 。
 constexpr std::string_view CHOON = "\x81\x5b"; //!< ー
+#elif defined(JP) && defined(UTF8)
+constexpr std::string_view KUTEN = "\xe3\x80\x82"; //!< 。
+constexpr std::string_view CHOON = "\xe3\x83\xbc"; //!< ー
 #elif defined(JP)
 constexpr std::string_view KUTEN = "\xa1\xa3"; //!< 。
 constexpr std::string_view CHOON = "\xa1\xbc"; //!< ー
@@ -50,7 +53,7 @@ TEST_CASE("shape_buffer returns a short string as is")
 
 TEST_CASE("shape_buffer keeps a string shorter than the width by one in one line")
 {
-    // 終端文字の分を残すので、1 行は最大 maxlen - 1 バイト
+    // 1 行は最大で表示幅 maxlen - 1 桁 (かつて終端文字の分を残していた名残り)
     CHECK(shape_buffer("abcd", 5) == Lines{ "abcd" });
     CHECK(shape_buffer("abcde", 5) == Lines{ "abcd", "e" });
 }

@@ -2,6 +2,7 @@
  * @brief プレイヤーの魔法領域 (PlayerRealm) のテスト
  *
  * player/player-realm.cpp の、第一領域・第二領域の位置の判定と、位置ごとの魔法の表の引き分けを確かめる。
+ * 技能領域の表に基準値を写す player_magic::set_technic_base_values() もここで確かめる。
  */
 
 #include "player-info/class-info.h"
@@ -9,9 +10,13 @@
 #include "player/player-realm.h"
 #include "realm/realm-types.h"
 #include "system/player-type-definition.h"
+#include "system/spell-info-list.h"
+#include "system/system-variables.h"
 #include "test/scoped-restore.h"
+#include "test/system/spell-info-list-test-access.h"
 #include "util/enum-converter.h"
 #include <doctest/doctest.h>
+#include <utility>
 
 TEST_CASE("PlayerRealm tells the position of each chosen realm")
 {
@@ -33,14 +38,42 @@ TEST_CASE("PlayerRealm tells the position of each chosen realm")
     CHECK(pr.position_of(RealmType::NONE) == RealmPosition::FIRST);
 }
 
+TEST_CASE("PlayerRealm treats an unchosen realm as the position it can be chosen in")
+{
+    PlayerType player;
+    PlayerRealm pr(&player);
+
+    // 第二領域を変える前に魔法書を読むときは、選んだ後に使う第二領域用の表を見る
+    player.pclass = PlayerClassType::PRIEST;
+    pr.set(RealmType::LIFE, RealmType::SORCERY);
+    CHECK(pr.position_of(RealmType::LIFE) == RealmPosition::FIRST);
+    CHECK(pr.position_of(RealmType::SORCERY) == RealmPosition::SECOND);
+    CHECK(pr.position_of(RealmType::CRUSADE) == RealmPosition::SECOND);
+    CHECK(pr.position_of(RealmType::HISSATSU) == RealmPosition::FIRST);
+
+    // 全領域職は領域を選ばず、どの領域も第一領域用の表
+    for (const auto pclass : { PlayerClassType::SORCERER, PlayerClassType::RED_MAGE }) {
+        player.pclass = pclass;
+        pr.reset();
+        CHECK(pr.position_of(RealmType::CRUSADE) == RealmPosition::FIRST);
+        CHECK(pr.position_of(RealmType::ARCANE) == RealmPosition::FIRST);
+    }
+
+    // 第二領域を持たない職業は、選べない領域も第一領域用の表
+    player.pclass = PlayerClassType::PALADIN;
+    pr.set(RealmType::CRUSADE);
+    CHECK(pr.position_of(RealmType::CRUSADE) == RealmPosition::FIRST);
+    CHECK(pr.position_of(RealmType::DEATH) == RealmPosition::FIRST);
+}
+
 TEST_CASE("PlayerRealm reads the spell table of the realm position")
 {
     const auto restore = test::scoped_restore(class_magics_info, mp_ptr);
     class_magics_info.assign(1, {});
     auto &magic = class_magics_info[0];
     const auto realm = enum2i(RealmType::DEATH);
-    magic.info[realm][3].slevel = 10;
-    magic.info_second[realm][3].slevel = 20;
+    magic.info[realm][3].set_learn_level(10);
+    magic.info_second[realm][3].set_learn_level(20);
     mp_ptr = &magic;
 
     PlayerType player;
@@ -49,15 +82,78 @@ TEST_CASE("PlayerRealm reads the spell table of the realm position")
 
     // 第一領域として選んだときは第一領域用の表
     pr.set(RealmType::DEATH, RealmType::LIFE);
-    CHECK(pr.realm1().get_spell_info(3).slevel == 10);
-    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, pr.position_of(RealmType::DEATH)).slevel == 10);
+    CHECK(pr.realm1().get_spell_info(3).get_learn_level() == 10);
+    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, pr.position_of(RealmType::DEATH)).get_learn_level() == 10);
 
     // 第二領域として選んだときは第二領域用の表
     pr.set(RealmType::LIFE, RealmType::DEATH);
-    CHECK(pr.realm2().get_spell_info(3).slevel == 20);
-    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, pr.position_of(RealmType::DEATH)).slevel == 20);
+    CHECK(pr.realm2().get_spell_info(3).get_learn_level() == 20);
+    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, pr.position_of(RealmType::DEATH)).get_learn_level() == 20);
 
     // 位置を渡さなければ第一領域用の表 (職業を指定しても同じ)
-    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3).slevel == 10);
-    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, RealmPosition::SECOND, PlayerClassType::WARRIOR).slevel == 20);
+    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3).get_learn_level() == 10);
+    CHECK(PlayerRealm::get_spell_info(RealmType::DEATH, 3, RealmPosition::SECOND, PlayerClassType::WARRIOR).get_learn_level() == 20);
+}
+
+TEST_CASE("PlayerRealm reads technic spells from the base values copied to the class table")
+{
+    const test::SpellInfoListTestAccess spell_state;
+    auto &spells = SpellInfoList::get_instance();
+    SpellInfo song;
+    song.idx = 2;
+    song.tag = "song";
+    song.base.set_learn_level(7);
+    song.base.smana = 9;
+    song.base.sfail = 35;
+    song.base.sexp = 50;
+    spells.set_spell_info(RealmType::MUSIC, 2, std::move(song));
+
+    const auto restore = test::scoped_restore(class_magics_info, mp_ptr);
+    class_magics_info.assign(1, {});
+    auto &magic = class_magics_info[0];
+    magic.set_technic_base_values();
+    mp_ptr = &magic;
+
+    const auto check_song = [](const magic_type &spell) {
+        CHECK(spell.get_learn_level() == 7);
+        CHECK(spell.smana == 9);
+        CHECK(spell.sfail == 35);
+        CHECK(spell.sexp == 50);
+    };
+    check_song(magic.info[enum2i(RealmType::MUSIC)][2]);
+    check_song(magic.info_second[enum2i(RealmType::MUSIC)][2]);
+    CHECK_FALSE(magic.has_distinct_second(RealmType::MUSIC));
+
+    // 技能領域は職業によらない表なので、位置を渡しても同じ値
+    check_song(PlayerRealm::get_spell_info(RealmType::MUSIC, 2));
+    check_song(PlayerRealm::get_spell_info(RealmType::MUSIC, 2, RealmPosition::SECOND));
+    check_song(PlayerRealm::get_spell_info(RealmType::MUSIC, 2, RealmPosition::FIRST, PlayerClassType::WARRIOR));
+
+    // 魔法の定義に無い枠は、習得も使用もできない値になる
+    for (const auto *table : { magic.info, magic.info_second }) {
+        const auto &missing = table[enum2i(RealmType::MUSIC)][3];
+        CHECK_FALSE(missing.is_learnable());
+        CHECK_FALSE(missing.can_learn_at(PY_MAX_LEVEL));
+        CHECK(missing.smana == 0);
+    }
+}
+
+TEST_CASE("PlayerRealm tells whether a book is within max_book")
+{
+    const auto restore = test::scoped_restore(class_magics_info, mp_ptr);
+    class_magics_info.assign(1, {});
+    auto &magic = class_magics_info[0];
+    magic.max_book[enum2i(RealmType::LIFE)] = 2;
+    mp_ptr = &magic;
+
+    // sval は 0 始まりの巻の番号なので、習得できる巻数 2 なら 2 冊目 (sval 1) までを使える
+    CHECK(PlayerRealm::can_use_book(RealmType::LIFE, 0));
+    CHECK(PlayerRealm::can_use_book(RealmType::LIFE, 1));
+    CHECK_FALSE(PlayerRealm::can_use_book(RealmType::LIFE, 2));
+    CHECK_FALSE(PlayerRealm::can_use_book(RealmType::LIFE, 3));
+    CHECK(PlayerRealm::can_use_book(RealmType::DEATH, 3));
+
+    // 技能領域と、領域なしは巻数で制限しない
+    CHECK(PlayerRealm::can_use_book(RealmType::MUSIC, 3));
+    CHECK(PlayerRealm::can_use_book(RealmType::NONE, 3));
 }

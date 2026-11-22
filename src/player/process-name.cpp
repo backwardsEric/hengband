@@ -3,6 +3,8 @@
 #include "core/asking-player.h"
 #include "game-option/birth-options.h"
 #include "io/files-util.h"
+#include "io/uid-checker.h"
+#include "io/write-diary.h"
 #include "locale/multibyte-char.h"
 #include "player/player-personality.h"
 #include "system/deferred-update-requests.h"
@@ -108,9 +110,9 @@ std::string make_player_name_for_expression(std::string_view name)
 void process_player_name(PlayerType *player_ptr, bool is_new_savefile)
 {
     const auto &world = AngbandWorld::get_instance();
-    char old_player_base[32] = "";
+    std::string old_player_base;
     if (world.character_generated) {
-        strcpy(old_player_base, player_ptr->base_name);
+        old_player_base = player_ptr->base_name;
     }
 
     const std::string_view name(player_ptr->name);
@@ -151,7 +153,27 @@ void process_player_name(PlayerType *player_ptr, bool is_new_savefile)
 #endif
     }
 
-    if (world.character_generated && !streq(old_player_base, player_ptr->base_name)) {
+#if defined(JP) && defined(UTF8)
+    if (is_modified) {
+        // 旧名のファイルを付け替える。キャラクターの作成で名前を入れたときにも付け替えるが、作成をやめても中身は失われず、
+        // 旧版でも同じ名前なら同じファイルに書いていた。付け替えられずに旧名のセーブファイルを使うときも、
+        // 日記などに使う savefile_base は内部の文字コードのままにするため、savefile_base を決めた後で付け替える。
+        // セーブファイルのディレクトリは setgid で動くときにだけ書けることがあるので、権限を得てから付け替える
+        safe_setuid_grab();
+        const auto inherited_savefile = rename_legacy_named_file(savefile);
+        safe_setuid_drop();
+
+        // 旧名のセーブファイルを引き継いだときだけ、日記も付け替える。
+        // セーブファイルと関係なく付け替えると、旧名の日記だけが残っている別のキャラクターの記録をつないでしまう。
+        // 日記はユーザーディレクトリにあるので、権限は要らない。付け替えられなければ、新しい名前の日記に書く
+        if (inherited_savefile) {
+            savefile = *inherited_savefile;
+            (void)rename_legacy_named_file(get_diary_path());
+        }
+    }
+#endif
+
+    if (world.character_generated && (old_player_base != player_ptr->base_name)) {
         autopick_load_pref(player_ptr, false);
     }
 }
@@ -159,9 +181,8 @@ void process_player_name(PlayerType *player_ptr, bool is_new_savefile)
 /*!
  * @brief プレイヤーの名前を変更する
  * @param player_ptr プレイヤーへの参照ポインタ
- * @details PlayerType::name は32バイトで定義されているが、
- * スコアファイル（lib/apex/scores.raw）に保存されているプレイヤー名が最大16バイト (ヌル文字含)となっている
- * このため最大値を16バイトに制限する
+ * @details 入力できる名前は最大 15 桁とする (前の版のスコアファイル scores.raw の名前の欄が 15 バイトだった名残)。
+ * 15 桁 (全角 7 文字) は UTF-8 でも 29 バイト以下なので、PlayerType::name に入る
  */
 void get_name(PlayerType *player_ptr)
 {

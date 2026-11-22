@@ -171,6 +171,7 @@
     <ClCompile Include="..\..\src\core\magic-effects-timeout-reducer.cpp" />
     <ClCompile Include="..\..\src\core\object-compressor.cpp" />
     <ClCompile Include="..\..\src\core\player-processor.cpp" />
+    <ClCompile Include="..\..\src\core\score-file.cpp" />
     <ClCompile Include="..\..\src\core\score-util.cpp" />
     <ClCompile Include="..\..\src\core\scores.cpp" />
     <ClCompile Include="..\..\src\core\show-file.cpp" />
@@ -646,6 +647,7 @@
     <ClCompile Include="..\..\src\player\patron.cpp" />
     <ClCompile Include="..\..\src\player\permanent-resistances.cpp" />
     <ClCompile Include="..\..\src\player\player-damage.cpp" />
+    <ClCompile Include="..\..\src\player\player-history.cpp" />
     <ClCompile Include="..\..\src\player\player-known-flags.cpp" />
     <ClCompile Include="..\..\src\player\player-move.cpp" />
     <ClCompile Include="..\..\src\player\player-personality.cpp" />
@@ -766,6 +768,8 @@
     <ClCompile Include="..\..\src\spell-realm\spells-song.cpp" />
     <ClCompile Include="..\..\src\spell-realm\spells-sorcery.cpp" />
     <ClCompile Include="..\..\src\spell-realm\spells-trump.cpp" />
+    <ClCompile Include="..\..\src\spell\magic-aptitude.cpp" />
+    <ClCompile Include="..\..\src\spell\magic-type.cpp" />
     <ClCompile Include="..\..\src\spell\range-calc.cpp" />
     <ClCompile Include="..\..\src\spell\spell-info.cpp" />
     <ClCompile Include="..\..\src\spell\spells-describer.cpp" />
@@ -775,7 +779,6 @@
     <ClCompile Include="..\..\src\spell\spells-staff-only.cpp" />
     <ClCompile Include="..\..\src\spell\spells-status.cpp" />
     <ClCompile Include="..\..\src\spell\spells-summon.cpp" />
-    <ClCompile Include="..\..\src\spell\technic-info-table.cpp" />
     <ClCompile Include="..\..\src\status\action-setter.cpp" />
     <ClCompile Include="..\..\src\status\bad-status-setter.cpp" />
     <ClCompile Include="..\..\src\status\base-status.cpp" />
@@ -1079,6 +1082,7 @@
     <ClInclude Include="..\..\src\core\magic-effects-timeout-reducer.h" />
     <ClInclude Include="..\..\src\core\object-compressor.h" />
     <ClInclude Include="..\..\src\core\player-processor.h" />
+    <ClInclude Include="..\..\src\core\score-file.h" />
     <ClInclude Include="..\..\src\core\score-util.h" />
     <ClInclude Include="..\..\src\core\scores.h" />
     <ClInclude Include="..\..\src\core\show-file.h" />
@@ -1636,6 +1640,7 @@
     <ClInclude Include="..\..\src\player\patron.h" />
     <ClInclude Include="..\..\src\player\permanent-resistances.h" />
     <ClInclude Include="..\..\src\player\player-damage.h" />
+    <ClInclude Include="..\..\src\player\player-history.h" />
     <ClInclude Include="..\..\src\player\player-known-flags.h" />
     <ClInclude Include="..\..\src\player\player-move.h" />
     <ClInclude Include="..\..\src\player\player-personality-types.h" />
@@ -1764,6 +1769,7 @@
     <ClInclude Include="..\..\src\spell-realm\spells-song.h" />
     <ClInclude Include="..\..\src\spell-realm\spells-sorcery.h" />
     <ClInclude Include="..\..\src\spell-realm\spells-trump.h" />
+    <ClInclude Include="..\..\src\spell\magic-aptitude.h" />
     <ClInclude Include="..\..\src\spell\magic-type.h" />
     <ClInclude Include="..\..\src\spell\range-calc.h" />
     <ClInclude Include="..\..\src\spell\spell-info.h" />
@@ -1776,7 +1782,6 @@
     <ClInclude Include="..\..\src\spell\spells-summon.h" />
     <ClInclude Include="..\..\src\spell\spells-util.h" />
     <ClInclude Include="..\..\src\spell\summon-types.h" />
-    <ClInclude Include="..\..\src\spell\technic-info-table.h" />
     <ClInclude Include="..\..\src\status\action-setter.h" />
     <ClInclude Include="..\..\src\status\bad-status-setter.h" />
     <ClInclude Include="..\..\src\status\base-status.h" />

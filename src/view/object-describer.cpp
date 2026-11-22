@@ -117,9 +117,10 @@ void display_koff(PlayerType *player_ptr)
         if (!PlayerRealm::is_magic(use_realm)) {
             return;
         }
-        if (pc.equals(PlayerClassType::RED_MAGE) && (use_realm != RealmType::ARCANE) && (sval > 1)) {
-            return;
-        }
+    }
+
+    if (!PlayerRealm::can_use_book(use_realm, sval)) {
+        return;
     }
 
     auto num = 0;

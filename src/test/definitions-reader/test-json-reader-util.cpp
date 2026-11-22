@@ -13,6 +13,7 @@
 #include "definitions-reader/symbol-reader-util.h"
 #include "term/gameterm.h"
 #include "test/definitions-reader/parse-result-helpers.h"
+#include "test/definitions-reader/scoped-reader-state.h"
 #include "util/dice.h"
 
 #ifdef JP
@@ -23,6 +24,7 @@
 #include <nlohmann/json.hpp>
 #include <tl/expected.hpp>
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -508,8 +510,12 @@ TEST_CASE("info_set_string converts the UTF-8 string into the system encoding")
     REQUIRE(info_set_string(json, data, true).has_value());
 
     // 日本語版のシステム文字コード(EUC-JP/Shift_JIS)はUTF-8と異なるので、
-    // 変換されていれば元のバイト列とは一致しない
+    // 変換されていれば元のバイト列とは一致しない (内部の文字コードが UTF-8 なら変換しないので一致する)
+#ifdef UTF8
+    CHECK(data == UTF8_TEST_STRING);
+#else
     CHECK(data != UTF8_TEST_STRING);
+#endif
 
     // 変換結果の内容まで確かめる。期待するバイト列はEUC-JPとShift_JISで異なるため、
     // UTF-8へ戻して元の文字列と一致することを見る
@@ -966,6 +972,28 @@ TEST_CASE("info_validate_version classifies missing type and unsupported version
     for (const auto &version : { nlohmann::json(0), nlohmann::json(2), nlohmann::json(std::numeric_limits<uint64_t>::max()) }) {
         const nlohmann::json root{ { "version", version } };
         CHECK(info_validate_version(root, 1).error() == ParseErrorType::INVALID_VALUE);
+    }
+}
+
+TEST_CASE("info_validate_version_with_message returns the same result as info_validate_version")
+{
+    const test::ScopedReaderState reader_state;
+    const std::array<nlohmann::json, 7> roots{ {
+        { { "version", 2 } },
+        { { "version", 1 } },
+        { { "version", "2" } },
+        { { "version", nullptr } },
+        nlohmann::json::object(),
+        nlohmann::json::array(),
+        nlohmann::json(nullptr),
+    } };
+    for (const auto &root : roots) {
+        const auto expected = info_validate_version(root, 2);
+        const auto result = info_validate_version_with_message(root, 2);
+        REQUIRE(result.has_value() == expected.has_value());
+        if (!result) {
+            CHECK(result.error() == expected.error());
+        }
     }
 }
 

@@ -13,7 +13,7 @@ TEST_CASE("input_string publishes the string context and accepts the initial tex
     CHECK(input_string("Text: ", 20, "seed", false) == "seed");
 }
 
-TEST_CASE("input_string publishes the byte limit that fits the input field")
+TEST_CASE("input_string publishes the display width limit that fits the input field")
 {
     test::ScopedInputTerm term;
     const std::string long_prompt(75, 'P');
@@ -28,7 +28,7 @@ TEST_CASE("input_string clears the context when cancelled")
     CHECK_FALSE(input_string("Cancel: ", 20, "seed", false));
 }
 
-TEST_CASE("input_string_on_row publishes the byte limit that fits the input field after the prompt")
+TEST_CASE("input_string_on_row publishes the display width limit that fits the input field after the prompt")
 {
     test::ScopedInputTerm term;
     const std::string long_prompt(75, 'P');
@@ -118,6 +118,8 @@ TEST_CASE("pause_line publishes the any-key context")
 #ifdef JP
 #ifdef SJIS
     constexpr auto prompt = "[ \x89\xbd\x82\xa9\x83\x4c\x81\x5b\x82\xf0\x89\x9f\x82\xb5\x82\xc4\x89\xba\x82\xb3\x82\xa2 ]"; // [ 何かキーを押して下さい ]
+#elif defined(UTF8)
+    constexpr auto prompt = "[ \xe4\xbd\x95\xe3\x81\x8b\xe3\x82\xad\xe3\x83\xbc\xe3\x82\x92\xe6\x8a\xbc\xe3\x81\x97\xe3\x81\xa6\xe4\xb8\x8b\xe3\x81\x95\xe3\x81\x84 ]"; // [ 何かキーを押して下さい ]
 #else
     constexpr auto prompt = "[ \xb2\xbf\xa4\xab\xa5\xad\xa1\xbc\xa4\xf2\xb2\xa1\xa4\xb7\xa4\xc6\xb2\xbc\xa4\xb5\xa4\xa4 ]"; // [ 何かキーを押して下さい ]
 #endif

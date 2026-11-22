@@ -8,6 +8,7 @@
 #include "inventory/inventory-slot-types.h"
 #include "player-info/race-info.h"
 #include "system/item/item-entity.h"
+#include "system/spell-info-list.h"
 
 /*
  * The magic info
@@ -38,12 +39,29 @@ bool player_magic::has_distinct_second(RealmType realm) const
     const auto &first = this->info[enum2i(realm)];
     const auto &second = this->info_second[enum2i(realm)];
     for (auto i = 0; i < 32; i++) {
-        if ((first[i].slevel != second[i].slevel) || (first[i].smana != second[i].smana) || (first[i].sfail != second[i].sfail) || (first[i].sexp != second[i].sexp)) {
+        if (first[i] != second[i]) {
             return true;
         }
     }
 
     return false;
+}
+
+/*!
+ * @brief 技能領域 (歌・武芸・呪術) の表に、魔法の定義の基準値をそのまま写す
+ * @details 技能領域の値は職業によらない。第一領域用・第二領域用の両方に同じ値を入れる。
+ * 魔法の定義に無い枠は基準値の習得レベルが値なしなので、習得も使用もできない枠として写る。
+ */
+void player_magic::set_technic_base_values()
+{
+    const auto &spells = SpellInfoList::get_instance();
+    for (const auto realm : TECHNIC_REALM_RANGE) {
+        for (auto spell_id = 0; spell_id < SPELLS_IN_REALM; spell_id++) {
+            const auto &base = spells.get_spell_info(realm, spell_id).base;
+            this->info[enum2i(realm)][spell_id] = base;
+            this->info_second[enum2i(realm)][spell_id] = base;
+        }
+    }
 }
 
 const player_class_info *cp_ptr;

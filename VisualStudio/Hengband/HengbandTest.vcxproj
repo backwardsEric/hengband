@@ -65,10 +65,14 @@
     <ClCompile Include="..\..\src\test\autopick\test-autopick-editor-util.cpp" />
     <ClCompile Include="..\..\src\test\autopick\test-autopick-finder.cpp" />
     <ClCompile Include="..\..\src\test\autopick\test-autopick-reader-writer.cpp" />
+    <ClCompile Include="..\..\src\test\birth\test-history-editor.cpp" />
     <ClCompile Include="..\..\src\test\bot\test-bot-json-output.cpp" />
+    <ClCompile Include="..\..\src\test\cmd-action\test-cmd-hissatsu.cpp" />
     <ClCompile Include="..\..\src\test\cmd-io\test-cmd-autopick.cpp" />
     <ClCompile Include="..\..\src\test\cmd-item\test-cmd-item.cpp" />
     <ClCompile Include="..\..\src\test\core\test-asking-player.cpp" />
+    <ClCompile Include="..\..\src\test\core\test-score-file.cpp" />
+    <ClCompile Include="..\..\src\test\core\test-score-util.cpp" />
     <ClCompile Include="..\..\src\test\definitions-reader\test-activation-reader.cpp" />
     <ClCompile Include="..\..\src\test\definitions-reader\test-artifact-reader.cpp" />
     <ClCompile Include="..\..\src\test\definitions-reader\test-baseitem-reader.cpp" />
@@ -132,6 +136,7 @@
     <ClCompile Include="..\..\src\test\object-use\quaff\test-quaff-execution.cpp" />
     <ClCompile Include="..\..\src\test\object\test-object-info.cpp" />
     <ClCompile Include="..\..\src\test\object\test-object-value.cpp" />
+    <ClCompile Include="..\..\src\test\player-base\test-player-class.cpp" />
     <ClCompile Include="..\..\src\test\player-status\test-player-speed.cpp" />
     <ClCompile Include="..\..\src\test\player-status\test-player-status-base.cpp" />
     <ClCompile Include="..\..\src\test\player\test-player-realm.cpp" />
@@ -144,6 +149,7 @@
     <ClCompile Include="..\..\src\test\save\test-monster-entity-writer.cpp" />
     <ClCompile Include="..\..\src\test\save\test-player-class-specific-data-writer.cpp" />
     <ClCompile Include="..\..\src\test\spell-realm\test-spells-hex.cpp" />
+    <ClCompile Include="..\..\src\test\spell\test-magic-aptitude.cpp" />
     <ClCompile Include="..\..\src\test\spell\test-spell-info.cpp" />
     <ClCompile Include="..\..\src\test\store\test-pricing.cpp" />
     <ClCompile Include="..\..\src\test\store\test-store-screen.cpp" />
@@ -189,6 +195,7 @@
     <ClCompile Include="..\..\src\test\window\test-overview-map-cache.cpp" />
     <ClCompile Include="..\..\src\test\window\test-shrunk-overview-map.cpp" />
     <ClCompile Include="..\..\src\test\wizard\test-spoiler-util.cpp" />
+    <ClCompile Include="..\..\src\test\wizard\test-wizard-spoiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stdafx.h" />

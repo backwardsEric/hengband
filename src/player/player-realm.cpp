@@ -2,9 +2,9 @@
 #include "birth/birth-explanations-table.h"
 #include "locale/localized-string.h"
 #include "object/tval-types.h"
+#include "player-base/player-class.h"
 #include "player-info/class-info.h"
 #include "realm/realm-types.h"
-#include "spell/technic-info-table.h"
 #include "system/angband-exceptions.h"
 #include "system/player-type-definition.h"
 #include "system/spell-info-list.h"
@@ -132,17 +132,52 @@ const magic_type &PlayerRealm::get_spell_info(RealmType realm, int spell_id, Rea
         THROW_EXCEPTION(std::invalid_argument, fmt::format("Invalid spell id: {}", spell_id));
     }
 
-    if (is_magic(realm)) {
-        if (pclass) {
-            return class_magics_info.at(enum2i(*pclass)).spell_info(realm, spell_id, position);
-        }
-        return mp_ptr->spell_info(realm, spell_id, position);
-    }
-    if (is_technic(realm)) {
-        return technic_info[enum2i(realm) - MIN_TECHNIC][spell_id];
+    if (!is_magic(realm) && !is_technic(realm)) {
+        THROW_EXCEPTION(std::invalid_argument, fmt::format("Invalid realm: {}", enum2i(realm)));
     }
 
-    THROW_EXCEPTION(std::invalid_argument, fmt::format("Invalid realm: {}", enum2i(realm)));
+    // 技能領域は表が 1 つなので、位置によらず第一領域用の表を引く
+    const auto table_position = is_magic(realm) ? position : RealmPosition::FIRST;
+    if (pclass) {
+        return class_magics_info.at(enum2i(*pclass)).spell_info(realm, spell_id, table_position);
+    }
+    return mp_ptr->spell_info(realm, spell_id, table_position);
+}
+
+/*!
+ * @brief 領域の魔法書のうち習得できる巻数を返す
+ * @param realm 領域
+ * @param pclass 職業 (省略時はプレイヤーの職業)
+ * @return 習得できる巻数 (1〜4)。技能領域は職業によらず4
+ */
+int PlayerRealm::get_max_book(RealmType realm, tl::optional<PlayerClassType> pclass)
+{
+    if (is_technic(realm)) {
+        return MAX_BOOKS_IN_REALM;
+    }
+    if (!is_magic(realm)) {
+        THROW_EXCEPTION(std::invalid_argument, fmt::format("Invalid realm: {}", enum2i(realm)));
+    }
+
+    const auto &magic = pclass ? class_magics_info.at(enum2i(*pclass)) : *mp_ptr;
+    return magic.max_book[enum2i(realm)];
+}
+
+/*!
+ * @brief 習得できる巻数の制限のうえで、領域の魔法書のその巻を使えるか
+ * @param realm 領域
+ * @param sval 魔法書の巻の番号 (0 始まり)
+ * @param pclass 職業 (省略時はプレイヤーの職業)
+ * @return 習得できる巻数より前の巻なら true。巻数の制限の無い領域 (魔法領域でないもの) は常に true
+ * @details 領域を選んでいるかどうかは見ない。習得できる巻数より後ろの魔法書は、読むことも学ぶことも唱えることもできない。
+ */
+bool PlayerRealm::can_use_book(RealmType realm, int sval, tl::optional<PlayerClassType> pclass)
+{
+    if (!is_magic(realm)) {
+        return true;
+    }
+
+    return sval < get_max_book(realm, pclass);
 }
 
 const std::string &PlayerRealm::get_spell_name(RealmType realm, int spell_id)
@@ -257,13 +292,30 @@ void PlayerRealm::set_(RealmType realm1, RealmType realm2)
 }
 
 /*!
- * @brief 指定した領域を第一領域・第二領域のどちらとして選んでいるかを返す
+ * @brief 指定した領域を第一領域・第二領域のどちらとして扱うかを返す
  * @param realm 領域
- * @return 第二領域として選んでいれば SECOND。第一領域、選んでいない領域 (全領域職の詠唱)、技能領域は FIRST
+ * @return 第二領域として選んでいるか、まだ選んでいないが第二領域に選べる領域なら SECOND。
+ * 第一領域、全領域職の詠唱、第二領域に選べない領域、技能領域は FIRST
+ * @details 選んでいない領域の魔法書を読むとき (第二領域を変える前の下見) は、選んだ後に使う第二領域用の表を見せる。
+ * 第一領域は選び直せないので、選んでいない領域を第一領域として使うことはない。
  */
 RealmPosition PlayerRealm::position_of(RealmType realm) const
 {
-    return (realm != RealmType::NONE) && this->realm2_.equals(realm) ? RealmPosition::SECOND : RealmPosition::FIRST;
+    if (realm == RealmType::NONE) {
+        return RealmPosition::FIRST;
+    }
+    if (this->realm2_.equals(realm)) {
+        return RealmPosition::SECOND;
+    }
+    if (this->realm1_.equals(realm)) {
+        return RealmPosition::FIRST;
+    }
+
+    const auto pclass = this->player_ptr->pclass;
+    if (PlayerClass::is_every_magic(pclass)) {
+        return RealmPosition::FIRST;
+    }
+    return get_realm2_choices(pclass).has(realm) ? RealmPosition::SECOND : RealmPosition::FIRST;
 }
 
 PlayerRealm::Realm::Realm(RealmType realm, RealmPosition position)

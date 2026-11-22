@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include "locale/character-encoding.h"
 #include "system/h-basic.h"
 #include <cstddef>
+#include <string>
 #include <string_view>
 
 /*!
@@ -21,7 +23,11 @@
  */
 constexpr size_t mb_char_byte_length([[maybe_unused]] char lead)
 {
-#ifdef JP
+#if defined(JP) && defined(UTF8)
+    // UTF-8 の後続のバイト (80-BF) と、先頭に現れない不正なバイト (C0・C1・F5-FF) は 1 バイトの文字とみなす
+    const auto length = utf8_lead_byte_length(static_cast<unsigned char>(lead));
+    return (length > 0) ? static_cast<size_t>(length) : 1;
+#elif defined(JP)
     return iskanji(lead) ? 2 : 1;
 #else
     return 1;
@@ -40,6 +46,7 @@ constexpr bool is_mb_char_lead(char lead)
 
 bool is_printable_single_byte_char(char c);
 size_t mb_char_length_at(std::string_view str, size_t pos);
+size_t mb_valid_char_length_at(std::string_view str, size_t pos);
 bool is_multibyte_char_at(std::string_view sv, size_t pos = 0);
 bool is_multibyte_char_at(const char *s);
 std::string_view mb_first_char(std::string_view str);
@@ -48,3 +55,6 @@ bool is_mb_char_boundary(std::string_view str, size_t pos);
 size_t mb_next_char_boundary(std::string_view str, size_t pos);
 size_t mb_prev_char_pos(std::string_view str, size_t pos);
 size_t str_display_width(std::string_view str);
+std::string_view str_prefix_by_width(std::string_view str, size_t width);
+std::string str_prefix_by_width(std::string &&str, size_t width);
+std::string_view str_prefix_by_width(const char *str, size_t width);

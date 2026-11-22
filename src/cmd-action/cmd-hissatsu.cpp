@@ -28,8 +28,8 @@
 #include "player-status/player-energy.h"
 #include "player/player-realm.h"
 #include "player/player-spell-status.h"
+#include "spell/magic-type.h"
 #include "spell/spells-execution.h"
-#include "spell/technic-info-table.h"
 #include "system/deferred-update-requests.h"
 #include "system/item/item-entity.h"
 #include "term/screen-processor.h"
@@ -38,6 +38,32 @@
 #include "util/string-processor.h"
 #include "view/display-messages.h"
 #include <fmt/format.h>
+#include <iterator>
+#include <vector>
+
+/*!
+ * @brief 必殺剣の一覧で選んだものから、技の ID を引く
+ * @param selections 定義のある技の ID を、ID の小さい順に詰めた一覧
+ * @param is_menu メニュー表示で選んだか
+ * @param choice メニュー表示なら選んだ行の技の ID、そうでなければ一覧の記号の添字 (a が 0)
+ * @return 技の ID。範囲外を選んだときは値なし
+ * @details メニュー表示はカーソルが技の ID を指し、記号は定義のある技を詰めた一覧の添字を指す。
+ * 定義に抜けた枠があると両者はずれるので、取り違えないようにここで引き分ける。
+ */
+tl::optional<int> hissatsu_spell_id_of_choice(std::span<const int> selections, bool is_menu, int choice)
+{
+    if (is_menu) {
+        if ((choice < 0) || (choice >= 32)) {
+            return tl::nullopt;
+        }
+        return choice;
+    }
+
+    if ((choice < 0) || (choice >= std::ssize(selections))) {
+        return tl::nullopt;
+    }
+    return selections[choice];
+}
 
 /*!
  * @brief 使用可能な剣術を選択する /
@@ -59,7 +85,6 @@
 static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
 {
     int j = 0;
-    int num = 0;
     POSITION y = 1;
     POSITION x = 15;
     PLAYER_LEVEL plev = player_ptr->lev;
@@ -74,7 +99,7 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
     if (const auto code = repeat_pull(); code) {
         *sn = *code;
         /* Verify the spell */
-        if (0 <= *sn && *sn < 32 && PlayerRealm::get_spell_info(RealmType::HISSATSU, *sn).slevel <= plev) {
+        if (0 <= *sn && *sn < 32 && PlayerRealm::get_spell_info(RealmType::HISSATSU, *sn).can_learn_at(plev)) {
             /* Success */
             return true;
         }
@@ -84,17 +109,16 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
     auto redraw = false;
 
     int i;
-    int selections[32]{};
+    std::vector<int> selections;
     for (i = 0; i < 32; i++) {
-        if (PlayerRealm::get_spell_info(RealmType::HISSATSU, i).slevel <= PY_MAX_LEVEL) {
-            selections[num] = i;
-            num++;
+        if (PlayerRealm::get_spell_info(RealmType::HISSATSU, i).is_learnable()) {
+            selections.push_back(i);
         }
     }
 
     constexpr auto fmt = _("({} {:c}-{:c}, '*'で一覧, ESC) どの{}を使いますか？", "({}s {:c}-{:c}, *=List, ESC=exit) Use which {}? ");
     const auto first_label = I2A(0);
-    const auto last_label = I2AD(num - 1);
+    const auto last_label = I2AD(static_cast<int>(std::ssize(selections)) - 1);
     const auto prompt = fmt::format(fmt, str_upcase_first(p), first_label, last_label, p);
 
     if (use_menu) {
@@ -186,13 +210,13 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
                 for (i = 0, line = 0; i < 32; i++) {
                     const auto &spell = PlayerRealm::get_spell_info(RealmType::HISSATSU, i);
 
-                    if (spell.slevel > PY_MAX_LEVEL) {
+                    if (!spell.is_learnable()) {
                         continue;
                     }
                     line++;
 
                     /* Access the spell */
-                    if (spell.slevel > plev) {
+                    if (!spell.can_learn_at(plev)) {
                         continue;
                     }
                     if (!realm_status.is_learned(i)) {
@@ -212,7 +236,7 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
 
                     /* Dump the spell --(-- */
                     const auto &spell_name = PlayerRealm::get_spell_name(RealmType::HISSATSU, i);
-                    psi_desc.append(fmt::format(" {:<18}{:2} {:3}", spell_name, spell.slevel, spell.smana));
+                    psi_desc.append(fmt::format(" {:<18}{:2} {:3}", spell_name, spell.get_learn_level(), spell.smana));
                     prt(psi_desc, y + (line % 17) + (line >= 17), x + (line / 17) * 30);
                     prt("", y + (line % 17) + (line >= 17) + 1, x + (line / 17) * 30);
                 }
@@ -233,13 +257,14 @@ static int get_hissatsu_power(PlayerType *player_ptr, SPELL_IDX *sn)
             i = AD2I(choice);
         }
 
-        /* Totally Illegal */
-        if ((i < 0) || (i >= 32) || !realm_status.is_learned(selections[i])) {
+        // 習得済みで、今のレベルで使える技だけを選べる
+        const auto spell_id = hissatsu_spell_id_of_choice(selections, use_menu, i);
+        if (!spell_id || !realm_status.is_learned(*spell_id) || !PlayerRealm::get_spell_info(RealmType::HISSATSU, *spell_id).can_learn_at(plev)) {
             bell();
             continue;
         }
 
-        j = selections[i];
+        j = *spell_id;
 
         /* Stop the loop */
         flag = true;
@@ -359,7 +384,7 @@ void do_cmd_gain_hissatsu(PlayerType *player_ptr)
             continue;
         }
 
-        if (PlayerRealm::get_spell_info(RealmType::HISSATSU, i).slevel > player_ptr->lev) {
+        if (!PlayerRealm::get_spell_info(RealmType::HISSATSU, i).can_learn_at(player_ptr->lev)) {
             continue;
         }
 

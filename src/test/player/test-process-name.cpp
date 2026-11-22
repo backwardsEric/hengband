@@ -14,6 +14,7 @@
 #include "player/process-name.h"
 
 #include "system/h-basic.h"
+#include "system/player-type-definition.h"
 #include "test/string-helpers.h"
 
 #include <doctest/doctest.h>
@@ -57,15 +58,17 @@ TEST_CASE("make_player_base_name does not read past a trailing path separator")
 
 TEST_CASE("make_player_base_name truncates a long name to fit the base name")
 {
-    const std::string name(40, 'a');
-    CHECK(make_player_base_name(name) == std::string(31, 'a'));
+    constexpr auto max_length = sizeof(PlayerType::base_name) - 1;
+    const std::string name(max_length + 10, 'a');
+    CHECK(make_player_base_name(name) == std::string(max_length, 'a'));
 }
 
 #ifdef JP
 TEST_CASE("make_player_base_name does not split a double-byte character at the length limit")
 {
-    // 16文字 (32バイト) のうち、31バイトに収まる15文字 (30バイト) までを残す
-    CHECK(make_player_base_name(repeat(KANJI_KAN, 16)) == repeat(KANJI_KAN, 15));
+    // 基本名の上限のバイト数に収まる文字までを残す
+    const auto fit_count = static_cast<int>((sizeof(PlayerType::base_name) - 1) / KANJI_KAN.length());
+    CHECK(make_player_base_name(repeat(KANJI_KAN, fit_count + 1)) == repeat(KANJI_KAN, fit_count));
 }
 
 TEST_CASE("make_player_base_name drops a lone lead byte at the end")

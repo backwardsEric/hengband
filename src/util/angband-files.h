@@ -55,6 +55,7 @@ extern void (*file_open_hook)(const std::filesystem::path &path, const FileOpenT
 
 std::filesystem::path path_parse(const std::filesystem::path &path);
 std::filesystem::path path_build(const std::filesystem::path &path, std::string_view file);
+std::filesystem::path path_build_inheriting_legacy_name(const std::filesystem::path &path, std::string_view file);
 FILE *angband_fopen(const std::filesystem::path &path, const FileOpenMode mode, const bool is_binary = false, const FileOpenType ftype = FileOpenType::TEXT);
 FILE *angband_fopen_temp(char *buf, int max);
 tl::optional<std::string> angband_fgets(FILE *fp, size_t n = std::string::npos);
@@ -65,6 +66,10 @@ int fd_make(const std::filesystem::path &path, bool can_write_group = false);
 int fd_open(const std::filesystem::path &path, int mode);
 errr fd_lock(int fd, int what);
 errr fd_seek(int fd, ulong n);
+tl::optional<ulong> fd_size(int fd);
 errr fd_read(int fd, char *buf, ulong n);
 errr fd_write(int fd, concptr buf, ulong n);
 errr fd_close(int fd);
+#if defined(JP) && defined(UTF8)
+tl::optional<std::filesystem::path> rename_legacy_named_file(const std::filesystem::path &path);
+#endif

@@ -20,6 +20,7 @@
 #include <fmt/format.h>
 #include <sstream>
 #include <string>
+#include <system_error>
 
 void (*file_open_hook)(const std::filesystem::path &path, const FileOpenType ftype) = 0;
 
@@ -225,6 +226,31 @@ std::filesystem::path path_build(const std::filesystem::path &path, std::string_
 #endif
 }
 
+/*!
+ * @brief ファイルのパスを作る。旧版の名前のファイルしか無ければ、今の名前に付け替えてからパスを返す
+ * @param path ディレクトリのパス
+ * @param file ファイル名
+ * @return 読み書きに使うファイルのパス
+ * @details プレイヤー名や種族名などから名前を作るユーザーファイルを開くときに使う。
+ * 内部の文字コードが UTF-8 の構成では、旧版の EUC-JP の名前のファイル (旧名) しか無ければ rename_legacy_named_file() で付け替え、
+ * 付け替えられなければ旧名のファイルのパスを返す。ほかの構成では path_build() と同じ。
+ */
+std::filesystem::path path_build_inheriting_legacy_name(const std::filesystem::path &path, std::string_view file)
+{
+    const auto built = path_build(path, file);
+#if defined(JP) && defined(UTF8)
+    // 「~」で始まるパスは開くときに展開されるので、旧名も展開したパスで探す。展開できなければ付け替えない
+    const auto parsed = path_parse(built);
+    if (parsed.empty()) {
+        return built;
+    }
+
+    return rename_legacy_named_file(parsed).value_or(built);
+#else
+    return built;
+#endif
+}
+
 static std::string make_file_mode(const FileOpenMode mode, const bool is_binary)
 {
     std::stringstream ss;
@@ -344,18 +370,18 @@ static tl::optional<std::string> read_line(FILE *fp)
     }
 
 #ifdef JP
-    const int len = guess_convert_to_system_encoding(line_buf.data(), line_buf.size());
-    line_buf.erase(len);
-#endif
-
+    // 内部の文字コードが UTF-8 なら、旧版の文字コードから変換すると長くなるので、バッファを書き換えずに変換した文字列を返す
+    return guess_convert_to_system_encoding(std::move(line_buf));
+#else
     return line_buf;
+#endif
 }
 
 /*!
  * @brief ファイルから1行読み込む
  *
  * ファイルから1行読み込み、読み込んだ文字列に以下の処理を行い最大n-1バイトまでの文字列を返す。
- * - タブをスペースに変換する
+ * - タブをスペースに変換する (表示幅で 8 桁ごとにそろえる)
  * - プリント可能文字以外を'?'に変換する
  * - 行末の改行を削除する
  *
@@ -382,6 +408,7 @@ tl::optional<std::string> angband_fgets(FILE *fp, size_t n)
     }
 
     std::string str;
+    size_t width = 0; // str の表示幅。タブは表示幅で 8 桁ごとにそろえる
 
     // 途中に NUL があればそこで行を終える
     const std::string_view sv(line->data());
@@ -393,8 +420,9 @@ tl::optional<std::string> angband_fgets(FILE *fp, size_t n)
                 break;
             }
 
-            const auto space_count = tab_width - (str.length() % tab_width);
+            const auto space_count = tab_width - (width % tab_width);
             str.append(space_count, ' ');
+            width += space_count;
             i++;
         } else if (is_mb_char_lead(c)) {
             // 後続のバイトが欠けた文字や、n バイトに収まらない文字は取り込まずに終える
@@ -403,11 +431,14 @@ tl::optional<std::string> angband_fgets(FILE *fp, size_t n)
                 break;
             }
 
-            str.append(sv.substr(i, char_length));
+            const auto ch = sv.substr(i, char_length);
+            str.append(ch);
+            width += str_display_width(ch);
             i += char_length;
         } else {
             // 表示できない 1 バイトの文字は ? に置き換える (Shift_JIS の半角カナは表示できる文字として取り込む)
             str.push_back(is_printable_single_byte_char(c) ? c : '?');
+            width++;
             i++;
         }
 
@@ -517,6 +548,26 @@ errr fd_seek(int fd, ulong n)
     return 0;
 }
 
+/*!
+ * @brief ファイル記述子の指すファイルの大きさを求める
+ * @param fd ファイル記述子
+ * @return 大きさ (バイト数)。求められないときは tl::nullopt
+ * @details ファイルの位置は末尾に移るので、読み書きする前に fd_seek() で戻す
+ */
+tl::optional<ulong> fd_size(int fd)
+{
+    if (fd < 0) {
+        return tl::nullopt;
+    }
+
+    const auto size = FD_SYS_LSEEK(fd, 0, SEEK_END);
+    if (size < 0) {
+        return tl::nullopt;
+    }
+
+    return static_cast<ulong>(size);
+}
+
 /*
  * Hack -- attempt to read data from a file descriptor
  */
@@ -582,3 +633,53 @@ errr fd_close(int fd)
     (void)FD_SYS_CLOSE(fd);
     return 0;
 }
+
+#if defined(JP) && defined(UTF8)
+/*!
+ * @brief 旧版の名前のファイルを、今の名前に付け替える
+ * @param path 今の名前のファイルのパス
+ * @return 旧名のファイルを引き継いだときは、読み書きに使うファイルのパス (付け替えたら path、付け替えに失敗したら旧名のファイルのパス。
+ * 付け替えに失敗した後に今の名前のファイルができていれば path)。
+ * 旧名のファイルが無いとき、今の名前のファイルがあるとき、それを確かめられないときは tl::nullopt
+ * @details 内部の文字コードが EUC-JP の版は、プレイヤー名から作るファイル (セーブファイル・日記) の名前に、
+ * 名前を EUC-JP にしたバイト列を使っていた。path のファイルが無く、名前を EUC-JP にしたファイル (旧名) があれば、
+ * 旧名のファイルを path に付け替える。旧名を作る変換は、EUC-JP の版が UTF-8 の入力から名前を作る変換 (utf8_to_euc()) と同じにする。
+ */
+tl::optional<std::filesystem::path> rename_legacy_named_file(const std::filesystem::path &path)
+{
+    const auto filename = path.filename().string();
+    const auto legacy_filename = utf8_to_euc(filename);
+    if (!legacy_filename || (*legacy_filename == filename)) {
+        return tl::nullopt;
+    }
+
+    // 今の名前のファイルがあるか確かめられなければ、上書きしないよう付け替えない
+    std::error_code ec;
+    const auto path_exists = std::filesystem::exists(path, ec);
+    if (ec || path_exists) {
+        return tl::nullopt;
+    }
+
+    const auto legacy_path = path.parent_path() / *legacy_filename;
+    if (!std::filesystem::exists(legacy_path, ec)) {
+        return tl::nullopt;
+    }
+
+    std::filesystem::rename(legacy_path, path, ec);
+    if (!ec) {
+        return path;
+    }
+
+    // 同じ名前で動いている別のプロセスが先に付け替えたこともあるので、付け替えに失敗したら確かめ直す。
+    // 今の名前のファイルがあればそれを使い、旧名のファイルが残っているときだけ旧名のファイルを使う
+    if (std::filesystem::exists(path, ec)) {
+        return path;
+    }
+
+    if (std::filesystem::exists(legacy_path, ec)) {
+        return legacy_path;
+    }
+
+    return tl::nullopt;
+}
+#endif

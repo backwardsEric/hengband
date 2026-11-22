@@ -9,6 +9,7 @@
 #include "load/player-class-specific-data-loader.h"
 #include "load/savedata-old-flag-types.h"
 #include "load/world-loader.h"
+#include "locale/multibyte-char.h"
 #include "market/arena-entry.h"
 #include "mind/mind-elementalist.h"
 #include "monster-race/race-ability-flags.h"
@@ -18,6 +19,7 @@
 #include "player-info/mane-data-type.h"
 #include "player-info/sniper-data-type.h"
 #include "player/attack-defense-types.h"
+#include "player/player-history.h"
 #include "player/player-realm.h"
 #include "player/player-skill.h"
 #include "spell-realm/spells-song.h"
@@ -29,6 +31,7 @@
 #include "system/inner-game-data.h"
 #include "system/player-type-definition.h"
 #include "timed-effect/timed-effects.h"
+#include "util/string-processor.h"
 #include "world/world.h"
 
 /*!
@@ -63,20 +66,16 @@ static void rd_realms(PlayerType *player_ptr)
  */
 void rd_base_info(PlayerType *player_ptr)
 {
-    const auto player_name = rd_string();
-    const auto player_name_len = player_name.copy(player_ptr->name, sizeof(player_ptr->name) - 1);
-    player_ptr->name[player_name_len] = '\0';
+    // 旧版の名前を UTF-8 に変換して長くなっても、文字の途中で切らない
+    angband_strcpy(player_ptr->name, rd_string(), sizeof(player_ptr->name));
     player_ptr->died_from = rd_string();
     if (!h_older_than(1, 7, 0, 1)) {
         player_ptr->last_message = rd_string();
     }
 
     load_quick_start();
-    const int max_history_lines = 4;
-    for (int i = 0; i < max_history_lines; i++) {
-        const auto history = rd_string();
-        const auto history_len = history.copy(player_ptr->history[i], sizeof(player_ptr->history[i]) - 1);
-        player_ptr->history[i][history_len] = '\0';
+    for (auto &line : player_ptr->history) {
+        line = str_prefix_by_width(rd_string(), PLAYER_HISTORY_WIDTH);
     }
 
     player_ptr->prace = i2enum<PlayerRaceType>(rd_byte());

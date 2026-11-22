@@ -80,5 +80,9 @@ bool item_tester_learn_spell(PlayerType *player_ptr, const ItemEntity *o_ptr)
         return false;
     }
 
+    if (!PlayerRealm::can_use_book(book_realm, *o_ptr->bi_key.sval())) {
+        return false;
+    }
+
     return pr.realm1().equals(book_realm) || pr.realm2().equals(book_realm) || choices.has(book_realm);
 }
